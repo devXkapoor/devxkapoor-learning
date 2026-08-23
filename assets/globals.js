@@ -1,9 +1,8 @@
-// devxkapoor-learning :: shared data loading utilities
+// devxkapoor-learning :: shared data loading + boot sequence
 // Used by index.html, recall.html, search.html, and per-topic pack.html files.
 
 const DK = (() => {
   const basePath = (() => {
-    // Works whether served at root or under /devxkapoor-learning/ (GitHub Pages project site)
     const path = window.location.pathname;
     const marker = "/devxkapoor-learning/";
     if (path.includes(marker)) {
@@ -27,8 +26,6 @@ const DK = (() => {
     return await fetchJSON("tracker.json");
   }
 
-  // Discovers topics by reading tracker.json sections (topic slugs), then
-  // attempts to fetch each topic's recall.json / elaboration.json if present.
   async function loadAllRecall(tracker) {
     const all = [];
     const slugs = tracker.sections.flatMap(s => s.topics);
@@ -57,5 +54,27 @@ const DK = (() => {
     return (tracker.status && tracker.status[slug] && tracker.status[slug].state) || "not-started";
   }
 
-  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllElaboration, statusOf };
+  // Renders a one-time boot sequence into the given element, then calls onDone.
+  // Respects prefers-reduced-motion by skipping straight to onDone.
+  function runBoot(el, lines, onDone) {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || sessionStorage.getItem("dk-booted")) {
+      onDone();
+      return;
+    }
+    sessionStorage.setItem("dk-booted", "1");
+    let i = 0;
+    function next() {
+      if (i >= lines.length) { onDone(); return; }
+      const div = document.createElement("div");
+      div.className = "line " + (lines[i].type || "");
+      div.textContent = lines[i].text;
+      el.appendChild(div);
+      i++;
+      setTimeout(next, lines[i - 1].delay || 90);
+    }
+    next();
+  }
+
+  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllElaboration, statusOf, runBoot };
 })();

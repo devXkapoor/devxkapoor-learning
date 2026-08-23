@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<!--
+  TOPIC PACK TEMPLATE — filled by the topic-mastery skill per topic.
+  Placeholders to replace: {{TOPIC_SLUG}} {{TOPIC_LABEL}} {{TOPIC_TAGLINE}}
+  {{LANDSCAPE_HTML}} — the landscape content, hand-authored HTML (prose + <h3> subsections)
+  This file is copied to topics/<slug>/pack.html. recall.json and elaboration.json
+  live alongside it and are fetched at runtime — do not inline that data here.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TOPIC_LABEL}} — devxkapoor mastery track</title>
+<link rel="stylesheet" href="../../assets/styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <span class="brand">devxkapoor<strong>/mastery-track</strong></span>
+  <nav>
+    <a href="../../index.html">topics</a>
+    <a href="../../recall.html">recall</a>
+    <a href="../../search.html">search</a>
+  </nav>
+</header>
+
+<div class="wrap">
+  <h1>{{TOPIC_LABEL}}</h1>
+  <p class="lede">{{TOPIC_TAGLINE}}</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="landscape">Landscape</button>
+    <button class="tab-btn" data-tab="recall">Recall</button>
+    <button class="tab-btn" data-tab="elaboration">Elaboration</button>
+  </div>
+
+  <div id="tab-landscape">
+    <div class="prose">
+      {{LANDSCAPE_HTML}}
+    </div>
+  </div>
+
+  <div id="tab-recall" style="display:none">
+    <div class="card-list" id="recallCards"></div>
+  </div>
+
+  <div id="tab-elaboration" style="display:none">
+    <div class="card-list" id="elabCards"></div>
+  </div>
+</div>
+
+<footer class="site-footer">devxkapoor-learning · {{TOPIC_SLUG}} · built with Claude</footer>
+
+<script src="../../assets/globals.js"></script>
+<script>
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    ["landscape","recall","elaboration"].forEach(t => {
+      document.getElementById("tab-" + t).style.display = (t === btn.dataset.tab) ? "block" : "none";
+    });
+  });
+});
+
+// If the URL has a #anchor (e.g. from search.html), jump straight to the elaboration tab.
+if (window.location.hash) {
+  document.querySelector('.tab-btn[data-tab="elaboration"]').click();
+}
+
+(async function () {
+  const recall = await DK.fetchJSON("topics/{{TOPIC_SLUG}}/recall.json");
+  const recallEl = document.getElementById("recallCards");
+  if (recall && recall.cards && recall.cards.length) {
+    recall.cards.forEach(c => {
+      const card = document.createElement("div");
+      card.className = "rc-card";
+      card.innerHTML = `<div class="topic-tag">${c.t || ""}</div><div class="q">${c.q}</div><div class="a">${c.a}</div>`;
+      card.addEventListener("click", () => card.classList.toggle("revealed"));
+      recallEl.appendChild(card);
+    });
+  } else {
+    recallEl.innerHTML = "<p class='empty-note'>no recall cards yet for this topic</p>";
+  }
+
+  const elab = await DK.fetchJSON("topics/{{TOPIC_SLUG}}/elaboration.json");
+  const elabEl = document.getElementById("elabCards");
+  if (elab && elab.sections && elab.sections.length) {
+    elab.sections.forEach(s => {
+      const card = document.createElement("div");
+      card.className = "el-card";
+      card.id = s.anchor || "";
+      card.innerHTML = `<div class="q">${s.title}</div><div class="a" style="display:block">${s.content}</div>`;
+      elabEl.appendChild(card);
+    });
+  } else {
+    elabEl.innerHTML = "<p class='empty-note'>no elaboration written yet for this topic</p>";
+  }
+})();
+</script>
+
+</body>
+</html>

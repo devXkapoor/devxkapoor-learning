@@ -15,6 +15,10 @@ Each topic in the track (~130, spanning foundations, languages, frontend, backen
 
 Buildable project code for each topic lives in its own standalone repo, linked from that topic's pack here. This repo is the navigation and study layer; the linked repos are the actual shipped work.
 
+## Design
+
+Boot-log / process-table aesthetic — topics render as processes with status, not dashboard cards. IBM Plex Mono for structure and status, Inter for reading prose. Deliberately not another dark-mode SaaS template.
+
 ## Structure
 
 ```

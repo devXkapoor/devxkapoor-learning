@@ -3,30 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Global Recall — devxkapoor Mastery Track</title>
+<title>recall — devxkapoor mastery track</title>
 <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
 
 <header class="site-header">
-  <strong>devxkapoor — mastery track</strong>
+  <span class="brand">devxkapoor<strong>/mastery-track</strong></span>
   <nav>
-    <a href="index.html">Topics</a>
-    <a href="recall.html" class="active">Global Recall</a>
-    <a href="search.html">Search</a>
+    <a href="index.html">topics</a>
+    <a href="recall.html" class="active">recall</a>
+    <a href="search.html">search</a>
   </nav>
 </header>
 
 <div class="wrap">
-  <h1>Global Recall Deck</h1>
-  <p class="lede">Every question from every topic's recall.json, unioned automatically. Click a card to reveal the answer.</p>
+  <h1>Global recall deck</h1>
+  <p class="lede">Every question from every topic, unioned automatically. Click a card to reveal the answer.</p>
 
-  <div class="stat-row" id="stats"></div>
-  <input class="search-box" id="filterBox" placeholder="Filter by topic or keyword…">
+  <div class="boot-progress" id="stats"></div>
+  <input class="search-box" id="filterBox" placeholder="grep by topic or keyword...">
   <div class="card-list" id="cards"></div>
 </div>
 
-<footer class="site-footer">Updated automatically as topics are pushed. Built with Claude.</footer>
+<footer class="site-footer">devxkapoor-learning · updated as topics ship · built with Claude</footer>
 
 <script src="assets/globals.js"></script>
 <script>
@@ -34,12 +34,12 @@
   const tracker = await DK.loadTracker();
   const cardsEl = document.getElementById("cards");
   const statsEl = document.getElementById("stats");
-  if (!tracker) { cardsEl.innerHTML = "<p>Could not load tracker.json</p>"; return; }
+  if (!tracker) { cardsEl.innerHTML = "<p class='empty-note'>error: could not load tracker.json</p>"; return; }
 
-  cardsEl.innerHTML = "<p style='color:var(--text-dim)'>Loading recall decks across all topics…</p>";
+  cardsEl.innerHTML = "<p class='empty-note'>loading recall decks across all topics...</p>";
   const all = await DK.loadAllRecall(tracker);
 
-  statsEl.innerHTML = `<div class="stat"><strong>${all.length}</strong>Total recall questions</div>`;
+  statsEl.innerHTML = `<div class="counts"><span><span class="n">${all.length}</span> total recall questions</span></div>`;
 
   function render(filterText) {
     cardsEl.innerHTML = "";
@@ -49,7 +49,7 @@
       (c.q || "").toLowerCase().includes(filterText.toLowerCase())
     );
     if (filtered.length === 0) {
-      cardsEl.innerHTML = "<p style='color:var(--text-dim)'>No recall cards yet — push a topic's recall.json to populate this.</p>";
+      cardsEl.innerHTML = "<p class='empty-note'>no recall cards yet — push a topic's recall.json to populate this</p>";
       return;
     }
     filtered.forEach(c => {

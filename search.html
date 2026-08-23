@@ -3,44 +3,44 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Search — devxkapoor Mastery Track</title>
+<title>search — devxkapoor mastery track</title>
 <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
 
 <header class="site-header">
-  <strong>devxkapoor — mastery track</strong>
+  <span class="brand">devxkapoor<strong>/mastery-track</strong></span>
   <nav>
-    <a href="index.html">Topics</a>
-    <a href="recall.html">Global Recall</a>
-    <a href="search.html" class="active">Search</a>
+    <a href="index.html">topics</a>
+    <a href="recall.html">recall</a>
+    <a href="search.html" class="active">search</a>
   </nav>
 </header>
 
 <div class="wrap">
-  <h1>Search Elaborations</h1>
-  <p class="lede">Full-text search across every topic's section-by-section elaboration. Useful for "where did I cover X" questions during revision.</p>
+  <h1>Search elaborations</h1>
+  <p class="lede">Full-text search across every topic's section-by-section elaboration. For "where did I cover X" during revision.</p>
 
-  <input class="search-box" id="filterBox" placeholder="e.g. connection pooling, event loop, JWT refresh…" autofocus>
+  <input class="search-box" id="filterBox" placeholder="grep -r 'connection pooling' ..." autofocus>
   <div class="card-list" id="results"></div>
 </div>
 
-<footer class="site-footer">Updated automatically as topics are pushed. Built with Claude.</footer>
+<footer class="site-footer">devxkapoor-learning · updated as topics ship · built with Claude</footer>
 
 <script src="assets/globals.js"></script>
 <script>
 (async function () {
   const tracker = await DK.loadTracker();
   const resultsEl = document.getElementById("results");
-  if (!tracker) { resultsEl.innerHTML = "<p>Could not load tracker.json</p>"; return; }
+  if (!tracker) { resultsEl.innerHTML = "<p class='empty-note'>error: could not load tracker.json</p>"; return; }
 
-  resultsEl.innerHTML = "<p style='color:var(--text-dim)'>Loading elaborations across all topics…</p>";
+  resultsEl.innerHTML = "<p class='empty-note'>loading elaborations across all topics...</p>";
   const all = await DK.loadAllElaboration(tracker);
-  resultsEl.innerHTML = "<p style='color:var(--text-dim)'>Start typing to search " + all.length + " sections across all topics.</p>";
+  resultsEl.innerHTML = `<p class='empty-note'>start typing to search ${all.length} sections across all topics</p>`;
 
   function render(filterText) {
     if (!filterText) {
-      resultsEl.innerHTML = "<p style='color:var(--text-dim)'>Start typing to search " + all.length + " sections across all topics.</p>";
+      resultsEl.innerHTML = `<p class='empty-note'>start typing to search ${all.length} sections across all topics</p>`;
       return;
     }
     const q = filterText.toLowerCase();
@@ -50,7 +50,7 @@
     );
     resultsEl.innerHTML = "";
     if (filtered.length === 0) {
-      resultsEl.innerHTML = "<p style='color:var(--text-dim)'>No matches.</p>";
+      resultsEl.innerHTML = "<p class='empty-note'>no matches</p>";
       return;
     }
     filtered.forEach(s => {

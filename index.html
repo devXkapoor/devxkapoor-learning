@@ -3,89 +3,118 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>devxkapoor — Mastery Track</title>
+<title>devxkapoor — mastery track</title>
 <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
 
 <header class="site-header">
-  <strong>devxkapoor — mastery track</strong>
+  <span class="brand">devxkapoor<strong>/mastery-track</strong></span>
   <nav>
-    <a href="index.html" class="active">Topics</a>
-    <a href="recall.html">Global Recall</a>
-    <a href="search.html">Search</a>
+    <a href="index.html" class="active">topics</a>
+    <a href="recall.html">recall</a>
+    <a href="search.html">search</a>
   </nav>
 </header>
 
-<div class="wrap">
-  <h1>Full-Stack + AI Engineering Mastery Track</h1>
-  <p class="lede">Learning by building, one topic at a time. Each topic below links to a self-contained study pack: landscape, buildable project, recall deck, and elaboration.</p>
+<div id="boot-sequence"></div>
 
-  <div class="stat-row" id="stats"></div>
+<div class="wrap" id="main" style="display:none">
+  <h1>Full-stack + applied-AI mastery track</h1>
+  <p class="lede">Learning by building, one topic at a time. Every topic ships a landscape, a real buildable project, a recall deck, and section-by-section elaboration.</p>
 
-  <input class="search-box" id="filterBox" placeholder="Filter topics…">
+  <div class="boot-progress" id="progressBlock"></div>
+
+  <input class="search-box" id="filterBox" placeholder="grep topics...">
 
   <div id="sections"></div>
 </div>
 
-<footer class="site-footer">Updated automatically as topics are pushed. Built with Claude.</footer>
+<footer class="site-footer">devxkapoor-learning · updated as topics ship · built with Claude</footer>
 
 <script src="assets/globals.js"></script>
 <script>
 (async function () {
   const tracker = await DK.loadTracker();
-  const sectionsEl = document.getElementById("sections");
-  const statsEl = document.getElementById("stats");
+  const bootEl = document.getElementById("boot-sequence");
+  const mainEl = document.getElementById("main");
 
-  if (!tracker) {
-    sectionsEl.innerHTML = "<p>Could not load tracker.json</p>";
-    return;
-  }
+  const topicCount = tracker ? tracker.sections.flatMap(s => s.topics).length : 0;
 
-  const allTopics = tracker.sections.flatMap(s => s.topics);
-  const counts = { "done": 0, "in-progress": 0, "stalled": 0, "not-started": 0 };
-  allTopics.forEach(slug => counts[DK.statusOf(tracker, slug)]++);
+  DK.runBoot(bootEl, [
+    { text: `mastery-track boot v1` , type: "info", delay: 60 },
+    { text: `loading tracker.json...`, delay: 110 },
+    { text: `${topicCount} modules registered`, type: "ok", delay: 90 },
+    { text: `rendering index...`, delay: 90 },
+  ], () => {
+    bootEl.style.display = "none";
+    mainEl.style.display = "block";
+    render();
+  });
 
-  statsEl.innerHTML = `
-    <div class="stat"><strong>${allTopics.length}</strong>Total topics</div>
-    <div class="stat"><strong>${counts["done"]}</strong>Done</div>
-    <div class="stat"><strong>${counts["in-progress"]}</strong>In progress</div>
-    <div class="stat"><strong>${counts["stalled"]}</strong>Stalled</div>
-    <div class="stat"><strong>${counts["not-started"]}</strong>Not started</div>
-  `;
+  function render() {
+    if (!tracker) {
+      document.getElementById("sections").innerHTML = "<p class='empty-note'>error: could not load tracker.json</p>";
+      return;
+    }
 
-  function render(filterText) {
-    sectionsEl.innerHTML = "";
-    tracker.sections.forEach(section => {
-      const topics = section.topics.filter(t =>
-        !filterText || t.toLowerCase().includes(filterText.toLowerCase())
-      );
-      if (topics.length === 0) return;
+    const allTopics = tracker.sections.flatMap(s => s.topics);
+    const counts = { "done": 0, "in-progress": 0, "stalled": 0, "not-started": 0 };
+    allTopics.forEach(slug => counts[DK.statusOf(tracker, slug)]++);
+    const pct = allTopics.length ? Math.round((counts["done"] / allTopics.length) * 100) : 0;
 
-      const block = document.createElement("div");
-      block.className = "section-block";
-      block.innerHTML = `<h2>${section.name}</h2><div class="topic-grid"></div>`;
-      const grid = block.querySelector(".topic-grid");
+    document.getElementById("progressBlock").innerHTML = `
+      <div class="counts">
+        <span><span class="n">${allTopics.length}</span> total</span>
+        <span><span class="n">${counts["done"]}</span> done</span>
+        <span><span class="n">${counts["in-progress"]}</span> in progress</span>
+        <span><span class="n">${counts["stalled"]}</span> stalled</span>
+        <span><span class="n">${counts["not-started"]}</span> not started</span>
+      </div>
+      <div class="track"><div class="fill" style="width:${pct}%"></div></div>
+    `;
 
-      topics.forEach(slug => {
-        const status = DK.statusOf(tracker, slug);
-        const label = slug.replace(/-/g, " ");
-        const card = document.createElement("a");
-        card.className = "topic-card";
-        card.href = `topics/${slug}/pack.html`;
-        card.innerHTML = `
-          <span class="name">${label}</span>
-          <span class="badge"><span class="dot ${status}"></span>${status.replace("-", " ")}</span>
-        `;
-        grid.appendChild(card);
+    const sectionsEl = document.getElementById("sections");
+
+    function renderList(filterText) {
+      sectionsEl.innerHTML = "";
+      let globalIdx = 0;
+      tracker.sections.forEach(section => {
+        const topics = section.topics.filter(t =>
+          !filterText || t.toLowerCase().includes(filterText.toLowerCase())
+        );
+        if (topics.length === 0) return;
+
+        const block = document.createElement("div");
+        block.className = "section-block";
+        block.innerHTML = `<h2>${section.name}</h2><div class="proc-table"></div>`;
+        const table = block.querySelector(".proc-table");
+
+        topics.forEach(slug => {
+          globalIdx++;
+          const status = DK.statusOf(tracker, slug);
+          const label = slug.replace(/-/g, " ");
+          const row = document.createElement("a");
+          row.className = "proc-row";
+          row.href = `topics/${slug}/pack.html`;
+          row.innerHTML = `
+            <span class="proc-idx">${String(globalIdx).padStart(3, "0")}</span>
+            <span class="proc-name">${label}</span>
+            <span class="proc-state ${status}"><span class="dot ${status}"></span>${status.replace("-", "_")}</span>
+          `;
+          table.appendChild(row);
+        });
+
+        sectionsEl.appendChild(block);
       });
+      if (sectionsEl.innerHTML === "") {
+        sectionsEl.innerHTML = "<p class='empty-note'>no topics match</p>";
+      }
+    }
 
-      sectionsEl.appendChild(block);
-    });
+    renderList("");
+    document.getElementById("filterBox").addEventListener("input", e => renderList(e.target.value));
   }
-
-  render("");
-  document.getElementById("filterBox").addEventListener("input", e => render(e.target.value));
 })();
 </script>
 

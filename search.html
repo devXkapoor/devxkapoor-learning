@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search — devxkapoor Mastery Track</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <strong>devxkapoor — mastery track</strong>
+  <nav>
+    <a href="index.html">Topics</a>
+    <a href="recall.html">Global Recall</a>
+    <a href="search.html" class="active">Search</a>
+  </nav>
+</header>
+
+<div class="wrap">
+  <h1>Search Elaborations</h1>
+  <p class="lede">Full-text search across every topic's section-by-section elaboration. Useful for "where did I cover X" questions during revision.</p>
+
+  <input class="search-box" id="filterBox" placeholder="e.g. connection pooling, event loop, JWT refresh…" autofocus>
+  <div class="card-list" id="results"></div>
+</div>
+
+<footer class="site-footer">Updated automatically as topics are pushed. Built with Claude.</footer>
+
+<script src="assets/globals.js"></script>
+<script>
+(async function () {
+  const tracker = await DK.loadTracker();
+  const resultsEl = document.getElementById("results");
+  if (!tracker) { resultsEl.innerHTML = "<p>Could not load tracker.json</p>"; return; }
+
+  resultsEl.innerHTML = "<p style='color:var(--text-dim)'>Loading elaborations across all topics…</p>";
+  const all = await DK.loadAllElaboration(tracker);
+  resultsEl.innerHTML = "<p style='color:var(--text-dim)'>Start typing to search " + all.length + " sections across all topics.</p>";
+
+  function render(filterText) {
+    if (!filterText) {
+      resultsEl.innerHTML = "<p style='color:var(--text-dim)'>Start typing to search " + all.length + " sections across all topics.</p>";
+      return;
+    }
+    const q = filterText.toLowerCase();
+    const filtered = all.filter(s =>
+      (s.title || "").toLowerCase().includes(q) ||
+      (s.content || "").toLowerCase().includes(q)
+    );
+    resultsEl.innerHTML = "";
+    if (filtered.length === 0) {
+      resultsEl.innerHTML = "<p style='color:var(--text-dim)'>No matches.</p>";
+      return;
+    }
+    filtered.forEach(s => {
+      const idx = s.content.toLowerCase().indexOf(q);
+      const snippetStart = Math.max(0, idx - 80);
+      const snippet = (idx >= 0)
+        ? "…" + s.content.slice(snippetStart, idx + 200) + "…"
+        : s.content.slice(0, 200) + "…";
+      const card = document.createElement("a");
+      card.className = "el-card";
+      card.style.display = "block";
+      card.style.textDecoration = "none";
+      card.style.color = "inherit";
+      card.href = `topics/${s.topic}/pack.html#${s.anchor || ""}`;
+      card.innerHTML = `
+        <div class="topic-tag">${s.topic.replace(/-/g," ")}</div>
+        <div class="q">${s.title}</div>
+        <div class="a" style="display:block;">${snippet}</div>
+      `;
+      resultsEl.appendChild(card);
+    });
+  }
+
+  document.getElementById("filterBox").addEventListener("input", e => render(e.target.value));
+})();
+</script>
+
+</body>
+</html>

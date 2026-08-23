@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>devxkapoor — Mastery Track</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <strong>devxkapoor — mastery track</strong>
+  <nav>
+    <a href="index.html" class="active">Topics</a>
+    <a href="recall.html">Global Recall</a>
+    <a href="search.html">Search</a>
+  </nav>
+</header>
+
+<div class="wrap">
+  <h1>Full-Stack + AI Engineering Mastery Track</h1>
+  <p class="lede">Learning by building, one topic at a time. Each topic below links to a self-contained study pack: landscape, buildable project, recall deck, and elaboration.</p>
+
+  <div class="stat-row" id="stats"></div>
+
+  <input class="search-box" id="filterBox" placeholder="Filter topics…">
+
+  <div id="sections"></div>
+</div>
+
+<footer class="site-footer">Updated automatically as topics are pushed. Built with Claude.</footer>
+
+<script src="assets/globals.js"></script>
+<script>
+(async function () {
+  const tracker = await DK.loadTracker();
+  const sectionsEl = document.getElementById("sections");
+  const statsEl = document.getElementById("stats");
+
+  if (!tracker) {
+    sectionsEl.innerHTML = "<p>Could not load tracker.json</p>";
+    return;
+  }
+
+  const allTopics = tracker.sections.flatMap(s => s.topics);
+  const counts = { "done": 0, "in-progress": 0, "stalled": 0, "not-started": 0 };
+  allTopics.forEach(slug => counts[DK.statusOf(tracker, slug)]++);
+
+  statsEl.innerHTML = `
+    <div class="stat"><strong>${allTopics.length}</strong>Total topics</div>
+    <div class="stat"><strong>${counts["done"]}</strong>Done</div>
+    <div class="stat"><strong>${counts["in-progress"]}</strong>In progress</div>
+    <div class="stat"><strong>${counts["stalled"]}</strong>Stalled</div>
+    <div class="stat"><strong>${counts["not-started"]}</strong>Not started</div>
+  `;
+
+  function render(filterText) {
+    sectionsEl.innerHTML = "";
+    tracker.sections.forEach(section => {
+      const topics = section.topics.filter(t =>
+        !filterText || t.toLowerCase().includes(filterText.toLowerCase())
+      );
+      if (topics.length === 0) return;
+
+      const block = document.createElement("div");
+      block.className = "section-block";
+      block.innerHTML = `<h2>${section.name}</h2><div class="topic-grid"></div>`;
+      const grid = block.querySelector(".topic-grid");
+
+      topics.forEach(slug => {
+        const status = DK.statusOf(tracker, slug);
+        const label = slug.replace(/-/g, " ");
+        const card = document.createElement("a");
+        card.className = "topic-card";
+        card.href = `topics/${slug}/pack.html`;
+        card.innerHTML = `
+          <span class="name">${label}</span>
+          <span class="badge"><span class="dot ${status}"></span>${status.replace("-", " ")}</span>
+        `;
+        grid.appendChild(card);
+      });
+
+      sectionsEl.appendChild(block);
+    });
+  }
+
+  render("");
+  document.getElementById("filterBox").addEventListener("input", e => render(e.target.value));
+})();
+</script>
+
+</body>
+</html>

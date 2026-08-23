@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>_stub — devxkapoor Mastery Track</title>
+<link rel="stylesheet" href="../../assets/styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <strong>devxkapoor — mastery track</strong>
+  <nav>
+    <a href="../../index.html">Topics</a>
+    <a href="../../recall.html">Global Recall</a>
+    <a href="../../search.html">Search</a>
+  </nav>
+</header>
+
+<div class="wrap">
+  <h1>_stub (pipeline dry-run)</h1>
+  <p class="lede">This is a placeholder topic used only to verify the meta-repo pipeline works end-to-end: deploy, index pickup, recall union, elaboration search. It will be deleted once the first real topic is confirmed working.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="landscape">Landscape</button>
+    <button class="tab-btn" data-tab="recall">Recall</button>
+    <button class="tab-btn" data-tab="elaboration">Elaboration</button>
+  </div>
+
+  <div id="tab-landscape">
+    <h2>Landscape (stub)</h2>
+    <p>If you can read this on the deployed GitHub Pages site, the pipeline is working.</p>
+  </div>
+
+  <div id="tab-recall" style="display:none">
+    <div class="card-list" id="recallCards"></div>
+  </div>
+
+  <div id="tab-elaboration" style="display:none">
+    <div class="card-list" id="elabCards"></div>
+  </div>
+</div>
+
+<footer class="site-footer">Stub topic — safe to delete after dry-run confirms.</footer>
+
+<script src="../../assets/globals.js"></script>
+<script>
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    ["landscape","recall","elaboration"].forEach(t => {
+      document.getElementById("tab-" + t).style.display = (t === btn.dataset.tab) ? "block" : "none";
+    });
+  });
+});
+
+(async function () {
+  const recall = await DK.fetchJSON("topics/_stub/recall.json");
+  const recallEl = document.getElementById("recallCards");
+  if (recall && recall.cards) {
+    recall.cards.forEach(c => {
+      const card = document.createElement("div");
+      card.className = "rc-card";
+      card.innerHTML = `<div class="q">${c.q}</div><div class="a">${c.a}</div>`;
+      card.addEventListener("click", () => card.classList.toggle("revealed"));
+      recallEl.appendChild(card);
+    });
+  }
+
+  const elab = await DK.fetchJSON("topics/_stub/elaboration.json");
+  const elabEl = document.getElementById("elabCards");
+  if (elab && elab.sections) {
+    elab.sections.forEach(s => {
+      const card = document.createElement("div");
+      card.className = "el-card";
+      card.id = s.anchor || "";
+      card.innerHTML = `<div class="q">${s.title}</div><div class="a" style="display:block">${s.content}</div>`;
+      elabEl.appendChild(card);
+    });
+  }
+})();
+</script>
+
+</body>
+</html>

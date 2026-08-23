@@ -1,5 +1,0 @@
-{
-  "cards": [
-    { "c": "_stub", "t": "pipeline", "q": "If this card is visible on the global recall page, what does that confirm?", "a": "That per-topic recall.json files are being correctly discovered and unioned into recall.html." }
-  ]
-}

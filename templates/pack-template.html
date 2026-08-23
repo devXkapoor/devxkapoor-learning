@@ -12,16 +12,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{TOPIC_LABEL}} — devxkapoor mastery track</title>
 <link rel="stylesheet" href="../../assets/styles.css">
+<script src="../../assets/globals.js"></script>
 </head>
 <body>
 
 <header class="site-header">
-  <span class="brand">devxkapoor<strong>/mastery-track</strong></span>
-  <nav>
-    <a href="../../index.html">topics</a>
-    <a href="../../recall.html">recall</a>
-    <a href="../../search.html">search</a>
-  </nav>
+  <a class="brand" href="../../index.html">devxkapoor<strong>/mastery-track</strong></a>
+  <div class="right">
+    <nav>
+      <a href="../../index.html">topics</a>
+      <a href="../../recall.html">recall</a>
+      <a href="../../search.html">search</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle"></button>
+  </div>
 </header>
 
 <div class="wrap">
@@ -51,8 +55,9 @@
 
 <footer class="site-footer">devxkapoor-learning · {{TOPIC_SLUG}} · built with Claude</footer>
 
-<script src="../../assets/globals.js"></script>
 <script>
+DK.wireThemeToggle(document.getElementById("themeToggle"));
+
 document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -80,7 +85,7 @@ if (window.location.hash) {
       recallEl.appendChild(card);
     });
   } else {
-    recallEl.innerHTML = "<p class='empty-note'>no recall cards yet for this topic</p>";
+    recallEl.innerHTML = "<p class='empty-note'>Recall questions land here once this topic's build gets underway.</p>";
   }
 
   const elab = await DK.fetchJSON("topics/{{TOPIC_SLUG}}/elaboration.json");
@@ -94,7 +99,7 @@ if (window.location.hash) {
       elabEl.appendChild(card);
     });
   } else {
-    elabEl.innerHTML = "<p class='empty-note'>no elaboration written yet for this topic</p>";
+    elabEl.innerHTML = "<p class='empty-note'>The deep-dive write-up for this topic hasn't been started yet — it'll fill in section by section as we go.</p>";
   }
 })();
 </script>

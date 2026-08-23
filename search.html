@@ -5,21 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>search — devxkapoor mastery track</title>
 <link rel="stylesheet" href="assets/styles.css">
+<script src="assets/globals.js"></script>
 </head>
 <body>
 
 <header class="site-header">
-  <span class="brand">devxkapoor<strong>/mastery-track</strong></span>
-  <nav>
-    <a href="index.html">topics</a>
-    <a href="recall.html">recall</a>
-    <a href="search.html" class="active">search</a>
-  </nav>
+  <a class="brand" href="index.html">devxkapoor<strong>/mastery-track</strong></a>
+  <div class="right">
+    <nav>
+      <a href="index.html">topics</a>
+      <a href="recall.html">recall</a>
+      <a href="search.html" class="active">search</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle"></button>
+  </div>
 </header>
 
 <div class="wrap">
   <h1>Search elaborations</h1>
-  <p class="lede">Full-text search across every topic's section-by-section elaboration. For "where did I cover X" during revision.</p>
+  <p class="lede">Full-text search across everything you've written up. Perfect for "wait, where did I cover this" moments during revision.</p>
 
   <input class="search-box" id="filterBox" placeholder="grep -r 'connection pooling' ..." autofocus>
   <div class="card-list" id="results"></div>
@@ -27,8 +31,8 @@
 
 <footer class="site-footer">devxkapoor-learning · updated as topics ship · built with Claude</footer>
 
-<script src="assets/globals.js"></script>
 <script>
+DK.wireThemeToggle(document.getElementById("themeToggle"));
 (async function () {
   const tracker = await DK.loadTracker();
   const resultsEl = document.getElementById("results");

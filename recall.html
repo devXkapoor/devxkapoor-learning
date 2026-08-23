@@ -5,21 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>recall — devxkapoor mastery track</title>
 <link rel="stylesheet" href="assets/styles.css">
+<script src="assets/globals.js"></script>
 </head>
 <body>
 
 <header class="site-header">
-  <span class="brand">devxkapoor<strong>/mastery-track</strong></span>
-  <nav>
-    <a href="index.html">topics</a>
-    <a href="recall.html" class="active">recall</a>
-    <a href="search.html">search</a>
-  </nav>
+  <a class="brand" href="index.html">devxkapoor<strong>/mastery-track</strong></a>
+  <div class="right">
+    <nav>
+      <a href="index.html">topics</a>
+      <a href="recall.html" class="active">recall</a>
+      <a href="search.html">search</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle"></button>
+  </div>
 </header>
 
 <div class="wrap">
   <h1>Global recall deck</h1>
-  <p class="lede">Every question from every topic, unioned automatically. Click a card to reveal the answer.</p>
+  <p class="lede">Every question you've earned, from every topic, all in one place. Click a card to test yourself before peeking at the answer.</p>
 
   <div class="boot-progress" id="stats"></div>
   <input class="search-box" id="filterBox" placeholder="grep by topic or keyword...">
@@ -28,8 +32,8 @@
 
 <footer class="site-footer">devxkapoor-learning · updated as topics ship · built with Claude</footer>
 
-<script src="assets/globals.js"></script>
 <script>
+DK.wireThemeToggle(document.getElementById("themeToggle"));
 (async function () {
   const tracker = await DK.loadTracker();
   const cardsEl = document.getElementById("cards");

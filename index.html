@@ -5,23 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>devxkapoor — mastery track</title>
 <link rel="stylesheet" href="assets/styles.css">
+<script src="assets/globals.js"></script>
 </head>
 <body>
 
 <header class="site-header">
-  <span class="brand">devxkapoor<strong>/mastery-track</strong></span>
-  <nav>
-    <a href="index.html" class="active">topics</a>
-    <a href="recall.html">recall</a>
-    <a href="search.html">search</a>
-  </nav>
+  <a class="brand" href="index.html">devxkapoor<strong>/mastery-track</strong></a>
+  <div class="right">
+    <nav>
+      <a href="index.html" class="active">topics</a>
+      <a href="recall.html">recall</a>
+      <a href="search.html">search</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle"></button>
+  </div>
 </header>
 
 <div id="boot-sequence"></div>
 
 <div class="wrap" id="main" style="display:none">
   <h1>Full-stack + applied-AI mastery track</h1>
-  <p class="lede">Learning by building, one topic at a time. Every topic ships a landscape, a real buildable project, a recall deck, and section-by-section elaboration.</p>
+  <p class="lede">One topic at a time, built to be actually understood — not just checked off. Every topic ships a landscape, a real project you build, a recall deck, and section-by-section elaboration you can come back to.</p>
 
   <div class="boot-progress" id="progressBlock"></div>
 
@@ -32,8 +36,8 @@
 
 <footer class="site-footer">devxkapoor-learning · updated as topics ship · built with Claude</footer>
 
-<script src="assets/globals.js"></script>
 <script>
+DK.wireThemeToggle(document.getElementById("themeToggle"));
 (async function () {
   const tracker = await DK.loadTracker();
   const bootEl = document.getElementById("boot-sequence");

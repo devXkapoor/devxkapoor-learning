@@ -1,27 +1,49 @@
-/* devxkapoor-learning — design system
-   Direction: systems boot-log / process table, not a generic SaaS dashboard.
+/* devxkapoor-learning — design system v2
+   Direction: systems boot-log / process table — but warm, readable, welcoming.
    Mono (IBM Plex Mono) for structure/status/labels, Inter for reading prose. */
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
   --bg: #0a0c10;
-  --panel: #12151b;
-  --panel-raised: #171b23;
-  --border: #1f242e;
-  --border-bright: #2a3140;
-  --text: #e4e7ec;
-  --text-dim: #6b7280;
-  --text-dimmer: #454b57;
+  --panel: #14181f;
+  --panel-raised: #1a1f28;
+  --border: #262d3a;
+  --border-bright: #3a4356;
+  --text: #eef0f4;
+  --text-dim: #8b93a3;
+  --text-dimmer: #565f70;
   --accent: #ffb454;
+  --accent-soft: #ffcb82;
+  --accent-glow: rgba(255,180,84,0.18);
   --accent-dim: #6b5530;
-  --done: #6bcf7f;
+  --done: #7ee091;
   --progress: #ffb454;
-  --stalled: #ff6b6b;
-  --notstarted: #3a4150;
+  --stalled: #ff8080;
+  --notstarted: #414a5c;
   --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --radius: 3px;
+  --radius: 8px;
+  --radius-sm: 5px;
+}
+
+html[data-theme="light"] {
+  --bg: #fbf8f2;
+  --panel: #ffffff;
+  --panel-raised: #f4efe4;
+  --border: #e6ddc9;
+  --border-bright: #d4c8a8;
+  --text: #26221a;
+  --text-dim: #6f6656;
+  --text-dimmer: #a49a83;
+  --accent: #c9791a;
+  --accent-soft: #a8620f;
+  --accent-glow: rgba(201,121,26,0.14);
+  --accent-dim: #f0dcb8;
+  --done: #2f9e4f;
+  --progress: #c9791a;
+  --stalled: #d1483f;
+  --notstarted: #cfc4a8;
 }
 
 * { box-sizing: border-box; }
@@ -30,21 +52,24 @@
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
 
+html { -webkit-font-smoothing: antialiased; }
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
-  line-height: 1.65;
-  font-size: 15px;
+  line-height: 1.7;
+  font-size: 17px;
+  transition: background 0.2s, color 0.2s;
 }
 
-::selection { background: var(--accent-dim); color: var(--text); }
+::selection { background: var(--accent-glow); color: var(--text); }
 
 .wrap {
-  max-width: 1080px;
+  max-width: 1140px;
   margin: 0 auto;
-  padding: 28px 24px 100px;
+  padding: 36px 28px 110px;
 }
 
 /* ---------- Header ---------- */
@@ -53,57 +78,82 @@ header.site-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 24px;
+  padding: 16px 28px;
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  background: rgba(10,12,16,0.94);
-  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(10px);
   z-index: 10;
   font-family: var(--mono);
 }
 
 header.site-header .brand {
-  font-size: 13px;
+  font-size: 14.5px;
   color: var(--text-dim);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  transition: color 0.15s;
 }
+header.site-header .brand:hover { color: var(--text); }
 header.site-header .brand strong { color: var(--accent); font-weight: 600; }
 header.site-header .brand::before { content: "$ "; color: var(--text-dimmer); }
+
+header.site-header .right { display: flex; align-items: center; gap: 22px; }
 
 header.site-header nav a {
   color: var(--text-dim);
   text-decoration: none;
   margin-left: 22px;
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  padding-bottom: 2px;
+  padding-bottom: 3px;
   border-bottom: 1px solid transparent;
 }
 header.site-header nav a:hover { color: var(--text); }
 header.site-header nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
 
+.theme-toggle {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, color 0.15s;
+}
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ---------- Typography ---------- */
 
 h1 {
   font-family: var(--mono);
-  font-size: 26px;
+  font-size: 34px;
   font-weight: 600;
-  margin: 0 0 10px;
-  letter-spacing: -0.01em;
+  margin: 0 0 12px;
+  letter-spacing: -0.015em;
+  background: linear-gradient(90deg, var(--text), var(--accent-soft) 140%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 h2 {
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-dim);
-  margin: 40px 0 14px;
+  margin: 46px 0 16px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 h2::after {
   content: "";
@@ -111,23 +161,23 @@ h2::after {
   height: 1px;
   background: var(--border);
 }
-p.lede { color: var(--text-dim); margin-top: 0; max-width: 640px; }
+p.lede { color: var(--text-dim); margin-top: 0; max-width: 660px; font-size: 17px; }
 
 /* ---------- Boot sequence (signature element) ---------- */
 
 #boot-sequence {
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-dim);
-  padding: 24px;
-  min-height: 90px;
+  padding: 28px;
+  min-height: 100px;
 }
 #boot-sequence .line { opacity: 0; animation: bootLineIn 0.25s ease forwards; }
-#boot-sequence .line.ok::before { content: "  OK  "; color: var(--done); }
+#boot-sequence .line.ok::before { content: "  OK  "; color: var(--done); font-weight: 600; }
 #boot-sequence .line.info::before { content: " ---- "; color: var(--text-dimmer); }
 #boot-sequence .cursor {
   display: inline-block;
-  width: 7px; height: 13px;
+  width: 8px; height: 15px;
   background: var(--accent);
   animation: blink 1s step-end infinite;
   vertical-align: text-bottom;
@@ -140,42 +190,43 @@ p.lede { color: var(--text-dim); margin-top: 0; max-width: 640px; }
 
 .boot-progress {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-dim);
-  margin: 20px 0 28px;
+  margin: 22px 0 30px;
 }
 .boot-progress .track {
-  height: 6px;
+  height: 8px;
   background: var(--panel-raised);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 20px;
   overflow: hidden;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 .boot-progress .fill {
   height: 100%;
-  background: var(--accent);
-  transition: width 0.4s ease;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+  transition: width 0.5s ease;
+  box-shadow: 0 0 12px var(--accent-glow);
 }
-.boot-progress .counts span { margin-right: 18px; }
-.boot-progress .counts .n { color: var(--text); font-weight: 600; }
+.boot-progress .counts span { margin-right: 20px; }
+.boot-progress .counts .n { color: var(--text); font-weight: 600; font-size: 14px; }
 
 /* ---------- Search box ---------- */
 
 input.search-box {
   width: 100%;
-  padding: 11px 14px;
-  border-radius: var(--radius);
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);
   font-family: var(--mono);
-  font-size: 13px;
-  margin-bottom: 24px;
+  font-size: 14.5px;
+  margin-bottom: 28px;
 }
 input.search-box::placeholder { color: var(--text-dimmer); }
-input.search-box:focus { outline: none; border-color: var(--accent); }
-input.search-box:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input.search-box:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+input.search-box:focus-visible { outline: none; }
 
 /* ---------- Process table (topic list) ---------- */
 
@@ -183,44 +234,45 @@ input.search-box:focus-visible { outline: 2px solid var(--accent); outline-offse
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
+  background: var(--panel);
 }
 .proc-row {
   display: grid;
-  grid-template-columns: 44px 1fr 120px;
+  grid-template-columns: 52px 1fr 140px;
   align-items: center;
-  padding: 10px 14px;
+  padding: 15px 18px;
   text-decoration: none;
   color: var(--text);
   border-bottom: 1px solid var(--border);
-  transition: background 0.1s;
+  transition: background 0.12s, padding-left 0.12s;
 }
 .proc-row:last-child { border-bottom: none; }
-.proc-row:hover { background: var(--panel-raised); }
+.proc-row:hover { background: var(--panel-raised); padding-left: 22px; }
 .proc-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .proc-idx {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-dimmer);
 }
 .proc-name {
   font-family: var(--mono);
-  font-size: 13.5px;
+  font-size: 15px;
 }
 .proc-state {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   justify-self: end;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
 }
-.dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.dot.done { background: var(--done); box-shadow: 0 0 6px var(--done); }
-.dot.in-progress { background: var(--progress); box-shadow: 0 0 6px var(--progress); }
-.dot.stalled { background: var(--stalled); box-shadow: 0 0 6px var(--stalled); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot.done { background: var(--done); box-shadow: 0 0 7px var(--done); }
+.dot.in-progress { background: var(--progress); box-shadow: 0 0 7px var(--progress); }
+.dot.stalled { background: var(--stalled); box-shadow: 0 0 7px var(--stalled); }
 .dot.not-started { background: var(--notstarted); }
 .proc-state.done { color: var(--done); }
 .proc-state.in-progress { color: var(--progress); }
@@ -229,47 +281,49 @@ input.search-box:focus-visible { outline: 2px solid var(--accent); outline-offse
 
 /* ---------- Tabs (topic pack) ---------- */
 
-.tabs { display: flex; gap: 2px; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+.tabs { display: flex; gap: 4px; margin-bottom: 28px; border-bottom: 1px solid var(--border); }
 .tab-btn {
   background: transparent;
   border: none;
   color: var(--text-dim);
-  padding: 10px 16px;
+  padding: 12px 18px;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  transition: color 0.15s;
 }
 .tab-btn:hover { color: var(--text); }
 .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 
 /* ---------- Recall & elaboration cards ---------- */
 
-.card-list { display: flex; flex-direction: column; gap: 10px; }
+.card-list { display: flex; flex-direction: column; gap: 12px; }
 .rc-card, .el-card {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px 18px;
+  padding: 20px 22px;
+  transition: border-color 0.15s;
 }
 .rc-card { cursor: pointer; }
-.rc-card:hover { border-color: var(--border-bright); }
+.rc-card:hover { border-color: var(--accent-dim); }
 .rc-card .topic-tag, .el-card .topic-tag {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 11.5px;
   text-transform: uppercase;
   color: var(--accent);
   letter-spacing: 0.05em;
 }
-.rc-card .q { font-weight: 500; margin: 8px 0 0; }
+.rc-card .q { font-weight: 600; margin: 10px 0 0; font-size: 16px; }
 .rc-card .a {
   color: var(--text-dim);
-  font-size: 14px;
-  margin-top: 10px;
-  padding-top: 10px;
+  font-size: 15px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px dashed var(--border);
   display: none;
 }
@@ -277,13 +331,13 @@ input.search-box:focus-visible { outline: 2px solid var(--accent); outline-offse
 
 /* ---------- Prose (elaboration content) ---------- */
 
-.prose { max-width: 720px; }
-.prose h3 { font-family: var(--mono); font-size: 15px; margin: 28px 0 10px; color: var(--text); }
-.prose p { margin: 0 0 14px; color: var(--text); }
+.prose { max-width: 760px; font-size: 17px; }
+.prose h3 { font-family: var(--mono); font-size: 17px; margin: 32px 0 12px; color: var(--text); }
+.prose p { margin: 0 0 16px; color: var(--text); }
 .prose code {
   font-family: var(--mono);
   background: var(--panel-raised);
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 4px;
   font-size: 0.88em;
   border: 1px solid var(--border);
@@ -292,27 +346,88 @@ input.search-box:focus-visible { outline: 2px solid var(--accent); outline-offse
   font-family: var(--mono);
   background: var(--panel-raised);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px;
+  border-radius: var(--radius-sm);
+  padding: 16px;
   overflow-x: auto;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* ---------- Misc ---------- */
 
 .empty-note {
-  color: var(--text-dimmer);
+  color: var(--text-dim);
   font-family: var(--mono);
-  font-size: 13px;
-  padding: 20px 0;
+  font-size: 14px;
+  padding: 24px;
+  background: var(--panel);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  text-align: center;
 }
 
 footer.site-footer {
   text-align: center;
   color: var(--text-dimmer);
   font-family: var(--mono);
-  font-size: 11px;
-  padding: 50px 20px 20px;
+  font-size: 12px;
+  padding: 56px 20px 24px;
 }
 
 a { color: var(--accent); }
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 720px) {
+  body { font-size: 15.5px; }
+
+  .wrap { padding: 24px 16px 90px; }
+
+  header.site-header {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  header.site-header .brand { font-size: 13px; }
+  header.site-header .right { gap: 12px; }
+  header.site-header nav a {
+    margin-left: 12px;
+    font-size: 11.5px;
+  }
+
+  h1 {
+    font-size: 24px;
+    line-height: 1.3;
+  }
+  h2 { font-size: 12px; margin: 34px 0 12px; }
+  p.lede { font-size: 15px; }
+
+  #boot-sequence { padding: 18px 16px; font-size: 12.5px; }
+
+  .boot-progress .counts { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .boot-progress .counts span { margin-right: 0; }
+
+  /* Process table collapses to two lines per row instead of a tight 3-col grid */
+  .proc-row {
+    grid-template-columns: 32px 1fr;
+    grid-template-areas: "idx name" "state state";
+    row-gap: 6px;
+    padding: 13px 14px;
+  }
+  .proc-row:hover { padding-left: 14px; }
+  .proc-idx { grid-area: idx; }
+  .proc-name { grid-area: name; font-size: 14px; }
+  .proc-state { grid-area: state; justify-self: start; margin-left: 32px; }
+
+  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab-btn { padding: 10px 13px; font-size: 11.5px; white-space: nowrap; }
+
+  .rc-card, .el-card { padding: 15px 16px; }
+  .rc-card .q { font-size: 15px; }
+
+  .prose { font-size: 15.5px; }
+}
+
+@media (max-width: 420px) {
+  header.site-header nav a { margin-left: 8px; font-size: 10.5px; }
+  h1 { font-size: 21px; }
+}

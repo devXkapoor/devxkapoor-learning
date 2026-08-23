@@ -76,5 +76,33 @@ const DK = (() => {
     next();
   }
 
-  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllElaboration, statusOf, runBoot };
+  // Theme: persisted in localStorage, defaults to dark. Call initTheme() early
+  // (before paint ideally) and wireThemeToggle(buttonEl) once the DOM is ready.
+  function initTheme() {
+    const saved = localStorage.getItem("dk-theme");
+    const theme = saved || "dark";
+    document.documentElement.setAttribute("data-theme", theme);
+    return theme;
+  }
+
+  function wireThemeToggle(btnEl) {
+    function updateLabel() {
+      const current = document.documentElement.getAttribute("data-theme");
+      btnEl.textContent = current === "light" ? "☾" : "☀";
+      btnEl.setAttribute("aria-label", current === "light" ? "Switch to dark theme" : "Switch to light theme");
+    }
+    updateLabel();
+    btnEl.addEventListener("click", () => {
+      const current = document.documentElement.getAttribute("data-theme");
+      const next = current === "light" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("dk-theme", next);
+      updateLabel();
+    });
+  }
+
+  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle };
 })();
+
+// Apply theme immediately on script load (before body renders) to avoid a flash.
+DK.initTheme();

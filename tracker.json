@@ -3,114 +3,198 @@
     {
       "name": "Foundation",
       "topics": [
-        "command-line-shell", "linux-filesystem-permissions-processes", "git", "github-platform",
-        "http", "dns", "json", "regular-expressions", "ssh-key-management",
-        "package-management", "env-config-management", "editor-ide-fluency"
+        "command-line-shell",
+        "linux-filesystem-permissions-processes",
+        "git",
+        "github-platform",
+        "http",
+        "dns",
+        "json",
+        "regular-expressions",
+        "ssh-key-management",
+        "package-management",
+        "env-config-management",
+        "editor-ide-fluency"
       ]
     },
     {
       "name": "Languages",
       "topics": [
-        "javascript", "typescript", "html", "css", "sql", "cpp", "bash-scripting"
+        "javascript",
+        "typescript",
+        "html",
+        "css",
+        "sql",
+        "cpp",
+        "bash-scripting"
       ]
     },
     {
       "name": "Runtime & Platform",
       "topics": [
-        "nodejs-runtime", "browser-runtime", "npm-ecosystem-semver"
+        "nodejs-runtime",
+        "browser-runtime",
+        "npm-ecosystem-semver"
       ]
     },
     {
       "name": "Frontend Core",
       "topics": [
-        "dom-apis", "css-layout-flexbox-grid", "responsive-design",
-        "accessibility-basics", "web-performance-basics"
+        "dom-apis",
+        "css-layout-flexbox-grid",
+        "responsive-design",
+        "accessibility-basics",
+        "web-performance-basics"
       ]
     },
     {
       "name": "Frontend Framework Layer",
       "topics": [
-        "react", "react-hooks", "react-state-management", "nextjs", "tailwind-css",
-        "component-library-shadcn", "client-data-fetching", "forms-validation", "client-side-routing"
+        "react",
+        "react-hooks",
+        "react-state-management",
+        "nextjs",
+        "tailwind-css",
+        "component-library-shadcn",
+        "client-data-fetching",
+        "forms-validation",
+        "client-side-routing"
       ]
     },
     {
       "name": "Backend Framework Layer",
       "topics": [
-        "fastify", "express", "rest-api-design", "request-validation-zod",
-        "authentication", "authorization-rbac", "middleware-patterns",
-        "error-handling-patterns", "api-versioning", "rate-limiting", "cors", "file-uploads"
+        "fastify",
+        "express",
+        "rest-api-design",
+        "request-validation-zod",
+        "authentication",
+        "authorization-rbac",
+        "middleware-patterns",
+        "error-handling-patterns",
+        "api-versioning",
+        "rate-limiting",
+        "cors",
+        "file-uploads"
       ]
     },
     {
       "name": "Data Layer",
       "topics": [
-        "postgres", "drizzle-orm", "prisma-orm", "schema-design-migrations",
-        "redis", "pgvector-embeddings"
+        "postgres",
+        "drizzle-orm",
+        "prisma-orm",
+        "schema-design-migrations",
+        "redis",
+        "pgvector-embeddings"
       ]
     },
     {
       "name": "Async, Jobs & Messaging",
       "topics": [
-        "bullmq", "job-queue-patterns", "websockets", "server-sent-events"
+        "bullmq",
+        "job-queue-patterns",
+        "websockets",
+        "server-sent-events"
       ]
     },
     {
       "name": "Testing",
       "topics": [
-        "unit-testing", "integration-testing", "e2e-testing-playwright",
-        "mocking-test-doubles", "tdd-basics"
+        "unit-testing",
+        "integration-testing",
+        "e2e-testing-playwright",
+        "mocking-test-doubles",
+        "tdd-basics"
       ]
     },
     {
       "name": "AI / LLM Layer",
       "topics": [
-        "llm-api-usage", "tool-use-function-calling", "structured-output",
-        "prompt-engineering", "embeddings", "rag", "agents-tool-loops",
-        "evals-for-llm-apps", "mcp"
+        "llm-api-usage",
+        "tool-use-function-calling",
+        "structured-output",
+        "prompt-engineering",
+        "embeddings",
+        "rag",
+        "agents-tool-loops",
+        "evals-for-llm-apps",
+        "mcp"
       ]
     },
     {
       "name": "DevOps & Infrastructure",
       "topics": [
-        "docker", "docker-compose", "ci-cd-github-actions", "deployment-paas",
-        "deployment-cloud-vm", "managed-postgres", "managed-redis", "cloudflare",
-        "observability-basics", "sentry", "reverse-proxy", "domain-tls-setup",
-        "aws-broad-awareness", "kubernetes-concepts"
+        "docker",
+        "docker-compose",
+        "ci-cd-github-actions",
+        "deployment-paas",
+        "deployment-cloud-vm",
+        "managed-postgres",
+        "managed-redis",
+        "cloudflare",
+        "observability-basics",
+        "sentry",
+        "reverse-proxy",
+        "domain-tls-setup",
+        "aws-broad-awareness",
+        "kubernetes-concepts"
       ]
     },
     {
       "name": "Architecture & System Design",
       "topics": [
-        "monolith-vs-microservices", "load-balancing-basics", "caching-strategies",
-        "database-scaling", "cdns", "kafka-concepts", "event-driven-patterns",
+        "monolith-vs-microservices",
+        "load-balancing-basics",
+        "caching-strategies",
+        "database-scaling",
+        "cdns",
+        "kafka-concepts",
+        "event-driven-patterns",
         "distributed-systems-basics"
       ]
     },
     {
       "name": "Security",
       "topics": [
-        "owasp-top-10", "password-hashing", "https-tls-concepts",
-        "input-validation-sanitization", "secrets-management"
+        "owasp-top-10",
+        "password-hashing",
+        "https-tls-concepts",
+        "input-validation-sanitization",
+        "secrets-management"
       ]
     },
     {
       "name": "DSA",
       "topics": [
-        "arrays-strings", "hashmaps-sets", "recursion-backtracking",
-        "trees", "graphs", "sorting-searching", "big-o-reasoning"
+        "arrays-strings",
+        "hashmaps-sets",
+        "recursion-backtracking",
+        "trees",
+        "graphs",
+        "sorting-searching",
+        "big-o-reasoning"
       ]
     },
     {
       "name": "Meta / Soft-Technical",
       "topics": [
-        "reading-unfamiliar-codebases", "writing-readmes", "architecture-diagrams",
-        "pr-descriptions", "debugging-methodology", "async-written-communication"
+        "reading-unfamiliar-codebases",
+        "writing-readmes",
+        "architecture-diagrams",
+        "pr-descriptions",
+        "debugging-methodology",
+        "async-written-communication"
       ]
     }
   ],
   "status": {
     "git": {
+      "state": "in-progress",
+      "started": "2026-08-24",
+      "updated": "2026-08-24"
+    },
+    "javascript": {
       "state": "in-progress",
       "started": "2026-08-24",
       "updated": "2026-08-24"

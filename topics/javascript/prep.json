@@ -1,0 +1,438 @@
+{
+  "cards": [
+    {
+      "n": 1,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What's the difference between == and ===, and which should you use?",
+      "a": "=== checks type and value with no conversion; == coerces types first, which produces surprising matches. Default to ===, with the one common exception of x == null to catch both null and undefined at once."
+    },
+    {
+      "n": 2,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "Explain the difference between undefined and null.",
+      "a": "undefined is what the language supplies when nothing was given \u2014 unassigned variables, missing arguments, missing properties. null is what a programmer explicitly assigns to mean 'deliberately empty.' Accident versus intent."
+    },
+    {
+      "n": 3,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What is a closure? Give a real example.",
+      "a": "A function that retains access to variables from the scope it was created in, even after that scope has returned. Classic example: a counter factory where each call to makeCounter() returns a function with its own private count variable, isolated from other counters."
+    },
+    {
+      "n": 4,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "Explain 'this' and how it's determined.",
+      "a": "this is decided by how a function is called, not where it's written. Plain call \u2192 undefined (strict mode). Method call obj.fn() \u2192 obj. new Fn() \u2192 the new instance. call/apply/bind \u2192 whatever you explicitly pass."
+    },
+    {
+      "n": 5,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What's the difference between let, const, and var?",
+      "a": "var is function-scoped, hoisted with a silent undefined default. let/const are block-scoped, hoisted into a temporal dead zone that throws if accessed early. const additionally forbids reassigning the binding (not mutating the value)."
+    },
+    {
+      "n": 6,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What is the event loop?",
+      "a": "The mechanism that lets a single-threaded language handle async work: run the current code to completion, then when the call stack is empty, pull the next callback off a queue and run it. Slow I/O is handled by the runtime outside your thread, and its result arrives as a queued callback."
+    },
+    {
+      "n": 7,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "Explain the difference between synchronous and asynchronous code with an example.",
+      "a": "Synchronous code runs line by line, each line waiting for the last. Asynchronous code (like fetch or setTimeout) starts an operation and continues immediately, with the result delivered later via callback/promise once the operation completes \u2014 without blocking the thread in the meantime."
+    },
+    {
+      "n": 8,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What does async/await actually do under the hood?",
+      "a": "It's syntax over Promises. async makes a function always return a promise; await pauses that specific function (not the thread) until the awaited promise settles, then unwraps its value or throws its rejection."
+    },
+    {
+      "n": 9,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "Is JavaScript single-threaded? How does it handle concurrency then?",
+      "a": "Yes, your code runs on one thread. Concurrency comes from handing slow work (network, timers, file I/O) to the surrounding runtime, which does it elsewhere and delivers results as queued callbacks processed by the event loop."
+    },
+    {
+      "n": 10,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What's the difference between map, filter, and reduce?",
+      "a": "map transforms each element 1:1 into a new array of the same length. filter keeps elements matching a predicate, returning a shorter-or-equal array. reduce collapses the whole array into a single accumulated value \u2014 the general case that can express both of the others."
+    },
+    {
+      "n": 11,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "Explain hoisting.",
+      "a": "Declarations are processed before code runs. var declarations are hoisted with an undefined placeholder. function declarations are hoisted whole, usable before their line. let/const are hoisted but land in a temporal dead zone that throws until their declaration line executes."
+    },
+    {
+      "n": 12,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What are the primitive types in JavaScript?",
+      "a": "number, string, boolean, undefined, null, symbol, and bigint \u2014 seven total. Everything else is an object."
+    },
+    {
+      "n": 13,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "Explain pass-by-value vs pass-by-reference in JavaScript.",
+      "a": "Primitives are passed by value \u2014 a function gets an independent copy. Objects (including arrays and functions) are passed by reference \u2014 a function gets a reference to the same underlying object, so mutations are visible to the caller."
+    },
+    {
+      "n": 14,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What's the difference between .then()/.catch() chaining and async/await? When would you use one over the other?",
+      "a": "They're equivalent under the hood \u2014 async/await is syntax over promises. Prefer async/await for sequential logic readability and native try/catch; .then() chains are still natural for simple one-step pipelines or when composing with combinators like Promise.all inline."
+    },
+    {
+      "n": 15,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "Explain event delegation and why you'd use it.",
+      "a": "Attaching one listener to a parent element instead of many to individual children, relying on event bubbling and checking event.target to identify which child was interacted with. Reduces listener count and automatically covers dynamically added children."
+    },
+    {
+      "n": 16,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What's the difference between Object.freeze() and const?",
+      "a": "const prevents reassigning the variable binding but allows full mutation of the object it points to. Object.freeze() prevents mutating the object's own top-level properties \u2014 and it's shallow, so nested objects remain mutable."
+    },
+    {
+      "n": 17,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "Explain debouncing vs throttling.",
+      "a": "Debouncing delays execution until a burst of calls stops for a given interval \u2014 good for search-as-you-type. Throttling guarantees execution at most once per interval regardless of call frequency \u2014 good for scroll/resize handlers."
+    },
+    {
+      "n": 18,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What's the difference between Promise.all and Promise.allSettled?",
+      "a": "Promise.all rejects immediately if any promise rejects, losing the other results. Promise.allSettled always waits for all and returns a status-tagged result per promise, letting you keep partial successes."
+    },
+    {
+      "n": 19,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "How does prototypal inheritance differ from classical (class-based) inheritance?",
+      "a": "There's no true 'class' concept underneath JavaScript \u2014 only objects linked to other objects via a prototype chain, and property lookups walk that chain. class syntax is a cleaner notation over exactly this mechanism, not a separate system."
+    },
+    {
+      "n": 20,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What's a memory leak in JavaScript, and give one real cause.",
+      "a": "Something staying reachable (and thus never garbage collected) that you believed was finished with. Common cause: an event listener registered on a long-lived object and never removed, keeping its closure \u2014 and everything it captured \u2014 alive forever."
+    },
+    {
+      "n": 21,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "Explain the microtask vs macrotask queue distinction with an example.",
+      "a": "Promise callbacks (microtasks) always fully drain before the next macrotask (timers, I/O) runs. So Promise.resolve().then(()=>console.log('a')) logs before setTimeout(()=>console.log('b'), 0), even though both were scheduled at the same moment."
+    },
+    {
+      "n": 22,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What is currying, and why might you use it?",
+      "a": "Transforming a function of multiple arguments into a sequence of functions each taking one argument, e.g. add(a)(b)(c). Useful for partial application \u2014 pre-filling some arguments to create specialized, reusable functions."
+    },
+    {
+      "n": 23,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What's the difference between shallow and deep copying, and how do you do each?",
+      "a": "Shallow copy duplicates only the top level, leaving nested objects shared ({...obj} or Object.assign). Deep copy duplicates every level independently (structuredClone(obj), or a recursive/library approach)."
+    },
+    {
+      "n": 24,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "Explain the difference between call, apply, and bind again, but with a code example.",
+      "a": "fn.call(obj, 1, 2) calls fn immediately with this=obj and args 1,2. fn.apply(obj, [1,2]) does the same but args are an array. const bound = fn.bind(obj) returns a new function with this permanently set to obj, called later as bound(1,2)."
+    },
+    {
+      "n": 25,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What's the difference between synchronous errors and rejected promises, in terms of how you catch them?",
+      "a": "Synchronous throws are caught by an enclosing try/catch at the moment they occur. Promise rejections are caught by .catch() or by awaiting inside a try/catch \u2014 a rejection inside a detached callback (like inside setTimeout) escapes a surrounding try/catch entirely."
+    },
+    {
+      "n": 26,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What is a generator function and when would you actually reach for one?",
+      "a": "A function* that can pause with yield and resume later, producing values lazily. Reached for when building custom iterables, lazily computing infinite or large sequences, or (as async generators) consuming paginated/streamed data."
+    },
+    {
+      "n": 27,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "Explain the difference between null prototype objects and regular objects.",
+      "a": "Object.create(null) makes an object with no prototype chain at all \u2014 no inherited toString, hasOwnProperty, etc. Useful as a genuinely 'clean' dictionary immune to prototype pollution attacks."
+    },
+    {
+      "n": 28,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "What is a WeakMap and why would you use one over a Map?",
+      "a": "A Map whose keys are held weakly, so entries are garbage collected once the key object is otherwise unreachable. Used to attach private/metadata to objects you don't control the lifetime of, without causing a memory leak."
+    },
+    {
+      "n": 29,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "Explain the Proxy object and give a real-world use case.",
+      "a": "A Proxy wraps a target object and intercepts fundamental operations (get, set, has, deleteProperty). Real use: Vue's reactivity system uses a Proxy to detect property reads/writes and trigger re-renders automatically."
+    },
+    {
+      "n": 30,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "What's the difference between Symbol.iterator and Symbol.asyncIterator?",
+      "a": "Symbol.iterator makes an object work with for...of (synchronous iteration); Symbol.asyncIterator makes it work with for await...of (asynchronous iteration, e.g. streaming data)."
+    },
+    {
+      "n": 31,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "How does tail-call optimization theoretically work in JS, and is it reliable?",
+      "a": "It would let a function that returns purely as a call to itself reuse its stack frame instead of growing the stack. It's in the ECMAScript spec but not reliably implemented across major engines \u2014 don't depend on it."
+    },
+    {
+      "n": 32,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "What does Object.defineProperty let you do that normal property assignment doesn't?",
+      "a": "Set fine-grained property descriptors: writable, enumerable, configurable, or custom get/set accessors \u2014 control invisible to plain obj.x = y assignment."
+    },
+    {
+      "n": 33,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "Explain the difference between structural typing concerns in JS objects vs class instances.",
+      "a": "Plain objects are compared and used purely by shape (duck typing) \u2014 no identity check beyond ===. Class instances additionally carry an identity via their prototype chain, checkable with instanceof, though this can be spoofed by manual prototype manipulation."
+    },
+    {
+      "n": 34,
+      "c": "recovery",
+      "t": "Recovery / debugging scenarios",
+      "q": "A page freezes completely for 5 seconds after a button click. What's likely happening and how do you find it?",
+      "a": "A long synchronous operation is blocking the event loop's single thread \u2014 no rendering, no other clicks handled until it finishes. Use the browser Performance profiler or add console.time markers to find the offending synchronous loop, then move the work off-thread (chunking, a Web Worker) or make it genuinely async."
+    },
+    {
+      "n": 35,
+      "c": "recovery",
+      "t": "Recovery / debugging scenarios",
+      "q": "You see 'Cannot read properties of undefined (reading X)'. What's your diagnostic process?",
+      "a": "It's a TypeError from accessing a property on undefined. Trace backward from the accessed property to find what's undefined \u2014 usually a missing await, a property typo, an API response shape that doesn't match assumptions, or a destructure of data that hasn't arrived yet. Add a log or breakpoint just before the failing line to inspect the actual value."
+    },
+    {
+      "n": 36,
+      "c": "recovery",
+      "t": "Recovery / debugging scenarios",
+      "q": "A Node process's memory grows steadily over days and eventually crashes. How do you investigate?",
+      "a": "Take heap snapshots in Chrome DevTools (or Node's --inspect) at intervals and diff them to see what's accumulating. Check for the classic causes: unremoved event listeners, an ever-growing module-level cache/Map, uncleared intervals, or detached DOM references still held by a variable."
+    },
+    {
+      "n": 37,
+      "c": "recovery",
+      "t": "Recovery / debugging scenarios",
+      "q": "Console.log output inside a loop shows the same final value for every iteration instead of the value at each step. Diagnose it.",
+      "a": "Classic var-in-a-loop closure bug \u2014 if the loop used var and scheduled callbacks (e.g. via setTimeout), all callbacks share the same variable, which has its final value by the time they run. Fix by switching to let, which creates a fresh binding per iteration."
+    },
+    {
+      "n": 38,
+      "c": "recovery",
+      "t": "Recovery / debugging scenarios",
+      "q": "An async function's error isn't being caught by the try/catch that calls it. What's wrong?",
+      "a": "Either the promise wasn't awaited (so the catch runs before the async error occurs), or the throw happens inside a detached callback like setTimeout that isn't part of the promise chain at all and needs its own handling."
+    },
+    {
+      "n": 39,
+      "c": "recovery",
+      "t": "Recovery / debugging scenarios",
+      "q": "You call ten independent API requests with a for...of loop and await inside it, and it's much slower than expected. What's wrong and how do you fix it?",
+      "a": "await inside the loop serializes the requests, making total time the sum of all latencies instead of the slowest one. Fix: start all requests first, then await together via Promise.all(items.map(fetchOne))."
+    },
+    {
+      "n": 40,
+      "c": "recovery",
+      "t": "Recovery / debugging scenarios",
+      "q": "You accidentally lost data by mutating an object that another part of the code still held a reference to. Explain what happened and how to prevent it.",
+      "a": "Objects are shared by reference \u2014 passing one into a function or assigning it elsewhere doesn't copy it, so a mutation is visible everywhere that reference exists. Prevent it by making explicit shallow/deep copies before mutating, or treating objects as immutable and creating new ones on change."
+    },
+    {
+      "n": 41,
+      "c": "recovery",
+      "t": "Recovery / debugging scenarios",
+      "q": "process crashed with 'UnhandledPromiseRejectionWarning' / an uncaught rejection. What's the fix?",
+      "a": "A promise rejected with no .catch anywhere in its chain. Add error handling at the point of the async call (try/catch around an await, or .catch() on the chain), and consider a global unhandledRejection handler as a safety net, not a substitute for real handling."
+    },
+    {
+      "n": 42,
+      "c": "tradeoff",
+      "t": "Trade-off / why-would-a-team-choose",
+      "q": "CommonJS vs ES Modules \u2014 why would a team still be on CommonJS in 2026?",
+      "a": "Legacy codebases, certain Node tooling/plugins that haven't migrated, or synchronous require() semantics that some scripts genuinely depend on. New projects default to ESM for tree-shaking, native browser support, and static analyzability."
+    },
+    {
+      "n": 43,
+      "c": "tradeoff",
+      "t": "Trade-off / why-would-a-team-choose",
+      "q": "Why choose async/await over raw promise chains, or vice versa?",
+      "a": "async/await reads sequentially and restores native try/catch, which is easier to follow for step-by-step logic. Raw .then() chains still read cleanly for simple linear pipelines, and composing combinators like Promise.all is sometimes more natural without wrapping in an async function."
+    },
+    {
+      "n": 44,
+      "c": "tradeoff",
+      "t": "Trade-off / why-would-a-team-choose",
+      "q": "Why might a codebase deliberately avoid deep class inheritance in favor of composition?",
+      "a": "Deep prototype chains couple behavior tightly and make it hard to reason about which ancestor defines a given method; composition (small, combinable functions/objects) tends to be more flexible and testable, and JavaScript has no true class system underneath to make inheritance 'cheap' anyway."
+    },
+    {
+      "n": 45,
+      "c": "tradeoff",
+      "t": "Trade-off / why-would-a-team-choose",
+      "q": "When would you choose a plain object over a Map, given Map's advantages?",
+      "a": "When keys are always strings known ahead of time and you want JSON serializability for free, or simple object literal syntax \u2014 Map needs explicit conversion to/from JSON and array iteration."
+    },
+    {
+      "n": 46,
+      "c": "tradeoff",
+      "t": "Trade-off / why-would-a-team-choose",
+      "q": "Why might a team pick TypeScript despite the added build step, versus staying in plain JS with JSDoc types?",
+      "a": "TypeScript gives full compile-time type checking, refactoring safety, and better tooling across a whole codebase; JSDoc is lighter-weight and requires no build step but has weaker inference and enforcement, usually fine only for smaller or gradually-typed projects."
+    },
+    {
+      "n": 47,
+      "c": "self_explanation",
+      "t": "Self-explanation (your own work)",
+      "q": "Walk me through how your qbank MCP server actually processes an incoming request, in terms of JavaScript async mechanics.",
+      "a": "Framed generically: an incoming request handler is async, likely awaits a database call via Drizzle (itself promise-based), possibly awaits a queued BullMQ job or an Anthropic API call, and any of those rejecting needs to be caught either by try/catch in the handler or centralized error middleware \u2014 worth walking through the actual code to identify exactly where each await and catch sits before saying this in an interview."
+    },
+    {
+      "n": 48,
+      "c": "self_explanation",
+      "t": "Self-explanation (your own work)",
+      "q": "In your own words, why does a callback passed to BullMQ's job processor need to be async, and what happens if it throws?",
+      "a": "The processor function is invoked per job and, if async, its rejection is understood by BullMQ as job failure, triggering retry/backoff logic; a synchronous throw would need to be caught by BullMQ's own wrapper equivalently. Confirm against BullMQ's actual API in the qbank code rather than asserting from a template."
+    },
+    {
+      "n": 49,
+      "c": "self_explanation",
+      "t": "Self-explanation (your own work)",
+      "q": "Explain one place in your own code where you use closures, and why they were necessary there.",
+      "a": "Look for cache/memoization patterns, factory functions, or event handler setups in qbank/infralens \u2014 any place a returned function needs private state a caller can't directly access is a closure in use."
+    },
+    {
+      "n": 50,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why did the language need Promises when callbacks already worked?",
+      "a": "Callbacks make async results invisible as values \u2014 you can't return them, compose them cleanly, or use try/catch across an async boundary. Promises turn 'a result that will exist later' into a first-class value, restoring composability and (later, via async/await) restoring try/catch."
+    },
+    {
+      "n": 51,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why does JavaScript need both let/const and var instead of just fixing var?",
+      "a": "Backward compatibility \u2014 existing code written with var's function-scoping and hoisting behavior can't be silently changed without breaking it. let/const were added alongside, not as a replacement, so old code keeps working exactly as written."
+    },
+    {
+      "n": 52,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why do arrow functions exist given that regular functions already existed?",
+      "a": "To fix the recurring 'losing this' bug in callbacks \u2014 a regular function gets its this from how it's called, which breaks when passed around as a callback; an arrow inherits this lexically from where it was defined, matching how every other variable already behaves."
+    },
+    {
+      "n": 53,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why does JavaScript need a garbage collector instead of manual memory management?",
+      "a": "The language was designed to be safe for untrusted code from strangers' servers to run without crashing the machine \u2014 manual memory management (like in C) introduces a whole class of memory-corruption bugs that would be catastrophic in that trust model."
+    },
+    {
+      "n": 54,
+      "c": "plumbing",
+      "t": "Plumbing / internals",
+      "q": "How does V8's JIT compiler improve performance at runtime, and what's the cost of relying on it?",
+      "a": "It interprets code initially, profiles which functions run hot, then compiles those to optimized machine code based on observed types \u2014 and deoptimizes back to the interpreter if a later call violates the assumptions the optimization was based on (e.g. a function suddenly called with a different argument type). This is why consistent argument types matter for hot code paths and why micro-benchmarks can mislead."
+    },
+    {
+      "n": 55,
+      "c": "plumbing",
+      "t": "Plumbing / internals",
+      "q": "What's the actual mechanism behind Node's process.nextTick versus the standard microtask queue?",
+      "a": "process.nextTick callbacks run before other microtasks (including promise callbacks) in Node's event loop implementation \u2014 a Node-specific priority layer on top of the standard microtask/macrotask model."
+    },
+    {
+      "n": 56,
+      "c": "plumbing",
+      "t": "Plumbing / internals",
+      "q": "Explain generational garbage collection at a high level.",
+      "a": "Based on the empirical observation that most objects die young, the collector segregates a 'young generation' that's scanned frequently and cheaply, promoting long-surviving objects to an 'old generation' scanned less often \u2014 trading some accuracy for much better average throughput."
+    },
+    {
+      "n": 57,
+      "c": "config",
+      "t": "Config / tooling",
+      "q": "What does 'type': 'module' in package.json actually control?",
+      "a": "Tells Node to treat .js files in that package as ES Modules (import/export) by default instead of CommonJS (require/module.exports); .mjs and .cjs extensions override this per-file regardless of the setting."
+    },
+    {
+      "n": 58,
+      "c": "config",
+      "t": "Config / tooling",
+      "q": "What's the difference between transpiling and bundling, and which tools do each?",
+      "a": "Transpiling (Babel, TypeScript's compiler) rewrites modern syntax to older syntax for compatibility. Bundling (Webpack, Rollup, esbuild, Vite) combines many module files into fewer output files, applying tree-shaking and minification. A build pipeline typically does both."
+    },
+    {
+      "n": 59,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "What does typeof function(){} return, and why is that notable?",
+      "a": "'function' \u2014 functions get their own typeof result even though they're technically objects, which is a special-case carve-out in the spec, not derivable from the primitive/object rule alone."
+    },
+    {
+      "n": 60,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "Why does [] + [] give \"\" but [] + {} gives \"[object Object]\"?",
+      "a": "The + operator coerces both operands to primitives via toString when at least one isn't a number; [].toString() is \"\", so \"\" + \"\" is \"\"; {}.toString() is \"[object Object]\", so \"\" + \"[object Object]\" is that string."
+    },
+    {
+      "n": 61,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "Why does Array(3).length equal 3 but Array(3).map(x => 1) not run the mapper at all?",
+      "a": "Array(3) creates a sparse array with 3 empty slots (no actual values, just a length), and array iteration methods like map skip empty slots entirely \u2014 you'd need Array(3).fill(0) first to get real iterable elements."
+    },
+    {
+      "n": 62,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "Why can you call a function before its declaration if it's a function declaration, but not if it's a function expression assigned to a const?",
+      "a": "Function declarations are hoisted completely, including their body \u2014 the name is bound and callable immediately. A const holding a function expression is only bound after its declaration line executes (and sits in the temporal dead zone before that), so calling it early throws."
+    }
+  ]
+}

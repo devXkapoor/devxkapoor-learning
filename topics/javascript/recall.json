@@ -1,0 +1,1292 @@
+{
+  "cards": [
+    {
+      "n": 1,
+      "c": "node-0",
+      "t": "Node 0 \u00b7 The problem before JavaScript",
+      "q": "Why did browsers need a language that runs inside them at all?",
+      "a": "Because every interaction \u2014 even trivial validation \u2014 otherwise required a full round trip to a server, often over a slow modem, making basic interactivity unusably slow."
+    },
+    {
+      "n": 2,
+      "c": "node-0",
+      "t": "Node 0 \u00b7 The problem before JavaScript",
+      "q": "Who wrote the first version of JavaScript, and how long did it take?",
+      "a": "Brendan Eich at Netscape, in about ten days in May 1995."
+    },
+    {
+      "n": 3,
+      "c": "node-0",
+      "t": "Node 0 \u00b7 The problem before JavaScript",
+      "q": "Why does the name 'JavaScript' contain 'Java' if the languages are unrelated?",
+      "a": "It was a marketing decision to ride the popularity of Java at the time; the two languages share essentially nothing but the name."
+    },
+    {
+      "n": 4,
+      "c": "node-0",
+      "t": "Node 0 \u00b7 The problem before JavaScript",
+      "q": "What constraint has shaped JavaScript's evolution more than any other?",
+      "a": "Near-absolute backward compatibility \u2014 the language can add features but almost never remove or break existing ones, since it can't go back and edit already-published pages."
+    },
+    {
+      "n": 5,
+      "c": "node-0",
+      "t": "Node 0 \u00b7 The problem before JavaScript",
+      "q": "Why does JavaScript have three ways to declare a variable and two ways to write a function?",
+      "a": "Because backward compatibility means old mechanisms are never removed when new ones are added \u2014 the language grows by layering, not replacing."
+    },
+    {
+      "n": 6,
+      "c": "node-0",
+      "t": "Node 0 \u00b7 The problem before JavaScript",
+      "q": "Give one design decision from JavaScript's ten-day origin that could never be fixed later.",
+      "a": "typeof null returning 'object' \u2014 a bug from 1995 preserved forever because fixing it would break existing pages."
+    },
+    {
+      "n": 7,
+      "c": "node-0",
+      "t": "Node 0 \u00b7 The problem before JavaScript",
+      "q": "What four constraints did code running inside an untrusted browser page have to satisfy?",
+      "a": "Start running instantly with no install/compile step, never access the user's files or crash their machine, never freeze the page's rendering, and never break old pages when new features are added."
+    },
+    {
+      "n": 8,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "List all seven of JavaScript's primitive types.",
+      "a": "number, string, boolean, undefined, null, symbol, and bigint."
+    },
+    {
+      "n": 9,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "What defines a 'primitive' value, structurally?",
+      "a": "It's a bare value with no parts, cannot be mutated in place, and copying it (assignment) produces an independent copy."
+    },
+    {
+      "n": 10,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "Why is there no separate integer type in JavaScript?",
+      "a": "There is a single number type, a 64-bit IEEE 754 floating point double, used for all arithmetic including whole numbers."
+    },
+    {
+      "n": 11,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "Why does 0.1 + 0.2 produce 0.30000000000000004?",
+      "a": "0.1 and 0.2 can't be represented exactly in binary floating point, the same limitation as trying to write one-third exactly in decimal \u2014 not a JavaScript-specific bug."
+    },
+    {
+      "n": 12,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "What is Number.MAX_SAFE_INTEGER and why does it matter?",
+      "a": "2^53 - 1 (9,007,199,254,740,991) \u2014 the largest integer representable exactly as a double; beyond it, consecutive integers can collide onto the same float value."
+    },
+    {
+      "n": 13,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "Why was bigint added to the language in 2020?",
+      "a": "Because real values like database IDs, nanosecond timestamps, and currency in minor units routinely exceed MAX_SAFE_INTEGER and need exact integer arithmetic."
+    },
+    {
+      "n": 14,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "What does NaN mean and when do you get it?",
+      "a": "'Not a number' \u2014 the result of arithmetic with no meaningful answer, e.g. 0/0 or Number('hello')."
+    },
+    {
+      "n": 15,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "How do you correctly test whether a value is NaN?",
+      "a": "Number.isNaN(x) \u2014 never x === NaN, because NaN !== NaN by definition."
+    },
+    {
+      "n": 16,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "What unit does a JavaScript string's .length actually count?",
+      "a": "UTF-16 code units, not visual characters \u2014 so \"\ud83d\udc4b\".length is 2, not 1, because that emoji needs two code units."
+    },
+    {
+      "n": 17,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "Are JavaScript strings mutable?",
+      "a": "No \u2014 s[0] = 'x' silently does nothing; strings are immutable primitives."
+    },
+    {
+      "n": 18,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "What's the practical distinction between undefined and null?",
+      "a": "undefined is absence the language supplies by accident (unassigned variable, missing argument, missing property, no return value); null is absence a programmer assigns on purpose."
+    },
+    {
+      "n": 19,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "Why does typeof null return 'object'?",
+      "a": "A bug preserved from the 1995 implementation that can't be fixed without breaking existing pages that depend on it."
+    },
+    {
+      "n": 20,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "List all eight falsy values in JavaScript.",
+      "a": "false, 0, -0, 0n, \"\", null, undefined, and NaN."
+    },
+    {
+      "n": 21,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "Is an empty array [] truthy or falsy?",
+      "a": "Truthy \u2014 everything not in the falsy list is truthy, including [] and {}."
+    },
+    {
+      "n": 22,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "Why can [] == false be true while [] is truthy?",
+      "a": "== triggers type coercion between the two operands (array converts to \"\" then to 0, matching false's 0) \u2014 coercion rules for comparison are separate from a single value's own truthiness."
+    },
+    {
+      "n": 23,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "What's the difference between == and ===?",
+      "a": "== applies type coercion before comparing; === requires both type and value to match with no conversion."
+    },
+    {
+      "n": 24,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "When is == considered acceptable idiomatic style?",
+      "a": "x == null, as a compact check that covers both null and undefined at once."
+    },
+    {
+      "n": 25,
+      "c": "node-1",
+      "t": "Node 1 \u00b7 Values, types, and coercion",
+      "q": "Why does typeof NaN return 'number'?",
+      "a": "Because NaN is a special value of the number type representing an invalid numeric result, not a separate type."
+    },
+    {
+      "n": 26,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "What is a JavaScript object at its core?",
+      "a": "A bag of key-value pairs, where keys are strings or symbols and values can be anything."
+    },
+    {
+      "n": 27,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "When do you use dot notation vs bracket notation on an object?",
+      "a": "Dot notation when you know the key name at authoring time (user.name); bracket notation when the key is itself a value in a variable (user[key])."
+    },
+    {
+      "n": 28,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "Why does typeof [] return 'object'?",
+      "a": "Because arrays are objects \u2014 their keys happen to be sequential string-like indices (\"0\", \"1\", \"2\"...) plus a length property."
+    },
+    {
+      "n": 29,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "How do you reliably check whether a value is an array?",
+      "a": "Array.isArray(value), since typeof can't distinguish arrays from plain objects."
+    },
+    {
+      "n": 30,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "What's the key difference in how primitives vs objects are assigned and passed?",
+      "a": "Primitives are copied by value; objects are copied/passed by reference \u2014 a shared pointer to the same underlying object."
+    },
+    {
+      "n": 31,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "const user = {}; user.name = 'x'; \u2014 does this throw?",
+      "a": "No. const only prevents reassigning the binding itself, not mutating the object it points to."
+    },
+    {
+      "n": 32,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "Why is {a:1} === {a:1} false?",
+      "a": "=== on objects compares identity ('same object?'), never structural equality \u2014 these are two distinct objects that merely look alike."
+    },
+    {
+      "n": 33,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "How do you deep-compare two objects for equal contents?",
+      "a": "There's no built-in deep-equality operator; you write a comparison function, use a library, or crudely compare JSON.stringify output for simple data."
+    },
+    {
+      "n": 34,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "What does {...original} actually copy?",
+      "a": "A shallow copy \u2014 a new outer object, but any nested objects inside it are still the same shared references as in the original."
+    },
+    {
+      "n": 35,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "How do you make a genuinely deep, independent copy of an object?",
+      "a": "structuredClone(original) \u2014 handles nesting, Map, Set, Date, and circular references correctly."
+    },
+    {
+      "n": 36,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "Does Object.freeze() protect nested objects?",
+      "a": "No \u2014 it's shallow, freezing only the object's own top-level properties."
+    },
+    {
+      "n": 37,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "What's the difference between user?.address?.city and user.address.city?",
+      "a": "Optional chaining (?.) returns undefined instead of throwing if anything along the chain is null or undefined."
+    },
+    {
+      "n": 38,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "When does x ?? 'default' supply the default, and how does that differ from x || 'default'?",
+      "a": "?? only falls back when x is null or undefined; || falls back on any falsy value, incorrectly overriding legitimate 0 or \"\" values that ?? preserves."
+    },
+    {
+      "n": 39,
+      "c": "node-2",
+      "t": "Node 2 \u00b7 Objects and the reference model",
+      "q": "What does Object.hasOwn(obj, key) check that in obj doesn't?",
+      "a": "hasOwn checks only the object's own properties; in also matches properties inherited via the prototype chain."
+    },
+    {
+      "n": 40,
+      "c": "node-3",
+      "t": "Node 3 \u00b7 Functions as values",
+      "q": "What does it mean that 'functions are first-class' in JavaScript?",
+      "a": "Functions are values \u2014 they can be stored in variables, put in arrays, passed as arguments, and returned from other functions, just like any other value."
+    },
+    {
+      "n": 41,
+      "c": "node-3",
+      "t": "Node 3 \u00b7 Functions as values",
+      "q": "Define 'higher-order function' precisely.",
+      "a": "A function that takes a function as an argument, returns a function, or both."
+    },
+    {
+      "n": 42,
+      "c": "node-3",
+      "t": "Node 3 \u00b7 Functions as values",
+      "q": "What does a function with no explicit return statement return?",
+      "a": "undefined."
+    },
+    {
+      "n": 43,
+      "c": "node-3",
+      "t": "Node 3 \u00b7 Functions as values",
+      "q": "What is the single most consequential difference between a regular function and an arrow function?",
+      "a": "Arrow functions have no own this \u2014 they use the this of the surrounding lexical scope, rather than getting one determined by how they're called."
+    },
+    {
+      "n": 44,
+      "c": "node-3",
+      "t": "Node 3 \u00b7 Functions as values",
+      "q": "Does an arrow function have its own arguments object?",
+      "a": "No \u2014 arrow functions have no arguments object; use rest parameters instead."
+    },
+    {
+      "n": 45,
+      "c": "node-3",
+      "t": "Node 3 \u00b7 Functions as values",
+      "q": "Why does () => {a: 1} not return the object {a:1}?",
+      "a": "The braces are parsed as a function body, not an object literal \u2014 you must wrap it in parentheses: () => ({a: 1})."
+    },
+    {
+      "n": 46,
+      "c": "node-3",
+      "t": "Node 3 \u00b7 Functions as values",
+      "q": "What do rest parameters do, and give the syntax.",
+      "a": "function sum(...nums) collects all remaining arguments into a real array."
+    },
+    {
+      "n": 47,
+      "c": "node-3",
+      "t": "Node 3 \u00b7 Functions as values",
+      "q": "What does the spread operator do at a call site, e.g. add(...pair)?",
+      "a": "Expands an array into individual arguments \u2014 the reverse operation of rest parameters, using the same ... syntax."
+    },
+    {
+      "n": 48,
+      "c": "node-3",
+      "t": "Node 3 \u00b7 Functions as values",
+      "q": "How do you distinguish rest from spread when both use ...?",
+      "a": "Rest appears in a function's parameter list and collects values into an array; spread appears at a call site or literal and expands an array into individual values."
+    },
+    {
+      "n": 49,
+      "c": "node-3",
+      "t": "Node 3 \u00b7 Functions as values",
+      "q": "When does a default parameter value get used?",
+      "a": "Only when the corresponding argument is undefined \u2014 not for null or any other falsy value."
+    },
+    {
+      "n": 50,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "What are JavaScript's three kinds of scope?",
+      "a": "Global scope, function scope, and block scope (anything between { })."
+    },
+    {
+      "n": 51,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "What does 'lexical scoping' mean?",
+      "a": "Scope is determined by where code is physically written, not by where or how it's called."
+    },
+    {
+      "n": 52,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "How does var scoping differ from let/const scoping?",
+      "a": "var is function-scoped (leaks out of if/for blocks to the enclosing function); let/const are block-scoped, confined to the nearest { }."
+    },
+    {
+      "n": 53,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "What does 'hoisting' mean for var?",
+      "a": "The declaration is conceptually moved to the top of its function and initialized to undefined, so reading it before its line gives undefined rather than an error."
+    },
+    {
+      "n": 54,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "What is the temporal dead zone?",
+      "a": "The region before a let/const declaration's line where the binding exists but accessing it throws a ReferenceError, rather than silently returning undefined like var."
+    },
+    {
+      "n": 55,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "Why is the TDZ's loud error considered better design than var's silent undefined?",
+      "a": "Because reading a variable before it's meaningfully assigned is almost always a bug, and a loud ReferenceError surfaces it immediately instead of letting undefined propagate silently."
+    },
+    {
+      "n": 56,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "State the practical rule for choosing var, let, or const.",
+      "a": "const by default, let when you genuinely need to reassign, var essentially never in new code (but you must be able to explain it for legacy code and interviews)."
+    },
+    {
+      "n": 57,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "Define 'closure' precisely.",
+      "a": "A function that retains access to the variables of the scope it was created in, even after that outer scope has finished executing."
+    },
+    {
+      "n": 58,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "Why do closures exist as a consequence rather than a deliberate add-on feature?",
+      "a": "Because functions are first-class values that can be returned and called later, combined with lexical scoping \u2014 if a function might run after its creating scope ends, the language has no choice but to keep that scope's variables alive."
+    },
+    {
+      "n": 59,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "function makeCounter(){let c=0; return ()=>++c} \u2014 do two calls to makeCounter() share state?",
+      "a": "No \u2014 each call creates an independent count variable, so the two returned functions have separate closures."
+    },
+    {
+      "n": 60,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "Name three practical uses of closures.",
+      "a": "Private state (data inaccessible from outside), function factories, and memoization caches (also: the pre-module pattern, and callbacks that remember context)."
+    },
+    {
+      "n": 61,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "for(var i=0;i<3;i++) setTimeout(()=>console.log(i)) \u2014 what does this print, and why?",
+      "a": "3, 3, 3 \u2014 var creates one shared variable across all iterations, and by the time the callbacks run, the loop has already finished and i is 3."
+    },
+    {
+      "n": 62,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "Changing var to let in that same loop \u2014 what prints, and why?",
+      "a": "0, 1, 2 \u2014 let creates a fresh binding per iteration, so each closure captures its own separate i."
+    },
+    {
+      "n": 63,
+      "c": "node-4",
+      "t": "Node 4 \u00b7 Scope, hoisting, and closures",
+      "q": "In React, why can a callback read a 'stale' state value?",
+      "a": "The callback closed over the state variable's value at the time it was created; if state changed since, the callback still sees the old captured value \u2014 a closure over an old value."
+    },
+    {
+      "n": 64,
+      "c": "node-5",
+      "t": "Node 5 \u00b7 this and call patterns",
+      "q": "What determines the value of this in a regular function?",
+      "a": "How the function was called \u2014 call-time binding, not where it was written (unlike ordinary lexical variables)."
+    },
+    {
+      "n": 65,
+      "c": "node-5",
+      "t": "Node 5 \u00b7 this and call patterns",
+      "q": "What is this when a function is called as user.greet()?",
+      "a": "user \u2014 whatever object is to the left of the dot at the moment of the call."
+    },
+    {
+      "n": 66,
+      "c": "node-5",
+      "t": "Node 5 \u00b7 this and call patterns",
+      "q": "What is this inside a plain function call fn() in strict mode?",
+      "a": "undefined."
+    },
+    {
+      "n": 67,
+      "c": "node-5",
+      "t": "Node 5 \u00b7 this and call patterns",
+      "q": "What is this inside a function called with new Fn()?",
+      "a": "The freshly created object that new constructs."
+    },
+    {
+      "n": 68,
+      "c": "node-5",
+      "t": "Node 5 \u00b7 this and call patterns",
+      "q": "What's the difference between .call(), .apply(), and .bind()?",
+      "a": "call and apply both invoke the function immediately with a given this (call takes args individually, apply takes an array); bind doesn't invoke \u2014 it returns a new function permanently bound to that this."
+    },
+    {
+      "n": 69,
+      "c": "node-5",
+      "t": "Node 5 \u00b7 this and call patterns",
+      "q": "const f = user.greet; f(); \u2014 why might this break?",
+      "a": "f is now a plain function call with the dot gone, so this is no longer user \u2014 the method has been 'detached' from its object."
+    },
+    {
+      "n": 70,
+      "c": "node-5",
+      "t": "Node 5 \u00b7 this and call patterns",
+      "q": "Why does passing a method directly to setTimeout or addEventListener often lose this?",
+      "a": "The reference to the function is passed alone, stripping away the obj. context that would have set this at call time."
+    },
+    {
+      "n": 71,
+      "c": "node-5",
+      "t": "Node 5 \u00b7 this and call patterns",
+      "q": "Why do arrow functions fix the 'losing this' problem in callbacks?",
+      "a": "Arrows have no own this \u2014 they inherit this lexically from the enclosing scope, exactly like any normal variable, so it can't be stripped away by how the arrow itself is invoked."
+    },
+    {
+      "n": 72,
+      "c": "node-5",
+      "t": "Node 5 \u00b7 this and call patterns",
+      "q": "Why should you never use an arrow function as an object's own method?",
+      "a": "An arrow's this resolves to the surrounding lexical scope (often the module), not to the object it's attached to \u2014 so {greet: () => this.name} won't read the object's own properties."
+    },
+    {
+      "n": 73,
+      "c": "node-5",
+      "t": "Node 5 \u00b7 this and call patterns",
+      "q": "Can an arrow function be used as a constructor with new?",
+      "a": "No \u2014 arrow functions cannot be called with new; they have no own this to bind to a new instance."
+    },
+    {
+      "n": 74,
+      "c": "node-6",
+      "t": "Node 6 \u00b7 Prototypes and classes",
+      "q": "What is the prototype chain?",
+      "a": "A hidden link from every object to another object; when a property lookup fails on the object itself, the engine follows the link and keeps searching up the chain until it finds the property or reaches null."
+    },
+    {
+      "n": 75,
+      "c": "node-6",
+      "t": "Node 6 \u00b7 Prototypes and classes",
+      "q": "Why does [1,2,3].map(...) work even though the array only stores its elements?",
+      "a": "map lives on Array.prototype, not on the array instance itself; the lookup walks the prototype chain to find it there."
+    },
+    {
+      "n": 76,
+      "c": "node-6",
+      "t": "Node 6 \u00b7 Prototypes and classes",
+      "q": "What's the difference between obj.__proto__ and Fn.prototype?",
+      "a": "obj.__proto__ (properly Object.getPrototypeOf(obj)) is the prototype this object follows; Fn.prototype is the object that becomes the prototype of instances created via new Fn()."
+    },
+    {
+      "n": 77,
+      "c": "node-6",
+      "t": "Node 6 \u00b7 Prototypes and classes",
+      "q": "What does Object.create(parent) do?",
+      "a": "Creates a new object whose prototype is set directly to parent, with no constructor function involved."
+    },
+    {
+      "n": 78,
+      "c": "node-6",
+      "t": "Node 6 \u00b7 Prototypes and classes",
+      "q": "List the four things new Fn(args) does, in order.",
+      "a": "Creates an empty object, sets its prototype to Fn.prototype, calls Fn with this bound to that object, and returns the object (unless Fn explicitly returns a different object)."
+    },
+    {
+      "n": 79,
+      "c": "node-6",
+      "t": "Node 6 \u00b7 Prototypes and classes",
+      "q": "Is class a new object system in JavaScript?",
+      "a": "No \u2014 it's syntax over the existing prototype mechanism; class User { greet(){} } puts greet on User.prototype exactly as manual prototype assignment would."
+    },
+    {
+      "n": 80,
+      "c": "node-6",
+      "t": "Node 6 \u00b7 Prototypes and classes",
+      "q": "What does extends set up between two classes?",
+      "a": "A prototype chain link between the child class's prototype and the parent class's prototype."
+    },
+    {
+      "n": 81,
+      "c": "node-6",
+      "t": "Node 6 \u00b7 Prototypes and classes",
+      "q": "How do #private class fields differ from the old underscore-prefix convention?",
+      "a": "#private fields are genuinely inaccessible from outside the class; the underscore convention was only ever a naming request, still fully accessible."
+    },
+    {
+      "n": 82,
+      "c": "node-6",
+      "t": "Node 6 \u00b7 Prototypes and classes",
+      "q": "What does instanceof actually test?",
+      "a": "Whether a constructor's prototype object appears anywhere in the target object's prototype chain \u2014 which is why it can be fooled by manually altered prototypes."
+    },
+    {
+      "n": 83,
+      "c": "node-6",
+      "t": "Node 6 \u00b7 Prototypes and classes",
+      "q": "Why does most modern JavaScript avoid deep class inheritance hierarchies?",
+      "a": "Because there's no real class system underneath \u2014 only objects linking to objects \u2014 and composition tends to be simpler and less fragile than deep prototype chains."
+    },
+    {
+      "n": 84,
+      "c": "node-7",
+      "t": "Node 7 \u00b7 Collections, iteration, destructuring",
+      "q": "Name four array methods that mutate the array in place.",
+      "a": "push, pop, splice, and sort (also: shift, unshift, reverse, fill)."
+    },
+    {
+      "n": 85,
+      "c": "node-7",
+      "t": "Node 7 \u00b7 Collections, iteration, destructuring",
+      "q": "Name three array methods that return a new array and leave the original untouched.",
+      "a": "map, filter, and slice (also: concat, toSorted, toReversed)."
+    },
+    {
+      "n": 86,
+      "c": "node-7",
+      "t": "Node 7 \u00b7 Collections, iteration, destructuring",
+      "q": "Why does [10, 9].sort() give [10, 9] instead of [9, 10]?",
+      "a": "sort compares elements as strings by default, and \"10\" sorts before \"9\" lexicographically; pass a numeric comparator sort((a,b)=>a-b) to sort numerically."
+    },
+    {
+      "n": 87,
+      "c": "node-7",
+      "t": "Node 7 \u00b7 Collections, iteration, destructuring",
+      "q": "What's the relationship between reduce and map/filter?",
+      "a": "reduce is the general case \u2014 both map and filter can be implemented in terms of reduce, collapsing an array into one accumulated value."
+    },
+    {
+      "n": 88,
+      "c": "node-7",
+      "t": "Node 7 \u00b7 Collections, iteration, destructuring",
+      "q": "Why can't you break out of a forEach loop?",
+      "a": "forEach has no mechanism to stop iteration early and returns undefined; use a for...of loop with break instead."
+    },
+    {
+      "n": 89,
+      "c": "node-7",
+      "t": "Node 7 \u00b7 Collections, iteration, destructuring",
+      "q": "When would you use for...in versus for...of?",
+      "a": "for...in enumerates an object's enumerable string keys (including inherited ones); for...of iterates the values of any iterable (arrays, strings, Map, Set) and supports break/continue/await."
+    },
+    {
+      "n": 90,
+      "c": "node-7",
+      "t": "Node 7 \u00b7 Collections, iteration, destructuring",
+      "q": "Why prefer Map over a plain object as a dictionary?",
+      "a": "Map allows keys of any type (including objects), preserves insertion order, has a real .size, and doesn't inherit stray keys from Object.prototype."
+    },
+    {
+      "n": 91,
+      "c": "node-7",
+      "t": "Node 7 \u00b7 Collections, iteration, destructuring",
+      "q": "What's the standard idiom for deduplicating an array?",
+      "a": "[...new Set(arr)] \u2014 Set holds only unique values, and spreading it back into an array gives the deduplicated list."
+    },
+    {
+      "n": 92,
+      "c": "node-7",
+      "t": "Node 7 \u00b7 Collections, iteration, destructuring",
+      "q": "What problem do WeakMap and WeakSet solve that Map and Set don't?",
+      "a": "They hold their keys weakly, so entries vanish once nothing else references the key \u2014 letting you attach metadata to objects without preventing garbage collection."
+    },
+    {
+      "n": 93,
+      "c": "node-7",
+      "t": "Node 7 \u00b7 Collections, iteration, destructuring",
+      "q": "What makes an object 'iterable' under the hood?",
+      "a": "It has a Symbol.iterator method that returns an object with a next() method yielding {value, done} pairs \u2014 the iteration protocol."
+    },
+    {
+      "n": 94,
+      "c": "node-7",
+      "t": "Node 7 \u00b7 Collections, iteration, destructuring",
+      "q": "What does const {name, email} = user do?",
+      "a": "Destructures the name and email properties out of user into standalone variables of the same names."
+    },
+    {
+      "n": 95,
+      "c": "node-7",
+      "t": "Node 7 \u00b7 Collections, iteration, destructuring",
+      "q": "How do you rename a destructured property and supply a default in one expression?",
+      "a": "const {role = 'user': ... } \u2014 actually: const {role: r = 'user'} = obj destructures role, renames it to r, and defaults to 'user' if role is undefined."
+    },
+    {
+      "n": 96,
+      "c": "node-7",
+      "t": "Node 7 \u00b7 Collections, iteration, destructuring",
+      "q": "Why is {...defaults, ...overrides} a common merge idiom?",
+      "a": "Later spread keys win over earlier ones, so overrides cleanly takes precedence over defaults, producing a merged object in one expression."
+    },
+    {
+      "n": 97,
+      "c": "node-8",
+      "t": "Node 8 \u00b7 Errors and failure",
+      "q": "What happens to execution the instant something throws?",
+      "a": "It stops immediately and unwinds outward through the call stack looking for the nearest enclosing catch; with none, the process/page crashes."
+    },
+    {
+      "n": 98,
+      "c": "node-8",
+      "t": "Node 8 \u00b7 Errors and failure",
+      "q": "When does a finally block run?",
+      "a": "Always \u2014 whether the try block succeeded, threw, or even returned \u2014 making it the place to release resources."
+    },
+    {
+      "n": 99,
+      "c": "node-8",
+      "t": "Node 8 \u00b7 Errors and failure",
+      "q": "Why should you throw Error objects instead of arbitrary values?",
+      "a": "Error objects carry a message, a name, and a stack trace showing where the throw happened \u2014 arbitrary thrown values carry none of that."
+    },
+    {
+      "n": 100,
+      "c": "node-8",
+      "t": "Node 8 \u00b7 Errors and failure",
+      "q": "What kind of mistake does a TypeError typically indicate?",
+      "a": "A value used in a way its type doesn't support \u2014 the classic 'cannot read properties of undefined' family of bugs."
+    },
+    {
+      "n": 101,
+      "c": "node-8",
+      "t": "Node 8 \u00b7 Errors and failure",
+      "q": "What's the purpose of a custom Error subclass?",
+      "a": "Lets a caller distinguish different failure categories programmatically \u2014 e.g. 'bad input from the user' (400) versus 'the database is down' (500) \u2014 rather than parsing message strings."
+    },
+    {
+      "n": 102,
+      "c": "node-8",
+      "t": "Node 8 \u00b7 Errors and failure",
+      "q": "What does the Error 'cause' option let you do?",
+      "a": "Wrap a lower-level error inside a new higher-level one without discarding the original error's information."
+    },
+    {
+      "n": 103,
+      "c": "node-8",
+      "t": "Node 8 \u00b7 Errors and failure",
+      "q": "Why is a catch block that swallows an error and continues considered worse than not catching it at all?",
+      "a": "It turns a loud, visible failure into a silent wrong answer, which is strictly harder to debug than a crash."
+    },
+    {
+      "n": 104,
+      "c": "node-8",
+      "t": "Node 8 \u00b7 Errors and failure",
+      "q": "What's the practical guideline for deciding what to catch?",
+      "a": "Catch only what you can meaningfully handle; otherwise enrich and rethrow, or let it propagate to a place that can actually act on it \u2014 like centralized error middleware."
+    },
+    {
+      "n": 105,
+      "c": "node-9",
+      "t": "Node 9 \u00b7 Single thread and the event loop",
+      "q": "What does it mean that JavaScript runs on a single thread?",
+      "a": "One sequence of instructions executes at a time \u2014 no two lines of your own code ever run simultaneously."
+    },
+    {
+      "n": 106,
+      "c": "node-9",
+      "t": "Node 9 \u00b7 Single thread and the event loop",
+      "q": "Why was single-threading a deliberate design choice rather than a limitation?",
+      "a": "Multiple threads sharing memory create a hard category of bugs (race conditions, deadlocks); a language meant for everyone couldn't afford that complexity, and in browsers the same thread draws the page."
+    },
+    {
+      "n": 107,
+      "c": "node-9",
+      "t": "Node 9 \u00b7 Single thread and the event loop",
+      "q": "When you call fetch(), does JavaScript's thread wait for the network response?",
+      "a": "No \u2014 the actual network work is handed off to the runtime (browser or Node), which has other threads/OS facilities; your thread continues immediately to the next line."
+    },
+    {
+      "n": 108,
+      "c": "node-9",
+      "t": "Node 9 \u00b7 Single thread and the event loop",
+      "q": "What is the event loop, in one sentence?",
+      "a": "An endless cycle: run the current work to completion, and when the call stack is empty, take the next callback off the queue and run it."
+    },
+    {
+      "n": 109,
+      "c": "node-9",
+      "t": "Node 9 \u00b7 Single thread and the event loop",
+      "q": "What is 'run-to-completion' and what's its direct consequence?",
+      "a": "The rule that currently running code finishes entirely before any queued callback can start; the consequence is that a long synchronous loop blocks everything \u2014 no clicks, no rendering, no timers, no requests \u2014 until it finishes."
+    },
+    {
+      "n": 110,
+      "c": "node-9",
+      "t": "Node 9 \u00b7 Single thread and the event loop",
+      "q": "Does setTimeout(fn, 0) run fn immediately?",
+      "a": "No \u2014 it queues fn to run only after the current work finishes and after everything already queued ahead of it; the delay is a minimum, not a guarantee."
+    },
+    {
+      "n": 111,
+      "c": "node-9",
+      "t": "Node 9 \u00b7 Single thread and the event loop",
+      "q": "What structural problems does deeply nested callback-based async code have, beyond ugliness?",
+      "a": "You can't return a value out of the nesting, try/catch doesn't work across the async boundary, and every level must manually forward errors via the (err, result) convention."
+    },
+    {
+      "n": 112,
+      "c": "node-9",
+      "t": "Node 9 \u00b7 Single thread and the event loop",
+      "q": "How can a single-threaded language handle thousands of concurrent connections?",
+      "a": "By handing slow I/O work to the runtime environment rather than blocking the thread on it, then processing the results as queued callbacks as they arrive."
+    },
+    {
+      "n": 113,
+      "c": "node-10",
+      "t": "Node 10 \u00b7 Promises",
+      "q": "What is a Promise?",
+      "a": "An object representing a value that isn't available yet \u2014 turning an eventual async result into a first-class value you can store, return, and pass around."
+    },
+    {
+      "n": 114,
+      "c": "node-10",
+      "t": "Node 10 \u00b7 Promises",
+      "q": "Name the three states a Promise can be in.",
+      "a": "Pending, fulfilled (with a value), and rejected (with a reason)."
+    },
+    {
+      "n": 115,
+      "c": "node-10",
+      "t": "Node 10 \u00b7 Promises",
+      "q": "Once a promise settles, can it change state again?",
+      "a": "No \u2014 settled promises (fulfilled or rejected) are permanent."
+    },
+    {
+      "n": 116,
+      "c": "node-10",
+      "t": "Node 10 \u00b7 Promises",
+      "q": "What does .then() return, and why does that matter?",
+      "a": "A new promise \u2014 and if the handler returns a promise, the chain waits for and unwraps it, which is what lets .then() calls flatten into a linear chain instead of nesting."
+    },
+    {
+      "n": 117,
+      "c": "node-10",
+      "t": "Node 10 \u00b7 Promises",
+      "q": "How does a single .catch() at the end of a chain handle errors from every step above it?",
+      "a": "A rejection propagates down the chain, skipping .then() handlers, until it reaches the first .catch() \u2014 so one catch can cover the whole chain."
+    },
+    {
+      "n": 118,
+      "c": "node-10",
+      "t": "Node 10 \u00b7 Promises",
+      "q": "When does Promise.all([...]) reject?",
+      "a": "Immediately if any single promise in the array rejects, even if the others are still pending or would have succeeded."
+    },
+    {
+      "n": 119,
+      "c": "node-10",
+      "t": "Node 10 \u00b7 Promises",
+      "q": "When would you choose Promise.allSettled over Promise.all?",
+      "a": "When you want the successful results even if some promises fail, rather than losing everything to one rejection."
+    },
+    {
+      "n": 120,
+      "c": "node-10",
+      "t": "Node 10 \u00b7 Promises",
+      "q": "What does Promise.race([...]) do, and what's its classic use?",
+      "a": "Settles as soon as the first promise settles, whether fulfilled or rejected \u2014 the standard technique for implementing a timeout."
+    },
+    {
+      "n": 121,
+      "c": "node-10",
+      "t": "Node 10 \u00b7 Promises",
+      "q": "How does Promise.any differ from Promise.race?",
+      "a": "any waits for the first fulfillment specifically, ignoring rejections unless every promise rejects; race settles on the first outcome of either kind."
+    },
+    {
+      "n": 122,
+      "c": "node-10",
+      "t": "Node 10 \u00b7 Promises",
+      "q": "Is Promise.all concurrency or parallelism?",
+      "a": "Concurrency \u2014 several operations in flight at once, but still on one thread; the waiting happens outside your thread, not via simultaneous execution."
+    },
+    {
+      "n": 123,
+      "c": "node-10",
+      "t": "Node 10 \u00b7 Promises",
+      "q": "What happens by default in modern Node when a promise rejects with no .catch anywhere?",
+      "a": "An unhandled rejection \u2014 which crashes the process by default in modern Node."
+    },
+    {
+      "n": 124,
+      "c": "node-10",
+      "t": "Node 10 \u00b7 Promises",
+      "q": "When does the executor function passed to new Promise((resolve,reject)=>{...}) run?",
+      "a": "Immediately, synchronously, at construction time \u2014 not lazily when .then() is called."
+    },
+    {
+      "n": 125,
+      "c": "node-11",
+      "t": "Node 11 \u00b7 async/await and the microtask queue",
+      "q": "Is async/await a new capability or syntax over an existing one?",
+      "a": "Syntax over promises \u2014 no new capability, just a different, more sequential-reading way to consume them."
+    },
+    {
+      "n": 126,
+      "c": "node-11",
+      "t": "Node 11 \u00b7 async/await and the microtask queue",
+      "q": "What does marking a function async guarantee about its return value?",
+      "a": "It always returns a promise \u2014 a plain returned value gets wrapped in a fulfilled promise, a thrown error becomes a rejected one."
+    },
+    {
+      "n": 127,
+      "c": "node-11",
+      "t": "Node 11 \u00b7 async/await and the microtask queue",
+      "q": "What does await do to the function it's inside?",
+      "a": "Pauses that specific async function until the awaited promise settles, then evaluates to the fulfilled value or throws the rejection reason."
+    },
+    {
+      "n": 128,
+      "c": "node-11",
+      "t": "Node 11 \u00b7 async/await and the microtask queue",
+      "q": "Does await block the JavaScript thread?",
+      "a": "No \u2014 it suspends only that one async function and returns control to the event loop, which keeps running everything else; it's not the same as a blocking loop."
+    },
+    {
+      "n": 129,
+      "c": "node-11",
+      "t": "Node 11 \u00b7 async/await and the microtask queue",
+      "q": "Why is for (const item of items) { await fetchOne(item) } often a performance bug?",
+      "a": "Each await is serialized within that function, so total time becomes the sum of every item's latency instead of the slowest one."
+    },
+    {
+      "n": 130,
+      "c": "node-11",
+      "t": "Node 11 \u00b7 async/await and the microtask queue",
+      "q": "How do you fix that serialized-awaits-in-a-loop bug when the items are independent?",
+      "a": "Start all the operations first, then await together: await Promise.all(items.map(fetchOne))."
+    },
+    {
+      "n": 131,
+      "c": "node-11",
+      "t": "Node 11 \u00b7 async/await and the microtask queue",
+      "q": "Does passing an async callback to array.forEach make forEach wait for them?",
+      "a": "No \u2014 forEach doesn't await its callback's return value, so all the async callbacks start and forEach returns immediately, silently breaking intended sequencing."
+    },
+    {
+      "n": 132,
+      "c": "node-11",
+      "t": "Node 11 \u00b7 async/await and the microtask queue",
+      "q": "What are the two task queues the event loop actually manages?",
+      "a": "The macrotask queue (timers, I/O completions, events) and the microtask queue (promise callbacks, queueMicrotask)."
+    },
+    {
+      "n": 133,
+      "c": "node-11",
+      "t": "Node 11 \u00b7 async/await and the microtask queue",
+      "q": "What's the ordering rule between macrotasks and microtasks?",
+      "a": "After each macrotask, the entire microtask queue drains completely \u2014 including microtasks added during the drain \u2014 before the next macrotask runs."
+    },
+    {
+      "n": 134,
+      "c": "node-11",
+      "t": "Node 11 \u00b7 async/await and the microtask queue",
+      "q": "Given a Promise.resolve().then(...) and a setTimeout(fn, 0) both scheduled at the same moment, which runs first?",
+      "a": "The promise's .then() callback \u2014 it's a microtask, and microtasks always drain before the next macrotask (the timeout) runs."
+    },
+    {
+      "n": 135,
+      "c": "node-11",
+      "t": "Node 11 \u00b7 async/await and the microtask queue",
+      "q": "What can happen if you chain microtasks indefinitely (e.g. a promise that keeps re-scheduling itself)?",
+      "a": "It starves the macrotask queue entirely, hanging the program even though nothing is synchronously blocking."
+    },
+    {
+      "n": 136,
+      "c": "node-12",
+      "t": "Node 12 \u00b7 Generators and async iteration",
+      "q": "What does a function declared with function* let you do that a normal function can't?",
+      "a": "Pause itself mid-execution with yield and resume later exactly where it left off, with all local state intact."
+    },
+    {
+      "n": 137,
+      "c": "node-12",
+      "t": "Node 12 \u00b7 Generators and async iteration",
+      "q": "What does calling .next() on a generator object do?",
+      "a": "Resumes the generator from its last yield point until it hits the next yield (or returns), producing the yielded value."
+    },
+    {
+      "n": 138,
+      "c": "node-12",
+      "t": "Node 12 \u00b7 Generators and async iteration",
+      "q": "Why can a generator represent an infinite sequence safely?",
+      "a": "Because nothing is computed until requested \u2014 each value is produced lazily on demand via yield."
+    },
+    {
+      "n": 139,
+      "c": "node-12",
+      "t": "Node 12 \u00b7 Generators and async iteration",
+      "q": "What does yield* do?",
+      "a": "Delegates iteration to another iterable, making recursive traversal (e.g. of a tree) concise."
+    },
+    {
+      "n": 140,
+      "c": "node-12",
+      "t": "Node 12 \u00b7 Generators and async iteration",
+      "q": "What's the natural use case for an async generator (async function*)?",
+      "a": "Streaming or paginated data \u2014 yielding each page's items and fetching the next page only when the consumer asks for more, or consuming streamed LLM responses."
+    },
+    {
+      "n": 141,
+      "c": "node-12",
+      "t": "Node 12 \u00b7 Generators and async iteration",
+      "q": "How do you consume an async generator?",
+      "a": "for await (const x of asyncIterable) { ... }."
+    },
+    {
+      "n": 142,
+      "c": "node-13",
+      "t": "Node 13 \u00b7 Modules",
+      "q": "Before modules existed, what problem did every script sharing one global object cause?",
+      "a": "Two libraries defining the same global name (e.g. both defining $) silently clobbered each other, and load order was implicit and fragile."
+    },
+    {
+      "n": 143,
+      "c": "node-13",
+      "t": "Node 13 \u00b7 Modules",
+      "q": "What was the IIFE 'module pattern' and what did it fix?",
+      "a": "Wrapping a file's code in an immediately-invoked function expression to get function-scoped, private variables via closures \u2014 fixed global namespace pollution but dependencies were still implicit."
+    },
+    {
+      "n": 144,
+      "c": "node-13",
+      "t": "Node 13 \u00b7 Modules",
+      "q": "How does CommonJS's require() load modules?",
+      "a": "Synchronously \u2014 it reads and evaluates the required file immediately and returns its exports, which only works because Node has direct disk access."
+    },
+    {
+      "n": 145,
+      "c": "node-13",
+      "t": "Node 13 \u00b7 Modules",
+      "q": "Why does require() effectively make a module's top-level state a singleton?",
+      "a": "require() caches modules, so a module's body executes only once no matter how many files require it \u2014 every importer shares the same executed instance."
+    },
+    {
+      "n": 146,
+      "c": "node-13",
+      "t": "Node 13 \u00b7 Modules",
+      "q": "What does it mean that ES Module imports/exports are 'statically analyzable'?",
+      "a": "import/export are declarations resolved before the code runs, not runtime function calls \u2014 they can't be placed inside an if, which lets tools like bundlers prove what's actually used."
+    },
+    {
+      "n": 147,
+      "c": "node-13",
+      "t": "Node 13 \u00b7 Modules",
+      "q": "What does 'tree-shaking' rely on, and why doesn't it work with CommonJS?",
+      "a": "It relies on statically knowing at build time which exports are actually imported anywhere, so unused ones can be dropped \u2014 CommonJS's dynamic require() calls can't be analyzed that way."
+    },
+    {
+      "n": 148,
+      "c": "node-13",
+      "t": "Node 13 \u00b7 Modules",
+      "q": "What does it mean that ESM bindings are 'live'?",
+      "a": "Importing a value gives you a live view of the exporting module's variable, not a frozen copy taken at import time \u2014 if the export changes later, the import reflects it."
+    },
+    {
+      "n": 149,
+      "c": "node-13",
+      "t": "Node 13 \u00b7 Modules",
+      "q": "Can ES Modules import CommonJS modules, and can CommonJS import ES Modules cleanly?",
+      "a": "ESM can import CommonJS; the reverse doesn't work cleanly, which is the source of ERR_REQUIRE_ESM errors."
+    },
+    {
+      "n": 150,
+      "c": "node-13",
+      "t": "Node 13 \u00b7 Modules",
+      "q": "What does import('./m') as a function call let you do that a static import doesn't?",
+      "a": "Load a module dynamically, on demand \u2014 the basis of code-splitting and lazy-loading a route."
+    },
+    {
+      "n": 151,
+      "c": "node-13",
+      "t": "Node 13 \u00b7 Modules",
+      "q": "Why do bundlers like Webpack, Rollup, esbuild, and Vite still matter given native browser ESM support?",
+      "a": "They provide tree-shaking, code splitting, minification, and handling of non-JavaScript assets that native module loading alone doesn't give you."
+    },
+    {
+      "n": 152,
+      "c": "node-14",
+      "t": "Node 14 \u00b7 The standard library for real data",
+      "q": "What happens to undefined values and functions when you JSON.stringify an object?",
+      "a": "They're dropped entirely from objects, and become null when found inside an array."
+    },
+    {
+      "n": 153,
+      "c": "node-14",
+      "t": "Node 14 \u00b7 The standard library for real data",
+      "q": "What happens to a Date object when you JSON.stringify it, and what's the catch on parse?",
+      "a": "It's silently converted to an ISO string; JSON.parse does NOT automatically convert it back to a Date \u2014 you get a plain string unless you use a reviver."
+    },
+    {
+      "n": 154,
+      "c": "node-14",
+      "t": "Node 14 \u00b7 The standard library for real data",
+      "q": "Why should every JSON.parse of untrusted data be wrapped in try/catch?",
+      "a": "Because parse throws a SyntaxError on malformed input, and untrusted data (from a network request, user input) can't be assumed valid."
+    },
+    {
+      "n": 155,
+      "c": "node-14",
+      "t": "Node 14 \u00b7 The standard library for real data",
+      "q": "Why is December represented as month 11 in the built-in Date object?",
+      "a": "Date months are zero-indexed \u2014 a long-standing quirk you must simply know rather than derive."
+    },
+    {
+      "n": 156,
+      "c": "node-14",
+      "t": "Node 14 \u00b7 The standard library for real data",
+      "q": "What's the recommended practice for storing and displaying dates to avoid timezone bugs?",
+      "a": "Store UTC ISO strings, and convert to local time only at the display boundary \u2014 never store or compute in a fixed timezone assumption."
+    },
+    {
+      "n": 157,
+      "c": "node-14",
+      "t": "Node 14 \u00b7 The standard library for real data",
+      "q": "What does Intl.NumberFormat/Intl.DateTimeFormat give you over hand-rolled formatting?",
+      "a": "Correct locale-aware formatting of numbers, currency, dates, and relative times \u2014 most hand-rolled equivalents get edge cases wrong."
+    },
+    {
+      "n": 158,
+      "c": "node-14",
+      "t": "Node 14 \u00b7 The standard library for real data",
+      "q": "Why does a regex with the /g/ flag give alternating results across repeated .test() calls on the same string?",
+      "a": "A global regex carries mutable lastIndex state between calls, so each .test() resumes searching from where the last match ended."
+    },
+    {
+      "n": 159,
+      "c": "node-14",
+      "t": "Node 14 \u00b7 The standard library for real data",
+      "q": "What's the difference between parseInt(\"12px\") and Number(\"12px\")?",
+      "a": "parseInt parses leading numeric characters and stops at the first invalid one, returning 12; Number requires the entire string to be numeric and returns NaN."
+    },
+    {
+      "n": 160,
+      "c": "node-14",
+      "t": "Node 14 \u00b7 The standard library for real data",
+      "q": "Why should you never store monetary values as JavaScript floating point numbers?",
+      "a": "Floating point can't represent many decimal fractions exactly (Node 1), so repeated arithmetic on money accumulates rounding errors \u2014 store integer minor units or use a decimal library."
+    },
+    {
+      "n": 161,
+      "c": "node-15",
+      "t": "Node 15 \u00b7 Memory and garbage collection",
+      "q": "What determines whether the garbage collector can reclaim a value?",
+      "a": "Reachability \u2014 whether it's traceable from a set of roots like the global object and the current call stack \u2014 not reference counting."
+    },
+    {
+      "n": 162,
+      "c": "node-15",
+      "t": "Node 15 \u00b7 Memory and garbage collection",
+      "q": "Why can two objects that only reference each other still be garbage collected?",
+      "a": "Because reachability, not internal reference counts, is the rule \u2014 if neither is reachable from any root, the pair is collectable even though they reference each other."
+    },
+    {
+      "n": 163,
+      "c": "node-15",
+      "t": "Node 15 \u00b7 Memory and garbage collection",
+      "q": "Define a 'memory leak' in a garbage-collected language like JavaScript.",
+      "a": "Something staying reachable that you believed was finished with \u2014 memory isn't 'lost', it's kept alive unintentionally."
+    },
+    {
+      "n": 164,
+      "c": "node-15",
+      "t": "Node 15 \u00b7 Memory and garbage collection",
+      "q": "Give two common causes of memory leaks in long-running JavaScript applications.",
+      "a": "An event listener registered and never removed (keeping its closure alive), and a module-level cache (Map/array) that only ever grows and is never pruned."
+    },
+    {
+      "n": 165,
+      "c": "node-15",
+      "t": "Node 15 \u00b7 Memory and garbage collection",
+      "q": "Why is a detached DOM node still referenced by a JS variable a leak?",
+      "a": "Even though the node was removed from the visible document, the JavaScript reference keeps the whole subtree reachable and un-collectable."
+    },
+    {
+      "n": 166,
+      "c": "node-15",
+      "t": "Node 15 \u00b7 Memory and garbage collection",
+      "q": "When would you deliberately reach for WeakMap instead of Map?",
+      "a": "When attaching metadata to objects you don't own the lifetime of \u2014 WeakMap's keys are held weakly, so entries vanish once the key object becomes otherwise unreachable, avoiding a leak."
+    },
+    {
+      "n": 167,
+      "c": "node-15",
+      "t": "Node 15 \u00b7 Memory and garbage collection",
+      "q": "What error do you get from unbounded recursion, and why doesn't JS reliably avoid it via tail-call optimization?",
+      "a": "RangeError: Maximum call stack size exceeded \u2014 despite being in the spec, most JS engines don't reliably implement tail-call optimization."
+    },
+    {
+      "n": 168,
+      "c": "node-16",
+      "t": "Node 16 \u00b7 Metaprogramming",
+      "q": "What's a property descriptor, and name two of its attributes.",
+      "a": "The metadata behind every property beyond just its value \u2014 attributes include writable, enumerable, and configurable (or a get/set pair instead of value)."
+    },
+    {
+      "n": 169,
+      "c": "node-16",
+      "t": "Node 16 \u00b7 Metaprogramming",
+      "q": "Why don't some built-in properties show up in Object.keys() or for...in?",
+      "a": "They're defined with enumerable: false, which excludes them from enumeration while leaving them directly accessible."
+    },
+    {
+      "n": 170,
+      "c": "node-16",
+      "t": "Node 16 \u00b7 Metaprogramming",
+      "q": "What do getters and setters let an object do?",
+      "a": "Make a property look like plain data on access (obj.fullName, no parentheses) while actually running computed logic or validation behind the scenes."
+    },
+    {
+      "n": 171,
+      "c": "node-16",
+      "t": "Node 16 \u00b7 Metaprogramming",
+      "q": "What does implementing Symbol.iterator on a custom object achieve?",
+      "a": "Makes it work with for...of, spread, and destructuring \u2014 plugging it into the standard iteration protocol."
+    },
+    {
+      "n": 172,
+      "c": "node-16",
+      "t": "Node 16 \u00b7 Metaprogramming",
+      "q": "What does a Proxy let you do that you can't do with a plain object?",
+      "a": "Intercept fundamental operations \u2014 property get, set, delete, has \u2014 running your own code on every access; this is how reactive frameworks and ORMs implement their 'magic'."
+    },
+    {
+      "n": 173,
+      "c": "node-17",
+      "t": "Node 17 \u00b7 The language as a moving target",
+      "q": "What is TC39 and what do 'stage 0 to 4' mean?",
+      "a": "The committee that governs ECMAScript proposals; stages track a proposal's maturity from initial idea (0) to shipping in the standard (4)."
+    },
+    {
+      "n": 174,
+      "c": "node-17",
+      "t": "Node 17 \u00b7 The language as a moving target",
+      "q": "What did the ES2015 (ES6) release introduce, as a single batch?",
+      "a": "let/const, arrow functions, classes, promises, modules, destructuring, template literals, Map/Set, symbols, and generators \u2014 by far the largest single release."
+    },
+    {
+      "n": 175,
+      "c": "node-17",
+      "t": "Node 17 \u00b7 The language as a moving target",
+      "q": "What does 'use strict' change about plain function calls and undeclared assignment?",
+      "a": "Assigning to an undeclared variable throws instead of silently creating a global, and this is undefined (not the global object) in plain function calls."
+    },
+    {
+      "n": 176,
+      "c": "node-17",
+      "t": "Node 17 \u00b7 The language as a moving target",
+      "q": "Are modules and class bodies strict mode automatically?",
+      "a": "Yes \u2014 you get strict mode's protections without an explicit 'use strict' directive."
+    },
+    {
+      "n": 177,
+      "c": "node-17",
+      "t": "Node 17 \u00b7 The language as a moving target",
+      "q": "What's the difference between what a transpiler does and what a polyfill does?",
+      "a": "A transpiler rewrites modern syntax into older syntax an old engine can parse; a polyfill supplies a missing built-in function that an old engine's library lacks."
+    },
+    {
+      "n": 178,
+      "c": "node-17",
+      "t": "Node 17 \u00b7 The language as a moving target",
+      "q": "Are setTimeout and fetch part of the ECMAScript language specification?",
+      "a": "No \u2014 they're runtime APIs supplied by the environment (browser or Node), not part of the JavaScript language itself."
+    },
+    {
+      "n": 179,
+      "c": "node-17",
+      "t": "Node 17 \u00b7 The language as a moving target",
+      "q": "Name the JavaScript engines behind Chrome/Node, Firefox, and Safari/Bun.",
+      "a": "V8 (Chrome, Node, Deno, Edge), SpiderMonkey (Firefox), and JavaScriptCore (Safari, Bun)."
+    },
+    {
+      "n": 180,
+      "c": "node-17",
+      "t": "Node 17 \u00b7 The language as a moving target",
+      "q": "How do you achieve true parallel execution in JavaScript, given the single-thread model?",
+      "a": "Web Workers in the browser, or worker_threads in Node \u2014 separate threads with separate memory, communicating by passing messages."
+    },
+    {
+      "n": 181,
+      "c": "node-18",
+      "t": "Node 18 \u00b7 What JavaScript cannot tell you",
+      "q": "Why is a typo like user.emial not caught until runtime?",
+      "a": "JavaScript performs no static checking of property names or types \u2014 the typo is legal syntax that silently evaluates to undefined until something later tries to use it."
+    },
+    {
+      "n": 182,
+      "c": "node-18",
+      "t": "Node 18 \u00b7 What JavaScript cannot tell you",
+      "q": "What's the fundamental limitation of runtime validation libraries like Zod, versus a type system?",
+      "a": "They only catch problems at the moment data actually arrives and is checked \u2014 they don't help during authoring/refactoring the way static types would, but they do catch what types alone can't: data that's actually untrusted at runtime."
+    },
+    {
+      "n": 183,
+      "c": "node-18",
+      "t": "Node 18 \u00b7 What JavaScript cannot tell you",
+      "q": "Is TypeScript a different language from JavaScript?",
+      "a": "No \u2014 it's JavaScript plus a compile-time type checker; it erases entirely to plain JavaScript at build time, and every JS runtime concept underneath (closures, this, the event loop) remains exactly as true."
+    },
+    {
+      "n": 184,
+      "c": "node-18",
+      "t": "Node 18 \u00b7 What JavaScript cannot tell you",
+      "q": "Why is understanding this full JavaScript chain a prerequisite for TypeScript, not optional?",
+      "a": "Because TypeScript adds a type layer on top of the same runtime \u2014 someone who learns TS syntax without the underlying JS semantics ends up writing type annotations over a runtime they can't actually explain."
+    }
+  ]
+}

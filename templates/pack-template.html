@@ -89,7 +89,8 @@ function renderCards(container, cards) {
   cards.forEach(c => {
     const card = document.createElement("div");
     card.className = "rc-card";
-    card.innerHTML = `<div class="topic-tag">${c.t || ""}</div><div class="q">${c.q}</div><div class="a">${c.a}</div>`;
+    const num = c.n ? `Q${c.n}. ` : "";
+    card.innerHTML = `<div class="topic-tag">${c.t || ""}</div><div class="q">${num}${c.q}</div><div class="a">${c.a}</div>`;
     card.addEventListener("click", () => card.classList.toggle("revealed"));
     container.appendChild(card);
   });

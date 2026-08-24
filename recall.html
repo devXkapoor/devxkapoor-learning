@@ -59,9 +59,10 @@ DK.wireThemeToggle(document.getElementById("themeToggle"));
     filtered.forEach(c => {
       const card = document.createElement("div");
       card.className = "rc-card";
+      const num = c.n ? `Q${c.n}. ` : "";
       card.innerHTML = `
         <div class="topic-tag">${c.topic.replace(/-/g," ")}${c.t ? " · " + c.t : ""}</div>
-        <div class="q">${c.q}</div>
+        <div class="q">${num}${c.q}</div>
         <div class="a">${c.a}</div>
       `;
       card.addEventListener("click", () => card.classList.toggle("revealed"));

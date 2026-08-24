@@ -1,360 +1,420 @@
 {
   "cards": [
     {
+      "n": 1,
       "c": "near_universal",
       "t": "Near-universal",
       "q": "What's the difference between git merge and git rebase, and when would you use each?",
       "a": "Merge combines two branches by creating a two-parent commit, preserving what actually happened but producing a less linear history. Rebase replays your commits onto a new base, producing clean linear history at the cost of new commit identifiers. Use merge for shared/public integration points; use rebase to clean up your own branch before it's shared."
     },
     {
+      "n": 2,
       "c": "near_universal",
       "t": "Near-universal",
       "q": "What does git reset --soft, --mixed, and --hard each do?",
       "a": "--soft moves only HEAD, leaving changes staged. --mixed (default) moves HEAD and unstages changes, leaving them on disk. --hard moves HEAD and discards all uncommitted changes, resetting the working tree too."
     },
     {
+      "n": 3,
       "c": "near_universal",
       "t": "Near-universal",
       "q": "You accidentally committed to the wrong branch. How do you fix it?",
       "a": "Note the commit hash, switch to the correct branch, cherry-pick the commit onto it, then go back to the wrong branch and reset --hard to before that commit (or git reset HEAD~1 if it hasn't been pushed)."
     },
     {
+      "n": 4,
       "c": "near_universal",
       "t": "Near-universal",
       "q": "What's the difference between git fetch and git pull?",
       "a": "fetch downloads objects and updates remote-tracking branches only \u2014 nothing local changes. pull is fetch plus an automatic integration step (merge by default), which is why it can silently create merge commits."
     },
     {
+      "n": 5,
       "c": "near_universal",
       "t": "Near-universal",
       "q": "Walk me through resolving a merge conflict.",
       "a": "Run the merge, let Git mark conflicted files with <<<<<<</=======/>>>>>>>, open each file, decide what the correct combined content should be, remove the markers, git add the resolved file, then git commit (or --continue if mid-rebase) to finish."
     },
     {
+      "n": 6,
       "c": "near_universal",
       "t": "Near-universal",
       "q": "What is the staging area, and why does it exist?",
       "a": "A layer between your working files and a commit, letting you choose exactly what goes into the next snapshot rather than being forced to commit everything that's changed. It's what makes atomic, deliberate commits possible."
     },
     {
+      "n": 7,
       "c": "near_universal",
       "t": "Near-universal",
       "q": "You pushed a commit containing an API key. What do you do?",
       "a": "Rotate the credential immediately \u2014 it's compromised the moment it's pushed, regardless of cleanup. Then use git filter-repo to purge the blob from history, force-push, and notify collaborators to re-clone. Acknowledge that existing forks/clones may still have it."
     },
     {
+      "n": 8,
       "c": "near_universal",
       "t": "Near-universal",
       "q": "What branching strategy have you used, and why?",
       "a": "Trunk-based with short-lived feature branches \u2014 branch off main, PR, review, merge, delete. Keeps merge bases close, minimizes conflict risk, matches continuous delivery."
     },
     {
+      "n": 9,
       "c": "near_universal",
       "t": "Near-universal",
       "q": "How do you undo a commit that's already been pushed and others may have pulled?",
       "a": "git revert \u2014 it creates a new commit that inverts the old one, adding to history rather than rewriting it, so nobody else's history is invalidated."
     },
     {
+      "n": 10,
       "c": "near_universal",
       "t": "Near-universal",
       "q": "What does a commit actually contain?",
       "a": "A pointer to one tree (the project's full state at that point), a pointer to its parent commit(s), author and committer info with timestamps, and a message. Not a diff \u2014 a snapshot reference."
     },
     {
+      "n": 11,
       "c": "frequent",
       "t": "Frequent",
       "q": "What is a detached HEAD state, and how do you get out of it?",
       "a": "HEAD points directly at a commit rather than at a branch. To 'get out,' either create a new branch there (git switch -c newbranch) to keep any work, or switch back to an existing branch (losing unreferenced commits unless you branched first)."
     },
     {
+      "n": 12,
       "c": "frequent",
       "t": "Frequent",
       "q": "What's the difference between git revert and git reset?",
       "a": "revert adds a new commit that undoes an old one \u2014 safe for shared history. reset moves your branch pointer, potentially discarding commits from your local branch \u2014 safe only for unshared, local history."
     },
     {
+      "n": 13,
       "c": "frequent",
       "t": "Frequent",
       "q": "How would you find which commit introduced a bug?",
       "a": "git bisect \u2014 mark a known-good and known-bad commit, and Git binary-searches the range, checking out midpoints for you to test (or bisect run with a test script for full automation) until it isolates the exact commit."
     },
     {
+      "n": 14,
       "c": "frequent",
       "t": "Frequent",
       "q": "What's the difference between a squash merge and a regular merge commit?",
       "a": "A regular merge commit has two parents and preserves the branch's individual commits. A squash merge collapses all those commits into one new commit with no merge link \u2014 the branch's individual history is not part of main's ancestry afterward."
     },
     {
+      "n": 15,
       "c": "frequent",
       "t": "Frequent",
       "q": "When is force-pushing acceptable, and what does --force-with-lease do?",
       "a": "Acceptable on your own unshared branch after amending or rebasing. --force-with-lease refuses the push if the remote has moved since your last fetch, protecting against overwriting someone else's work \u2014 the actual danger force-push poses."
     },
     {
+      "n": 16,
       "c": "frequent",
       "t": "Frequent",
       "q": "How do you tell what commits are on your branch that aren't on main yet?",
       "a": "git log main..yourbranch \u2014 commits reachable from your branch but not from main."
     },
     {
+      "n": 17,
       "c": "frequent",
       "t": "Frequent",
       "q": "What's actually inside the .git directory?",
       "a": "The object store (objects/), refs (refs/heads, refs/tags, refs/remotes), HEAD, the index file, config, hooks, and logs including the reflog. Everything Git needs is here \u2014 there's no external database."
     },
     {
+      "n": 18,
       "c": "frequent",
       "t": "Frequent",
       "q": "Explain git stash and when you'd use it.",
       "a": "Shelves your uncommitted working-tree and index changes onto a hidden stack (implemented as real commits under a special ref) so you can switch context \u2014 e.g., to fix an urgent bug on another branch \u2014 and restore your work later with stash pop."
     },
     {
+      "n": 19,
       "c": "occasional",
       "t": "Occasional",
       "q": "How does Git store data internally?",
       "a": "A content-addressed object store: blobs for file contents, trees for directory listings, commits pointing at a tree plus parent(s). Every object is named by the hash of its own content, forming a Merkle DAG where tampering anywhere changes every downstream hash."
     },
     {
+      "n": 20,
       "c": "occasional",
       "t": "Occasional",
       "q": "Why are Git branches cheap to create, compared to something like old-school SVN branches?",
       "a": "A branch is just a small file containing a commit hash \u2014 creating one is a single file write, not a copy of any content. SVN branches were server-side directory copies."
     },
     {
+      "n": 21,
       "c": "occasional",
       "t": "Occasional",
       "q": "What's a merge base, and why does the merge algorithm need one?",
       "a": "The most recent common ancestor of the two branches being merged. Without it, Git has no baseline to compare each side against, so it can't distinguish 'this side changed this region' from 'this region was always different.'"
     },
     {
+      "n": 22,
       "c": "occasional",
       "t": "Occasional",
       "q": "How would you remove a large file that was accidentally committed years ago, from the entire history?",
       "a": "git filter-repo to rewrite every commit that references it, removing the blob from all trees; then force-push and have collaborators re-clone (rewriting history invalidates their copies too)."
     },
     {
+      "n": 23,
       "c": "occasional",
       "t": "Occasional",
       "q": "What's the difference between a lightweight and an annotated tag?",
       "a": "A lightweight tag is just a ref pointing straight at a commit. An annotated tag is a full object with its own hash, carrying a tagger, date, message, and optional signature \u2014 the version used for real releases."
     },
     {
+      "n": 24,
       "c": "occasional",
       "t": "Occasional",
       "q": "How does git status stay fast on a huge repository?",
       "a": "The index caches each tracked file's size and mtime; git status only re-hashes a file if its cached stat data doesn't match the file on disk, avoiding a full re-hash of everything on every call."
     },
     {
+      "n": 25,
       "c": "recovery",
       "t": "Recovery scenario",
       "q": "You ran git reset --hard and lost uncommitted work. Is it recoverable?",
       "a": "No \u2014 --hard overwrites the working tree, and uncommitted changes were never in the object store to begin with. Only committed work can be recovered via reflog; uncommitted work that gets hard-reset away is genuinely gone."
     },
     {
+      "n": 26,
       "c": "recovery",
       "t": "Recovery scenario",
       "q": "You ran git reset --hard HEAD~3 and lost three commits. Now what?",
       "a": "Run git reflog, find the entry from before the reset (showing the old HEAD value), and git reset --hard <that-hash> to restore it. The commits were only unreferenced, not deleted."
     },
     {
+      "n": 27,
       "c": "recovery",
       "t": "Recovery scenario",
       "q": "You deleted a branch with -D before merging it. Can you get it back?",
       "a": "Yes, as long as it hasn't been garbage-collected. git reflog will show the branch's last commit hash (or check git reflog show <branchname> if still cached), and you can recreate the branch pointing at it."
     },
     {
+      "n": 28,
       "c": "recovery",
       "t": "Recovery scenario",
       "q": "A rebase went badly wrong halfway through. How do you bail out cleanly?",
       "a": "git rebase --abort returns you to the exact state before the rebase started. If you already finished a bad rebase, git reset --hard ORIG_HEAD (or the pre-rebase reflog entry) restores the branch to its prior tip."
     },
     {
+      "n": 29,
       "c": "recovery",
       "t": "Recovery scenario",
       "q": "Someone force-pushed over your work on a shared branch. What happened, and how do you recover your commits?",
       "a": "Their force-push moved the branch pointer without your commits as ancestors, making them unreferenced on the remote. If you still have them locally (check your own reflog or local branch), you can re-push them \u2014 ideally after coordinating, since this is exactly the scenario --force-with-lease exists to prevent."
     },
     {
+      "n": 30,
       "c": "recovery",
       "t": "Recovery scenario",
       "q": "How would you recover work if even the reflog doesn't show it (e.g., it expired)?",
       "a": "git fsck --lost-found can find dangling objects \u2014 commits and blobs that exist in the object store but aren't reachable from any ref or reflog entry \u2014 as a last resort before garbage collection actually removes them."
     },
     {
+      "n": 31,
       "c": "tradeoff",
       "t": "Trade-off",
       "q": "Why might a team choose rebase-merge over a regular merge commit for pull requests?",
       "a": "To keep main's history linear and free of merge-commit clutter, at the cost of losing the visual record of when a feature branch existed and rewriting commit identifiers."
     },
     {
+      "n": 32,
       "c": "tradeoff",
       "t": "Trade-off",
       "q": "Why might a team explicitly avoid squash merges?",
       "a": "Squashing collapses potentially meaningful incremental commits (and their messages) into one, losing granularity for git blame and bisect \u2014 every change in the PR gets attributed to one squashed commit regardless of how many logical steps it actually took."
     },
     {
+      "n": 33,
       "c": "tradeoff",
       "t": "Trade-off",
       "q": "What's the practical difference between git merge feature and git cherry-pick of the same commits?",
       "a": "Merge brings over the branch's full ancestry and creates a merge commit recording that relationship. Cherry-pick brings over only the changes as new, unrelated commits \u2014 no ancestry link to the original branch is preserved."
     },
     {
+      "n": 34,
       "c": "tradeoff",
       "t": "Trade-off",
       "q": "Why is git commit -a risky in a team setting, beyond just personal habit?",
       "a": "It silently includes every tracked modification in the commit, which can pull in unrelated or half-finished changes you forgot were sitting in your working tree \u2014 producing commits that are hard to review and hard to revert cleanly."
     },
     {
+      "n": 35,
       "c": "tradeoff",
       "t": "Trade-off",
       "q": "When would you deliberately choose a merge commit over a fast-forward, using --no-ff?",
       "a": "When you want the historical record to explicitly show that a feature was developed on its own branch \u2014 useful for release tracking or when you want git log --graph to visually group a feature's commits."
     },
     {
+      "n": 36,
       "c": "self_explanation",
       "t": "Explain your work",
       "q": "Your commit history looks like a series of wip, fix, fix again commits. How do you explain or fix that before a review?",
       "a": "Explain: that's typical of iterative local development. Fix: use interactive rebase (git rebase -i) to squash/fixup the noise into logically atomic commits with clear messages before opening the PR, so the history reviewers see tells an honest, readable story."
     },
     {
+      "n": 37,
       "c": "self_explanation",
       "t": "Explain your work",
       "q": "How would you demonstrate that you understand what a rebase actually did to your history?",
       "a": "Show the old and new commit hashes before and after, and use git cat-file -p (or git show) to point out that the old commits still exist in the object store with the same tree content but different parent pointers \u2014 proving rebase creates new objects rather than editing old ones."
     },
     {
+      "n": 38,
       "c": "self_explanation",
       "t": "Explain your work",
       "q": "If asked to walk through your Git workflow on a recent project, what should that answer cover?",
       "a": "Branching model (e.g., trunk-based, short-lived feature branches), commit discipline (atomic commits, message convention), how you handle review (PR, squash/rebase-merge choice), and how you'd handle a conflict or a mistake if one came up \u2014 showing process, not just command familiarity."
     },
     {
+      "n": 39,
       "c": "why",
       "t": "Why it exists",
       "q": "Why does Git use a three-way merge instead of just comparing the two final versions directly?",
       "a": "Comparing only the two final versions can't distinguish 'this side changed this region' from 'this region has always differed' \u2014 you need the common ancestor as a baseline to know what each side actually changed since diverging."
     },
     {
+      "n": 40,
       "c": "why",
       "t": "Why it exists",
       "q": "Why does Git keep a local reflog instead of relying on remote history for recovery?",
       "a": "The reflog records every local pointer movement \u2014 including local-only operations like reset, rebase, and dangling commits \u2014 that a remote never sees. It's the safety net for exactly the local, private mistakes a remote can't help with."
     },
     {
+      "n": 41,
       "c": "why",
       "t": "Why it exists",
       "q": "Why is --force-with-lease considered 'safe' force-pushing when force-pushing has such a bad reputation?",
       "a": "Because the actual danger of force-push is overwriting someone else's work you don't know about. --force-with-lease checks that the remote hasn't moved since your last fetch before allowing the push \u2014 it targets that specific risk rather than blocking force-push outright."
     },
     {
+      "n": 42,
       "c": "why",
       "t": "Why it exists",
       "q": "Why does Git refuse a non-fast-forward push by default?",
       "a": "Because accepting it would make commits the remote currently has unreachable from its branch pointer \u2014 effectively discarding history without anyone's explicit consent. The refusal forces you to either integrate (pull/merge/rebase) or explicitly acknowledge you want to overwrite (force-push)."
     },
     {
+      "n": 43,
       "c": "plumbing",
       "t": "Plumbing / internals",
       "q": "What's the difference between Git's porcelain and plumbing commands?",
       "a": "Porcelain (commit, merge, log) is the human-facing UI built for daily use. Plumbing (hash-object, cat-file, commit-tree, write-tree) are the low-level scriptable primitives porcelain is built from \u2014 stable, composable, and what tooling scripts against."
     },
     {
+      "n": 44,
       "c": "plumbing",
       "t": "Plumbing / internals",
       "q": "What does git cat-file -p <hash> do, and why is it useful?",
       "a": "Pretty-prints the content of any object regardless of type \u2014 blob, tree, commit, or tag. It's the fastest way to inspect exactly what Git actually stored, which is invaluable for debugging or teaching the object model."
     },
     {
+      "n": 45,
       "c": "plumbing",
       "t": "Plumbing / internals",
       "q": "How would you manually construct a commit without using git commit?",
       "a": "git write-tree to snapshot the current index into a tree object, then git commit-tree <tree-hash> -p <parent-hash> -m message to build the commit object directly, then git update-ref refs/heads/<branch> <new-commit-hash> to move a branch to point at it."
     },
     {
+      "n": 46,
       "c": "plumbing",
       "t": "Plumbing / internals",
       "q": "What's the actual byte-level difference between how a blob's hash and its filename relate?",
       "a": "They're unrelated \u2014 a blob's hash is derived purely from its content (with a blob <size>\\0 header prepended before hashing). The filename is never part of the blob; it only exists in the tree entry that references the blob."
     },
     {
+      "n": 47,
       "c": "plumbing",
       "t": "Plumbing / internals",
       "q": "Why do two files with identical content but different names produce the same blob object?",
       "a": "Because the blob only stores content, and hashing is content-based \u2014 the filename lives in the tree, not the blob, so identical content always hashes to the same object regardless of what it's named."
     },
     {
+      "n": 48,
       "c": "plumbing",
       "t": "Plumbing / internals",
       "q": "What is a packfile, in enough detail to explain to another engineer?",
       "a": "A single file holding many objects, where similar objects are stored as deltas (byte-level differences) against a chosen base object instead of storing each in full, achieving much better compression than loose zlib-deflated objects alone."
     },
     {
+      "n": 49,
       "c": "plumbing",
       "t": "Plumbing / internals",
       "q": "What are OFS_DELTA and REF_DELTA in a packfile?",
       "a": "Two ways a delta-encoded object can reference its base: OFS_DELTA points to the base by its byte offset earlier in the same packfile; REF_DELTA references it by the base object's hash, which can point outside the current pack."
     },
     {
+      "n": 50,
       "c": "plumbing",
       "t": "Plumbing / internals",
       "q": "At a high level, what happens during git clone over HTTPS?",
       "a": "The client requests the remote's ref advertisement (what branches/tags exist and their hashes), then negotiates what it needs by sending 'want' lines, and the server responds with a packfile containing all objects reachable from those wants that the client doesn't already have."
     },
     {
+      "n": 51,
       "c": "plumbing",
       "t": "Plumbing / internals",
       "q": "What's a shallow clone doing differently at the protocol level?",
       "a": "The client requests only commits down to a specified depth rather than full ancestry, so the server sends a packfile containing just that truncated history \u2014 dramatically reducing transfer size for CI use cases that don't need full history."
     },
     {
+      "n": 52,
       "c": "config",
       "t": "Config & workflow",
       "q": "What are Git's config precedence levels, from lowest to highest?",
       "a": "System, global, local (repo-specific), worktree, then command-line \u2014 each level overrides the ones before it."
     },
     {
+      "n": 53,
       "c": "config",
       "t": "Config & workflow",
       "q": "How would you make Git automatically use a different identity for work repos versus personal repos?",
       "a": "A conditional include in global config \u2014 includeIf gitdir:~/work/ pointing at a separate config file with the work user.name/user.email \u2014 so identity switches automatically based on the repository's location on disk."
     },
     {
+      "n": 54,
       "c": "config",
       "t": "Config & workflow",
       "q": "What does git config --list --show-origin help you debug?",
       "a": "It shows not just each config value but which file it came from \u2014 useful when a setting is behaving unexpectedly and you're not sure whether it's coming from global, local, or a conditional include."
     },
     {
+      "n": 55,
       "c": "config",
       "t": "Config & workflow",
       "q": "What is git rerere, and when does it actually pay off?",
       "a": "'Reuse recorded resolution' \u2014 Git remembers how you resolved a specific conflict and automatically reapplies that resolution if the identical conflict recurs. Pays off most on long-lived branches where the same conflict resurfaces across repeated rebases."
     },
     {
+      "n": 56,
       "c": "edge_case",
       "t": "Edge case",
       "q": "You have two branches that have already merged each other once, and now need to merge again. What's tricky about this?",
       "a": "This is a criss-cross merge \u2014 there are now two equally valid merge bases instead of one, and a naive single-base three-way merge algorithm can produce a worse result than necessary. Git's default ort strategy handles this case specifically, unlike simpler historical strategies."
     },
     {
+      "n": 57,
       "c": "edge_case",
       "t": "Edge case",
       "q": "Why might a merge report a conflict on a file that one side didn't even touch?",
       "a": "If one side renamed or moved the file and the other side edited its original path, Git's rename detection can produce a rename/edit conflict \u2014 the merge doesn't cleanly know whether to apply the edit to the new location."
     },
     {
+      "n": 58,
       "c": "edge_case",
       "t": "Edge case",
       "q": "What's the danger of git add . in a repository with a loose .gitignore?",
       "a": "It can stage files that shouldn't be tracked at all \u2014 build artifacts, local env files \u2014 if they aren't properly excluded, leading to accidental commits of things like secrets or generated output."
     },
     {
+      "n": 59,
       "c": "edge_case",
       "t": "Edge case",
       "q": "Why does git log --follow <file> sometimes behave unexpectedly across a rename?",
       "a": "--follow uses similarity-based rename detection, which is heuristic \u2014 if a file was renamed and heavily modified in the same commit, Git may not confidently detect it as the same file, breaking the history trail."
     },
     {
+      "n": 60,
       "c": "edge_case",
       "t": "Edge case",
       "q": "What's the difference between assume-unchanged and skip-worktree, and why are both considered fragile?",

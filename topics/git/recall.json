@@ -1,870 +1,1015 @@
 {
   "cards": [
     {
+      "n": 1,
       "c": "node-0",
       "t": "Node 0 \u00b7 The problem before Git",
       "q": "What are the three core problems Git exists to solve?",
       "a": "Losing working versions, being unable to work on two things at once, and being unable to mechanically combine two people's edits."
     },
     {
+      "n": 2,
       "c": "node-0",
       "t": "Node 0 \u00b7 The problem before Git",
       "q": "Why does manual folder-copying (project-v2-final) fail as a version control strategy?",
       "a": "It gives you no record of what changed between copies, no explanation of why, no ordering guarantee, and duplicates the entire folder's storage every time."
     },
     {
+      "n": 3,
       "c": "node-0",
       "t": "Node 0 \u00b7 The problem before Git",
       "q": "Why can't two people just each edit their own copy of a project folder?",
       "a": "There's no mechanical way to combine the two folders afterward \u2014 someone has to manually compare every file and decide, line by line, which edits to keep."
     },
     {
+      "n": 4,
       "c": "node-1",
       "t": "Node 1 \u00b7 Content-addressed snapshots",
       "q": "What does Git actually store when you make a commit \u2014 the changes, or something else?",
       "a": "A complete snapshot of every file's state at that instant, not a diff."
     },
     {
+      "n": 5,
       "c": "node-1",
       "t": "Node 1 \u00b7 Content-addressed snapshots",
       "q": "If Git stores full snapshots every time, why doesn't a repository's size explode?",
       "a": "Files are named by a hash of their content. If a file's contents are unchanged since the last snapshot, hashing it produces the same name, and it's already in storage \u2014 nothing new gets written."
     },
     {
+      "n": 6,
       "c": "node-1",
       "t": "Node 1 \u00b7 Content-addressed snapshots",
       "q": "What is a blob?",
       "a": "The raw contents of one file \u2014 nothing else. No filename, no path, no permissions."
     },
     {
+      "n": 7,
       "c": "node-1",
       "t": "Node 1 \u00b7 Content-addressed snapshots",
       "q": "If a blob has no filename, where does the filename live?",
       "a": "In a tree \u2014 the object type that lists directory entries (name, mode, and the hash of the blob or tree it refers to)."
     },
     {
+      "n": 8,
       "c": "node-1",
       "t": "Node 1 \u00b7 Content-addressed snapshots",
       "q": "What is a tree, precisely?",
       "a": "A directory listing: a sorted set of entries, each mapping a name to a blob (file) or another tree (subdirectory)."
     },
     {
+      "n": 9,
       "c": "node-1",
       "t": "Node 1 \u00b7 Content-addressed snapshots",
       "q": "What is a commit object, and what does it point to?",
       "a": "A record of one snapshot: it points to exactly one tree (the project's root directory at that instant), plus author, committer, timestamp, and message."
     },
     {
+      "n": 10,
       "c": "node-1",
       "t": "Node 1 \u00b7 Content-addressed snapshots",
       "q": "Why does renaming a file not create a new blob?",
       "a": "The file's contents didn't change, only its name \u2014 and the name lives in the tree, not the blob. Renaming creates a new tree entry that still points at the same blob."
     },
     {
+      "n": 11,
       "c": "node-1",
       "t": "Node 1 \u00b7 Content-addressed snapshots",
       "q": "Why can Git not represent an empty directory?",
       "a": "A tree only contains entries; there's nothing to list for an empty directory, so no tree object can represent it. This is why .gitkeep exists as a convention."
     },
     {
+      "n": 12,
       "c": "node-1",
       "t": "Node 1 \u00b7 Content-addressed snapshots",
       "q": "What two properties does content-addressing (naming objects by hash) give you for free?",
       "a": "Deduplication \u2014 identical content is only ever stored once \u2014 and integrity \u2014 if content is altered, its hash no longer matches its name, so tampering is detectable."
     },
     {
+      "n": 13,
       "c": "node-1",
       "t": "Node 1 \u00b7 Content-addressed snapshots",
       "q": "What command initializes the object store?",
       "a": "git init."
     },
     {
+      "n": 14,
       "c": "node-2",
       "t": "Node 2 \u00b7 Linking snapshots into history",
       "q": "What single field turns a pile of unordered snapshots into a history?",
       "a": "The parent field on a commit \u2014 each commit records the identifier of the commit before it."
     },
     {
+      "n": 15,
       "c": "node-2",
       "t": "Node 2 \u00b7 Linking snapshots into history",
       "q": "What is a root commit?",
       "a": "A commit with no parent \u2014 the first commit in a repository's history."
     },
     {
+      "n": 16,
       "c": "node-2",
       "t": "Node 2 \u00b7 Linking snapshots into history",
       "q": "Why is Git's history described as 'tamper-evident'? What's the actual mechanism?",
       "a": "A commit's identifier is a hash of its content, which includes its parent's identifier. Change anything anywhere in the history and every identifier after that point changes, because each one transitively depends on everything before it."
     },
     {
+      "n": 17,
       "c": "node-2",
       "t": "Node 2 \u00b7 Linking snapshots into history",
       "q": "What does git log actually do, mechanically?",
       "a": "Starts at the current commit and walks parent pointers backward, printing each commit it visits."
     },
     {
+      "n": 18,
       "c": "node-2",
       "t": "Node 2 \u00b7 Linking snapshots into history",
       "q": "What's the difference between what git log shows you and what git show <commit> shows you?",
       "a": "git log walks and lists a range of commits; git show inspects the full content of one specific object."
     },
     {
+      "n": 19,
       "c": "node-3",
       "t": "Node 3 \u00b7 The index and the three trees",
       "q": "Why can't a commit simply record 'everything currently in the folder'?",
       "a": "A working folder is never all one thing \u2014 it's a mix of finished work, half-finished work, and junk. All-or-nothing snapshotting can't separate them."
     },
     {
+      "n": 20,
       "c": "node-3",
       "t": "Node 3 \u00b7 The index and the three trees",
       "q": "What is the index (staging area), physically?",
       "a": "A real file, .git/index, listing paths and the identifier of the blob that will be recorded for each at the next commit."
     },
     {
+      "n": 21,
       "c": "node-3",
       "t": "Node 3 \u00b7 The index and the three trees",
       "q": "Name the three states of a Git project and what each represents.",
       "a": "Working tree (files on disk), index (what the next commit will contain), HEAD (what the last commit did contain)."
     },
     {
+      "n": 22,
       "c": "node-3",
       "t": "Node 3 \u00b7 The index and the three trees",
       "q": "What does git add actually do?",
       "a": "Hashes the file's current contents, writes it as a blob into the object store, and points the index at that blob for that path."
     },
     {
+      "n": 23,
       "c": "node-3",
       "t": "Node 3 \u00b7 The index and the three trees",
       "q": "What does git commit do, in terms of the index?",
       "a": "Converts the index into a tree (and subtrees), then writes a commit object pointing at the resulting root tree."
     },
     {
+      "n": 24,
       "c": "node-3",
       "t": "Node 3 \u00b7 The index and the three trees",
       "q": "git status reports staged changes, unstaged changes, and untracked files. What comparisons produce each?",
       "a": "Staged = index vs HEAD. Unstaged = working tree vs index. Untracked = files on disk the index has never recorded."
     },
     {
+      "n": 25,
       "c": "node-3",
       "t": "Node 3 \u00b7 The index and the three trees",
       "q": "What are the three forms of git diff, and what does each compare?",
       "a": "git diff = working tree vs index. git diff --staged = index vs HEAD. git diff HEAD = working tree vs HEAD."
     },
     {
+      "n": 26,
       "c": "node-3",
       "t": "Node 3 \u00b7 The index and the three trees",
       "q": "What does git add -p let you do that plain git add doesn't?",
       "a": "Stage individual hunks within a file rather than the whole file, making it possible to split one file's changes into separate logical commits."
     },
     {
+      "n": 27,
       "c": "node-3",
       "t": "Node 3 \u00b7 The index and the three trees",
       "q": "Why is git commit -a considered a bad habit?",
       "a": "It stages all tracked modifications automatically, bypassing deliberate use of the index and encouraging non-atomic, tangled commits."
     },
     {
+      "n": 28,
       "c": "node-3",
       "t": "Node 3 \u00b7 The index and the three trees",
       "q": "Why is git status fast even on a large project with thousands of files?",
       "a": "The index caches each file's size and modification time from when it was last hashed. Only files whose stat data changed get re-hashed."
     },
     {
+      "n": 29,
       "c": "node-3",
       "t": "Node 3 \u00b7 The index and the three trees",
       "q": "What does adding a pattern to .gitignore do to a file Git is already tracking?",
       "a": "Nothing. Ignore rules only apply to untracked files."
     },
     {
+      "n": 30,
       "c": "node-3",
       "t": "Node 3 \u00b7 The index and the three trees",
       "q": "If a tracked file needs to become ignored, what's the actual fix?",
       "a": "Remove it from tracking with git rm --cached, then let .gitignore take effect going forward."
     },
     {
+      "n": 31,
       "c": "node-3",
       "t": "Node 3 \u00b7 The index and the three trees",
       "q": "What's the difference between .gitignore, .git/info/exclude, and the global ignore file?",
       "a": "gitignore is shared and committed; .git/info/exclude is local to your clone and not shared; the global ignore file applies across all your repositories, typically for OS/editor junk."
     },
     {
+      "n": 32,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "What is a ref, physically?",
       "a": "A file, typically under .git/refs/, whose entire contents is a commit identifier."
     },
     {
+      "n": 33,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "What is a branch, precisely?",
       "a": "A ref \u2014 a movable pointer to a commit. refs/heads/main is a small text file containing a hash."
     },
     {
+      "n": 34,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "Why is creating a Git branch cheap, unlike an SVN-style branch?",
       "a": "It costs writing one small file containing a hash \u2014 no copying of files or history is involved."
     },
     {
+      "n": 35,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "What happens to a branch's ref file when you commit while on that branch?",
       "a": "Git writes the new commit, then overwrites the branch's ref file with the new commit's identifier \u2014 the branch pointer follows you forward."
     },
     {
+      "n": 36,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "What is HEAD, and what does it normally contain?",
       "a": "A file that tracks your current position; normally it contains a symbolic reference like ref: refs/heads/main \u2014 a pointer to a branch, which is itself a pointer to a commit."
     },
     {
+      "n": 37,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "Does a commit know what branch it's on?",
       "a": "No. Branch membership isn't stored anywhere \u2014 'commits on a branch' means commits reachable by walking parent pointers starting from that branch's pointer."
     },
     {
+      "n": 38,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "Why can one commit be reachable from multiple branches?",
       "a": "Because branch membership is reachability, not an attribute stored on the commit \u2014 any branch whose pointer can reach that commit through parent links 'contains' it."
     },
     {
+      "n": 39,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "What happens to a commit when its branch is deleted?",
       "a": "Nothing happens to the commit itself \u2014 only the pointer (the ref file) is deleted. The commit remains in the object store, unreferenced."
     },
     {
+      "n": 40,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "What is detached HEAD?",
       "a": "A state where HEAD points directly at a commit identifier instead of at a branch \u2014 a position with no branch attached."
     },
     {
+      "n": 41,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "Is detached HEAD an error state?",
       "a": "No \u2014 it's normal, and Git puts you there deliberately during operations like checking out a specific commit or during a bisect step."
     },
     {
+      "n": 42,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "Why are new commits made in detached HEAD at risk of being lost?",
       "a": "Nothing points at them \u2014 no branch follows along \u2014 so once you switch away, they become unreferenced and unreachable except via the reflog until it expires."
     },
     {
+      "n": 43,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "What's the difference between git switch and the older git checkout?",
       "a": "git checkout was overloaded to handle branch switching, file restoration, and detached HEAD all at once; git switch isolates just the branch-switching job."
     },
     {
+      "n": 44,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "What does HEAD~3 mean?",
       "a": "Walk back three commits along first-parent ancestry from HEAD."
     },
     {
+      "n": 45,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "What does HEAD^2 mean, and when does it apply?",
       "a": "The second parent of the current commit \u2014 only meaningful on a merge commit, which has more than one parent."
     },
     {
+      "n": 46,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "What does main@{1} mean?",
       "a": "Where the main ref pointed one move ago, according to the reflog."
     },
     {
+      "n": 47,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "What does the range main..feature mean?",
       "a": "Commits reachable from feature but not from main \u2014 i.e., 'what's on my branch that main doesn't have.'"
     },
     {
+      "n": 48,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "How does main...feature (three dots) differ from main..feature?",
       "a": "It's the symmetric difference \u2014 commits reachable from either branch but not both, rather than one-directional."
     },
     {
+      "n": 49,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "What's the difference between a lightweight tag and an annotated tag?",
       "a": "A lightweight tag is just a ref pointing directly at a commit. An annotated tag is a real object with its own hash, carrying a tagger, date, message, and optional signature."
     },
     {
+      "n": 50,
       "c": "node-4",
       "t": "Node 4 \u00b7 Refs, branches, and HEAD",
       "q": "Are tags pushed to a remote by default?",
       "a": "No \u2014 tags require an explicit git push --tags (or --follow-tags)."
     },
     {
+      "n": 51,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "Before Git can combine two branches, what does it need to compute first?",
       "a": "The merge base \u2014 the most recent commit reachable from both branches."
     },
     {
+      "n": 52,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "What is a fast-forward merge, and why does it create no new commit?",
       "a": "It happens when the merge base equals your current commit \u2014 meaning your branch hasn't moved since diverging. Git just slides your branch pointer forward to the other branch's tip; nothing needs combining."
     },
     {
+      "n": 53,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "What is a three-way merge?",
       "a": "A comparison of base-vs-ours and base-vs-theirs for each file: if only one side changed a region, take that side's version; if both changed it identically, take it once; if both changed it differently, it's a conflict."
     },
     {
+      "n": 54,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "What actually causes a merge conflict?",
       "a": "Both branches changed the same region of the same file differently since their common ancestor, so Git has no rule to decide which version to keep."
     },
     {
+      "n": 55,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "Does a conflict mean someone made a mistake?",
       "a": "No \u2014 it means two people edited overlapping lines since the merge base. It's a normal consequence of parallel work."
     },
     {
+      "n": 56,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "What do the <<<<<<<, =======, and >>>>>>> markers represent?",
       "a": "<<<<<<< through ======= is your version (ours); ======= through >>>>>>> is the incoming version (theirs)."
     },
     {
+      "n": 57,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "What does setting merge.conflictStyle to zdiff3 add to a conflict?",
       "a": "It also shows the common ancestor's version of the region (marked with |||||||), which often makes it obvious what each side actually changed."
     },
     {
+      "n": 58,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "What is a merge commit, structurally?",
       "a": "A commit with two parents, recording that two divergent lines of history were combined into one."
     },
     {
+      "n": 59,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "Why does real Git history usually look like a graph rather than a straight line?",
       "a": "Merge commits have two parents, and repeated branching and merging produces a directed acyclic graph, not a chain."
     },
     {
+      "n": 60,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "What does --no-ff do, and why would you use it?",
       "a": "Forces a merge commit even when a fast-forward is possible, preserving the historical fact that a separate branch existed."
     },
     {
+      "n": 61,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "What does a squash merge do, and why does the source branch still show as 'unmerged' afterward?",
       "a": "It applies all the branch's changes as one new commit with no merge link back to the original commits \u2014 so by ancestry, none of the original branch's commits are actually reachable from main."
     },
     {
+      "n": 62,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "What is --abort for, during a merge?",
       "a": "It cancels the in-progress merge and returns you to the state before you started \u2014 the same escape hatch pattern used by rebase, cherry-pick, and revert."
     },
     {
+      "n": 63,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "What is a semantic conflict, and why is it more dangerous than a textual one?",
       "a": "A merge that succeeds with no marked conflict, but breaks the build \u2014 e.g., one side renamed a function the other side still calls. Git's merge algorithm only compares text, not meaning."
     },
     {
+      "n": 64,
       "c": "node-5",
       "t": "Node 5 \u00b7 Merging",
       "q": "Why does CI typically run against the merge result rather than against each branch individually?",
       "a": "Because semantic conflicts are invisible to Git's merge algorithm and only surface when the combined code actually runs or builds."
     },
     {
+      "n": 65,
       "c": "node-6",
       "t": "Node 6 \u00b7 Rewriting history",
       "q": "What foundational fact makes history rewriting safe?",
       "a": "Objects are immutable \u2014 rewriting never edits an existing object, it only creates new objects and moves pointers. Originals remain in the store."
     },
     {
+      "n": 66,
       "c": "node-6",
       "t": "Node 6 \u00b7 Rewriting history",
       "q": "What does git commit --amend actually do?",
       "a": "Creates a new commit object replacing the most recent one, with a new identifier \u2014 it does not edit the original commit."
     },
     {
+      "n": 67,
       "c": "node-6",
       "t": "Node 6 \u00b7 Rewriting history",
       "q": "What does git cherry-pick do?",
       "a": "Applies the change introduced by one commit onto your current position, as a new commit \u2014 internally a three-way merge where the base is the picked commit's parent."
     },
     {
+      "n": 68,
       "c": "node-6",
       "t": "Node 6 \u00b7 Rewriting history",
       "q": "What is git rebase, mechanically?",
       "a": "Take every commit unique to your branch, replay each one's change onto a different base commit in order, then move the branch pointer to the end of the replayed sequence."
     },
     {
+      "n": 69,
       "c": "node-6",
       "t": "Node 6 \u00b7 Rewriting history",
       "q": "Why do commits produced by a rebase have different identifiers than the originals?",
       "a": "They're new objects \u2014 same diff, but a different parent and therefore a different hash, since a commit's identifier depends on its parent's identifier."
     },
     {
+      "n": 70,
       "c": "node-6",
       "t": "Node 6 \u00b7 Rewriting history",
       "q": "In interactive rebase, what does squash do versus fixup?",
       "a": "Both fold a commit into the one before it; squash keeps and lets you edit the combined commit message, fixup discards the folded commit's message entirely."
     },
     {
+      "n": 71,
       "c": "node-6",
       "t": "Node 6 \u00b7 Rewriting history",
       "q": "What does git commit --fixup combined with rebase --autosquash accomplish?",
       "a": "Lets you mark a correction as belonging to an earlier commit as you make it, then automatically places and folds it into that commit during the next rebase."
     },
     {
+      "n": 72,
       "c": "node-6",
       "t": "Node 6 \u00b7 Rewriting history",
       "q": "What is --onto used for?",
       "a": "Transplanting a range of commits onto an arbitrary different base \u2014 the fix for 'I branched off the wrong branch.'"
     },
     {
+      "n": 73,
       "c": "node-6",
       "t": "Node 6 \u00b7 Rewriting history",
       "q": "What's the real trade-off between merge and rebase?",
       "a": "Merge preserves what actually happened, including parallel lines of work, at the cost of a harder-to-read history. Rebase produces a clean linear history at the cost of misrepresenting the actual sequence of events and changing commit identifiers."
     },
     {
+      "n": 74,
       "c": "node-6",
       "t": "Node 6 \u00b7 Rewriting history",
       "q": "Why is it dangerous to rebase a branch other people have already pulled?",
       "a": "Their copy still references the old commit identifiers; after your rebase, those commits no longer exist on your side, so their history diverges from yours in a way that's painful to reconcile."
     },
     {
+      "n": 75,
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "Why is it possible to recover from most Git mistakes?",
       "a": "Nothing is ever truly deleted \u2014 operations only make commits unreferenced (nothing points at them), and unreferenced objects persist until garbage collection eventually removes them."
     },
     {
+      "n": 76,
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "What does git reset --soft do?",
       "a": "Moves HEAD (and the branch it points to) to a different commit. Index and working tree are untouched \u2014 your changes remain staged."
     },
     {
+      "n": 77,
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "What does git reset --mixed (the default) do?",
       "a": "Moves HEAD and resets the index to match the new HEAD. Changes remain on disk but become unstaged."
     },
     {
+      "n": 78,
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "What does git reset --hard do?",
       "a": "Moves HEAD, resets the index, and overwrites the working tree to match \u2014 any uncommitted changes are discarded."
     },
     {
+      "n": 79,
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "What's the difference between git restore --staged and git restore --worktree?",
       "a": "--staged unstages a file (moves it out of the index back toward HEAD's version), --worktree discards working-tree changes and reverts the file to the index's version."
     },
     {
+      "n": 80,
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "How does git revert differ from git reset in what it does to history?",
       "a": "revert creates a new commit that applies the inverse of an old one \u2014 history gains an entry. reset moves a pointer backward, potentially making commits unreferenced."
     },
     {
+      "n": 81,
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "Why is git revert the correct tool for undoing a commit that's already been pushed and shared?",
       "a": "It adds a new commit rather than rewriting or removing anything, so nobody else's history becomes invalid or diverges."
     },
     {
+      "n": 82,
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "What does git stash do, and what is a stash internally?",
       "a": "Shelves uncommitted working-tree and index changes so you can switch context cleanly. A stash is stored as an ordinary commit under a hidden ref."
     },
     {
+      "n": 83,
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "What is the reflog?",
       "a": "A local, per-repository log that records every value HEAD and each branch has held, appended to every time one of them changes."
     },
     {
+      "n": 84,
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "How do you use the reflog to recover from a bad reset --hard?",
       "a": "Run git reflog to find the commit identifier from before the reset, then git reset --hard <that-identifier> to return to it."
     },
     {
+      "n": 85,
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "Does the reflog persist forever?",
       "a": "No \u2014 reachable entries expire (default roughly 90 days) and unreachable ones expire faster (default roughly 30 days); after expiry and garbage collection, recovery via reflog is no longer possible."
     },
     {
+      "n": 86,
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "Why must you always run git clean with -n first?",
       "a": "git clean deletes untracked files, which were never in the object store at any point \u2014 there is no recovery mechanism for them. -n previews what would be deleted without deleting it."
     },
     {
+      "n": 87,
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "What is ORIG_HEAD, and when does Git set it?",
       "a": "A scratch ref Git writes before dangerous operations (like reset or a merge), recording where HEAD was beforehand \u2014 a quick manual undo target."
     },
     {
+      "n": 88,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "What is a remote, precisely?",
       "a": "A name mapped to a URL \u2014 origin is just a convention, not a keyword. You can have any number of remotes."
     },
     {
+      "n": 89,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "What does it mean that 'every clone is a complete repository'?",
       "a": "Each clone holds the full object store and full history independently \u2014 there's no partial copy, and no central authority built into Git itself. Any clone could act as the source of truth."
     },
     {
+      "n": 90,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "What does git fetch actually do?",
       "a": "Downloads objects the remote has that you don't, and updates your remote-tracking branches. It does not touch your working tree, your index, or your local branches."
     },
     {
+      "n": 91,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "What is a remote-tracking branch like origin/main, and is it live?",
       "a": "A local ref recording where the remote's main stood at your last fetch. It is not live \u2014 it can be stale until you fetch again."
     },
     {
+      "n": 92,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "What does git pull do that git fetch doesn't?",
       "a": "It fetches, then performs an integration step \u2014 merging by default, or rebasing if pull.rebase is configured."
     },
     {
+      "n": 93,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "Why do repositories often accumulate accidental 'Merge branch main of...' commits?",
       "a": "Because git pull's default integration step is a merge, and people run pull without realizing an implicit merge is happening."
     },
     {
+      "n": 94,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "What does git push do, and when does the remote refuse it?",
       "a": "Uploads your objects and asks the remote to move one of its refs to your new commit. It's refused if the move wouldn't be a fast-forward \u2014 i.e., if it would make commits the remote currently has unreachable."
     },
     {
+      "n": 95,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "Why does pushing a rebased branch typically get rejected?",
       "a": "The rebase produced new commit identifiers with a different history shape, so your branch no longer descends from what the remote has \u2014 the push isn't a fast-forward."
     },
     {
+      "n": 96,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "What does --force-with-lease do differently from plain --force?",
       "a": "It refuses to push if the remote has moved since your last fetch, protecting against overwriting someone else's work \u2014 the actual risk force-pushing poses \u2014 while still allowing you to overwrite your own unshared history."
     },
     {
+      "n": 97,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "What does upstream tracking configuration actually do?",
       "a": "Lets bare git push and git pull know which remote and branch to talk to, without you specifying them each time \u2014 set via -u on the first push."
     },
     {
+      "n": 98,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "What is a refspec?",
       "a": "The mapping that defines what a fetch or push actually moves \u2014 e.g., +refs/heads/*:refs/remotes/origin/* maps every remote branch to a local remote-tracking branch."
     },
     {
+      "n": 99,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "What does git fetch --prune do?",
       "a": "Deletes local remote-tracking branches whose corresponding branch no longer exists on the remote."
     },
     {
+      "n": 100,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "What is a bare repository?",
       "a": "A repository with no working tree \u2014 just the .git contents at the root. This is what every server-side repository actually is."
     },
     {
+      "n": 101,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "What does a shallow clone (--depth) trade away?",
       "a": "Full history, in exchange for downloading only recent commits \u2014 commonly used in CI where full history isn't needed."
     },
     {
+      "n": 102,
       "c": "node-8",
       "t": "Node 8 \u00b7 Remotes and the network",
       "q": "Why is embedding a token directly in an HTTPS remote URL a security risk?",
       "a": "The token ends up stored in plaintext in .git/config and often in shell history, both of which can leak."
     },
     {
+      "n": 103,
       "c": "node-9",
       "t": "Node 9 \u00b7 Team conventions",
       "q": "Are pull requests a Git feature or a platform feature?",
       "a": "A platform feature (e.g., GitHub) \u2014 Git itself has no concept of a pull request."
     },
     {
+      "n": 104,
       "c": "node-9",
       "t": "Node 9 \u00b7 Team conventions",
       "q": "What is trunk-based development?",
       "a": "Everyone integrates into main frequently via short-lived branches, rather than maintaining long-lived parallel branches."
     },
     {
+      "n": 105,
       "c": "node-9",
       "t": "Node 9 \u00b7 Team conventions",
       "q": "What is the feature-branch-plus-pull-request workflow?",
       "a": "Branch off, push, open a pull request, get it reviewed, then merge \u2014 the standard collaborative pattern on GitHub-style platforms."
     },
     {
+      "n": 106,
       "c": "node-9",
       "t": "Node 9 \u00b7 Team conventions",
       "q": "What is Git Flow, and why has it fallen out of favor?",
       "a": "A heavyweight model with permanent develop, release/*, and hotfix/* branches. It's largely been abandoned in favor of trunk-based development because continuous delivery doesn't need or want long-lived parallel branches."
     },
     {
+      "n": 107,
       "c": "node-9",
       "t": "Node 9 \u00b7 Team conventions",
       "q": "What distinguishes fork-and-PR from a standard feature branch workflow?",
       "a": "In fork-and-PR you push to your own copy of the repository (since you can't write to the original) and request that your changes be pulled into a repository you don't have write access to \u2014 the standard open-source contribution model."
     },
     {
+      "n": 108,
       "c": "node-9",
       "t": "Node 9 \u00b7 Team conventions",
       "q": "What does a regular merge button do to history, versus squash, versus rebase-merge?",
       "a": "Merge: keeps all the branch's individual commits and adds a two-parent merge commit. Squash: collapses everything into one new commit with no merge link. Rebase-merge: replays the commits onto the tip with new identifiers and no merge commit at all."
     },
     {
+      "n": 109,
       "c": "node-9",
       "t": "Node 9 \u00b7 Team conventions",
       "q": "Why do smaller, shorter-lived pull requests reduce conflict risk?",
       "a": "The longer a branch lives, the further its merge base recedes from the current tip of main, increasing the amount of divergence and therefore the chance of overlapping changes."
     },
     {
+      "n": 110,
       "c": "node-9",
       "t": "Node 9 \u00b7 Team conventions",
       "q": "What is CODEOWNERS, and is it a Git concept?",
       "a": "A platform-level (not Git) file specifying who must review changes to specific paths \u2014 enforced by the hosting platform, not by Git itself."
     },
     {
+      "n": 111,
       "c": "node-10",
       "t": "Node 10 \u00b7 Automating conventions",
       "q": "What are hooks?",
       "a": "Scripts Git runs automatically at defined points \u2014 e.g., pre-commit, commit-msg, pre-push locally, or pre-receive on the server."
     },
     {
+      "n": 112,
       "c": "node-10",
       "t": "Node 10 \u00b7 Automating conventions",
       "q": "Why don't hooks travel with a clone by default?",
       "a": ".git/hooks is not part of the tracked repository content \u2014 it lives outside version control, so a fresh clone starts with no hooks at all."
     },
     {
+      "n": 113,
       "c": "node-10",
       "t": "Node 10 \u00b7 Automating conventions",
       "q": "What problem does core.hooksPath solve?",
       "a": "It points Git at a tracked, shareable directory for hooks instead of the untracked .git/hooks, so hooks can be committed and distributed with the repo."
     },
     {
+      "n": 114,
       "c": "node-10",
       "t": "Node 10 \u00b7 Automating conventions",
       "q": "What does --no-verify reveal about the nature of hooks?",
       "a": "That hooks are a convenience, not a security control \u2014 anyone can trivially bypass them."
     },
     {
+      "n": 115,
       "c": "node-10",
       "t": "Node 10 \u00b7 Automating conventions",
       "q": "What is the Conventional Commits format?",
       "a": "A structured commit message prefix like feat:, fix:, or chore: with an optional scope, designed to be machine-parseable."
     },
     {
+      "n": 116,
       "c": "node-10",
       "t": "Node 10 \u00b7 Automating conventions",
       "q": "What does Conventional Commits formatting enable that free-text messages don't?",
       "a": "Automated changelog generation and automatic semantic version bumping, since tooling can parse the type of each change."
     },
     {
+      "n": 117,
       "c": "node-10",
       "t": "Node 10 \u00b7 Automating conventions",
       "q": "Why does CI running on the merge result (rather than either branch alone) matter?",
       "a": "It's the only way to catch semantic conflicts \u2014 changes that don't textually conflict but break when combined."
     },
     {
+      "n": 118,
       "c": "node-10",
       "t": "Node 10 \u00b7 Automating conventions",
       "q": "Why does commit signing matter, given that author/committer fields are just plain text?",
       "a": "Anyone can set user.email to someone else's address, making the author field an unverified claim. Signing (increasingly via SSH keys) makes authorship cryptographically verifiable."
     },
     {
+      "n": 119,
       "c": "node-10",
       "t": "Node 10 \u00b7 Automating conventions",
       "q": "What does a secret-scanning pre-commit hook actually prevent?",
       "a": "It stops a credential from ever entering history in the first place \u2014 far cheaper than the cleanup required once something is committed and pushed."
     },
     {
+      "n": 120,
       "c": "node-11",
       "t": "Node 11 \u00b7 Interrogating history",
       "q": "What's the difference between git log --stat and git log -p?",
       "a": "--stat shows which files changed and how many lines, as a summary. -p shows the actual diff content for each commit."
     },
     {
+      "n": 121,
       "c": "node-11",
       "t": "Node 11 \u00b7 Interrogating history",
       "q": "What does git log -S 'someString' (the pickaxe) find?",
       "a": "Commits where the number of occurrences of that exact string changed \u2014 added or removed \u2014 which is the fastest way to find when a specific piece of code was introduced or deleted."
     },
     {
+      "n": 122,
       "c": "node-11",
       "t": "Node 11 \u00b7 Interrogating history",
       "q": "How does git log -G differ from git log -S?",
       "a": "-G matches commits where a regex pattern's presence changed in the diff at all (even if the occurrence count stayed the same, e.g. a line moved); -S strictly tracks a change in occurrence count."
     },
     {
+      "n": 123,
       "c": "node-11",
       "t": "Node 11 \u00b7 Interrogating history",
       "q": "What does git blame show you, per line?",
       "a": "The commit (and author) that last modified each line of a file."
     },
     {
+      "n": 124,
       "c": "node-11",
       "t": "Node 11 \u00b7 Interrogating history",
       "q": "Why would you pass -w to git blame?",
       "a": "To ignore whitespace-only changes, so a line's 'true' last meaningful change is attributed correctly instead of to a reformatting commit."
     },
     {
+      "n": 125,
       "c": "node-11",
       "t": "Node 11 \u00b7 Interrogating history",
       "q": "What do -M and -C do for git blame?",
       "a": "Let it detect lines that were moved (-M) or copied (-C) within or between files, rather than attributing them to whoever's commit happened to reintroduce them."
     },
     {
+      "n": 126,
       "c": "node-11",
       "t": "Node 11 \u00b7 Interrogating history",
       "q": "What is .git-blame-ignore-revs for?",
       "a": "A file listing commit hashes (typically large reformatting or auto-fix commits) that git blame should skip over, attributing lines to the change before them instead."
     },
     {
+      "n": 127,
       "c": "node-11",
       "t": "Node 11 \u00b7 Interrogating history",
       "q": "What is git bisect, mechanically?",
       "a": "A binary search over commit history: you mark one known-good and one known-bad commit, and Git checks out the midpoint repeatedly, halving the search range each time until it isolates the exact commit that introduced the bug."
     },
     {
+      "n": 128,
       "c": "node-11",
       "t": "Node 11 \u00b7 Interrogating history",
       "q": "What does git bisect run <script> do?",
       "a": "Fully automates the bisect process by running the given script at each checked-out commit and using its exit code to decide good or bad, without manual intervention."
     },
     {
+      "n": 129,
       "c": "node-11",
       "t": "Node 11 \u00b7 Interrogating history",
       "q": "Why does git bisect depend on commits being atomic and individually buildable?",
       "a": "Because it checks out arbitrary intermediate commits and tests them in isolation \u2014 if a commit represents a half-finished, non-building state, bisect can't meaningfully evaluate it."
     },
     {
+      "n": 130,
       "c": "node-11",
       "t": "Node 11 \u00b7 Interrogating history",
       "q": "How does git grep differ from a plain recursive grep -r?",
       "a": "It searches Git's tracked content directly (and can search at any historical revision), and is significantly faster since it operates on Git's internal data rather than walking the filesystem."
     },
     {
+      "n": 131,
       "c": "node-11",
       "t": "Node 11 \u00b7 Interrogating history",
       "q": "What problem does git range-diff solve?",
       "a": "It compares two versions of a rewritten branch (e.g., before and after a rebase), letting you review what actually changed in the rebase rather than re-reading the entire diff from scratch."
     },
     {
+      "n": 132,
       "c": "node-12",
       "t": "Node 12 \u00b7 Size, scale, maintenance",
       "q": "What is a packfile?",
       "a": "A file that consolidates many individual objects into one, storing similar objects as deltas (differences) against each other for compression \u2014 this is the actual source of Git's storage efficiency."
     },
     {
+      "n": 133,
       "c": "node-12",
       "t": "Node 12 \u00b7 Size, scale, maintenance",
       "q": "Is a packfile a contradiction of 'Git stores full snapshots'?",
       "a": "No \u2014 it's a storage optimization layer beneath the snapshot model. Conceptually every commit still points to a full tree; packfiles are just how that content gets compressed on disk."
     },
     {
+      "n": 134,
       "c": "node-12",
       "t": "Node 12 \u00b7 Size, scale, maintenance",
       "q": "What does git gc do?",
       "a": "Packs loose objects into packfiles, packs refs, and prunes unreferenced objects that are older than the expiry window."
     },
     {
+      "n": 135,
       "c": "node-12",
       "t": "Node 12 \u00b7 Size, scale, maintenance",
       "q": "What's the relationship between git gc and the reflog-based recovery from Node 7?",
       "a": "git gc is the operation that actually removes unreferenced objects once their expiry window passes \u2014 it's what turns 'recoverable but unreferenced' into genuinely gone."
     },
     {
+      "n": 136,
       "c": "node-12",
       "t": "Node 12 \u00b7 Size, scale, maintenance",
       "q": "Why doesn't deleting a large committed binary in a later commit shrink the repository?",
       "a": "The old snapshot still references the old blob in history \u2014 deleting the file only changes what future snapshots contain, not what past ones did. Only rewriting history removes the blob from storage."
     },
     {
+      "n": 137,
       "c": "node-12",
       "t": "Node 12 \u00b7 Size, scale, maintenance",
       "q": "What problem does Git LFS solve?",
       "a": "It stores large binary files outside the main repository, leaving small pointer files inside it \u2014 avoiding the size and performance problems of large binaries in Git's own object store."
     },
     {
+      "n": 138,
       "c": "node-12",
       "t": "Node 12 \u00b7 Size, scale, maintenance",
       "q": "What is a submodule?",
       "a": "A pin inside your repository referencing another repository at an exact commit."
     },
     {
+      "n": 139,
       "c": "node-12",
       "t": "Node 12 \u00b7 Size, scale, maintenance",
       "q": "Why does checking out a submodule often leave it in detached HEAD?",
       "a": "A submodule is pinned to a specific commit, not a branch \u2014 so Git checks out that exact commit, which by definition has no branch pointer attached."
     },
     {
+      "n": 140,
       "c": "node-12",
       "t": "Node 12 \u00b7 Size, scale, maintenance",
       "q": "What is a Git worktree, and what problem does it solve better than stashing?",
       "a": "A second working directory checked out from a different branch, sharing the same underlying object store. It lets you work on two branches simultaneously without shelving and restoring state via stash."
     },
     {
+      "n": 141,
       "c": "node-13",
       "t": "Node 13 \u00b7 Trust, secrets, irreversibility",
       "q": "Once a secret is committed and pushed, what is the correct first action?",
       "a": "Rotate the credential immediately \u2014 treat it as compromised regardless of whether anyone is known to have seen it."
     },
     {
+      "n": 142,
       "c": "node-13",
       "t": "Node 13 \u00b7 Trust, secrets, irreversibility",
       "q": "Why is git filter-repo preferred over the older git filter-branch?",
       "a": "filter-branch is deprecated and extremely slow on large histories; filter-repo is the modern, faster, safer tool for rewriting history at scale."
     },
     {
+      "n": 143,
       "c": "node-13",
       "t": "Node 13 \u00b7 Trust, secrets, irreversibility",
       "q": "After purging a secret from history with filter-repo and force-pushing, is the secret actually gone?",
       "a": "Not necessarily everywhere \u2014 any existing clones or forks made before the purge still contain the old objects with the secret. Rewriting cleans the canonical repository but can't reach copies already made."
     },
     {
+      "n": 144,
       "c": "node-13",
       "t": "Node 13 \u00b7 Trust, secrets, irreversibility",
       "q": "Why is exposing a .git directory on a public web server dangerous?",
       "a": "It exposes the entire object store and history \u2014 anyone can reconstruct the full source code and every past version, including anything since removed."
     },
     {
+      "n": 145,
       "c": "node-13",
       "t": "Node 13 \u00b7 Trust, secrets, irreversibility",
       "q": "What is a signed tag, and why would you use one?",

@@ -85,22 +85,15 @@ if (window.location.hash) {
   document.querySelector('.tab-btn[data-tab="elaboration"]').click();
 }
 
-function renderCards(container, cards) {
-  cards.forEach(c => {
-    const card = document.createElement("div");
-    card.className = "rc-card";
-    const num = c.n ? `Q${c.n}. ` : "";
-    card.innerHTML = `<div class="topic-tag">${c.t || ""}</div><div class="q">${num}${c.q}</div><div class="a">${c.a}</div>`;
-    card.addEventListener("click", () => card.classList.toggle("revealed"));
-    container.appendChild(card);
-  });
+function renderCards(container, cards, bank) {
+  DK.renderDeck(container, cards, { bank, topic: "{{TOPIC_SLUG}}", showTopic: false });
 }
 
 (async function () {
   const recall = await DK.fetchJSON("topics/{{TOPIC_SLUG}}/recall.json");
   const recallEl = document.getElementById("recallCards");
   if (recall && recall.cards && recall.cards.length) {
-    renderCards(recallEl, recall.cards);
+    renderCards(recallEl, recall.cards, "recall");
   } else {
     recallEl.innerHTML = "<p class='empty-note'>Recall questions land here once this topic's build gets underway.</p>";
   }
@@ -108,7 +101,7 @@ function renderCards(container, cards) {
   const prep = await DK.fetchJSON("topics/{{TOPIC_SLUG}}/prep.json");
   const prepEl = document.getElementById("prepCards");
   if (prep && prep.cards && prep.cards.length) {
-    renderCards(prepEl, prep.cards);
+    renderCards(prepEl, prep.cards, "prep");
   } else {
     prepEl.innerHTML = "<p class='empty-note'>Interview and scenario prep lands here once this topic's build gets underway.</p>";
   }

@@ -45,33 +45,8 @@ DK.wireThemeToggle(document.getElementById("themeToggle"));
 
   statsEl.innerHTML = `<div class="counts"><span><span class="n">${all.length}</span> total recall questions</span></div>`;
 
-  function render(filterText) {
-    cardsEl.innerHTML = "";
-    const filtered = all.filter(c =>
-      !filterText ||
-      c.topic.toLowerCase().includes(filterText.toLowerCase()) ||
-      (c.q || "").toLowerCase().includes(filterText.toLowerCase())
-    );
-    if (filtered.length === 0) {
-      cardsEl.innerHTML = "<p class='empty-note'>no recall cards yet — push a topic's recall.json to populate this</p>";
-      return;
-    }
-    filtered.forEach(c => {
-      const card = document.createElement("div");
-      card.className = "rc-card";
-      const num = c.n ? `Q${c.n}. ` : "";
-      card.innerHTML = `
-        <div class="topic-tag">${c.topic.replace(/-/g," ")}${c.t ? " · " + c.t : ""}</div>
-        <div class="q">${num}${c.q}</div>
-        <div class="a">${c.a}</div>
-      `;
-      card.addEventListener("click", () => card.classList.toggle("revealed"));
-      cardsEl.appendChild(card);
-    });
-  }
-
-  render("");
-  document.getElementById("filterBox").addEventListener("input", e => render(e.target.value));
+  const deck = DK.renderDeck(cardsEl, all, { bank: "recall", showTopic: true });
+  document.getElementById("filterBox").addEventListener("input", e => deck.setTextFilter(e.target.value));
 })();
 </script>
 

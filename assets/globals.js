@@ -196,6 +196,230 @@ const DK = (() => {
     }
   }
 
+
+  // ---------- Export / import ----------
+  // Markdown export is for pasting into a chat: it includes the question text,
+  // the marker, and every follow-up note, for whatever is currently in scope.
+  // JSON export is a full backup of all marks and notes across every topic.
+
+  const MARK_LABEL = { got: "Understood", unclear: "Unclear", discuss: "Discuss" };
+
+  function buildMarkdown(cards, bank, topicOf, scopeLabel) {
+    const rows = [];
+    cards.forEach((c) => {
+      const topic = topicOf(c);
+      const mark = getMark(topic, bank, c.n);
+      const notes = getNotes(topic, bank, c.n);
+      if (!mark && !notes.length) return;
+      rows.push({ topic, card: c, mark, notes });
+    });
+
+    if (!rows.length) {
+      return `No marked questions or follow-ups in ${scopeLabel} yet.`;
+    }
+
+    const out = [];
+    out.push(`# Study notes — ${scopeLabel}`);
+    out.push("");
+    out.push(`${rows.length} question${rows.length === 1 ? "" : "s"} with a marker or follow-up.`);
+    out.push("");
+
+    rows.forEach(({ topic, card, mark, notes }) => {
+      const heading = `Q${card.n}` + (card.t ? ` · ${card.t}` : "");
+      out.push(`## ${heading}`);
+      out.push(`**Topic:** ${topic} · ${bank}`);
+      if (mark) out.push(`**Marked:** ${MARK_LABEL[mark] || mark}`);
+      out.push("");
+      out.push(`**Q:** ${stripTags(card.q)}`);
+      out.push("");
+      out.push(`**A:** ${stripTags(card.a)}`);
+      if (notes.length) {
+        out.push("");
+        out.push("**My follow-ups:**");
+        notes.forEach((nt) => {
+          out.push(`- (${formatNoteTime(nt.ts)}) ${nt.text.trim()}`);
+        });
+      }
+      out.push("");
+      out.push("---");
+      out.push("");
+    });
+
+    return out.join("\n");
+  }
+
+  // Strips markup and decodes entities. Uses the DOM so every entity is handled
+  // (&mdash;, &rsquo;, numeric refs), with a plain-string fallback if unavailable.
+  function stripTags(html) {
+    const withoutTags = String(html || "").replace(/<[^>]*>/g, "");
+    let text = withoutTags;
+    try {
+      const el = document.createElement("textarea");
+      el.innerHTML = withoutTags;
+      if (typeof el.value === "string" && el.value) text = el.value;
+    } catch (e) {
+      text = withoutTags
+        .replace(/&mdash;/g, "\u2014")
+        .replace(/&ndash;/g, "\u2013")
+        .replace(/&hellip;/g, "\u2026")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&");
+    }
+    return text.replace(/\s+/g, " ").trim();
+  }
+
+  function buildBackup() {
+    return JSON.stringify(
+      { version: 1, exportedAt: new Date().toISOString(), marks: loadMarks(), notes: loadNotes() },
+      null,
+      2
+    );
+  }
+
+  // Merges a backup into what's already stored. Incoming values win on conflict;
+  // notes for the same question are concatenated and de-duplicated by text.
+  function importBackup(text) {
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      throw new Error("That isn't valid JSON.");
+    }
+    if (!data || typeof data !== "object" || (!data.marks && !data.notes)) {
+      throw new Error("That JSON doesn't look like a marks/notes backup.");
+    }
+
+    const marks = loadMarks();
+    let markCount = 0;
+    Object.entries(data.marks || {}).forEach(([k, v]) => {
+      if (typeof v === "string" && v) { marks[k] = v; markCount++; }
+    });
+    saveMarks(marks);
+
+    const notes = loadNotes();
+    let noteCountAdded = 0;
+    Object.entries(data.notes || {}).forEach(([k, list]) => {
+      if (!Array.isArray(list)) return;
+      const existing = notes[k] || [];
+      const seen = new Set(existing.map((nt) => (nt.text || "").trim()));
+      list.forEach((nt) => {
+        const t = (nt && nt.text ? nt.text : "").trim();
+        if (!t || seen.has(t)) return;
+        existing.push({ ts: nt.ts || Date.now(), text: t });
+        seen.add(t);
+        noteCountAdded++;
+      });
+      if (existing.length) notes[k] = existing;
+    });
+    saveNotes(notes);
+
+    return { marks: markCount, notes: noteCountAdded };
+  }
+
+  function openExportDialog(cards, bank, topicOf, scopeLabel) {
+    const overlay = document.createElement("div");
+    overlay.className = "dk-modal-overlay";
+    overlay.innerHTML =
+      `<div class="dk-modal" role="dialog" aria-label="Export study notes">` +
+        `<div class="dk-modal-head">` +
+          `<strong>Export — ${scopeLabel}</strong>` +
+          `<button class="dk-modal-close" type="button" aria-label="Close">×</button>` +
+        `</div>` +
+        `<div class="dk-modal-tabs">` +
+          `<button class="dk-mt active" data-fmt="md" type="button">For chat (Markdown)</button>` +
+          `<button class="dk-mt" data-fmt="json" type="button">Backup (JSON)</button>` +
+          `<button class="dk-mt" data-fmt="import" type="button">Restore</button>` +
+        `</div>` +
+        `<textarea class="dk-modal-text" spellcheck="false"></textarea>` +
+        `<div class="dk-modal-note"></div>` +
+        `<div class="dk-modal-actions">` +
+          `<button class="dk-ma primary" data-act="copy" type="button">Copy</button>` +
+          `<button class="dk-ma" data-act="download" type="button">Download</button>` +
+          `<button class="dk-ma" data-act="restore" type="button" hidden>Restore from this JSON</button>` +
+        `</div>` +
+      `</div>`;
+    document.body.appendChild(overlay);
+
+    const ta = overlay.querySelector(".dk-modal-text");
+    const note = overlay.querySelector(".dk-modal-note");
+    const copyBtn = overlay.querySelector('[data-act="copy"]');
+    const dlBtn = overlay.querySelector('[data-act="download"]');
+    const restoreBtn = overlay.querySelector('[data-act="restore"]');
+    let fmt = "md";
+
+    function setFormat(next) {
+      fmt = next;
+      overlay.querySelectorAll(".dk-mt").forEach((b) => b.classList.toggle("active", b.dataset.fmt === next));
+      const isImport = next === "import";
+      copyBtn.hidden = isImport;
+      dlBtn.hidden = isImport;
+      restoreBtn.hidden = !isImport;
+      if (next === "md") {
+        ta.value = buildMarkdown(cards, bank, topicOf, scopeLabel);
+        ta.readOnly = true;
+        note.textContent = "Only questions with a marker or a follow-up are included. Reflects the filter you have applied.";
+      } else if (next === "json") {
+        ta.value = buildBackup();
+        ta.readOnly = true;
+        note.textContent = "Everything — all marks and follow-ups, every topic and both banks. Keep this to move between devices.";
+      } else {
+        ta.value = "";
+        ta.readOnly = false;
+        note.textContent = "Paste a backup JSON here, then press Restore. It merges with what's already saved — nothing is deleted.";
+      }
+    }
+
+    function close() {
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+    }
+    function onKey(e) { if (e.key === "Escape") close(); }
+    document.addEventListener("keydown", onKey);
+
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector(".dk-modal-close").addEventListener("click", close);
+    overlay.querySelectorAll(".dk-mt").forEach((b) =>
+      b.addEventListener("click", () => setFormat(b.dataset.fmt))
+    );
+
+    copyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(ta.value);
+        copyBtn.textContent = "Copied";
+      } catch (e) {
+        ta.select();
+        copyBtn.textContent = "Press Ctrl+C";
+      }
+      setTimeout(() => { copyBtn.textContent = "Copy"; }, 1800);
+    });
+
+    dlBtn.addEventListener("click", () => {
+      const ext = fmt === "json" ? "json" : "md";
+      const name = `${scopeLabel.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-notes.${ext}`;
+      const blob = new Blob([ta.value], { type: "text/plain" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    restoreBtn.addEventListener("click", () => {
+      try {
+        const res = importBackup(ta.value);
+        note.textContent = `Restored ${res.marks} mark(s) and ${res.notes} new follow-up(s). Reload to see them.`;
+      } catch (err) {
+        note.textContent = "Could not restore: " + err.message;
+      }
+    });
+
+    setFormat("md");
+  }
+
   // Renders a deck of question cards with per-card marking and a filter bar.
   // listEl   — the .card-list element to render cards into
   // cards    — array of {n, t, q, a, topic?}
@@ -242,7 +466,15 @@ const DK = (() => {
             `${b.label} <span class="mf-count">${counts[b.id]}</span></button>`
         )
         .join("");
+      bar.innerHTML += `<button class="mf-btn mf-export" data-act="export" type="button">⇪ Export</button>`;
       bar.querySelectorAll(".mf-btn").forEach((btn) => {
+        if (btn.dataset.act === "export") {
+          btn.addEventListener("click", () => {
+            const scope = (defaultTopic || "all topics").replace(/-/g, " ") + " · " + bank;
+            openExportDialog(cards.filter(passesFilter), bank, topicOf, scope);
+          });
+          return;
+        }
         btn.addEventListener("click", () => {
           activeFilter = btn.dataset.filter;
           drawBar();
@@ -422,7 +654,7 @@ const DK = (() => {
     };
   }
 
-  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount };
+  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount, buildMarkdown, buildBackup, importBackup };
 })();
 
 // Apply theme immediately on script load (before body renders) to avoid a flash.

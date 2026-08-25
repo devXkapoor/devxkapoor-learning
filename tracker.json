@@ -198,7 +198,12 @@
       "state": "in-progress",
       "started": "2026-08-24",
       "updated": "2026-08-24"
+    },
+    "typescript": {
+      "state": "in-progress",
+      "started": "2026-08-25",
+      "updated": "2026-08-25"
     }
   },
-  "lastUpdated": "2026-08-24"
+  "lastUpdated": "2026-08-25"
 }

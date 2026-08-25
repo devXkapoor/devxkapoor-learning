@@ -145,6 +145,57 @@ const DK = (() => {
     saveMarks(marks);
   }
 
+
+  // ---------- Follow-up notes (per question, many per question) ----------
+  // Each question can hold a list of notes. Clicking "+ Follow-up" always opens
+  // a NEW empty box; existing notes stay stacked above it. Saving is automatic.
+  const NOTES_KEY = "dk-notes-v1";
+
+  function loadNotes() {
+    try {
+      return JSON.parse(localStorage.getItem(NOTES_KEY) || "{}");
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveNotes(notes) {
+    try {
+      localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+    } catch (e) {
+      console.warn("DK: could not persist notes", e);
+    }
+  }
+
+  // Returns the stored notes for a question, dropping any that were left blank.
+  function getNotes(topic, bank, n) {
+    const list = loadNotes()[markKey(topic, bank, n)] || [];
+    return list.filter((note) => (note.text || "").trim() !== "");
+  }
+
+  function setNotes(topic, bank, n, list) {
+    const notes = loadNotes();
+    const key = markKey(topic, bank, n);
+    const kept = list.filter((note) => (note.text || "").trim() !== "");
+    if (!kept.length) delete notes[key];
+    else notes[key] = kept;
+    saveNotes(notes);
+  }
+
+  function noteCount(topic, bank, n) {
+    return getNotes(topic, bank, n).length;
+  }
+
+  function formatNoteTime(ts) {
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
+      }).format(new Date(ts));
+    } catch (e) {
+      return "";
+    }
+  }
+
   // Renders a deck of question cards with per-card marking and a filter bar.
   // listEl   — the .card-list element to render cards into
   // cards    — array of {n, t, q, a, topic?}
@@ -165,11 +216,13 @@ const DK = (() => {
 
     function countsFor() {
       const marks = loadMarks();
-      const counts = { all: cards.length, unmarked: 0, got: 0, unclear: 0, discuss: 0 };
+      const counts = { all: cards.length, unmarked: 0, got: 0, unclear: 0, discuss: 0, noted: 0 };
       cards.forEach((c) => {
-        const m = marks[markKey(topicOf(c), bank, c.n)] || "";
+        const topic = topicOf(c);
+        const m = marks[markKey(topic, bank, c.n)] || "";
         if (!m) counts.unmarked++;
         else if (counts[m] !== undefined) counts[m]++;
+        if (noteCount(topic, bank, c.n) > 0) counts.noted++;
       });
       return counts;
     }
@@ -180,6 +233,7 @@ const DK = (() => {
         { id: "all", label: "All" },
         { id: "unmarked", label: "Unmarked" },
         ...MARK_TYPES.map((m) => ({ id: m.id, label: `${m.glyph} ${m.label}` })),
+        { id: "noted", label: "✎ Has follow-ups" },
       ];
       bar.innerHTML = buttons
         .map(
@@ -198,9 +252,15 @@ const DK = (() => {
     }
 
     function passesFilter(c) {
-      const m = getMark(topicOf(c), bank, c.n);
-      if (activeFilter === "unmarked" && m) return false;
-      if (activeFilter !== "all" && activeFilter !== "unmarked" && m !== activeFilter) return false;
+      const topic = topicOf(c);
+      const m = getMark(topic, bank, c.n);
+      if (activeFilter === "noted") {
+        if (noteCount(topic, bank, c.n) === 0) return false;
+      } else if (activeFilter === "unmarked") {
+        if (m) return false;
+      } else if (activeFilter !== "all" && m !== activeFilter) {
+        return false;
+      }
       if (textFilter) {
         const hay = `${topicOf(c)} ${c.t || ""} ${c.q || ""}`.toLowerCase();
         if (!hay.includes(textFilter.toLowerCase())) return false;
@@ -234,7 +294,9 @@ const DK = (() => {
           `<div class="topic-tag">${tag}</div>` +
           `<div class="q">${num}${c.q}</div>` +
           `<div class="a">${c.a}</div>` +
-          `<div class="mk-row">${marksHtml}</div>`;
+          `<div class="mk-row">${marksHtml}` +
+          `<button class="nt-add" type="button">✎ Follow-up</button></div>` +
+          `<div class="nt-list"></div>`;
 
         card.addEventListener("click", () => card.classList.toggle("revealed"));
 
@@ -255,7 +317,96 @@ const DK = (() => {
           });
         });
 
+        wireNotes(card, topic, c.n);
         listEl.appendChild(card);
+      });
+    }
+
+    // Builds the follow-up note UI for one card. Notes save automatically as
+    // you type; "+ Follow-up" always appends a fresh empty box.
+    function wireNotes(card, topic, n) {
+      const listWrap = card.querySelector(".nt-list");
+      const addBtn = card.querySelector(".nt-add");
+      let working = getNotes(topic, bank, n).slice();
+
+      function persist() {
+        setNotes(topic, bank, n, working);
+        updateAddLabel();
+      }
+
+      function updateAddLabel() {
+        const saved = working.filter((x) => (x.text || "").trim() !== "").length;
+        addBtn.textContent = saved ? `✎ Follow-up (${saved})` : "✎ Follow-up";
+        card.classList.toggle("has-notes", saved > 0);
+      }
+
+      function autoGrow(ta) {
+        ta.style.height = "auto";
+        ta.style.height = Math.max(ta.scrollHeight, 44) + "px";
+      }
+
+      function drawNote(note, index) {
+        const item = document.createElement("div");
+        item.className = "nt-item";
+
+        const meta = document.createElement("div");
+        meta.className = "nt-meta";
+        const ts = document.createElement("span");
+        ts.className = "nt-ts";
+        ts.textContent = formatNoteTime(note.ts);
+        const del = document.createElement("button");
+        del.className = "nt-del";
+        del.type = "button";
+        del.textContent = "×";
+        del.title = "Delete this follow-up";
+        del.setAttribute("aria-label", "Delete this follow-up");
+        meta.appendChild(ts);
+        meta.appendChild(del);
+
+        const ta = document.createElement("textarea");
+        ta.className = "nt-text";
+        ta.rows = 2;
+        ta.placeholder = "what's the doubt?";
+        ta.value = note.text || "";
+
+        item.appendChild(meta);
+        item.appendChild(ta);
+        listWrap.appendChild(item);
+        autoGrow(ta);
+
+        // Typing inside a note must not toggle the answer reveal.
+        item.addEventListener("click", (e) => e.stopPropagation());
+
+        let timer = null;
+        ta.addEventListener("input", () => {
+          note.text = ta.value;
+          autoGrow(ta);
+          clearTimeout(timer);
+          timer = setTimeout(persist, 300);
+        });
+        ta.addEventListener("blur", persist);
+
+        del.addEventListener("click", (e) => {
+          e.stopPropagation();
+          working.splice(working.indexOf(note), 1);
+          persist();
+          item.remove();
+          if (activeFilter === "noted" && !working.length) drawCards();
+          drawBar();
+        });
+
+        return ta;
+      }
+
+      working.forEach(drawNote);
+      updateAddLabel();
+
+      addBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const note = { ts: Date.now(), text: "" };
+        working.push(note);
+        const ta = drawNote(note);
+        ta.focus();
       });
     }
 
@@ -271,7 +422,7 @@ const DK = (() => {
     };
   }
 
-  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, getMark, setMark, renderDeck, MARK_TYPES };
+  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount };
 })();
 
 // Apply theme immediately on script load (before body renders) to avoid a flash.

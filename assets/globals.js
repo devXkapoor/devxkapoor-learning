@@ -103,19 +103,9 @@ const DK = (() => {
 
   // Theme: persisted in localStorage, defaults to dark. Call initTheme() early
   // (before paint ideally) and wireThemeToggle(buttonEl) once the DOM is ready.
-  // Theme is two independent choices: light vs dark, and which dark palette.
-  // Keeping them separate means a trip through light mode doesn't lose your
-  // preferred dark variant.
-  const DARK_VARIANTS = [
-    { id: "navy", label: "Deep navy", swatch: "navy" },
-    { id: "midnight", label: "Midnight indigo", swatch: "midnight" },
-  ];
-
   function initTheme() {
     const theme = localStorage.getItem("dk-theme") || "dark";
-    const variant = localStorage.getItem("dk-dark") || "navy";
     document.documentElement.setAttribute("data-theme", theme);
-    document.documentElement.setAttribute("data-dark", variant);
     return theme;
   }
 
@@ -124,79 +114,26 @@ const DK = (() => {
     localStorage.setItem("dk-theme", theme);
   }
 
-  function setDarkVariant(variant) {
-    document.documentElement.setAttribute("data-dark", variant);
-    localStorage.setItem("dk-dark", variant);
+  function setTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("dk-theme", theme);
   }
 
   // A small menu rather than a two-state toggle, so both dark palettes are
   // reachable and comparable without editing anything.
   function wireThemeToggle(btnEl) {
     if (!btnEl) return;
-    const wrap = document.createElement("span");
-    wrap.className = "theme-wrap";
-    btnEl.parentNode.insertBefore(wrap, btnEl);
-    wrap.appendChild(btnEl);
-
-    const menu = document.createElement("div");
-    menu.className = "theme-menu";
-    wrap.appendChild(menu);
-
-    const themeNow = () => document.documentElement.getAttribute("data-theme") || "dark";
-    const variantNow = () => document.documentElement.getAttribute("data-dark") || "navy";
-
-    function paintButton() {
-      const dark = themeNow() !== "light";
+    function paint() {
+      const dark = (document.documentElement.getAttribute("data-theme") || "dark") !== "light";
       btnEl.textContent = dark ? "☀" : "☾";
-      btnEl.setAttribute("aria-label", "Theme menu");
+      btnEl.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
     }
-
-    function paintMenu() {
-      const theme = themeNow();
-      const variant = variantNow();
-      const row = (swatch, label, active, data) =>
-        `<button class="tm-opt${active ? " active" : ""}" ${data} type="button">` +
-          `<span class="tm-swatch ${swatch}"></span>${label}` +
-          `<span class="tm-check">${ICON.check}</span>` +
-        `</button>`;
-      menu.innerHTML =
-        `<div class="tm-head">Dark</div>` +
-        DARK_VARIANTS.map((v) =>
-          row(v.swatch, v.label, theme !== "light" && variant === v.id, `data-dark="${v.id}"`)
-        ).join("") +
-        `<div class="tm-head">Light</div>` +
-        row("cream", "Warm cream", theme === "light", `data-theme="light"`);
-      paintButton();
-    }
-
-    function close() {
-      menu.classList.remove("open");
-      document.removeEventListener("click", onDocClick);
-    }
-    function onDocClick(ev) {
-      if (!wrap.contains(ev.target)) close();
-    }
-
-    btnEl.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      if (menu.classList.contains("open")) { close(); return; }
-      paintMenu();
-      menu.classList.add("open");
-      setTimeout(() => document.addEventListener("click", onDocClick), 0);
+    paint();
+    btnEl.addEventListener("click", () => {
+      const dark = (document.documentElement.getAttribute("data-theme") || "dark") !== "light";
+      setTheme(dark ? "light" : "dark");
+      paint();
     });
-
-    menu.addEventListener("click", (ev) => {
-      const opt = ev.target.closest ? ev.target.closest(".tm-opt") : null;
-      if (!opt) return;
-      ev.stopPropagation();
-      if (opt.dataset.theme === "light") setTheme("light");
-      else if (opt.dataset.dark) { setTheme("dark"); setDarkVariant(opt.dataset.dark); }
-      paintMenu();
-      close();
-    });
-
-    document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") close(); });
-    paintButton();
   }
 
 
@@ -1180,7 +1117,7 @@ const DK = (() => {
     };
   }
 
-  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllPrep, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, setTheme, setDarkVariant, DARK_VARIANTS, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount, buildMarkdown, buildBackup, importBackup, plainText, highlight, addCopyButtons, makeSectionsCollapsible, addExpandControls, addBlockFooter, addLocalControls, decorateBlocks, revealHash, ICON };
+  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllPrep, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, setTheme, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount, buildMarkdown, buildBackup, importBackup, plainText, highlight, addCopyButtons, makeSectionsCollapsible, addExpandControls, addBlockFooter, addLocalControls, decorateBlocks, revealHash, ICON };
 })();
 
 // Apply theme immediately on script load (before body renders) to avoid a flash.

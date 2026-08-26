@@ -5,60 +5,35 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  /* Dark — deep navy ground with an amber accent.
-     Navy rather than near-black: pure black behind light text causes halation
-     (glyphs appear to bloom), which is what makes long sessions hurt. Body
-     text sits at 13.1:1 — comfortably above WCAG AAA, well below the 17:1
-     glare of maximum contrast. Amber on navy is the classic terminal pairing:
-     a cool, calm ground with warm focal points where attention should land. */
-  --bg: #0f1620;
-  --panel: #161f2c;
-  --panel-raised: #1e2937;
-  --code-bg: #0b1119;
-  --border: #2a3849;
-  --border-bright: #3d4f66;
-  --text: #e6ecf4;
-  --text-dim: #94a3b8;
-  --text-dimmer: #64748b;
+  /* Dark — midnight indigo with an amber accent.
+     Deep indigo rather than near-black: pure black behind light text causes
+     halation (glyphs appear to bloom), which is what makes long sessions hurt.
+     Body text sits at 15:1 — above WCAG AAA, still short of the glare of
+     maximum contrast. Amber on indigo is the classic terminal pairing: a cool,
+     quiet ground with warm focal points exactly where attention should land. */
+  --bg: #080d16;
+  --panel: #172233;
+  --panel-raised: #1e2b40;
+  --code-bg: #050a11;
+  --border: #293a52;
+  --border-bright: #3a4f6d;
+  --text: #dfe7f2;
+  --text-dim: #8798ae;
+  --text-dimmer: #5b6a80;
   --accent: #f0b45f;
   --accent-soft: #f7cd8d;
-  --accent-glow: rgba(240,180,95,0.16);
+  --accent-glow: rgba(240,180,95,0.15);
   --accent-dim: #7a5c2c;
-  --done: #6ee7a0;
+  --done: #5fd39a;
   --progress: #f0b45f;
-  --stalled: #f2867a;
-  --notstarted: #3d4f66;
-  --shadow: 0 1px 2px rgba(0,0,0,0.32);
-  --shadow-lift: 0 3px 14px rgba(0,0,0,0.40);
+  --stalled: #ef8378;
+  --notstarted: #314054;
+  --shadow: 0 1px 2px rgba(0,0,0,0.38);
+  --shadow-lift: 0 3px 16px rgba(0,0,0,0.46);
   --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --radius: 10px;
   --radius-sm: 6px;
-}
-
-
-/* Dark variant — Midnight indigo + cyan.
-   Deeper and cooler than the navy default, with a low-energy cyan accent
-   instead of amber. Intended for late-night reading: nothing in the palette
-   shouts, at the cost of any warmth. */
-:root[data-dark="midnight"]:not([data-theme="light"]) {
-  --bg: #0b111c;
-  --panel: #121a28;
-  --panel-raised: #1a2434;
-  --code-bg: #080d16;
-  --border: #243043;
-  --border-bright: #36455c;
-  --text: #dfe7f2;
-  --text-dim: #8798ae;
-  --text-dimmer: #5b6a80;
-  --accent: #5ec8d8;
-  --accent-soft: #8fdde9;
-  --accent-glow: rgba(94,200,216,0.15);
-  --accent-dim: #2d5a63;
-  --done: #5fd39a;
-  --progress: #5ec8d8;
-  --stalled: #ef8378;
-  --notstarted: #36455c;
 }
 
 html[data-theme="light"] {
@@ -1253,10 +1228,6 @@ details[open] > summary .node-count { color: var(--accent); border-color: var(--
   right: 0; top: 0; bottom: 0;
   width: 5px;
 }
-.tm-swatch.navy { background: #0f1620; }
-.tm-swatch.navy::after { background: #f0b45f; }
-.tm-swatch.midnight { background: #0b111c; }
-.tm-swatch.midnight::after { background: #5ec8d8; }
 .tm-swatch.cream { background: #ece2ca; }
 .tm-swatch.cream::after { background: #a8660f; }
 .tm-check { margin-left: auto; opacity: 0; color: var(--accent); display: inline-flex; }

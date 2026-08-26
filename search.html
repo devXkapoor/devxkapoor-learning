@@ -50,19 +50,23 @@ DK.wireThemeToggle(document.getElementById("themeToggle"));
     const q = filterText.toLowerCase();
     const filtered = all.filter(s =>
       (s.title || "").toLowerCase().includes(q) ||
-      (s.content || "").toLowerCase().includes(q)
+      DK.plainText(s.content).toLowerCase().includes(q)
     );
     resultsEl.innerHTML = "";
     if (filtered.length === 0) {
-      resultsEl.innerHTML = "<p class='empty-note'>no matches</p>";
+      resultsEl.innerHTML = `<p class='empty-note'>no matches for “${filterText}”</p>`;
       return;
     }
     filtered.forEach(s => {
-      const idx = s.content.toLowerCase().indexOf(q);
+      // Snippets are cut from the plain text, not the stored HTML — slicing
+      // markup mid-tag produced broken fragments in the results list.
+      const plain = DK.plainText(s.content);
+      const idx = plain.toLowerCase().indexOf(q);
       const snippetStart = Math.max(0, idx - 80);
-      const snippet = (idx >= 0)
-        ? "…" + s.content.slice(snippetStart, idx + 200) + "…"
-        : s.content.slice(0, 200) + "…";
+      const raw = (idx >= 0)
+        ? (snippetStart > 0 ? "…" : "") + plain.slice(snippetStart, idx + 220) + "…"
+        : plain.slice(0, 220) + "…";
+      const snippet = DK.highlight(raw, filterText);
       const card = document.createElement("a");
       card.className = "el-card";
       card.style.display = "block";

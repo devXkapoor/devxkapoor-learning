@@ -514,6 +514,16 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
   });
 });
 
+// Landscape: split the flat prose into collapsible nodes, closed by default,
+// so 19 nodes read as a navigable list instead of one continuous wall.
+(function () {
+  const prose = document.querySelector("#tab-landscape .prose");
+  if (!prose) return;
+  const n = DK.makeSectionsCollapsible(prose, { startOpen: false });
+  DK.addCopyButtons(prose);
+  if (n) DK.addExpandControls(document.getElementById("tab-landscape"), prose, n + " nodes");
+})();
+
 // If the URL has a #anchor (e.g. from search.html), jump straight to the elaboration tab.
 if (window.location.hash) {
   document.querySelector('.tab-btn[data-tab="elaboration"]').click();
@@ -544,12 +554,24 @@ function renderCards(container, cards, bank) {
   const elabEl = document.getElementById("elabCards");
   if (elab && elab.sections && elab.sections.length) {
     elab.sections.forEach(s => {
-      const card = document.createElement("div");
-      card.className = "el-card";
-      card.id = s.anchor || "";
-      card.innerHTML = `<div class="q">${s.title}</div><div class="a" style="display:block">${s.content}</div>`;
-      elabEl.appendChild(card);
+      const block = document.createElement("details");
+      block.className = "el-block";
+      block.id = s.anchor || "";
+      block.innerHTML =
+        `<summary class="node-summary">` +
+          `<span class="node-chevron">${DK.ICON.chevron}</span>` +
+          `<span class="node-title">${s.title}</span>` +
+        `</summary>` +
+        `<div class="node-body"><div class="prose">${s.content}</div></div>`;
+      elabEl.appendChild(block);
     });
+    elabEl.querySelectorAll(".el-block .prose").forEach(pr => {
+      DK.makeSectionsCollapsible(pr, { startOpen: true });
+      DK.addCopyButtons(pr);
+    });
+    DK.addExpandControls(document.getElementById("tab-elaboration"), elabEl,
+      elab.sections.length + " sections");
+    DK.revealHash();
   } else {
     elabEl.innerHTML = "<p class='empty-note'>The deep-dive write-up for this topic hasn't been started yet — it'll fill in section by section as we go.</p>";
   }

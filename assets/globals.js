@@ -26,28 +26,53 @@ const DK = (() => {
     return await fetchJSON("tracker.json");
   }
 
+  // Only topics that appear in tracker.status have files on disk; walking all
+  // ~112 catalog slugs meant ~109 sequential 404s, which took roughly half a
+  // minute and made the global pages look broken. Filter, then fetch together.
+  function startedSlugs(tracker) {
+    const known = new Set(Object.keys(tracker.status || {}));
+    return tracker.sections
+      .flatMap((s) => s.topics)
+      .filter((slug) => known.has(slug));
+  }
+
   async function loadAllRecall(tracker) {
-    const all = [];
-    const slugs = tracker.sections.flatMap(s => s.topics);
-    for (const slug of slugs) {
-      const data = await fetchJSON(`topics/${slug}/recall.json`);
-      if (data && Array.isArray(data.cards)) {
-        data.cards.forEach(c => all.push({ ...c, topic: slug }));
-      }
-    }
-    return all;
+    const slugs = startedSlugs(tracker);
+    const results = await Promise.all(
+      slugs.map(async (slug) => {
+        const data = await fetchJSON(`topics/${slug}/recall.json`);
+        return data && Array.isArray(data.cards)
+          ? data.cards.map((c) => ({ ...c, topic: slug }))
+          : [];
+      })
+    );
+    return results.flat();
+  }
+
+  async function loadAllPrep(tracker) {
+    const slugs = startedSlugs(tracker);
+    const results = await Promise.all(
+      slugs.map(async (slug) => {
+        const data = await fetchJSON(`topics/${slug}/prep.json`);
+        return data && Array.isArray(data.cards)
+          ? data.cards.map((c) => ({ ...c, topic: slug }))
+          : [];
+      })
+    );
+    return results.flat();
   }
 
   async function loadAllElaboration(tracker) {
-    const all = [];
-    const slugs = tracker.sections.flatMap(s => s.topics);
-    for (const slug of slugs) {
-      const data = await fetchJSON(`topics/${slug}/elaboration.json`);
-      if (data && Array.isArray(data.sections)) {
-        data.sections.forEach(s => all.push({ ...s, topic: slug }));
-      }
-    }
-    return all;
+    const slugs = startedSlugs(tracker);
+    const results = await Promise.all(
+      slugs.map(async (slug) => {
+        const data = await fetchJSON(`topics/${slug}/elaboration.json`);
+        return data && Array.isArray(data.sections)
+          ? data.sections.map((s) => ({ ...s, topic: slug }))
+          : [];
+      })
+    );
+    return results.flat();
   }
 
   function statusOf(tracker, slug) {
@@ -101,6 +126,136 @@ const DK = (() => {
     });
   }
 
+
+
+  function escapeHtml(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  // Inline SVG so icons inherit currentColor and need no external requests.
+  const ICON = {
+    copy: '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="9" rx="1.5"/><path d="M10.5 3.5v-1a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h1"/></svg>',
+    check: '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>',
+    chevron: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg>',
+    trash: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9L12 4"/><path d="M6.5 7v4M9.5 7v4"/></svg>',
+    done: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>',
+  };
+
+  // ---------- Prose enhancement: collapsible sections + code copy ----------
+  // The landscape and elaboration tabs are long-form HTML. Rendered flat they
+  // read as one undivided wall, with no way to navigate or to collapse what
+  // you've already read. This restructures them at runtime so the source HTML
+  // stays simple: each <h3> becomes a collapsible section, closed by default.
+
+  function addCopyButtons(root) {
+    root.querySelectorAll("pre").forEach((pre) => {
+      if (pre.parentElement && pre.parentElement.classList.contains("code-wrap")) return;
+      const wrap = document.createElement("div");
+      wrap.className = "code-wrap";
+      pre.parentNode.insertBefore(wrap, pre);
+      wrap.appendChild(pre);
+
+      const btn = document.createElement("button");
+      btn.className = "code-copy";
+      btn.type = "button";
+      btn.title = "Copy to clipboard";
+      btn.setAttribute("aria-label", "Copy code to clipboard");
+      btn.innerHTML = ICON.copy;
+      wrap.appendChild(btn);
+
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const text = pre.innerText;
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch (err) {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand("copy"); } catch (e2) { /* nothing else to try */ }
+          ta.remove();
+        }
+        btn.innerHTML = ICON.check;
+        btn.classList.add("copied");
+        setTimeout(() => {
+          btn.innerHTML = ICON.copy;
+          btn.classList.remove("copied");
+        }, 1400);
+      });
+    });
+  }
+
+  // Groups each <h3> with the nodes that follow it into a <details> block.
+  // Native <details>/<summary> gets keyboard handling and screen-reader
+  // semantics for free, which a hand-rolled toggle would have to reinvent.
+  function makeSectionsCollapsible(root, opts) {
+    const startOpen = !!(opts && opts.startOpen);
+    const headings = Array.from(root.children).filter((el) => el.tagName === "H3");
+    if (!headings.length) return 0;
+
+    headings.forEach((h) => {
+      const details = document.createElement("details");
+      details.className = "node-block";
+      if (startOpen) details.open = true;
+
+      const summary = document.createElement("summary");
+      summary.className = "node-summary";
+      summary.innerHTML = `<span class="node-chevron">${ICON.chevron}</span><span class="node-title">${h.innerHTML}</span>`;
+      details.appendChild(summary);
+
+      const body = document.createElement("div");
+      body.className = "node-body";
+      details.appendChild(body);
+
+      root.insertBefore(details, h);
+      h.remove();
+
+      // Move everything up to the next h3 into this block.
+      while (details.nextSibling && details.nextSibling.tagName !== "H3") {
+        body.appendChild(details.nextSibling);
+      }
+    });
+    return headings.length;
+  }
+
+  // Adds an expand-all / collapse-all bar above a set of <details> blocks.
+  function addExpandControls(container, targetRoot, label) {
+    const bar = document.createElement("div");
+    bar.className = "prose-controls";
+    bar.innerHTML =
+      `<span class="pc-label">${label}</span>` +
+      `<button class="pc-btn" data-act="expand" type="button">Expand all</button>` +
+      `<button class="pc-btn" data-act="collapse" type="button">Collapse all</button>`;
+    container.insertBefore(bar, container.firstChild);
+    bar.addEventListener("click", (e) => {
+      const act = e.target.dataset && e.target.dataset.act;
+      if (!act) return;
+      targetRoot.querySelectorAll("details.node-block, details.el-block").forEach((d) => {
+        d.open = act === "expand";
+      });
+    });
+    return bar;
+  }
+
+  // Opens whichever collapsed block contains the element the URL points at,
+  // so a link from search.html still lands somewhere visible.
+  function revealHash() {
+    if (!window.location.hash) return;
+    let el = null;
+    try { el = document.querySelector(window.location.hash); } catch (e) { return; }
+    if (!el) return;
+    let p = el;
+    while (p) {
+      if (p.tagName === "DETAILS") p.open = true;
+      p = p.parentElement;
+    }
+    setTimeout(() => el.scrollIntoView({ block: "start", behavior: "smooth" }), 60);
+  }
 
   // ---------- Question marks (understood / unclear / discuss) ----------
   // Stored per topic + bank + question number so they survive across sessions
@@ -272,6 +427,24 @@ const DK = (() => {
     return text.replace(/\s+/g, " ").trim();
   }
 
+  // Plain text from stored HTML, for searching and snippets.
+  function plainText(html) {
+    return stripTags(html);
+  }
+
+  // Wraps matches of `term` in <mark>, escaping everything else first so the
+  // snippet can never inject markup from the source content.
+  function highlight(text, term) {
+    const safe = escapeHtml(text);
+    if (!term) return safe;
+    const escTerm = escapeHtml(term).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    try {
+      return safe.replace(new RegExp(escTerm, "gi"), (m) => `<mark>${m}</mark>`);
+    } catch (e) {
+      return safe;
+    }
+  }
+
   function buildBackup() {
     return JSON.stringify(
       { version: 1, exportedAt: new Date().toISOString(), marks: loadMarks(), notes: loadNotes() },
@@ -318,6 +491,47 @@ const DK = (() => {
     saveNotes(notes);
 
     return { marks: markCount, notes: noteCountAdded };
+  }
+
+
+  // A real centred confirmation, rather than an inline two-click arm. Deleting
+  // several thousand words of dictated thinking deserves an explicit, readable
+  // "this is what you're about to lose" moment.
+  function confirmDestructive(opts) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "dk-modal-overlay";
+      overlay.innerHTML =
+        `<div class="dk-confirm" role="alertdialog" aria-modal="true" aria-label="${opts.title}">` +
+          `<div class="dkc-title">${opts.title}</div>` +
+          (opts.body ? `<div class="dkc-body">${opts.body}</div>` : "") +
+          (opts.preview ? `<div class="dkc-preview">${opts.preview}</div>` : "") +
+          `<div class="dkc-actions">` +
+            `<button class="dkc-btn" data-act="cancel" type="button">Cancel</button>` +
+            `<button class="dkc-btn danger" data-act="ok" type="button">${opts.confirmLabel || "Delete"}</button>` +
+          `</div>` +
+        `</div>`;
+      document.body.appendChild(overlay);
+
+      function finish(result) {
+        overlay.remove();
+        document.removeEventListener("keydown", onKey);
+        resolve(result);
+      }
+      function onKey(e) {
+        if (e.key === "Escape") finish(false);
+        if (e.key === "Enter") finish(true);
+      }
+      document.addEventListener("keydown", onKey);
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) finish(false);
+        const act = e.target.dataset && e.target.dataset.act;
+        if (act === "cancel") finish(false);
+        if (act === "ok") finish(true);
+      });
+      const cancel = overlay.querySelector('[data-act="cancel"]');
+      if (cancel) cancel.focus();
+    });
   }
 
   function openExportDialog(cards, bank, topicOf, scopeLabel) {
@@ -603,6 +817,9 @@ const DK = (() => {
         const item = document.createElement("div");
         item.className = "nt-item" + (startCollapsed ? " collapsed" : "");
 
+        // Header carries identity only. Actions live at the bottom right of the
+        // editor, where a writer's hands and eyes already are once they finish
+        // typing — the same place a chat composer puts its send button.
         const meta = document.createElement("div");
         meta.className = "nt-meta";
         const ts = document.createElement("span");
@@ -610,24 +827,24 @@ const DK = (() => {
         ts.textContent = formatNoteTime(note.ts);
         const status = document.createElement("span");
         status.className = "nt-status";
-        const spacer = document.createElement("span");
-        spacer.className = "nt-spacer";
-        const doneBtn = document.createElement("button");
-        doneBtn.className = "nt-done";
-        doneBtn.type = "button";
-        doneBtn.textContent = "Done";
-        doneBtn.title = "Save and collapse this follow-up";
+        meta.appendChild(ts);
+        meta.appendChild(status);
+
+        const actions = document.createElement("div");
+        actions.className = "nt-actions";
         const del = document.createElement("button");
         del.className = "nt-del";
         del.type = "button";
-        del.textContent = "×";
+        del.innerHTML = ICON.trash;
         del.title = "Delete this follow-up";
         del.setAttribute("aria-label", "Delete this follow-up");
-        meta.appendChild(ts);
-        meta.appendChild(status);
-        meta.appendChild(spacer);
-        meta.appendChild(doneBtn);
-        meta.appendChild(del);
+        const doneBtn = document.createElement("button");
+        doneBtn.className = "nt-done";
+        doneBtn.type = "button";
+        doneBtn.innerHTML = ICON.done + "<span>Done</span>";
+        doneBtn.title = "Save and collapse this follow-up";
+        actions.appendChild(del);
+        actions.appendChild(doneBtn);
 
         // Collapsed view — one line, click to reopen.
         const summary = document.createElement("div");
@@ -645,6 +862,7 @@ const DK = (() => {
         item.appendChild(meta);
         item.appendChild(summary);
         item.appendChild(ta);
+        item.appendChild(actions);
         listWrap.appendChild(item);
 
         function expand() {
@@ -696,24 +914,18 @@ const DK = (() => {
           flagSaved();
         });
 
-        // Deleting a long note by accident would be unrecoverable, so the
-        // first click arms and the second confirms.
-        let armed = false;
-        let armTimer = null;
-        del.addEventListener("click", (e) => {
+        del.addEventListener("click", async (e) => {
           e.stopPropagation();
-          if (!armed) {
-            armed = true;
-            del.textContent = "delete?";
-            del.classList.add("armed");
-            armTimer = setTimeout(() => {
-              armed = false;
-              del.textContent = "×";
-              del.classList.remove("armed");
-            }, 3500);
-            return;
-          }
-          clearTimeout(armTimer);
+          const words = (note.text || "").trim().split(/\s+/).filter(Boolean).length;
+          const ok = await confirmDestructive({
+            title: "Delete this follow-up?",
+            body:
+              `Written ${formatNoteTime(note.ts)} — about ${words.toLocaleString()} word${words === 1 ? "" : "s"}. ` +
+              "This can't be undone from here; only a backup could bring it back.",
+            preview: escapeHtml(summarise(note.text)),
+            confirmLabel: "Delete follow-up",
+          });
+          if (!ok) return;
           working.splice(working.indexOf(note), 1);
           persist();
           item.remove();
@@ -750,7 +962,7 @@ const DK = (() => {
     };
   }
 
-  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount, buildMarkdown, buildBackup, importBackup };
+  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllPrep, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount, buildMarkdown, buildBackup, importBackup, plainText, highlight, addCopyButtons, makeSectionsCollapsible, addExpandControls, revealHash, ICON };
 })();
 
 // Apply theme immediately on script load (before body renders) to avoid a flash.

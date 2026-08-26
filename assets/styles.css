@@ -5,51 +5,62 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --bg: #0a0c10;
-  --panel: #14181f;
-  --panel-raised: #1a1f28;
-  --border: #262d3a;
-  --border-bright: #3a4356;
-  --text: #eef0f4;
-  --text-dim: #8b93a3;
-  --text-dimmer: #565f70;
-  --accent: #ffb454;
-  --accent-soft: #ffcb82;
-  --accent-glow: rgba(255,180,84,0.18);
-  --accent-dim: #6b5530;
-  --done: #7ee091;
-  --progress: #ffb454;
-  --stalled: #ff8080;
-  --notstarted: #414a5c;
-  --mk-got: #7ee091;
-  --mk-unclear: #ffb454;
-  --mk-discuss: #7cc4ff;
+  /* Dark: warm charcoal, never pure black. Pure black behind light text causes
+     halation — the text appears to bloom — which is exactly what makes long
+     reading sessions hurt. Body text sits near 88% rather than 100% white, so
+     contrast lands around 11:1: comfortably above WCAG AAA without the glare
+     of maximum contrast. The whole ramp is warmed slightly toward brown to cut
+     blue light for night reading. */
+  --bg: #171613;
+  --panel: #1f1d19;
+  --panel-raised: #282520;
+  --code-bg: #131210;
+  --border: #35312a;
+  --border-bright: #4a453b;
+  --text: #ece6da;
+  --text-dim: #a8a091;
+  --text-dimmer: #756f62;
+  --accent: #e2a75c;
+  --accent-soft: #f0c489;
+  --accent-glow: rgba(226,167,92,0.16);
+  --accent-dim: #6d5a38;
+  --done: #86c98d;
+  --progress: #e2a75c;
+  --stalled: #e08a7d;
+  --notstarted: #4a453b;
+  --shadow: 0 1px 2px rgba(0,0,0,0.28);
+  --shadow-lift: 0 2px 10px rgba(0,0,0,0.34);
   --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --radius: 8px;
-  --radius-sm: 5px;
+  --radius: 10px;
+  --radius-sm: 6px;
 }
 
 html[data-theme="light"] {
-  --bg: #fbf8f2;
-  --panel: #ffffff;
-  --panel-raised: #f4efe4;
-  --border: #e6ddc9;
-  --border-bright: #d4c8a8;
-  --text: #26221a;
-  --text-dim: #6f6656;
-  --text-dimmer: #a49a83;
-  --accent: #c9791a;
-  --accent-soft: #a8620f;
-  --accent-glow: rgba(201,121,26,0.14);
-  --accent-dim: #f0dcb8;
-  --done: #2f9e4f;
-  --progress: #c9791a;
-  --stalled: #d1483f;
-  --notstarted: #cfc4a8;
-  --mk-got: #2f9e4f;
-  --mk-unclear: #c9791a;
-  --mk-discuss: #2b6ea8;
+  /* Light: warm cream paper rather than white. White at full brightness is the
+     single biggest cause of light-mode fatigue; a cream ground reflects the
+     feel of a printed page. Text is a warm near-black-brown, not #000, and
+     panels sit *lighter* than the ground with real borders and a soft shadow,
+     so sections stay visually separated instead of dissolving into one field. */
+  --bg: #f7f2e7;
+  --panel: #fffdf7;
+  --panel-raised: #f1e9d8;
+  --code-bg: #f3ecdd;
+  --border: #ded4bd;
+  --border-bright: #c4b899;
+  --text: #302c24;
+  --text-dim: #665f51;
+  --text-dimmer: #948c7a;
+  --accent: #a8660f;
+  --accent-soft: #8a5309;
+  --accent-glow: rgba(168,102,15,0.13);
+  --accent-dim: #e4d2ac;
+  --done: #3d8a4f;
+  --progress: #a8660f;
+  --stalled: #bd4a39;
+  --notstarted: #c4b899;
+  --shadow: 0 1px 2px rgba(90,70,35,0.07);
+  --shadow-lift: 0 2px 10px rgba(90,70,35,0.10);
 }
 
 * { box-sizing: border-box; }
@@ -445,9 +456,8 @@ input.search-box:focus-visible { outline: none; }
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
 }
-.nt-spacer { flex: 1; }
 .nt-ts {
   font-family: var(--mono);
   font-size: 10.5px;
@@ -459,42 +469,59 @@ input.search-box:focus-visible { outline: none; }
   font-family: var(--mono);
   font-size: 10px;
   color: var(--text-dimmer);
-  opacity: 0.85;
   white-space: nowrap;
 }
 
+/* Actions sit bottom-right of the editor, where a composer's send button
+   lives — the eye is already there when you stop typing. */
+.nt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+.nt-item.collapsed .nt-actions { display: none; }
+
 .nt-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 7px 15px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: background 0.15s, box-shadow 0.15s, transform 0.08s;
+}
+.nt-done:hover { background: var(--accent-soft); box-shadow: var(--shadow-lift); }
+.nt-done:active { transform: translateY(1px); }
+.nt-done svg { flex: none; }
+
+.nt-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-dim);
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.03em;
-  padding: 3px 9px;
+  padding: 7px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.nt-done:hover { color: var(--accent); border-color: var(--accent-dim); }
-
-.nt-del {
-  background: transparent;
-  border: none;
-  color: var(--text-dimmer);
-  font-family: var(--mono);
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 4px;
-  cursor: pointer;
-  border-radius: 3px;
-}
-.nt-del:hover { color: var(--stalled); }
-.nt-del.armed {
-  font-size: 10.5px;
+.nt-del:hover {
   color: var(--stalled);
-  border: 1px solid var(--stalled);
-  padding: 3px 7px;
-  letter-spacing: 0.03em;
+  border-color: var(--stalled);
+  background: color-mix(in srgb, var(--stalled) 10%, transparent);
 }
 
 /* Collapsed state — a single readable line instead of a wall of text. */
@@ -661,27 +688,110 @@ textarea.dk-modal-text:focus { outline: none; border-color: var(--accent); }
   textarea.dk-modal-text { min-height: 220px; font-size: 12px; }
 }
 
-/* ---------- Prose (elaboration content) ---------- */
+/* ---------- Prose (landscape + elaboration content) ---------- */
 
-.prose { max-width: 760px; font-size: 17px; }
-.prose h3 { font-family: var(--mono); font-size: 17px; margin: 32px 0 12px; color: var(--text); }
-.prose p { margin: 0 0 16px; color: var(--text); }
+/* ~68 characters per line is the readable band for long-form text; 68ch with
+   a generous line-height is what makes 3,000-word nodes survivable. */
+.prose { max-width: 68ch; font-size: 17px; line-height: 1.72; }
+.node-body .prose, .prose .node-body { max-width: none; }
+
+.prose h3 {
+  font-family: var(--mono);
+  font-size: 17px;
+  margin: 34px 0 13px;
+  color: var(--text);
+  line-height: 1.4;
+}
+.prose h4 {
+  font-family: var(--mono);
+  font-size: 14.5px;
+  letter-spacing: 0.02em;
+  margin: 28px 0 11px;
+  color: var(--accent);
+  line-height: 1.4;
+}
+.node-body h4:first-child { margin-top: 6px; }
+
+.prose p { margin: 0 0 17px; color: var(--text); }
+.prose strong { color: var(--text); font-weight: 650; }
+.prose em { color: var(--text); }
+
+.prose ul, .prose ol { margin: 0 0 18px; padding-left: 22px; }
+.prose li { margin-bottom: 9px; color: var(--text); }
+.prose li:last-child { margin-bottom: 0; }
+.prose li::marker { color: var(--text-dimmer); }
+
+.prose blockquote {
+  margin: 18px 0;
+  padding: 2px 0 2px 16px;
+  border-left: 2px solid var(--accent-dim);
+  color: var(--text-dim);
+}
+.prose blockquote p:last-child { margin-bottom: 0; }
+
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 30px 0;
+}
+
+.prose a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.prose a:hover { color: var(--accent-soft); }
+
 .prose code {
   font-family: var(--mono);
-  background: var(--panel-raised);
-  padding: 2px 7px;
+  background: var(--code-bg);
+  padding: 2px 6px;
   border-radius: 4px;
-  font-size: 0.88em;
+  font-size: 0.86em;
   border: 1px solid var(--border);
+  color: var(--text);
+  word-break: break-word;
 }
 .prose pre {
   font-family: var(--mono);
-  background: var(--panel-raised);
+  background: var(--code-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 16px;
+  padding: 15px 17px;
   overflow-x: auto;
-  font-size: 14px;
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--text);
+}
+.prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 1em;
+}
+
+/* Tables inside prose need to scroll rather than force the page sideways. */
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 18px 0;
+  font-size: 15px;
+  display: block;
+  overflow-x: auto;
+}
+.prose th, .prose td {
+  border: 1px solid var(--border);
+  padding: 9px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+.prose th {
+  background: var(--panel-raised);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .prose { font-size: 16px; line-height: 1.68; }
+  .prose pre { font-size: 12.5px; padding: 13px 14px; }
 }
 
 /* ---------- Misc ---------- */
@@ -762,4 +872,186 @@ a { color: var(--accent); }
 @media (max-width: 420px) {
   header.site-header nav a { margin-left: 8px; font-size: 10.5px; }
   h1 { font-size: 21px; }
+}
+
+/* ---------- Long-form prose: collapsible nodes, headings, code ---------- */
+
+.prose-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.pc-label {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-dimmer);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-right: auto;
+}
+.pc-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.pc-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+
+details.node-block, details.el-block {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+details.node-block[open], details.el-block[open] {
+  border-color: var(--border-bright);
+  box-shadow: var(--shadow);
+}
+
+summary.node-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 15px 18px;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.45;
+  transition: background 0.12s, color 0.12s;
+}
+summary.node-summary::-webkit-details-marker { display: none; }
+summary.node-summary:hover { background: var(--panel-raised); color: var(--accent); }
+summary.node-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.node-chevron {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 3px;
+  color: var(--text-dimmer);
+  transition: transform 0.18s ease, color 0.15s;
+}
+details[open] > summary .node-chevron { transform: rotate(90deg); color: var(--accent); }
+summary.node-summary:hover .node-chevron { color: var(--accent); }
+.node-title { flex: 1; }
+
+.node-body {
+  padding: 4px 22px 20px;
+  border-top: 1px solid var(--border);
+  margin-top: -1px;
+}
+.node-body > *:first-child { margin-top: 18px; }
+.node-body > *:last-child { margin-bottom: 0; }
+
+/* Code blocks with a copy affordance. */
+.code-wrap { position: relative; }
+.code-wrap pre { margin: 0; }
+.prose .code-wrap { margin: 16px 0; }
+.code-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+.code-wrap:hover .code-copy,
+.code-copy:focus-visible { opacity: 1; }
+.code-copy:hover { color: var(--accent); border-color: var(--accent-dim); }
+.code-copy.copied { color: var(--done); border-color: var(--done); opacity: 1; }
+@media (hover: none) { .code-copy { opacity: 1; } }
+
+/* ---------- Destructive confirmation ---------- */
+
+.dk-confirm {
+  background: var(--panel);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 440px;
+  padding: 22px 24px 18px;
+  box-shadow: var(--shadow-lift);
+}
+.dkc-title {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.dkc-body {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.dkc-preview {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--stalled);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.55;
+  margin-bottom: 18px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+.dkc-actions { display: flex; justify-content: flex-end; gap: 9px; }
+.dkc-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.dkc-btn:hover { color: var(--text); border-color: var(--border-bright); }
+.dkc-btn.danger {
+  background: var(--stalled);
+  border-color: var(--stalled);
+  color: var(--bg);
+  font-weight: 600;
+}
+.dkc-btn.danger:hover { filter: brightness(1.08); color: var(--bg); }
+
+@media (max-width: 640px) {
+  summary.node-summary { padding: 13px 14px; font-size: 14px; }
+  .node-body { padding: 4px 15px 16px; }
+  .nt-done { padding: 8px 14px; }
+  .dk-confirm { padding: 18px 17px 15px; }
+}
+
+.prose mark, .el-card mark, #results mark {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  color: var(--text);
+  padding: 0 2px;
+  border-radius: 2px;
 }

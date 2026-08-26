@@ -228,12 +228,24 @@ function renderCards(container, cards, bank) {
   const elabEl = document.getElementById("elabCards");
   if (elab && elab.sections && elab.sections.length) {
     elab.sections.forEach(s => {
-      const card = document.createElement("div");
-      card.className = "el-card";
-      card.id = s.anchor || "";
-      card.innerHTML = `<div class="q">${s.title}</div><div class="a" style="display:block">${s.content}</div>`;
-      elabEl.appendChild(card);
+      const block = document.createElement("details");
+      block.className = "el-block";
+      block.id = s.anchor || "";
+      block.innerHTML =
+        `<summary class="node-summary">` +
+          `<span class="node-chevron">${DK.ICON.chevron}</span>` +
+          `<span class="node-title">${s.title}</span>` +
+        `</summary>` +
+        `<div class="node-body"><div class="prose">${s.content}</div></div>`;
+      elabEl.appendChild(block);
     });
+    elabEl.querySelectorAll(".el-block .prose").forEach(pr => {
+      DK.makeSectionsCollapsible(pr, { startOpen: true });
+      DK.addCopyButtons(pr);
+    });
+    DK.addExpandControls(document.getElementById("tab-elaboration"), elabEl,
+      elab.sections.length + " sections");
+    DK.revealHash();
   } else {
     elabEl.innerHTML = "<p class='empty-note'>The deep-dive write-up for this topic hasn't been started yet — it'll fill in section by section as we go.</p>";
   }

@@ -12,14 +12,22 @@
      maximum contrast. Amber on indigo is the classic terminal pairing: a cool,
      quiet ground with warm focal points exactly where attention should land. */
   --bg: #080d16;
-  --panel: #172233;
-  --panel-raised: #1e2b40;
-  --code-bg: #050a11;
-  --border: #293a52;
-  --border-bright: #3a4f6d;
-  --text: #dfe7f2;
+  --panel: #0e1520;
+  --panel-raised: #141d2c;
+  --code-bg: #060b12;
+  --border: #223047;
+  --border-bright: #33455f;
+  /* Body text pulled back from near-white toward the lede grey: 12.3:1 is
+     still AAA, but far less glare across thousands of words. */
+  --text: #c8d4e4;
+  --text-strong: #e2eaf5;
   --text-dim: #8798ae;
   --text-dimmer: #5b6a80;
+  /* Marker hues. These were referenced throughout but lost in an earlier
+     palette rewrite, which left every marker rendering colourless. */
+  --mk-got: #6ee79f;
+  --mk-unclear: #f0b45f;
+  --mk-discuss: #7fb8f0;
   --accent: #f0b45f;
   --accent-soft: #f7cd8d;
   --accent-glow: rgba(240,180,95,0.15);
@@ -49,9 +57,13 @@ html[data-theme="light"] {
   --code-bg: #f5eede;
   --border: #cfc2a4;
   --border-bright: #b5a483;
-  --text: #2c2820;
+  --text: #3a3529;
+  --text-strong: #241f18;
   --text-dim: #635b4c;
   --text-dimmer: #8d8471;
+  --mk-got: #2f7d43;
+  --mk-unclear: #a8660f;
+  --mk-discuss: #1f5f96;
   --accent: #a8660f;
   --accent-soft: #8a5309;
   --accent-glow: rgba(168,102,15,0.14);
@@ -331,12 +343,13 @@ input.search-box:focus-visible { outline: none; }
 .rc-card:hover { border-color: var(--accent-dim); }
 .rc-card .topic-tag, .el-card .topic-tag {
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: 10.5px;
+  opacity: 0.8;
   text-transform: uppercase;
   color: var(--accent);
   letter-spacing: 0.05em;
 }
-.rc-card .q { font-weight: 600; margin: 10px 0 0; font-size: 16px; }
+.rc-card .q { font-weight: 600; margin: 9px 0 0; font-size: 15.5px; color: var(--text-strong); line-height: 1.5; }
 .rc-card .a {
   color: var(--text-dim);
   font-size: 15px;
@@ -382,7 +395,7 @@ input.search-box:focus-visible { outline: none; }
 .mf-btn[data-kind="discuss"].active { border-color: var(--mk-discuss); }
 .mf-btn[data-kind="discuss"].active .mf-count { color: var(--mk-discuss); }
 
-.rc-card[data-mark] { border-left-width: 3px; }
+.rc-card[data-mark] { border-left-width: 2px; }
 .rc-card[data-mark="got"] { border-left-color: var(--mk-got); }
 .rc-card[data-mark="unclear"] { border-left-color: var(--mk-unclear); }
 .rc-card[data-mark="discuss"] { border-left-color: var(--mk-discuss); }
@@ -397,12 +410,12 @@ input.search-box:focus-visible { outline: none; }
 }
 .mk-btn {
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   color: var(--text-dimmer);
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: 0.03em;
-  padding: 5px 10px;
+  padding: 5px 9px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: inline-flex;
@@ -410,48 +423,11 @@ input.search-box:focus-visible { outline: none; }
   gap: 6px;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
-.mk-btn:hover { color: var(--text-dim); border-color: var(--border-bright); }
+.mk-btn:hover { color: var(--text-dim); border-color: var(--border); }
 .mk-btn .mk-g { font-weight: 700; font-size: 12px; }
-.mk-btn[data-mark="got"].on { color: var(--mk-got); border-color: var(--mk-got); background: color-mix(in srgb, var(--mk-got) 12%, transparent); }
-.mk-btn[data-mark="unclear"].on { color: var(--mk-unclear); border-color: var(--mk-unclear); background: color-mix(in srgb, var(--mk-unclear) 12%, transparent); }
-.mk-btn[data-mark="discuss"].on { color: var(--mk-discuss); border-color: var(--mk-discuss); background: color-mix(in srgb, var(--mk-discuss) 12%, transparent); }
-
-@media (max-width: 640px) {
-  .mf-btn { padding: 6px 10px; font-size: 11.5px; }
-  .mk-btn { padding: 5px 8px; font-size: 10.5px; }
-  .mk-btn .mk-g { font-size: 11px; }
-}
-
-
-/* ---------- Follow-up notes ---------- */
-
-.mk-row .nt-add { margin-left: auto; }
-.nt-add {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-dimmer);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.03em;
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-.nt-add:hover { color: var(--accent); border-color: var(--accent-dim); }
-.rc-card.has-notes .nt-add { color: var(--accent); border-color: var(--accent-dim); }
-
-.nt-list { display: flex; flex-direction: column; gap: 8px; }
-.nt-list:not(:empty) { margin-top: 12px; }
-
-.nt-item {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-left: 2px solid var(--accent-dim);
-  border-radius: var(--radius-sm);
-  padding: 9px 11px;
-  cursor: default;
-}
+.mk-btn[data-mark="got"].on { color: var(--mk-got); border-color: var(--mk-got); background: color-mix(in srgb, var(--mk-got) 10%, transparent); }
+.mk-btn[data-mark="unclear"].on { color: var(--mk-unclear); border-color: var(--mk-unclear); background: color-mix(in srgb, var(--mk-unclear) 10%, transparent); }
+.mk-btn[data-mark="discuss"].on { color: var(--mk-discuss); border-color: var(--mk-discuss); background: color-mix(in srgb, var(--mk-discuss) 10%, transparent); }
 
 .nt-meta {
   display: flex;
@@ -461,8 +437,9 @@ input.search-box:focus-visible { outline: none; }
 }
 .nt-ts {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--text-dimmer);
+  opacity: 0.72;
   letter-spacing: 0.03em;
   white-space: nowrap;
 }
@@ -528,7 +505,7 @@ input.search-box:focus-visible { outline: none; }
 /* Collapsed state — a single readable line instead of a wall of text. */
 .nt-summary {
   display: none;
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--text-dim);
   line-height: 1.5;
   cursor: pointer;
@@ -700,7 +677,7 @@ textarea.dk-modal-text:focus { outline: none; border-color: var(--accent); }
   font-family: var(--mono);
   font-size: 17px;
   margin: 34px 0 13px;
-  color: var(--text);
+  color: var(--text-strong);
   line-height: 1.4;
 }
 .prose h4 {
@@ -714,7 +691,7 @@ textarea.dk-modal-text:focus { outline: none; border-color: var(--accent); }
 .node-body h4:first-child { margin-top: 6px; }
 
 .prose p { margin: 0 0 17px; color: var(--text); }
-.prose strong { color: var(--text); font-weight: 650; }
+.prose strong { color: var(--text-strong); font-weight: 650; }
 .prose em { color: var(--text); }
 
 .prose ul, .prose ol { margin: 0 0 18px; padding-left: 22px; }
@@ -930,7 +907,7 @@ summary.node-summary {
   font-family: var(--mono);
   font-size: 15px;
   font-weight: 500;
-  color: var(--text);
+  color: var(--text-strong);
   line-height: 1.45;
   transition: background 0.12s, color 0.12s;
 }
@@ -1072,6 +1049,9 @@ details.sub-block > summary.node-summary {
   color: var(--text-dim);
 }
 details.sub-block[open] > summary.node-summary { color: var(--accent); }
+/* This needs the same specificity as the rule above, or the base hover rule
+   loses and only the chevron changes colour. */
+details.sub-block > summary.node-summary:hover { color: var(--accent); }
 details.sub-block > .node-body { padding: 2px 16px 14px; }
 details.sub-block > .node-body > *:first-child { margin-top: 14px; }
 

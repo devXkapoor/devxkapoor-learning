@@ -911,8 +911,13 @@ const DK = (() => {
           if (!byTopic.has(k)) byTopic.set(k, []);
           byTopic.get(k).push(c);
         });
+        // Open the topic level on arrival so the page shows its structure —
+        // the node groups — rather than two or three bare bars that read as an
+        // empty page. The node groups below stay closed, so this reveals
+        // navigation without dumping several hundred cards.
+        const openTopics = filtering || byTopic.size <= 6;
         byTopic.forEach((items, topic) => {
-          const g = makeGroup(topic.replace(/-/g, " "), items.length, filtering);
+          const g = makeGroup(topic.replace(/-/g, " "), items.length, openTopics);
           g.block.classList.add("topic-group");
           renderNodeGroups(g.body, items);
           addBlockFooter(g.block, "Collapse this topic");

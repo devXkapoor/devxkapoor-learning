@@ -977,7 +977,7 @@ summary.node-summary:hover .node-chevron { color: var(--accent); }
 .node-title { flex: 1; }
 
 .node-body {
-  padding: 4px 22px 0;
+  padding: 4px 22px 18px;
   border-top: 1px solid var(--border);
   margin-top: -1px;
 }
@@ -1119,44 +1119,50 @@ details.sub-block > .node-body > *:first-child { margin-top: 14px; }
   margin-right: auto;
 }
 
-/* Closing bar at the END of an open block — the whole strip is clickable,
-   mirroring the header, so collapsing is the same gesture as expanding. */
-.node-foot {
+/* Closing bar at the END of an open block. It is a direct child of the
+   <details>, so it spans the block edge-to-edge exactly like the header —
+   no padding to cancel, nothing to keep in sync. The whole strip is the hit
+   target, so closing is the same gesture as opening. */
+details > .node-foot {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   width: 100%;
-  margin-top: 22px;
-  padding: 10px 14px;
+  margin: 0;
+  padding: 11px 18px;
   background: transparent;
   border: none;
   border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--radius) var(--radius);
   color: var(--text-dimmer);
   font-family: var(--mono);
   font-size: 11.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
-  border-radius: 0 0 var(--radius) var(--radius);
   transition: background 0.13s, color 0.13s;
 }
-.node-foot:hover { background: var(--panel-raised); color: var(--accent); }
-.node-foot:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+details > .node-foot:hover { background: var(--panel-raised); color: var(--accent); }
+details > .node-foot:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+details:not([open]) > .node-foot { display: none; }
 .node-foot .nf-chev {
   display: inline-flex;
   transform: rotate(-90deg);
-  opacity: 0.75;
+  opacity: 0.7;
   transition: color 0.13s;
 }
 .node-foot:hover .nf-chev { color: var(--accent); }
 .nf-label { white-space: nowrap; }
 
-details.sub-block .node-foot {
-  margin-top: 16px;
-  padding: 8px 12px;
+details.sub-block > .node-foot {
+  padding: 9px 14px;
   font-size: 10.5px;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+@media (max-width: 640px) {
+  details > .node-foot { padding: 10px 14px; }
 }
 
 /* Grouped question decks. */
@@ -1187,20 +1193,7 @@ details[open] > summary .node-count { color: var(--accent); border-color: var(--
   .deck-group > .node-body { padding: 4px 9px 10px; }
 }
 
-/* The closing bar spans the full block width, so it has to escape the body's
-   horizontal padding. */
-.node-body > .node-foot { margin-left: -22px; margin-right: -22px; width: auto; }
-details.sub-block > .node-body > .node-foot { margin-left: -16px; margin-right: -16px; }
-.deck-group > .node-body > .node-foot { margin-left: -14px; margin-right: -14px; }
-.deck-group.topic-group > .node-body > .node-foot { margin-left: -12px; margin-right: -12px; }
-.node-body > .node-foot:last-child { margin-bottom: 0; }
-@media (max-width: 640px) {
-  .node-body > .node-foot { margin-left: -15px; margin-right: -15px; }
-  details.sub-block > .node-body > .node-foot { margin-left: -12px; margin-right: -12px; }
-  .deck-group > .node-body > .node-foot { margin-left: -9px; margin-right: -9px; }
-}
 
-.node-body:has(> .node-foot) { padding-bottom: 0; }
 
 /* ---------- Theme menu ---------- */
 

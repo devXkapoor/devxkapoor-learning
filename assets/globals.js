@@ -309,8 +309,9 @@ const DK = (() => {
   // whole strip is the hit target, so collapsing is the same gesture as
   // expanding rather than hunting for a small button in a corner.
   function addBlockFooter(details, label) {
-    const body = details.querySelector(".node-body");
-    if (!body || body.querySelector(":scope > .node-foot")) return;
+    if (!details || details.querySelector(":scope > .node-foot")) return;
+    const body = details.querySelector(":scope > .node-body");
+    if (!body) return;
 
     const foot = document.createElement("button");
     foot.className = "node-foot";
@@ -320,7 +321,14 @@ const DK = (() => {
       `<span class="nf-chev">${ICON.chevron}</span>` +
       `<span class="nf-label">${label || "Collapse"}</span>` +
       `<span class="nf-chev">${ICON.chevron}</span>`;
-    body.appendChild(foot);
+
+    // Appended to the <details> itself, NOT inside .node-body. The body is
+    // padded, and different block types pad differently, so anything nested
+    // inside it can only reach full width by cancelling that padding with
+    // negative margins — which has to be kept in sync with four separate
+    // padding values and silently breaks when one changes. As a direct child
+    // it spans the block edge-to-edge on its own, matching the header exactly.
+    details.appendChild(foot);
 
     foot.addEventListener("click", (ev) => {
       ev.preventDefault();

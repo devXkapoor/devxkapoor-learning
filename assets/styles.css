@@ -5,31 +5,31 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  /* Dark: warm charcoal, never pure black. Pure black behind light text causes
-     halation — the text appears to bloom — which is exactly what makes long
-     reading sessions hurt. Body text sits near 88% rather than 100% white, so
-     contrast lands around 11:1: comfortably above WCAG AAA without the glare
-     of maximum contrast. The whole ramp is warmed slightly toward brown to cut
-     blue light for night reading. */
-  --bg: #171613;
-  --panel: #1f1d19;
-  --panel-raised: #282520;
-  --code-bg: #131210;
-  --border: #35312a;
-  --border-bright: #4a453b;
-  --text: #ece6da;
-  --text-dim: #a8a091;
-  --text-dimmer: #756f62;
-  --accent: #e2a75c;
-  --accent-soft: #f0c489;
-  --accent-glow: rgba(226,167,92,0.16);
-  --accent-dim: #6d5a38;
-  --done: #86c98d;
-  --progress: #e2a75c;
-  --stalled: #e08a7d;
-  --notstarted: #4a453b;
-  --shadow: 0 1px 2px rgba(0,0,0,0.28);
-  --shadow-lift: 0 2px 10px rgba(0,0,0,0.34);
+  /* Dark — deep navy ground with an amber accent.
+     Navy rather than near-black: pure black behind light text causes halation
+     (glyphs appear to bloom), which is what makes long sessions hurt. Body
+     text sits at 13.1:1 — comfortably above WCAG AAA, well below the 17:1
+     glare of maximum contrast. Amber on navy is the classic terminal pairing:
+     a cool, calm ground with warm focal points where attention should land. */
+  --bg: #0f1620;
+  --panel: #161f2c;
+  --panel-raised: #1e2937;
+  --code-bg: #0b1119;
+  --border: #2a3849;
+  --border-bright: #3d4f66;
+  --text: #e6ecf4;
+  --text-dim: #94a3b8;
+  --text-dimmer: #64748b;
+  --accent: #f0b45f;
+  --accent-soft: #f7cd8d;
+  --accent-glow: rgba(240,180,95,0.16);
+  --accent-dim: #7a5c2c;
+  --done: #6ee7a0;
+  --progress: #f0b45f;
+  --stalled: #f2867a;
+  --notstarted: #3d4f66;
+  --shadow: 0 1px 2px rgba(0,0,0,0.32);
+  --shadow-lift: 0 3px 14px rgba(0,0,0,0.40);
   --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --radius: 10px;
@@ -37,30 +37,31 @@
 }
 
 html[data-theme="light"] {
-  /* Light: warm cream paper rather than white. White at full brightness is the
-     single biggest cause of light-mode fatigue; a cream ground reflects the
-     feel of a printed page. Text is a warm near-black-brown, not #000, and
-     panels sit *lighter* than the ground with real borders and a soft shadow,
-     so sections stay visually separated instead of dissolving into one field. */
-  --bg: #f7f2e7;
-  --panel: #fffdf7;
-  --panel-raised: #f1e9d8;
-  --code-bg: #f3ecdd;
-  --border: #ded4bd;
-  --border-bright: #c4b899;
-  --text: #302c24;
-  --text-dim: #665f51;
-  --text-dimmer: #948c7a;
+  /* Light — warm cream paper.
+     A cream ground rather than white: full-brightness white is the single
+     biggest cause of light-mode fatigue. Crucially, panels sit *lighter* than
+     the ground with visible borders and a soft shadow, so every card and
+     section has a real edge instead of dissolving into one flat field —
+     which was the "no boundaries" problem. Text is a warm near-black. */
+  --bg: #ece2ca;
+  --panel: #fffdf8;
+  --panel-raised: #f3ecdc;
+  --code-bg: #f5eede;
+  --border: #cfc2a4;
+  --border-bright: #b5a483;
+  --text: #2c2820;
+  --text-dim: #635b4c;
+  --text-dimmer: #8d8471;
   --accent: #a8660f;
   --accent-soft: #8a5309;
-  --accent-glow: rgba(168,102,15,0.13);
-  --accent-dim: #e4d2ac;
-  --done: #3d8a4f;
+  --accent-glow: rgba(168,102,15,0.14);
+  --accent-dim: #ddc9a2;
+  --done: #3a8449;
   --progress: #a8660f;
-  --stalled: #bd4a39;
-  --notstarted: #c4b899;
-  --shadow: 0 1px 2px rgba(90,70,35,0.07);
-  --shadow-lift: 0 2px 10px rgba(90,70,35,0.10);
+  --stalled: #b8452f;
+  --notstarted: #bcac8c;
+  --shadow: 0 1px 2px rgba(90,70,35,0.09);
+  --shadow-lift: 0 3px 14px rgba(90,70,35,0.13);
 }
 
 * { box-sizing: border-box; }

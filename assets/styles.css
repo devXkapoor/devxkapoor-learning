@@ -395,9 +395,9 @@ input.search-box:focus-visible { outline: none; }
 .mf-btn[data-kind="discuss"].active { border-color: var(--mk-discuss); }
 .mf-btn[data-kind="discuss"].active .mf-count { color: var(--mk-discuss); }
 
-/* No coloured edge on marked cards. The marker buttons inside already show
-   the state, so a second indicator on the container was redundant and read as
-   visual noise across a long list. */
+/* No coloured edge on marked cards. The marker chips inside already show the
+   state, so a stripe on the container repeated the same information and read
+   as clutter down a long list. */
 
 .mk-row {
   display: flex;
@@ -414,8 +414,8 @@ input.search-box:focus-visible { outline: none; }
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: 0.03em;
-  padding: 5px 11px;
-  border-radius: 999px;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -462,39 +462,43 @@ input.search-box:focus-visible { outline: none; }
 }
 .nt-item.collapsed .nt-actions { display: none; }
 
+/* Done sits inside an open follow-up. As a solid amber fill it was the
+   brightest thing on the page and dominated the note you were writing. It is
+   the primary action there, so it still has to read as such — but as tinted
+   text rather than a filled block, and rounded to sit with the marker chips
+   rather than cutting against them. */
 .nt-done {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: color-mix(in srgb, var(--accent) 11%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   border: 1px solid var(--accent-dim);
   color: var(--accent);
   font-family: var(--mono);
   font-size: 11.5px;
   font-weight: 500;
   letter-spacing: 0.03em;
-  padding: 7px 14px;
+  padding: 6px 14px;
   border-radius: 999px;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .nt-done:hover {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
   border-color: var(--accent);
-  color: var(--accent-soft);
 }
 .nt-done:active { transform: translateY(1px); }
-.nt-done svg { flex: none; opacity: 0.9; }
+.nt-done svg { flex: none; opacity: 0.85; }
 
 .nt-del {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-dimmer);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
   padding: 7px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }

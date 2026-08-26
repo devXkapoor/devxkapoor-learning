@@ -103,27 +103,100 @@ const DK = (() => {
 
   // Theme: persisted in localStorage, defaults to dark. Call initTheme() early
   // (before paint ideally) and wireThemeToggle(buttonEl) once the DOM is ready.
+  // Theme is two independent choices: light vs dark, and which dark palette.
+  // Keeping them separate means a trip through light mode doesn't lose your
+  // preferred dark variant.
+  const DARK_VARIANTS = [
+    { id: "navy", label: "Deep navy", swatch: "navy" },
+    { id: "midnight", label: "Midnight indigo", swatch: "midnight" },
+  ];
+
   function initTheme() {
-    const saved = localStorage.getItem("dk-theme");
-    const theme = saved || "dark";
+    const theme = localStorage.getItem("dk-theme") || "dark";
+    const variant = localStorage.getItem("dk-dark") || "navy";
     document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.setAttribute("data-dark", variant);
     return theme;
   }
 
+  function setTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("dk-theme", theme);
+  }
+
+  function setDarkVariant(variant) {
+    document.documentElement.setAttribute("data-dark", variant);
+    localStorage.setItem("dk-dark", variant);
+  }
+
+  // A small menu rather than a two-state toggle, so both dark palettes are
+  // reachable and comparable without editing anything.
   function wireThemeToggle(btnEl) {
-    function updateLabel() {
-      const current = document.documentElement.getAttribute("data-theme");
-      btnEl.textContent = current === "light" ? "☾" : "☀";
-      btnEl.setAttribute("aria-label", current === "light" ? "Switch to dark theme" : "Switch to light theme");
+    if (!btnEl) return;
+    const wrap = document.createElement("span");
+    wrap.className = "theme-wrap";
+    btnEl.parentNode.insertBefore(wrap, btnEl);
+    wrap.appendChild(btnEl);
+
+    const menu = document.createElement("div");
+    menu.className = "theme-menu";
+    wrap.appendChild(menu);
+
+    const themeNow = () => document.documentElement.getAttribute("data-theme") || "dark";
+    const variantNow = () => document.documentElement.getAttribute("data-dark") || "navy";
+
+    function paintButton() {
+      const dark = themeNow() !== "light";
+      btnEl.textContent = dark ? "☀" : "☾";
+      btnEl.setAttribute("aria-label", "Theme menu");
     }
-    updateLabel();
-    btnEl.addEventListener("click", () => {
-      const current = document.documentElement.getAttribute("data-theme");
-      const next = current === "light" ? "dark" : "light";
-      document.documentElement.setAttribute("data-theme", next);
-      localStorage.setItem("dk-theme", next);
-      updateLabel();
+
+    function paintMenu() {
+      const theme = themeNow();
+      const variant = variantNow();
+      const row = (swatch, label, active, data) =>
+        `<button class="tm-opt${active ? " active" : ""}" ${data} type="button">` +
+          `<span class="tm-swatch ${swatch}"></span>${label}` +
+          `<span class="tm-check">${ICON.check}</span>` +
+        `</button>`;
+      menu.innerHTML =
+        `<div class="tm-head">Dark</div>` +
+        DARK_VARIANTS.map((v) =>
+          row(v.swatch, v.label, theme !== "light" && variant === v.id, `data-dark="${v.id}"`)
+        ).join("") +
+        `<div class="tm-head">Light</div>` +
+        row("cream", "Warm cream", theme === "light", `data-theme="light"`);
+      paintButton();
+    }
+
+    function close() {
+      menu.classList.remove("open");
+      document.removeEventListener("click", onDocClick);
+    }
+    function onDocClick(ev) {
+      if (!wrap.contains(ev.target)) close();
+    }
+
+    btnEl.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if (menu.classList.contains("open")) { close(); return; }
+      paintMenu();
+      menu.classList.add("open");
+      setTimeout(() => document.addEventListener("click", onDocClick), 0);
     });
+
+    menu.addEventListener("click", (ev) => {
+      const opt = ev.target.closest ? ev.target.closest(".tm-opt") : null;
+      if (!opt) return;
+      ev.stopPropagation();
+      if (opt.dataset.theme === "light") setTheme("light");
+      else if (opt.dataset.dark) { setTheme("dark"); setDarkVariant(opt.dataset.dark); }
+      paintMenu();
+      close();
+    });
+
+    document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") close(); });
+    paintButton();
   }
 
 
@@ -232,21 +305,29 @@ const DK = (() => {
   // Adds a "Collapse" control at the *end* of an open block, so you never have
   // to scroll back up to the header to close something you've finished reading.
   // Long elaboration sections make this the difference between usable and not.
+  // A closing bar at the *end* of an open block, mirroring the header: the
+  // whole strip is the hit target, so collapsing is the same gesture as
+  // expanding rather than hunting for a small button in a corner.
   function addBlockFooter(details, label) {
     const body = details.querySelector(".node-body");
     if (!body || body.querySelector(":scope > .node-foot")) return;
-    const foot = document.createElement("div");
+
+    const foot = document.createElement("button");
     foot.className = "node-foot";
+    foot.type = "button";
+    foot.setAttribute("aria-label", label || "Collapse");
     foot.innerHTML =
-      `<button class="nf-btn" type="button">` +
-      `<span class="nf-chev">${ICON.chevron}</span>${label || "Collapse"}</button>`;
+      `<span class="nf-chev">${ICON.chevron}</span>` +
+      `<span class="nf-label">${label || "Collapse"}</span>` +
+      `<span class="nf-chev">${ICON.chevron}</span>`;
     body.appendChild(foot);
-    const footBtn = foot.querySelector(".nf-btn");
-    if (!footBtn) return;
-    footBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+
+    foot.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
       details.open = false;
+      // If the header scrolled out of view, bring it back rather than leaving
+      // the reader stranded mid-page.
       const top = details.getBoundingClientRect().top;
       if (top < 0) details.scrollIntoView({ block: "start", behavior: "smooth" });
     });
@@ -1091,7 +1172,7 @@ const DK = (() => {
     };
   }
 
-  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllPrep, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount, buildMarkdown, buildBackup, importBackup, plainText, highlight, addCopyButtons, makeSectionsCollapsible, addExpandControls, addBlockFooter, addLocalControls, decorateBlocks, revealHash, ICON };
+  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllPrep, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, setTheme, setDarkVariant, DARK_VARIANTS, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount, buildMarkdown, buildBackup, importBackup, plainText, highlight, addCopyButtons, makeSectionsCollapsible, addExpandControls, addBlockFooter, addLocalControls, decorateBlocks, revealHash, ICON };
 })();
 
 // Apply theme immediately on script load (before body renders) to avoid a flash.

@@ -36,6 +36,31 @@
   --radius-sm: 6px;
 }
 
+
+/* Dark variant — Midnight indigo + cyan.
+   Deeper and cooler than the navy default, with a low-energy cyan accent
+   instead of amber. Intended for late-night reading: nothing in the palette
+   shouts, at the cost of any warmth. */
+:root[data-dark="midnight"]:not([data-theme="light"]) {
+  --bg: #0b111c;
+  --panel: #121a28;
+  --panel-raised: #1a2434;
+  --code-bg: #080d16;
+  --border: #243043;
+  --border-bright: #36455c;
+  --text: #dfe7f2;
+  --text-dim: #8798ae;
+  --text-dimmer: #5b6a80;
+  --accent: #5ec8d8;
+  --accent-soft: #8fdde9;
+  --accent-glow: rgba(94,200,216,0.15);
+  --accent-dim: #2d5a63;
+  --done: #5fd39a;
+  --progress: #5ec8d8;
+  --stalled: #ef8378;
+  --notstarted: #36455c;
+}
+
 html[data-theme="light"] {
   /* Light — warm cream paper.
      A cream ground rather than white: full-brightness white is the single
@@ -952,7 +977,7 @@ summary.node-summary:hover .node-chevron { color: var(--accent); }
 .node-title { flex: 1; }
 
 .node-body {
-  padding: 4px 22px 20px;
+  padding: 4px 22px 0;
   border-top: 1px solid var(--border);
   margin-top: -1px;
 }
@@ -1094,37 +1119,45 @@ details.sub-block > .node-body > *:first-child { margin-top: 14px; }
   margin-right: auto;
 }
 
-/* Collapse control at the END of an open block. */
+/* Closing bar at the END of an open block — the whole strip is clickable,
+   mirroring the header, so collapsing is the same gesture as expanding. */
 .node-foot {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 20px;
-  padding-top: 13px;
-  border-top: 1px dashed var(--border);
-}
-details.sub-block .node-foot { margin-top: 14px; padding-top: 10px; }
-.nf-btn {
-  display: inline-flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 22px;
+  padding: 10px 14px;
   background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-dim);
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--text-dimmer);
   font-family: var(--mono);
   font-size: 11.5px;
-  letter-spacing: 0.03em;
-  padding: 6px 13px;
-  border-radius: var(--radius-sm);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  border-radius: 0 0 var(--radius) var(--radius);
+  transition: background 0.13s, color 0.13s;
 }
-.nf-btn:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--panel); }
-.nf-chev {
+.node-foot:hover { background: var(--panel-raised); color: var(--accent); }
+.node-foot:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.node-foot .nf-chev {
   display: inline-flex;
   transform: rotate(-90deg);
-  color: var(--text-dimmer);
+  opacity: 0.75;
+  transition: color 0.13s;
 }
-.nf-btn:hover .nf-chev { color: var(--accent); }
+.node-foot:hover .nf-chev { color: var(--accent); }
+.nf-label { white-space: nowrap; }
+
+details.sub-block .node-foot {
+  margin-top: 16px;
+  padding: 8px 12px;
+  font-size: 10.5px;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
 
 /* Grouped question decks. */
 .node-count {
@@ -1153,3 +1186,85 @@ details[open] > summary .node-count { color: var(--accent); border-color: var(--
   details.sub-block > .node-body { padding: 2px 12px 12px; }
   .deck-group > .node-body { padding: 4px 9px 10px; }
 }
+
+/* The closing bar spans the full block width, so it has to escape the body's
+   horizontal padding. */
+.node-body > .node-foot { margin-left: -22px; margin-right: -22px; width: auto; }
+details.sub-block > .node-body > .node-foot { margin-left: -16px; margin-right: -16px; }
+.deck-group > .node-body > .node-foot { margin-left: -14px; margin-right: -14px; }
+.deck-group.topic-group > .node-body > .node-foot { margin-left: -12px; margin-right: -12px; }
+.node-body > .node-foot:last-child { margin-bottom: 0; }
+@media (max-width: 640px) {
+  .node-body > .node-foot { margin-left: -15px; margin-right: -15px; }
+  details.sub-block > .node-body > .node-foot { margin-left: -12px; margin-right: -12px; }
+  .deck-group > .node-body > .node-foot { margin-left: -9px; margin-right: -9px; }
+}
+
+.node-body:has(> .node-foot) { padding-bottom: 0; }
+
+/* ---------- Theme menu ---------- */
+
+.theme-wrap { position: relative; display: inline-flex; }
+.theme-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 190px;
+  background: var(--panel);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lift);
+  padding: 6px;
+  z-index: 60;
+  display: none;
+}
+.theme-menu.open { display: block; }
+.tm-head {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dimmer);
+  padding: 7px 9px 5px;
+}
+.tm-opt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  text-align: left;
+  padding: 8px 9px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.tm-opt:hover { background: var(--panel-raised); color: var(--text); }
+.tm-opt.active { color: var(--accent); }
+.tm-swatch {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1px solid var(--border-bright);
+  position: relative;
+  overflow: hidden;
+}
+.tm-swatch::after {
+  content: "";
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 5px;
+}
+.tm-swatch.navy { background: #0f1620; }
+.tm-swatch.navy::after { background: #f0b45f; }
+.tm-swatch.midnight { background: #0b111c; }
+.tm-swatch.midnight::after { background: #5ec8d8; }
+.tm-swatch.cream { background: #ece2ca; }
+.tm-swatch.cream::after { background: #a8660f; }
+.tm-check { margin-left: auto; opacity: 0; color: var(--accent); display: inline-flex; }
+.tm-opt.active .tm-check { opacity: 1; }

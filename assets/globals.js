@@ -1656,7 +1656,10 @@ const DK = (() => {
         if (!unit) return;
         const spoken = Math.max(0, state.lastChar - unit.s);
         const remaining = Math.max(0, unit.text.length - spoken);
-        const limit = 3500 + (remaining / Math.max(0.5, rate())) * 90;
+        // Roughly fifteen characters a second at 1×, plus three seconds of
+        // slack: engines that never fire a boundary event still get the whole
+        // sentence's worth of time before they are declared stalled.
+        const limit = 3000 + (remaining / Math.max(0.5, rate())) * 70;
         if (Date.now() - state.lastEvent < limit) return;
         if (state.retries >= 2) {
           state.retries = 0;

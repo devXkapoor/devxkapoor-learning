@@ -556,6 +556,13 @@ const DK = (() => {
 
     // Builds the follow-up note UI for one card. Notes save automatically as
     // you type; "+ Follow-up" always appends a fresh empty box.
+    // Builds the follow-up note UI for one card.
+    //
+    // Behaviour: notes save automatically as you type. "+ Follow-up" always
+    // appends a fresh empty box. A box grows with the text up to a cap, then
+    // scrolls internally so a long dictated note can't swallow the page.
+    // "Done" collapses a note to a one-line summary; existing notes start
+    // collapsed so revisiting a question stays readable.
     function wireNotes(card, topic, n) {
       const listWrap = card.querySelector(".nt-list");
       const addBtn = card.querySelector(".nt-add");
@@ -572,20 +579,44 @@ const DK = (() => {
         card.classList.toggle("has-notes", saved > 0);
       }
 
+      // Grows to fit content up to the CSS max-height, then lets the textarea
+      // scroll. Reading the computed max-height keeps JS and CSS in agreement.
       function autoGrow(ta) {
         ta.style.height = "auto";
-        ta.style.height = Math.max(ta.scrollHeight, 44) + "px";
+        let cap = 260;
+        try {
+          const parsed = parseInt(getComputedStyle(ta).maxHeight, 10);
+          if (!Number.isNaN(parsed)) cap = parsed;
+        } catch (e) { /* keep the default cap */ }
+        const wanted = Math.max(ta.scrollHeight, 44);
+        ta.style.height = Math.min(wanted, cap) + "px";
+        ta.classList.toggle("is-capped", wanted > cap);
       }
 
-      function drawNote(note, index) {
+      function summarise(text) {
+        const clean = (text || "").replace(/\s+/g, " ").trim();
+        if (!clean) return "empty follow-up";
+        return clean.length > 110 ? clean.slice(0, 110) + "…" : clean;
+      }
+
+      function drawNote(note, startCollapsed) {
         const item = document.createElement("div");
-        item.className = "nt-item";
+        item.className = "nt-item" + (startCollapsed ? " collapsed" : "");
 
         const meta = document.createElement("div");
         meta.className = "nt-meta";
         const ts = document.createElement("span");
         ts.className = "nt-ts";
         ts.textContent = formatNoteTime(note.ts);
+        const status = document.createElement("span");
+        status.className = "nt-status";
+        const spacer = document.createElement("span");
+        spacer.className = "nt-spacer";
+        const doneBtn = document.createElement("button");
+        doneBtn.className = "nt-done";
+        doneBtn.type = "button";
+        doneBtn.textContent = "Done";
+        doneBtn.title = "Save and collapse this follow-up";
         const del = document.createElement("button");
         del.className = "nt-del";
         del.type = "button";
@@ -593,7 +624,17 @@ const DK = (() => {
         del.title = "Delete this follow-up";
         del.setAttribute("aria-label", "Delete this follow-up");
         meta.appendChild(ts);
+        meta.appendChild(status);
+        meta.appendChild(spacer);
+        meta.appendChild(doneBtn);
         meta.appendChild(del);
+
+        // Collapsed view — one line, click to reopen.
+        const summary = document.createElement("div");
+        summary.className = "nt-summary";
+        summary.setAttribute("role", "button");
+        summary.setAttribute("tabindex", "0");
+        summary.textContent = summarise(note.text);
 
         const ta = document.createElement("textarea");
         ta.className = "nt-text";
@@ -602,24 +643,77 @@ const DK = (() => {
         ta.value = note.text || "";
 
         item.appendChild(meta);
+        item.appendChild(summary);
         item.appendChild(ta);
         listWrap.appendChild(item);
-        autoGrow(ta);
 
-        // Typing inside a note must not toggle the answer reveal.
+        function expand() {
+          item.classList.remove("collapsed");
+          autoGrow(ta);
+          ta.focus();
+          ta.setSelectionRange(ta.value.length, ta.value.length);
+        }
+        function collapse() {
+          persist();
+          summary.textContent = summarise(note.text);
+          item.classList.add("collapsed");
+        }
+
+        if (!startCollapsed) autoGrow(ta);
+
+        // Interacting with a note must never toggle the answer reveal.
         item.addEventListener("click", (e) => e.stopPropagation());
 
+        summary.addEventListener("click", expand);
+        summary.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); expand(); }
+        });
+
         let timer = null;
+        let statusTimer = null;
+        function flagSaved() {
+          status.textContent = "saved";
+          clearTimeout(statusTimer);
+          statusTimer = setTimeout(() => { status.textContent = ""; }, 1200);
+        }
+
         ta.addEventListener("input", () => {
           note.text = ta.value;
+          const atEnd = ta.selectionStart === ta.value.length;
           autoGrow(ta);
+          // While dictating, keep the caret in view rather than stranding it
+          // above the fold once the box has hit its cap.
+          if (atEnd) ta.scrollTop = ta.scrollHeight;
+          status.textContent = "saving…";
           clearTimeout(timer);
-          timer = setTimeout(persist, 300);
+          timer = setTimeout(() => { persist(); flagSaved(); }, 300);
         });
-        ta.addEventListener("blur", persist);
+        ta.addEventListener("blur", () => { persist(); });
 
+        doneBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          collapse();
+          flagSaved();
+        });
+
+        // Deleting a long note by accident would be unrecoverable, so the
+        // first click arms and the second confirms.
+        let armed = false;
+        let armTimer = null;
         del.addEventListener("click", (e) => {
           e.stopPropagation();
+          if (!armed) {
+            armed = true;
+            del.textContent = "delete?";
+            del.classList.add("armed");
+            armTimer = setTimeout(() => {
+              armed = false;
+              del.textContent = "×";
+              del.classList.remove("armed");
+            }, 3500);
+            return;
+          }
+          clearTimeout(armTimer);
           working.splice(working.indexOf(note), 1);
           persist();
           item.remove();
@@ -630,14 +724,16 @@ const DK = (() => {
         return ta;
       }
 
-      working.forEach(drawNote);
+      // Existing notes start collapsed; a question with six long follow-ups
+      // should read as six lines, not six walls of text.
+      working.forEach((note) => drawNote(note, true));
       updateAddLabel();
 
       addBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         const note = { ts: Date.now(), text: "" };
         working.push(note);
-        const ta = drawNote(note);
+        const ta = drawNote(note, false);
         ta.focus();
       });
     }

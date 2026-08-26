@@ -440,22 +440,48 @@ input.search-box:focus-visible { outline: none; }
   padding: 9px 11px;
   cursor: default;
 }
+
 .nt-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 5px;
 }
+.nt-spacer { flex: 1; }
 .nt-ts {
   font-family: var(--mono);
   font-size: 10.5px;
   color: var(--text-dimmer);
   letter-spacing: 0.03em;
+  white-space: nowrap;
 }
+.nt-status {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dimmer);
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.nt-done {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.nt-done:hover { color: var(--accent); border-color: var(--accent-dim); }
+
 .nt-del {
   background: transparent;
   border: none;
   color: var(--text-dimmer);
+  font-family: var(--mono);
   font-size: 16px;
   line-height: 1;
   padding: 0 4px;
@@ -463,12 +489,42 @@ input.search-box:focus-visible { outline: none; }
   border-radius: 3px;
 }
 .nt-del:hover { color: var(--stalled); }
+.nt-del.armed {
+  font-size: 10.5px;
+  color: var(--stalled);
+  border: 1px solid var(--stalled);
+  padding: 3px 7px;
+  letter-spacing: 0.03em;
+}
 
+/* Collapsed state — a single readable line instead of a wall of text. */
+.nt-summary {
+  display: none;
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  cursor: pointer;
+  padding: 2px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nt-summary:hover { color: var(--text); }
+.nt-summary:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.nt-item.collapsed .nt-summary { display: block; }
+.nt-item.collapsed .nt-text { display: none; }
+.nt-item.collapsed .nt-done { display: none; }
+.nt-item.collapsed { padding: 7px 11px; }
+.nt-item.collapsed .nt-meta { margin-bottom: 2px; }
+
+/* Expanded editor — grows with the text, then scrolls inside its own box so a
+   long dictated note never takes over the page. */
 textarea.nt-text {
   width: 100%;
   min-height: 44px;
-  resize: none;
-  overflow: hidden;
+  max-height: 260px;
+  resize: vertical;
+  overflow-y: auto;
   background: transparent;
   border: none;
   color: var(--text);
@@ -477,16 +533,31 @@ textarea.nt-text {
   line-height: 1.55;
   padding: 0;
   display: block;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-bright) transparent;
 }
 textarea.nt-text::placeholder { color: var(--text-dimmer); }
 textarea.nt-text:focus { outline: none; }
+textarea.nt-text::-webkit-scrollbar { width: 8px; }
+textarea.nt-text::-webkit-scrollbar-track { background: transparent; }
+textarea.nt-text::-webkit-scrollbar-thumb {
+  background: var(--border-bright);
+  border-radius: 4px;
+}
+textarea.nt-text::-webkit-scrollbar-thumb:hover { background: var(--text-dimmer); }
+
+/* Once capped, hint that there is more text above/below the visible window. */
+textarea.nt-text.is-capped {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 2px;
+}
 
 @media (max-width: 640px) {
   .mk-row .nt-add { margin-left: 0; }
   .nt-add { padding: 5px 8px; font-size: 10.5px; }
-  textarea.nt-text { font-size: 14px; }
+  textarea.nt-text { font-size: 14px; max-height: 200px; }
+  .nt-summary { font-size: 13.5px; }
 }
-
 
 /* ---------- Export / restore modal ---------- */
 

@@ -240,9 +240,12 @@ function renderCards(container, cards, bank) {
       elabEl.appendChild(block);
     });
     elabEl.querySelectorAll(".el-block .prose").forEach(pr => {
-      DK.makeSectionsCollapsible(pr, { startOpen: true });
+      // Sub-sections start closed too: opening a node shouldn't dump its
+      // entire subtree on you at once.
+      DK.makeSectionsCollapsible(pr, { startOpen: false, level: "sub" });
       DK.addCopyButtons(pr);
     });
+    DK.decorateBlocks(elabEl);
     DK.addExpandControls(document.getElementById("tab-elaboration"), elabEl,
       elab.sections.length + " sections");
     DK.revealHash();

@@ -191,21 +191,28 @@ const DK = (() => {
   }
 
   // Groups each <h3> with the nodes that follow it into a <details> block.
-  // Native <details>/<summary> gets keyboard handling and screen-reader
-  // semantics for free, which a hand-rolled toggle would have to reinvent.
+  // Native <details>/<summary> — the ARIA "disclosure" pattern — gets keyboard
+  // handling and screen-reader semantics for free.
+  //
+  // Everything starts closed. Opening a node must not dump its whole subtree
+  // on you; you open what you want, one level at a time.
   function makeSectionsCollapsible(root, opts) {
-    const startOpen = !!(opts && opts.startOpen);
+    const o = opts || {};
+    const startOpen = !!o.startOpen;
+    const level = o.level || "node";
     const headings = Array.from(root.children).filter((el) => el.tagName === "H3");
     if (!headings.length) return 0;
 
     headings.forEach((h) => {
       const details = document.createElement("details");
-      details.className = "node-block";
+      details.className = level === "sub" ? "sub-block" : "node-block";
       if (startOpen) details.open = true;
 
       const summary = document.createElement("summary");
       summary.className = "node-summary";
-      summary.innerHTML = `<span class="node-chevron">${ICON.chevron}</span><span class="node-title">${h.innerHTML}</span>`;
+      summary.innerHTML =
+        `<span class="node-chevron">${ICON.chevron}</span>` +
+        `<span class="node-title">${h.innerHTML}</span>`;
       details.appendChild(summary);
 
       const body = document.createElement("div");
@@ -215,12 +222,68 @@ const DK = (() => {
       root.insertBefore(details, h);
       h.remove();
 
-      // Move everything up to the next h3 into this block.
       while (details.nextSibling && details.nextSibling.tagName !== "H3") {
         body.appendChild(details.nextSibling);
       }
     });
     return headings.length;
+  }
+
+  // Adds a "Collapse" control at the *end* of an open block, so you never have
+  // to scroll back up to the header to close something you've finished reading.
+  // Long elaboration sections make this the difference between usable and not.
+  function addBlockFooter(details, label) {
+    const body = details.querySelector(".node-body");
+    if (!body || body.querySelector(":scope > .node-foot")) return;
+    const foot = document.createElement("div");
+    foot.className = "node-foot";
+    foot.innerHTML =
+      `<button class="nf-btn" type="button">` +
+      `<span class="nf-chev">${ICON.chevron}</span>${label || "Collapse"}</button>`;
+    body.appendChild(foot);
+    const footBtn = foot.querySelector(".nf-btn");
+    if (!footBtn) return;
+    footBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      details.open = false;
+      const top = details.getBoundingClientRect().top;
+      if (top < 0) details.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }
+
+  // Local expand/collapse for the sub-blocks inside one node.
+  function addLocalControls(details) {
+    const body = details.querySelector(".node-body");
+    if (!body) return;
+    const subs = body.querySelectorAll("details.sub-block");
+    if (!subs.length || body.querySelector(":scope > .node-local")) return;
+
+    const bar = document.createElement("div");
+    bar.className = "node-local";
+    bar.innerHTML =
+      `<span class="nl-label">${subs.length} sections</span>` +
+      `<button class="pc-btn" data-act="expand" type="button">Expand all</button>` +
+      `<button class="pc-btn" data-act="collapse" type="button">Collapse all</button>`;
+    body.insertBefore(bar, body.firstChild);
+    bar.addEventListener("click", (e) => {
+      const act = e.target.dataset && e.target.dataset.act;
+      if (!act) return;
+      e.preventDefault();
+      e.stopPropagation();
+      subs.forEach((d) => { d.open = act === "expand"; });
+    });
+  }
+
+  // Applies footers and local controls across a whole tree of blocks.
+  function decorateBlocks(root) {
+    root.querySelectorAll("details.node-block, details.el-block").forEach((d) => {
+      addLocalControls(d);
+      addBlockFooter(d, "Collapse this section");
+    });
+    root.querySelectorAll("details.sub-block").forEach((d) => {
+      addBlockFooter(d, "Collapse");
+    });
   }
 
   // Adds an expand-all / collapse-all bar above a set of <details> blocks.
@@ -235,7 +298,7 @@ const DK = (() => {
     bar.addEventListener("click", (e) => {
       const act = e.target.dataset && e.target.dataset.act;
       if (!act) return;
-      targetRoot.querySelectorAll("details.node-block, details.el-block").forEach((d) => {
+      targetRoot.querySelectorAll("details.node-block, details.el-block, details.sub-block").forEach((d) => {
         d.open = act === "expand";
       });
     });
@@ -642,6 +705,7 @@ const DK = (() => {
     const bank = opts.bank;
     const defaultTopic = opts.topic || "";
     const showTopic = !!opts.showTopic;
+    const grouped = opts.grouped !== false;
     const topicOf = (c) => c.topic || defaultTopic;
 
     let activeFilter = "all";
@@ -714,14 +778,7 @@ const DK = (() => {
       return true;
     }
 
-    function drawCards() {
-      listEl.innerHTML = "";
-      const shown = cards.filter(passesFilter);
-      if (!shown.length) {
-        listEl.innerHTML = "<p class='empty-note'>no questions match this filter</p>";
-        return;
-      }
-      shown.forEach((c) => {
+    function buildCard(c) {
         const topic = topicOf(c);
         const mark = getMark(topic, bank, c.n);
         const card = document.createElement("div");
@@ -764,8 +821,80 @@ const DK = (() => {
         });
 
         wireNotes(card, topic, c.n);
-        listEl.appendChild(card);
-      });
+        return card;
+    }
+
+    // Flat lists of several hundred questions are unnavigable, so cards are
+    // grouped into disclosure blocks: by topic then node on the global deck,
+    // by node alone inside a topic pack. Groups open on demand — except when a
+    // filter is active, where hiding matches behind closed blocks would defeat
+    // the point of filtering.
+    function groupKeyOf(c) {
+      return c.t || (c.c ? String(c.c).replace(/-/g, " ") : "Other");
+    }
+
+    function makeGroup(title, count, openIt) {
+      const d = document.createElement("details");
+      d.className = "node-block deck-group";
+      if (openIt) d.open = true;
+      d.innerHTML =
+        `<summary class="node-summary">` +
+          `<span class="node-chevron">${ICON.chevron}</span>` +
+          `<span class="node-title">${title}</span>` +
+          `<span class="node-count">${count}</span>` +
+        `</summary>`;
+      const body = document.createElement("div");
+      body.className = "node-body";
+      d.appendChild(body);
+      return { block: d, body };
+    }
+
+    function drawCards() {
+      listEl.innerHTML = "";
+      const shown = cards.filter(passesFilter);
+      if (!shown.length) {
+        listEl.innerHTML = "<p class='empty-note'>no questions match this filter</p>";
+        return;
+      }
+      if (!grouped) {
+        shown.forEach((c) => listEl.appendChild(buildCard(c)));
+        return;
+      }
+
+      const filtering = activeFilter !== "all" || !!textFilter;
+
+      function renderNodeGroups(parentEl, list) {
+        const byNode = new Map();
+        list.forEach((c) => {
+          const k = groupKeyOf(c);
+          if (!byNode.has(k)) byNode.set(k, []);
+          byNode.get(k).push(c);
+        });
+        byNode.forEach((items, name) => {
+          const g = makeGroup(name, items.length, filtering);
+          items.forEach((c) => g.body.appendChild(buildCard(c)));
+          addBlockFooter(g.block, "Collapse");
+          parentEl.appendChild(g.block);
+        });
+      }
+
+      if (showTopic) {
+        const byTopic = new Map();
+        shown.forEach((c) => {
+          const k = topicOf(c);
+          if (!byTopic.has(k)) byTopic.set(k, []);
+          byTopic.get(k).push(c);
+        });
+        byTopic.forEach((items, topic) => {
+          const g = makeGroup(topic.replace(/-/g, " "), items.length, filtering);
+          g.block.classList.add("topic-group");
+          renderNodeGroups(g.body, items);
+          addBlockFooter(g.block, "Collapse this topic");
+          listEl.appendChild(g.block);
+        });
+      } else {
+        renderNodeGroups(listEl, shown);
+      }
     }
 
     // Builds the follow-up note UI for one card. Notes save automatically as
@@ -962,7 +1091,7 @@ const DK = (() => {
     };
   }
 
-  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllPrep, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount, buildMarkdown, buildBackup, importBackup, plainText, highlight, addCopyButtons, makeSectionsCollapsible, addExpandControls, revealHash, ICON };
+  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllPrep, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount, buildMarkdown, buildBackup, importBackup, plainText, highlight, addCopyButtons, makeSectionsCollapsible, addExpandControls, addBlockFooter, addLocalControls, decorateBlocks, revealHash, ICON };
 })();
 
 // Apply theme immediately on script load (before body renders) to avoid a flash.

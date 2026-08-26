@@ -1055,3 +1055,100 @@ summary.node-summary:hover .node-chevron { color: var(--accent); }
   padding: 0 2px;
   border-radius: 2px;
 }
+
+/* ---------- Nested disclosure blocks, footers, local controls ---------- */
+
+details.sub-block {
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin: 10px 0;
+  overflow: hidden;
+}
+details.sub-block > summary.node-summary {
+  padding: 11px 14px;
+  font-size: 13.5px;
+  color: var(--text-dim);
+}
+details.sub-block[open] > summary.node-summary { color: var(--accent); }
+details.sub-block > .node-body { padding: 2px 16px 14px; }
+details.sub-block > .node-body > *:first-child { margin-top: 14px; }
+
+/* Local expand/collapse inside one node. */
+.node-local {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 16px 0 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--border);
+}
+.nl-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dimmer);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-right: auto;
+}
+
+/* Collapse control at the END of an open block. */
+.node-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 13px;
+  border-top: 1px dashed var(--border);
+}
+details.sub-block .node-foot { margin-top: 14px; padding-top: 10px; }
+.nf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  padding: 6px 13px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.nf-btn:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--panel); }
+.nf-chev {
+  display: inline-flex;
+  transform: rotate(-90deg);
+  color: var(--text-dimmer);
+}
+.nf-btn:hover .nf-chev { color: var(--accent); }
+
+/* Grouped question decks. */
+.node-count {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dimmer);
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 9px;
+  margin-left: 10px;
+}
+details[open] > summary .node-count { color: var(--accent); border-color: var(--accent-dim); }
+.deck-group > .node-body { padding: 4px 14px 14px; }
+.deck-group > .node-body > .rc-card { margin-top: 10px; }
+.deck-group.topic-group > summary.node-summary {
+  font-size: 15.5px;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+}
+.deck-group.topic-group > .node-body { padding: 4px 12px 12px; }
+
+@media (max-width: 640px) {
+  details.sub-block > summary.node-summary { padding: 10px 12px; font-size: 13px; }
+  details.sub-block > .node-body { padding: 2px 12px 12px; }
+  .deck-group > .node-body { padding: 4px 9px 10px; }
+}

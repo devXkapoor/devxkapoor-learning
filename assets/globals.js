@@ -1122,8 +1122,1198 @@ const DK = (() => {
     };
   }
 
-  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllPrep, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, setTheme, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount, buildMarkdown, buildBackup, importBackup, plainText, highlight, addCopyButtons, makeSectionsCollapsible, addExpandControls, addBlockFooter, addLocalControls, decorateBlocks, revealHash, ICON };
+
+  // ---------- Read-aloud reader ----------
+  // An in-page player built on the Web Speech API, mounted automatically on
+  // every page that already loads this file. Nothing is added to the pages
+  // themselves: the module finds its own scopes in the DOM at run time.
+  //
+  // Three things make this harder than "speak the body text":
+  //   1. Content arrives by fetch *after* load, so nothing may be collected
+  //      until play time (and it must be re-collected whenever it changes).
+  //   2. Four tabs coexist in the DOM, three of them display:none.
+  //   3. The pages are full of chrome — marker buttons, filter bars, copy
+  //      buttons, collapse footers — that must never be narrated. The unit
+  //      collector is therefore strictly opt-in: only known content elements
+  //      inside known content containers are read. Unrecognised markup is
+  //      skipped, never guessed at.
+  const reader = (() => {
+    const KEY_MARKS = "dk-reader-marks-v1";
+    const KEY_VOICE = "dk-reader-voice";
+    const KEY_RATE = "dk-reader-rate";
+    const KEY_PITCH = "dk-reader-pitch";
+    const KEY_CODE = "dk-reader-code";
+    const KEY_ANSWERS = "dk-reader-answers";
+
+    const synth = typeof window !== "undefined" ? window.speechSynthesis : null;
+    const hasSpeech = !!(synth && typeof window.SpeechSynthesisUtterance === "function");
+    const hasHighlight = !!(window.CSS && CSS.highlights && typeof window.Highlight === "function");
+
+    // ----- readable-content contract -----------------------------------
+    // Containers we are willing to descend through. An element only becomes a
+    // readable unit if every ancestor between it and the scope root is one of
+    // these, which is what keeps chrome out without a list of exclusions.
+    const CONTAINERS = [
+      ".prose", ".node-body", ".card-list", ".rc-card", ".el-card",
+      "details.node-block", "details.sub-block", "details.el-block", "details.deck-group",
+      "summary.node-summary", "ul", "ol", "blockquote", "table", "thead", "tbody",
+      "tfoot", "tr", "dl", "section", "article", "figure",
+    ].join(",");
+
+    // The elements that are read. `.node-title` carries the section heading;
+    // `.q` / `.a` are deck-card question and answer.
+    const UNITS = [
+      "summary.node-summary > .node-title",
+      "p", "li", "h4", "h5", "h6", "dt", "dd", "th", "td", "figcaption",
+      ".rc-card > .q", ".rc-card > .a", ".el-card > .q", ".el-card > .a",
+    ].join(",");
+
+    // Never read, never descended into, even if something above would allow it.
+    const DENY = [
+      ".prose-controls", ".node-local", ".node-foot", ".mark-filter", ".mk-row",
+      ".nt-list", ".nt-item", ".topic-tag", ".empty-note", ".dk-reader",
+      ".dkr-inline", ".code-copy", "button", "textarea", "input", "select", "svg",
+      "script", "style",
+    ].join(",");
+
+    const state = {
+      status: "idle",          // idle | playing | paused
+      units: [],               // flat list of sentences for the playing scope
+      idx: 0,
+      scope: null,             // id of the scope that owns the audio
+      gen: 0,                  // bumped whenever current speech is abandoned
+      charOffset: 0,           // where in the sentence the current utterance began
+      lastChar: 0,             // last word boundary seen, sentence-relative
+      lastEvent: 0,
+      retries: 0,
+      open: false,             // player bar visible
+      locked: false,
+    };
+
+    let ui = null;
+    let voices = [];
+    let watchdog = null;
+    let hlSentence = null;
+    let hlWord = null;
+    let lockBtn = null;
+    let detailsSnapshot = null;
+
+    // ----- small helpers ------------------------------------------------
+    function readJSON(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    }
+    function writeJSON(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* quota, private mode */ }
+    }
+    function pref(key, fallback) {
+      const v = localStorage.getItem(key);
+      return v === null ? fallback : v;
+    }
+    function setPref(key, value) {
+      try { localStorage.setItem(key, value); } catch (e) { /* ignore */ }
+    }
+    function rate() { return parseFloat(pref(KEY_RATE, "1")) || 1; }
+    function pitch() { return parseFloat(pref(KEY_PITCH, "1")) || 1; }
+    function readCode() { return pref(KEY_CODE, "0") === "1"; }
+    function readAnswers() { return pref(KEY_ANSWERS, "0") === "1"; }
+
+    function marks() { return readJSON(KEY_MARKS, {}); }
+    function getBookmark(id) { return marks()[id] || null; }
+    function setBookmark(id, idx, total) {
+      if (!id) return;
+      const all = marks();
+      all[id] = { i: idx, total: total, ts: Date.now() };
+      writeJSON(KEY_MARKS, all);
+    }
+
+    // ----- scopes -------------------------------------------------------
+    // A scope is one independently bookmarked body of text, keyed `topic:tab`.
+    function topicSlug() {
+      const m = window.location.pathname.match(/topics\/([^/]+)\//);
+      if (m) return m[1];
+      const file = window.location.pathname.split("/").pop() || "index.html";
+      return file.replace(/\.html?$/, "") || "index";
+    }
+
+    function scopes() {
+      const out = [];
+      const topic = topicSlug();
+      const tabs = [
+        ["landscape", "Landscape"],
+        ["recall", "Recall"],
+        ["prep", "Prep"],
+        ["elaboration", "Elaboration"],
+      ];
+      let sawTab = false;
+      tabs.forEach(([tab, label]) => {
+        const root = document.getElementById("tab-" + tab);
+        if (!root) return;
+        sawTab = true;
+        out.push({ id: `${topic}:${tab}`, tab, root, label, topic });
+      });
+      if (sawTab) return out;
+
+      // Pages outside a topic pack (the global deck, search) have one body of
+      // content and a page intro. The scope is the content container itself,
+      // not the whole .wrap, so the page lede and heading stay unspoken.
+      const wrap = document.querySelector(".wrap");
+      if (wrap) {
+        const bodies = wrap.querySelectorAll(".card-list, .prose");
+        const root = bodies.length === 1 ? bodies[0] : (bodies.length ? wrap : null);
+        if (root) {
+          out.push({ id: `${topic}:main`, tab: null, root, label: document.title.split("—")[0].trim() || topic, topic });
+        }
+      }
+      return out;
+    }
+
+    function isVisible(el) {
+      return !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+    }
+
+    // The scope the user is currently looking at — the visible tab.
+    function viewedScope() {
+      const all = scopes();
+      return all.find((s) => isVisible(s.root)) || all[0] || null;
+    }
+
+    function scopeById(id) {
+      return scopes().find((s) => s.id === id) || null;
+    }
+
+    // ----- unit collection ----------------------------------------------
+    function allowedChain(el, root) {
+      let p = el.parentElement;
+      while (p && p !== root) {
+        if (p.matches(DENY)) return false;
+        if (!p.matches(CONTAINERS)) return false;
+        p = p.parentElement;
+      }
+      return p === root;
+    }
+
+    // Flattens one element into a text string plus the map of text nodes that
+    // produced it, so any character range can later be turned back into a DOM
+    // Range for highlighting — no span wrapping, no DOM mutation.
+    function textMapOf(el, allowPre) {
+      const pieces = [];
+      let text = "";
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.matches(DENY)) return NodeFilter.FILTER_REJECT;
+            if (!allowPre && (node.tagName === "PRE" || node.classList.contains("code-wrap"))) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            return NodeFilter.FILTER_SKIP;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        },
+      });
+      let node = walker.nextNode();
+      while (node) {
+        const raw = node.nodeValue || "";
+        if (raw) {
+          pieces.push({ node, start: text.length, end: text.length + raw.length });
+          text += raw;
+        }
+        node = walker.nextNode();
+      }
+      return { text, pieces };
+    }
+
+    // Sentence splitting, with the abbreviations that otherwise chop a
+    // sentence in half mid-thought. Chromium truncates utterances past roughly
+    // fifteen seconds, so anything long is chunked further at word boundaries.
+    const ABBREV = /(?:^|\s)(?:e\.g|i\.e|etc|vs|approx|fig|no|dr|mr|mrs|ms|prof|st|jr|sr|al)\.$/i;
+    const MAX_CHUNK = 220;
+
+    function splitSentences(text) {
+      const spans = [];
+      let start = 0;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (ch !== "." && ch !== "!" && ch !== "?" && ch !== "…") continue;
+        let j = i;
+        while (j + 1 < text.length && /[.!?…"')\]”’]/.test(text[j + 1])) j++;
+        const next = text[j + 1];
+        if (next !== undefined && !/\s/.test(next)) continue;
+        const head = text.slice(start, i + 1);
+        if (ABBREV.test(head)) { i = j; continue; }
+        // A single digit before a period is usually a numbered list, not an end.
+        if (ch === "." && /(?:^|\s)\d+$/.test(text.slice(start, i))) { i = j; continue; }
+        spans.push([start, j + 1]);
+        start = j + 1;
+        i = j;
+      }
+      if (start < text.length) spans.push([start, text.length]);
+
+      const out = [];
+      spans.forEach(([s, e]) => {
+        let a = s;
+        while (a < e && /\s/.test(text[a])) a++;
+        let b = e;
+        while (b > a && /\s/.test(text[b - 1])) b--;
+        if (b <= a) return;
+        if (b - a <= MAX_CHUNK) { out.push([a, b]); return; }
+        // Long sentence: cut at the last word boundary inside the limit.
+        let cut = a;
+        while (cut < b) {
+          let stop = Math.min(cut + MAX_CHUNK, b);
+          if (stop < b) {
+            const space = text.lastIndexOf(" ", stop);
+            if (space > cut + 40) stop = space;
+          }
+          out.push([cut, stop]);
+          cut = stop;
+          while (cut < b && /\s/.test(text[cut])) cut++;
+        }
+      });
+      return out;
+    }
+
+    function hasSpeakableText(s) {
+      return /[a-z0-9]/i.test(s);
+    }
+
+    // Spoken form: card numbering is UI scaffolding, not content.
+    function speakable(text) {
+      return text.replace(/^Q\d+\.\s*/, "").replace(/\s+/g, " ").trim();
+    }
+
+    // Builds the flat sentence list for a scope. Called at play time and on
+    // every rebuild — never at load, because the content is not there yet.
+    function collect(scope) {
+      const root = scope.root;
+      const code = readCode();
+      const answers = readAnswers();
+      const picked = [];
+      const set = new Set();
+
+      const candidates = Array.from(root.querySelectorAll(code ? UNITS + ",pre" : UNITS));
+      candidates.forEach((el) => {
+        if (el.matches(DENY)) return;
+        if (el.tagName === "PRE") {
+          if (!code) return;
+        } else if (el.closest("pre")) {
+          return;
+        }
+        if (el.classList.contains("a")) {
+          const card = el.closest(".rc-card, .el-card");
+          if (card && !answers && !card.classList.contains("revealed")) return;
+        }
+        // `.code-wrap` is only a legitimate container when code reading is on.
+        let chainRoot = root;
+        if (el.tagName === "PRE" && el.parentElement && el.parentElement.classList.contains("code-wrap")) {
+          chainRoot = root;
+          const wrap = el.parentElement;
+          if (!allowedChain(wrap, root)) return;
+        } else if (!allowedChain(el, chainRoot)) {
+          return;
+        }
+        picked.push(el);
+        set.add(el);
+      });
+
+      // Drop anything nested inside another pick (a <p> inside an <li>).
+      const kept = picked.filter((el) => {
+        let p = el.parentElement;
+        while (p && p !== root) {
+          if (set.has(p)) return false;
+          p = p.parentElement;
+        }
+        return true;
+      });
+
+      const units = [];
+      kept.forEach((el) => {
+        const isPre = el.tagName === "PRE";
+        const map = textMapOf(el, isPre);
+        const clean = speakable(map.text);
+        if (!clean || !hasSpeakableText(clean)) return;
+        const offset = map.text.length - map.text.replace(/^Q\d+\.\s*/, "").length;
+        splitSentences(map.text.slice(offset)).forEach(([s, e]) => {
+          const text = map.text.slice(offset + s, offset + e).replace(/\s+/g, " ").trim();
+          if (!text || !hasSpeakableText(text)) return;
+          units.push({ el, map, s: offset + s, e: offset + e, text, words: text.split(/\s+/).length });
+        });
+      });
+      return units;
+    }
+
+    // ----- highlighting --------------------------------------------------
+    function initHighlights() {
+      if (!hasHighlight || hlSentence) return;
+      hlSentence = new Highlight();
+      hlWord = new Highlight();
+      CSS.highlights.set("dk-read-sentence", hlSentence);
+      CSS.highlights.set("dk-read-word", hlWord);
+    }
+
+    function rangeFor(unit, from, to) {
+      const pieces = unit.map.pieces;
+      let startNode = null, startOff = 0, endNode = null, endOff = 0;
+      for (let i = 0; i < pieces.length; i++) {
+        const p = pieces[i];
+        if (!startNode && from >= p.start && from < p.end) { startNode = p.node; startOff = from - p.start; }
+        if (to > p.start && to <= p.end) { endNode = p.node; endOff = to - p.start; }
+      }
+      if (!startNode || !endNode) return null;
+      try {
+        const r = document.createRange();
+        r.setStart(startNode, startOff);
+        r.setEnd(endNode, endOff);
+        return r;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function paintSentence(unit) {
+      if (!hasHighlight) return;
+      initHighlights();
+      hlSentence.clear();
+      hlWord.clear();
+      const r = rangeFor(unit, unit.s, unit.e);
+      if (r) hlSentence.add(r);
+    }
+
+    function paintWord(unit, charIndex, length) {
+      if (!hasHighlight || !hlWord) return;
+      hlWord.clear();
+      const raw = unit.map.text;
+      let from = unit.s + charIndex;
+      if (from >= unit.e) return;
+      let to = length ? from + length : from;
+      if (!length) {
+        while (to < unit.e && !/\s/.test(raw[to])) to++;
+      }
+      to = Math.min(to, unit.e);
+      const r = rangeFor(unit, from, to);
+      if (r) hlWord.add(r);
+    }
+
+    function clearHighlights() {
+      if (hlSentence) hlSentence.clear();
+      if (hlWord) hlWord.clear();
+    }
+
+    // ----- <details> state ------------------------------------------------
+    // Force open what we need to show, remember everything, put it all back on
+    // stop — including whatever "Expand all" had already done.
+    function snapshotDetails(scope) {
+      detailsSnapshot = Array.from(scope.root.querySelectorAll("details")).map((d) => ({ el: d, open: d.open }));
+    }
+
+    function restoreDetails() {
+      if (!detailsSnapshot) return;
+      detailsSnapshot.forEach(({ el, open }) => {
+        if (el.isConnected) el.open = open;
+      });
+      detailsSnapshot = null;
+    }
+
+    function revealUnit(unit) {
+      let p = unit.el.parentElement;
+      while (p) {
+        if (p.tagName === "DETAILS" && !p.open) p.open = true;
+        p = p.parentElement;
+      }
+    }
+
+    function scrollToUnit(unit) {
+      const rect = unit.el.getBoundingClientRect();
+      const margin = 120;
+      if (rect.top < margin || rect.bottom > window.innerHeight - margin) {
+        unit.el.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    }
+
+    // ----- voices ---------------------------------------------------------
+    // getVoices() is empty on the first synchronous call; the list only exists
+    // once the engine fires voiceschanged.
+    function loadVoices() {
+      if (!hasSpeech) return;
+      const all = synth.getVoices() || [];
+      voices = all.filter((v) => /^en(-|_|$)/i.test(v.lang || ""));
+      if (!voices.length) voices = all.slice();
+      voices.sort((a, b) => {
+        const na = naturalRank(a), nb = naturalRank(b);
+        if (na !== nb) return na - nb;
+        return (a.name || "").localeCompare(b.name || "");
+      });
+      if (ui) drawVoices();
+    }
+
+    function naturalRank(v) {
+      const n = (v.name || "").toLowerCase();
+      if (n.includes("natural")) return 0;
+      if (n.includes("online")) return 1;
+      return 2;
+    }
+
+    function currentVoice() {
+      // .name is already the full display string — nothing is reconstructed
+      // from other properties, which is what produced "undefined" labels before.
+      const want = pref(KEY_VOICE, "");
+      if (want) {
+        const hit = voices.find((v) => v.name === want);
+        if (hit) return hit;
+      }
+      return voices[0] || null;
+    }
+
+    // ----- engine ---------------------------------------------------------
+    // Nothing here consults synth.speaking or synth.paused: both lie in
+    // Chromium. All state comes from utterance events and this state machine.
+    function makeUtterance(text) {
+      const u = new SpeechSynthesisUtterance(text);
+      const v = currentVoice();
+      if (v) { u.voice = v; u.lang = v.lang; }
+      u.rate = rate();
+      u.pitch = pitch();
+      return u;
+    }
+
+    // Every speak() is routed through here: speak() called synchronously after
+    // cancel() is dropped silently by Chromium, so the engine is given a beat
+    // to settle, and any stale callback is discarded by generation.
+    function safeSpeak(text, myGen) {
+      try { synth.cancel(); } catch (e) { /* ignore */ }
+      setTimeout(() => {
+        if (myGen !== state.gen || state.status !== "playing") return;
+        const u = makeUtterance(text);
+        u.onstart = () => { if (myGen === state.gen) state.lastEvent = Date.now(); };
+        u.onboundary = (ev) => {
+          if (myGen !== state.gen) return;
+          state.lastEvent = Date.now();
+          if (typeof ev.charIndex !== "number") return;
+          state.lastChar = state.charOffset + ev.charIndex;
+          state.retries = 0;
+          paintWord(state.units[state.idx], state.lastChar, ev.charLength || 0);
+        };
+        u.onend = () => {
+          if (myGen !== state.gen) return;
+          state.lastEvent = Date.now();
+          advance(1);
+        };
+        u.onerror = (ev) => {
+          if (myGen !== state.gen) return;
+          if (ev && (ev.error === "interrupted" || ev.error === "canceled")) return;
+          state.lastEvent = Date.now();
+          advance(1);
+        };
+        try { synth.speak(u); } catch (e) { advance(1); }
+      }, 90);
+    }
+
+    function speakFrom(idx, charOffset) {
+      const unit = state.units[idx];
+      if (!unit) { finish(); return; }
+      state.idx = idx;
+      state.charOffset = charOffset || 0;
+      state.lastChar = state.charOffset;
+      state.retries = state.retries || 0;
+      state.lastEvent = Date.now();
+      const scope = scopeById(state.scope);
+      if (scope) setBookmark(scope.id, idx, state.units.length);
+      revealUnit(unit);
+      paintSentence(unit);
+      if (scope && viewedScope() && viewedScope().id === scope.id) scrollToUnit(unit);
+      setMediaMetadata(unit);
+      const text = unit.text.slice(state.charOffset - unit.s < 0 ? 0 : state.charOffset - unit.s);
+      safeSpeak(text || unit.text, ++state.gen);
+      draw();
+    }
+
+    function advance(step) {
+      const next = state.idx + step;
+      if (next < 0) { speakFrom(0, 0); return; }
+      if (next >= state.units.length) { finish(); return; }
+      state.retries = 0;
+      speakFrom(next, 0);
+    }
+
+    function finish() {
+      const scope = scopeById(state.scope);
+      if (scope) setBookmark(scope.id, 0, state.units.length);
+      stop();
+    }
+
+    // Bounded watchdog: Chromium sometimes drops an utterance outright, with
+    // no end and no error, which is what produced "progress moves, audio is
+    // silent". Two retries from the last spoken word, then move on.
+    function startWatchdog() {
+      stopWatchdog();
+      watchdog = setInterval(() => {
+        if (state.status !== "playing") return;
+        const unit = state.units[state.idx];
+        if (!unit) return;
+        const spoken = Math.max(0, state.lastChar - unit.s);
+        const remaining = Math.max(0, unit.text.length - spoken);
+        const limit = 3500 + (remaining / Math.max(0.5, rate())) * 90;
+        if (Date.now() - state.lastEvent < limit) return;
+        if (state.retries >= 2) {
+          state.retries = 0;
+          advance(1);
+          return;
+        }
+        state.retries++;
+        state.lastEvent = Date.now();
+        resumeFromWord();
+      }, 1500);
+    }
+
+    function stopWatchdog() {
+      if (watchdog) { clearInterval(watchdog); watchdog = null; }
+    }
+
+    // Resume re-speaks from the last word boundary the engine reported — never
+    // mid-word, and never by trusting resume(), which strands the engine.
+    function resumeFromWord() {
+      const unit = state.units[state.idx];
+      if (!unit) return;
+      let from = Math.max(unit.s, Math.min(state.lastChar, unit.e));
+      const raw = unit.map.text;
+      while (from > unit.s && !/\s/.test(raw[from - 1])) from--;
+      speakFrom(state.idx, from);
+    }
+
+    function setMediaMetadata(unit) {
+      if (!("mediaSession" in navigator) || typeof window.MediaMetadata !== "function") return;
+      const scope = scopeById(state.scope);
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: unit.text.slice(0, 120),
+          artist: scope ? scope.label : "devxkapoor",
+          album: scope ? scope.topic.replace(/-/g, " ") : "mastery track",
+        });
+        navigator.mediaSession.playbackState = state.status === "playing" ? "playing" : "paused";
+      } catch (e) { /* metadata is a nicety */ }
+    }
+
+    function wireMediaSession() {
+      if (!("mediaSession" in navigator)) return;
+      const set = (action, fn) => {
+        try { navigator.mediaSession.setActionHandler(action, fn); } catch (e) { /* unsupported */ }
+      };
+      set("play", () => { if (state.status === "paused") resume(); });
+      set("pause", () => pause());
+      set("stop", () => stop());
+      set("previoustrack", () => seek(-1));
+      set("nexttrack", () => seek(1));
+    }
+
+    // ----- public playback ------------------------------------------------
+    function rebuild() {
+      const scope = scopeById(state.scope);
+      if (!scope) return;
+      state.units = collect(scope);
+    }
+
+    function playScope(scopeId, opts) {
+      if (!hasSpeech) return;
+      const o = opts || {};
+      const scope = scopeById(scopeId);
+      if (!scope) return;
+
+      // Play is a takeover: bookmark whatever is speaking, then switch.
+      if (state.scope && state.scope !== scope.id && state.status !== "idle") {
+        setBookmark(state.scope, state.idx, state.units.length);
+        hardStop(false);
+      } else if (state.status !== "idle") {
+        hardStop(false);
+      }
+
+      state.scope = scope.id;
+      state.units = collect(scope);
+      if (!state.units.length) {
+        openPlayer();
+        setNote("Nothing readable on this tab yet.");
+        return;
+      }
+
+      let start = 0;
+      if (typeof o.index === "number") {
+        start = Math.max(0, Math.min(o.index, state.units.length - 1));
+      } else if (o.element) {
+        const hit = state.units.findIndex((u) => o.element.contains(u.el));
+        start = hit >= 0 ? hit : 0;
+      } else {
+        const bm = getBookmark(scope.id);
+        if (bm && typeof bm.i === "number" && bm.i < state.units.length) start = bm.i;
+      }
+
+      snapshotDetails(scope);
+      state.status = "playing";
+      state.retries = 0;
+      openPlayer();
+      startWatchdog();
+      speakFrom(start, 0);
+    }
+
+    function pause() {
+      if (state.status !== "playing") return;
+      // pause() is unreliable in Chromium — cancel and remember instead.
+      state.gen++;
+      try { synth.cancel(); } catch (e) { /* ignore */ }
+      state.status = "paused";
+      stopWatchdog();
+      if (state.scope) setBookmark(state.scope, state.idx, state.units.length);
+      if (hlWord) hlWord.clear();
+      if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+      draw();
+    }
+
+    function resume() {
+      if (state.status !== "paused") return;
+      if (!state.units.length) rebuild();
+      state.status = "playing";
+      state.retries = 0;
+      startWatchdog();
+      resumeFromWord();
+      if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
+    }
+
+    function toggle() {
+      if (state.status === "playing") { pause(); return; }
+      if (state.status === "paused") { resume(); return; }
+      const scope = viewedScope();
+      if (scope) playScope(scope.id);
+    }
+
+    function seek(step) {
+      if (state.status === "idle") return;
+      const next = Math.max(0, Math.min(state.idx + step, state.units.length - 1));
+      state.retries = 0;
+      if (state.status === "paused") {
+        state.idx = next;
+        state.lastChar = state.units[next].s;
+        state.charOffset = state.units[next].s;
+        revealUnit(state.units[next]);
+        paintSentence(state.units[next]);
+        scrollToUnit(state.units[next]);
+        draw();
+        return;
+      }
+      speakFrom(next, 0);
+    }
+
+    function seekTo(index) {
+      if (state.status === "idle") return;
+      const next = Math.max(0, Math.min(index, state.units.length - 1));
+      state.retries = 0;
+      if (state.status === "paused") { state.idx = next; draw(); return; }
+      speakFrom(next, 0);
+    }
+
+    function hardStop(restore) {
+      state.gen++;
+      stopWatchdog();
+      try { synth.cancel(); } catch (e) { /* ignore */ }
+      clearHighlights();
+      if (restore !== false) restoreDetails();
+      else detailsSnapshot = null;
+      state.status = "idle";
+    }
+
+    function stop() {
+      if (state.scope && state.units.length) setBookmark(state.scope, state.idx, state.units.length);
+      hardStop(true);
+      if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "none";
+      draw();
+    }
+
+    // ----- lock ------------------------------------------------------------
+    // The Edge Read-Aloud Lock equivalent: expand everything in view and stop
+    // clicks from collapsing it again. Works with no Speech API at all.
+    function setLocked(on) {
+      state.locked = !!on;
+      document.documentElement.classList.toggle("dk-locked", state.locked);
+      if (state.locked) {
+        const scope = viewedScope();
+        const root = scope ? scope.root : document;
+        root.querySelectorAll("details").forEach((d) => { d.open = true; });
+      }
+      if (lockBtn) {
+        lockBtn.classList.toggle("on", state.locked);
+        lockBtn.setAttribute("aria-pressed", state.locked ? "true" : "false");
+        lockBtn.title = state.locked ? "Unfreeze sections" : "Expand everything and freeze it open";
+      }
+    }
+
+    function guardLock(e) {
+      if (!state.locked) return;
+      const hit = e.target.closest && e.target.closest("summary, .node-foot, .pc-btn[data-act='collapse']");
+      if (!hit) return;
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    // ----- UI ---------------------------------------------------------------
+    const ICONS = {
+      play: '<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><path d="M4.5 2.8v10.4c0 .5.6.8 1 .5l8-5.2a.6.6 0 0 0 0-1L5.5 2.3a.6.6 0 0 0-1 .5z"/></svg>',
+      pausing: '<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><rect x="4" y="3" width="3.2" height="10" rx="1"/><rect x="8.8" y="3" width="3.2" height="10" rx="1"/></svg>',
+      prev: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3.5L5.5 8l5 4.5"/><path d="M4 3.5v9"/></svg>',
+      next: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.5L10.5 8l-5 4.5"/><path d="M12 3.5v9"/></svg>',
+      stop: '<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><rect x="3.5" y="3.5" width="9" height="9" rx="1.5"/></svg>',
+      gear: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.3"/><path d="M8 1.6v1.7M8 12.7v1.7M14.4 8h-1.7M3.3 8H1.6M12.5 3.5l-1.2 1.2M4.7 11.3l-1.2 1.2M12.5 12.5l-1.2-1.2M4.7 4.7L3.5 3.5"/></svg>',
+      lock: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>',
+      speaker: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.2h2.3L8.5 3.4v9.2L5.3 9.8H3z"/><path d="M11 5.8a3 3 0 0 1 0 4.4"/></svg>',
+    };
+
+    function fmtTime(sec) {
+      if (!isFinite(sec) || sec < 0) sec = 0;
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${String(s).padStart(2, "0")}`;
+    }
+
+    // Rough but honest: average English narration is ~2.7 words a second at 1×.
+    function secondsFor(units, from, to) {
+      let w = 0;
+      for (let i = from; i < to && i < units.length; i++) w += units[i].words;
+      return w / (2.7 * rate());
+    }
+
+    function buildUI() {
+      const el = document.createElement("div");
+      el.className = "dk-reader";
+      el.hidden = true;
+      el.innerHTML =
+        `<button class="dkr-chip" type="button" hidden></button>` +
+        `<div class="dkr-bar" role="region" aria-label="Read aloud player">` +
+          `<div class="dkr-row">` +
+            `<button class="dkr-btn dkr-primary" data-act="toggle" type="button" aria-label="Play">${ICONS.play}</button>` +
+            `<button class="dkr-btn" data-act="prev" type="button" aria-label="Previous sentence">${ICONS.prev}</button>` +
+            `<button class="dkr-btn" data-act="next" type="button" aria-label="Next sentence">${ICONS.next}</button>` +
+            `<button class="dkr-btn" data-act="stop" type="button" aria-label="Stop">${ICONS.stop}</button>` +
+            `<div class="dkr-mid">` +
+              `<div class="dkr-now"></div>` +
+              `<div class="dkr-track" role="slider" tabindex="0" aria-label="Position"><div class="dkr-fill"></div></div>` +
+              `<div class="dkr-meta"><span class="dkr-scope"></span><span class="dkr-time"></span></div>` +
+            `</div>` +
+            `<label class="dkr-rate-wrap"><span>speed</span><select class="dkr-rate" aria-label="Speed"></select></label>` +
+            `<button class="dkr-btn" data-act="tray" type="button" aria-label="Settings">${ICONS.gear}</button>` +
+            `<button class="dkr-btn" data-act="close" type="button" aria-label="Close player">×</button>` +
+          `</div>` +
+          `<div class="dkr-tray" hidden>` +
+            `<div class="dkr-field">` +
+              `<span class="dkr-lbl">Voice</span>` +
+              `<button class="dkr-voice-btn" type="button" aria-expanded="false">` +
+                `<span class="dkr-voice-name">Loading voices…</span>` +
+                `<span class="dkr-chev">${ICON.chevron}</span>` +
+              `</button>` +
+              `<div class="dkr-voice-list" hidden></div>` +
+            `</div>` +
+            `<div class="dkr-field dkr-inline-field">` +
+              `<span class="dkr-lbl">Pitch</span>` +
+              `<input class="dkr-pitch" type="range" min="0.6" max="1.6" step="0.05">` +
+              `<span class="dkr-pitch-val"></span>` +
+            `</div>` +
+            `<label class="dkr-check"><input type="checkbox" class="dkr-code"><span>Read code blocks</span></label>` +
+            `<label class="dkr-check"><input type="checkbox" class="dkr-answers"><span>Read answers on hidden cards</span></label>` +
+            `<div class="dkr-note"></div>` +
+          `</div>` +
+        `</div>`;
+      document.body.appendChild(el);
+
+      ui = {
+        el,
+        chip: el.querySelector(".dkr-chip"),
+        toggle: el.querySelector('[data-act="toggle"]'),
+        now: el.querySelector(".dkr-now"),
+        track: el.querySelector(".dkr-track"),
+        fill: el.querySelector(".dkr-fill"),
+        scope: el.querySelector(".dkr-scope"),
+        time: el.querySelector(".dkr-time"),
+        rate: el.querySelector(".dkr-rate"),
+        tray: el.querySelector(".dkr-tray"),
+        voiceBtn: el.querySelector(".dkr-voice-btn"),
+        voiceName: el.querySelector(".dkr-voice-name"),
+        voiceList: el.querySelector(".dkr-voice-list"),
+        pitch: el.querySelector(".dkr-pitch"),
+        pitchVal: el.querySelector(".dkr-pitch-val"),
+        code: el.querySelector(".dkr-code"),
+        answers: el.querySelector(".dkr-answers"),
+        note: el.querySelector(".dkr-note"),
+        launcher: null,
+      };
+
+      [0.6, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2].forEach((r) => {
+        const o = document.createElement("option");
+        o.value = String(r);
+        o.textContent = r + "×";
+        ui.rate.appendChild(o);
+      });
+      ui.rate.value = String(rate());
+      ui.pitch.value = String(pitch());
+      ui.pitchVal.textContent = pitch().toFixed(2);
+      ui.code.checked = readCode();
+      ui.answers.checked = readAnswers();
+
+      el.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-act]");
+        if (!btn) return;
+        const act = btn.dataset.act;
+        if (act === "toggle") toggle();
+        else if (act === "prev") seek(-1);
+        else if (act === "next") seek(1);
+        else if (act === "stop") stop();
+        else if (act === "tray") { ui.tray.hidden = !ui.tray.hidden; }
+        else if (act === "close") closePlayer();
+      });
+
+      ui.chip.addEventListener("click", jumpToPlaying);
+
+      ui.rate.addEventListener("change", () => {
+        setPref(KEY_RATE, ui.rate.value);
+        if (state.status === "playing") resumeFromWord();
+        draw();
+      });
+
+      ui.pitch.addEventListener("input", () => {
+        setPref(KEY_PITCH, ui.pitch.value);
+        ui.pitchVal.textContent = parseFloat(ui.pitch.value).toFixed(2);
+      });
+      ui.pitch.addEventListener("change", () => {
+        if (state.status === "playing") resumeFromWord();
+      });
+
+      ui.code.addEventListener("change", () => {
+        setPref(KEY_CODE, ui.code.checked ? "1" : "0");
+        recollectInPlace();
+      });
+      ui.answers.addEventListener("change", () => {
+        setPref(KEY_ANSWERS, ui.answers.checked ? "1" : "0");
+        recollectInPlace();
+      });
+
+      ui.voiceBtn.addEventListener("click", () => {
+        const open = ui.voiceList.hidden;
+        ui.voiceList.hidden = !open;
+        ui.voiceBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+
+      ui.track.addEventListener("click", (e) => {
+        if (!state.units.length) return;
+        const rect = ui.track.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        seekTo(Math.round(ratio * (state.units.length - 1)));
+      });
+      ui.track.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft") { e.preventDefault(); seek(-1); }
+        if (e.key === "ArrowRight") { e.preventDefault(); seek(1); }
+      });
+
+      drawVoices();
+      return ui;
+    }
+
+    // Changing what counts as readable mid-session must not lose the place:
+    // remember the element being read, rebuild, and land on it again.
+    function recollectInPlace() {
+      if (!state.scope) return;
+      const anchor = state.units[state.idx];
+      const anchorEl = anchor ? anchor.el : null;
+      const anchorStart = anchor ? anchor.s : 0;
+      const wasPlaying = state.status === "playing";
+      rebuild();
+      let next = 0;
+      if (anchorEl) {
+        const hit = state.units.findIndex((u) => u.el === anchorEl && u.e > anchorStart);
+        next = hit >= 0 ? hit : Math.min(state.idx, Math.max(0, state.units.length - 1));
+      }
+      state.idx = Math.max(0, Math.min(next, Math.max(0, state.units.length - 1)));
+      if (wasPlaying) speakFrom(state.idx, 0);
+      else draw();
+    }
+
+    function drawVoices() {
+      if (!ui) return;
+      const cur = currentVoice();
+      ui.voiceName.textContent = cur ? cur.name : (hasSpeech ? "System default" : "No speech engine");
+      ui.voiceList.innerHTML = "";
+      voices.forEach((v) => {
+        const row = document.createElement("div");
+        row.className = "dkr-voice" + (cur && v.name === cur.name ? " on" : "");
+        const pick = document.createElement("button");
+        pick.type = "button";
+        pick.className = "dkr-voice-pick";
+        const rank = naturalRank(v);
+        pick.innerHTML =
+          `<span class="dkr-vname">${escapeHtml(v.name)}</span>` +
+          `<span class="dkr-vlang">${escapeHtml(v.lang || "")}</span>` +
+          (rank === 0 ? `<span class="dkr-vtag">natural</span>` : rank === 1 ? `<span class="dkr-vtag alt">online</span>` : "");
+        pick.addEventListener("click", () => {
+          setPref(KEY_VOICE, v.name);
+          drawVoices();
+          if (state.status === "playing") resumeFromWord();
+        });
+        const prev = document.createElement("button");
+        prev.type = "button";
+        prev.className = "dkr-voice-prev";
+        prev.title = "Preview this voice";
+        prev.setAttribute("aria-label", "Preview " + v.name);
+        prev.innerHTML = ICONS.speaker;
+        prev.addEventListener("click", (e) => {
+          e.stopPropagation();
+          previewVoice(v);
+        });
+        row.appendChild(pick);
+        row.appendChild(prev);
+        ui.voiceList.appendChild(row);
+      });
+    }
+
+    // Previewing takes over the engine, so anything playing is paused first
+    // rather than being silently killed.
+    function previewVoice(v) {
+      if (!hasSpeech) return;
+      if (state.status === "playing") pause();
+      state.gen++;
+      try { synth.cancel(); } catch (e) { /* ignore */ }
+      setTimeout(() => {
+        const u = new SpeechSynthesisUtterance("This is how this voice reads your notes.");
+        u.voice = v;
+        u.lang = v.lang;
+        u.rate = rate();
+        u.pitch = pitch();
+        try { synth.speak(u); } catch (e) { /* ignore */ }
+      }, 90);
+    }
+
+    function setNote(msg) {
+      if (ui && ui.note) ui.note.textContent = msg || "";
+    }
+
+    function draw() {
+      if (!ui) return;
+      const playing = state.status === "playing";
+      ui.toggle.innerHTML = playing ? ICONS.pausing : ICONS.play;
+      ui.toggle.setAttribute("aria-label", playing ? "Pause" : "Play");
+      ui.el.classList.toggle("is-playing", playing);
+
+      const scope = scopeById(state.scope);
+      const total = state.units.length;
+      const done = total ? state.idx + 1 : 0;
+      ui.scope.textContent = scope ? `${scope.label.toLowerCase()} · ${done}/${total}` : "nothing loaded";
+      ui.fill.style.width = total ? `${(done / total) * 100}%` : "0%";
+      ui.now.textContent = state.units[state.idx] ? state.units[state.idx].text : "";
+      const elapsed = secondsFor(state.units, 0, state.idx);
+      const all = secondsFor(state.units, 0, total);
+      ui.time.textContent = `${fmtTime(elapsed)} / ${fmtTime(all)}`;
+      ui.track.setAttribute("aria-valuenow", String(done));
+      ui.track.setAttribute("aria-valuemax", String(total));
+
+      if (ui.launcher) {
+        ui.launcher.classList.toggle("on", state.status !== "idle");
+        ui.launcher.innerHTML = playing ? ICONS.pausing : ICONS.play;
+      }
+      drawChip();
+    }
+
+    // "Now playing elsewhere": without it, switching tabs mid-playback means
+    // losing track of what the voice is actually reading.
+    function drawChip() {
+      if (!ui) return;
+      const viewed = viewedScope();
+      const scope = scopeById(state.scope);
+      const away = state.status !== "idle" && scope && viewed && viewed.id !== scope.id;
+      ui.chip.hidden = !away;
+      if (away) {
+        ui.chip.innerHTML =
+          `<span class="dkr-chip-icon">${state.status === "playing" ? ICONS.pausing : ICONS.play}</span>` +
+          `<span>${escapeHtml(scope.label.toLowerCase())} · ${state.idx + 1}/${state.units.length}</span>` +
+          `<span class="dkr-chip-cta">jump back</span>`;
+      }
+    }
+
+    function jumpToPlaying() {
+      const scope = scopeById(state.scope);
+      if (!scope) return;
+      if (scope.tab) {
+        const btn = document.querySelector(`.tab-btn[data-tab="${scope.tab}"]`);
+        if (btn) btn.click();
+      }
+      const unit = state.units[state.idx];
+      if (unit) {
+        revealUnit(unit);
+        unit.el.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+      draw();
+    }
+
+    function openPlayer() {
+      if (!ui) buildUI();
+      ui.el.hidden = false;
+      state.open = true;
+      document.body.classList.add("dk-reader-open");
+      draw();
+    }
+
+    function closePlayer() {
+      if (state.status !== "idle") stop();
+      if (ui) ui.el.hidden = true;
+      state.open = false;
+      document.body.classList.remove("dk-reader-open");
+    }
+
+    // ----- header controls ---------------------------------------------------
+    function mountHeader() {
+      const right = document.querySelector(".site-header .right");
+      if (!right) return;
+      const themeBtn = right.querySelector(".theme-toggle");
+
+      if (!lockBtn) {
+        const lock = document.createElement("button");
+        lock.type = "button";
+        lock.className = "dkr-lock";
+        lock.innerHTML = ICONS.lock;
+        lock.title = "Expand everything and freeze it open";
+        lock.setAttribute("aria-pressed", "false");
+        lock.addEventListener("click", () => setLocked(!state.locked));
+        right.insertBefore(lock, themeBtn || null);
+        lockBtn = lock;
+      }
+
+      // The launcher only appears where there is something to read. On pages
+      // whose content arrives by fetch this is re-checked as the DOM settles.
+      if (hasSpeech && !right.querySelector(".dkr-launcher") && scopes().length) {
+        const launcher = document.createElement("button");
+        launcher.type = "button";
+        launcher.className = "dkr-launcher";
+        launcher.innerHTML = ICONS.play;
+        launcher.title = "Read this page aloud";
+        launcher.setAttribute("aria-label", "Read aloud");
+        launcher.addEventListener("click", () => {
+          if (!ui) buildUI();
+          if (!state.open) {
+            openPlayer();
+            if (state.status === "idle") {
+              const scope = viewedScope();
+              if (scope) playScope(scope.id);
+            }
+          } else {
+            toggle();
+          }
+        });
+        right.insertBefore(launcher, lockBtn);
+        if (!ui) buildUI();
+        ui.launcher = launcher;
+      }
+    }
+
+    // ----- inline play buttons ------------------------------------------------
+    // Landscape nodes and elaboration sections only. Deck cards deliberately
+    // get none: hundreds of tiny buttons is clutter, not control.
+    function mountInline() {
+      if (!hasSpeech) return;
+      const targets = [];
+      const landscape = document.getElementById("tab-landscape");
+      const elaboration = document.getElementById("tab-elaboration");
+      if (landscape) targets.push(...landscape.querySelectorAll("details.node-block > summary.node-summary"));
+      if (elaboration) targets.push(...elaboration.querySelectorAll("details.el-block > summary.node-summary"));
+      targets.forEach((summary) => {
+        if (summary.querySelector(".dkr-inline")) return;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "dkr-inline";
+        btn.innerHTML = ICONS.play;
+        btn.title = "Read this section aloud";
+        btn.setAttribute("aria-label", "Read this section aloud");
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const block = summary.parentElement;
+          const tab = block.closest("#tab-landscape, #tab-elaboration");
+          if (!tab) return;
+          const scope = scopes().find((s) => s.root === tab);
+          if (scope) playScope(scope.id, { element: block });
+        });
+        summary.appendChild(btn);
+      });
+    }
+
+    // ----- keyboard -------------------------------------------------------------
+    function onKey(e) {
+      if (!state.open) return;
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      if (e.key === " " || e.code === "Space") { e.preventDefault(); toggle(); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); seek(-1); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); seek(1); }
+      else if (e.key === "Escape") { e.preventDefault(); closePlayer(); }
+    }
+
+    // ----- mount ------------------------------------------------------------------
+    function mount() {
+      if (document.body.dataset.dkReader === "1") return;
+      document.body.dataset.dkReader = "1";
+      mountHeader();
+      mountInline();
+      document.addEventListener("keydown", onKey);
+      document.addEventListener("click", guardLock, true);
+
+      if (hasSpeech) {
+        loadVoices();
+        synth.addEventListener("voiceschanged", loadVoices);
+        wireMediaSession();
+        // Audio does not survive navigation — bookmark what is in flight.
+        window.addEventListener("pagehide", () => {
+          if (state.scope && state.units.length) setBookmark(state.scope, state.idx, state.units.length);
+          try { synth.cancel(); } catch (e) { /* ignore */ }
+        });
+      }
+
+      // Content is fetched after load, so the inline buttons and the chip have
+      // to follow the DOM rather than being placed once at mount.
+      let pending = null;
+      const obs = new MutationObserver(() => {
+        clearTimeout(pending);
+        pending = setTimeout(() => { mountHeader(); mountInline(); drawChip(); }, 200);
+      });
+      obs.observe(document.body, { childList: true, subtree: true });
+
+      // Switching tabs must never interrupt what is speaking; it only changes
+      // what the chip says.
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => setTimeout(drawChip, 0));
+      });
+    }
+
+    return {
+      mount,
+      play: (scopeId, opts) => playScope(scopeId || (viewedScope() && viewedScope().id), opts),
+      pause, resume, stop, toggle, seek,
+      open: openPlayer,
+      close: closePlayer,
+      lock: setLocked,
+      scopes,
+      collect: (scopeId) => {
+        const s = scopeById(scopeId || (viewedScope() && viewedScope().id));
+        return s ? collect(s) : [];
+      },
+      state,
+      available: hasSpeech,
+    };
+  })();
+
+  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllPrep, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, setTheme, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount, buildMarkdown, buildBackup, importBackup, plainText, highlight, addCopyButtons, makeSectionsCollapsible, addExpandControls, addBlockFooter, addLocalControls, decorateBlocks, revealHash, ICON, reader };
 })();
 
 // Apply theme immediately on script load (before body renders) to avoid a flash.
 DK.initTheme();
+
+// The read-aloud player mounts itself: every page in the repo already loads this
+// file, so there is nothing to add to the pages themselves.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => DK.reader.mount());
+} else {
+  DK.reader.mount();
+}

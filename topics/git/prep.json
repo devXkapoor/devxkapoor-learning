@@ -180,14 +180,14 @@
       "c": "recovery",
       "t": "Recovery scenario",
       "q": "You ran git reset --hard HEAD~3 and lost three commits. Now what?",
-      "a": "Run git reflog, find the entry from before the reset (showing the old HEAD value), and git reset --hard <that-hash> to restore it. The commits were only unreferenced, not deleted."
+      "a": "Run git reflog, find the entry from before the reset (showing the old HEAD value), and git reset --hard &lt;that-hash&gt; to restore it. The commits were only unreferenced, not deleted."
     },
     {
       "n": 27,
       "c": "recovery",
       "t": "Recovery scenario",
       "q": "You deleted a branch with -D before merging it. Can you get it back?",
-      "a": "Yes, as long as it hasn't been garbage-collected. git reflog will show the branch's last commit hash (or check git reflog show <branchname> if still cached), and you can recreate the branch pointing at it."
+      "a": "Yes, as long as it hasn't been garbage-collected. git reflog will show the branch's last commit hash (or check git reflog show &lt;branchname&gt; if still cached), and you can recreate the branch pointing at it."
     },
     {
       "n": 28,
@@ -305,7 +305,7 @@
       "n": 44,
       "c": "plumbing",
       "t": "Plumbing / internals",
-      "q": "What does git cat-file -p <hash> do, and why is it useful?",
+      "q": "What does git cat-file -p &lt;hash&gt; do, and why is it useful?",
       "a": "Pretty-prints the content of any object regardless of type \u2014 blob, tree, commit, or tag. It's the fastest way to inspect exactly what Git actually stored, which is invaluable for debugging or teaching the object model."
     },
     {
@@ -313,14 +313,14 @@
       "c": "plumbing",
       "t": "Plumbing / internals",
       "q": "How would you manually construct a commit without using git commit?",
-      "a": "git write-tree to snapshot the current index into a tree object, then git commit-tree <tree-hash> -p <parent-hash> -m message to build the commit object directly, then git update-ref refs/heads/<branch> <new-commit-hash> to move a branch to point at it."
+      "a": "git write-tree to snapshot the current index into a tree object, then git commit-tree &lt;tree-hash&gt; -p &lt;parent-hash&gt; -m message to build the commit object directly, then git update-ref refs/heads/&lt;branch&gt; &lt;new-commit-hash&gt; to move a branch to point at it."
     },
     {
       "n": 46,
       "c": "plumbing",
       "t": "Plumbing / internals",
       "q": "What's the actual byte-level difference between how a blob's hash and its filename relate?",
-      "a": "They're unrelated \u2014 a blob's hash is derived purely from its content (with a blob <size>\\0 header prepended before hashing). The filename is never part of the blob; it only exists in the tree entry that references the blob."
+      "a": "They're unrelated \u2014 a blob's hash is derived purely from its content (with a blob &lt;size&gt;\\0 header prepended before hashing). The filename is never part of the blob; it only exists in the tree entry that references the blob."
     },
     {
       "n": 47,
@@ -410,7 +410,7 @@
       "n": 59,
       "c": "edge_case",
       "t": "Edge case",
-      "q": "Why does git log --follow <file> sometimes behave unexpectedly across a rename?",
+      "q": "Why does git log --follow &lt;file&gt; sometimes behave unexpectedly across a rename?",
       "a": "--follow uses similarity-based rename detection, which is heuristic \u2014 if a file was renamed and heavily modified in the same commit, Git may not confidently detect it as the same file, breaking the history trail."
     },
     {

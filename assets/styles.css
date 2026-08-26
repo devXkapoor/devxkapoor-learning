@@ -396,8 +396,7 @@ input.search-box:focus-visible { outline: none; }
 .mf-btn[data-kind="discuss"].active .mf-count { color: var(--mk-discuss); }
 
 /* No coloured edge on marked cards. The marker chips inside already show the
-   state, so a stripe on the container repeated the same information and read
-   as clutter down a long list. */
+   state, so a stripe on the container repeated the same information. */
 
 .mk-row {
   display: flex;
@@ -427,6 +426,36 @@ input.search-box:focus-visible { outline: none; }
 .mk-btn[data-mark="got"].on { color: var(--mk-got); border-color: var(--mk-got); background: color-mix(in srgb, var(--mk-got) 10%, transparent); }
 .mk-btn[data-mark="unclear"].on { color: var(--mk-unclear); border-color: var(--mk-unclear); background: color-mix(in srgb, var(--mk-unclear) 10%, transparent); }
 .mk-btn[data-mark="discuss"].on { color: var(--mk-discuss); border-color: var(--mk-discuss); background: color-mix(in srgb, var(--mk-discuss) 10%, transparent); }
+
+/* ---------- Follow-up notes ---------- */
+
+.mk-row .nt-add { margin-left: auto; }
+.nt-add {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dimmer);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.nt-add:hover { color: var(--accent); border-color: var(--accent-dim); }
+.rc-card.has-notes .nt-add { color: var(--accent); border-color: var(--accent-dim); }
+
+.nt-list { display: flex; flex-direction: column; gap: 8px; }
+.nt-list:not(:empty) { margin-top: 12px; }
+
+.nt-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent-dim);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  cursor: default;
+}
 
 .nt-meta {
   display: flex;
@@ -462,33 +491,26 @@ input.search-box:focus-visible { outline: none; }
 }
 .nt-item.collapsed .nt-actions { display: none; }
 
-/* Done sits inside an open follow-up. As a solid amber fill it was the
-   brightest thing on the page and dominated the note you were writing. It is
-   the primary action there, so it still has to read as such — but as tinted
-   text rather than a filled block, and rounded to sit with the marker chips
-   rather than cutting against them. */
 .nt-done {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  border: 1px solid var(--accent-dim);
-  color: var(--accent);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--bg);
   font-family: var(--mono);
-  font-size: 11.5px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   letter-spacing: 0.03em;
-  padding: 6px 14px;
-  border-radius: 999px;
+  padding: 7px 15px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  box-shadow: var(--shadow);
+  transition: background 0.15s, box-shadow 0.15s, transform 0.08s;
 }
-.nt-done:hover {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  border-color: var(--accent);
-}
+.nt-done:hover { background: var(--accent-soft); box-shadow: var(--shadow-lift); }
 .nt-done:active { transform: translateY(1px); }
-.nt-done svg { flex: none; opacity: 0.85; }
+.nt-done svg { flex: none; }
 
 .nt-del {
   display: inline-flex;

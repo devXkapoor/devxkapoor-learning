@@ -123,7 +123,7 @@
       "n": 18,
       "c": "node-2",
       "t": "Node 2 \u00b7 Linking snapshots into history",
-      "q": "What's the difference between what git log shows you and what git show <commit> shows you?",
+      "q": "What's the difference between what git log shows you and what git show &lt;commit&gt; shows you?",
       "a": "git log walks and lists a range of commits; git show inspects the full content of one specific object."
     },
     {
@@ -586,7 +586,7 @@
       "c": "node-7",
       "t": "Node 7 \u00b7 Undo and recovery",
       "q": "How do you use the reflog to recover from a bad reset --hard?",
-      "a": "Run git reflog to find the commit identifier from before the reset, then git reset --hard <that-identifier> to return to it."
+      "a": "Run git reflog to find the commit identifier from before the reset, then git reset --hard &lt;that-identifier&gt; to return to it."
     },
     {
       "n": 85,
@@ -893,7 +893,7 @@
       "n": 128,
       "c": "node-11",
       "t": "Node 11 \u00b7 Interrogating history",
-      "q": "What does git bisect run <script> do?",
+      "q": "What does git bisect run &lt;script&gt; do?",
       "a": "Fully automates the bisect process by running the given script at each checked-out commit and using its exit code to decide good or bad, without manual intervention."
     },
     {

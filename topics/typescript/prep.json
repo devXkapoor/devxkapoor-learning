@@ -1,3 +1,606 @@
 {
- "cards": []
+ "cards": [
+  {
+   "n": 1,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is TypeScript and how does it relate to JavaScript?",
+   "a": "It is JavaScript plus a layer of type annotations that a compiler checks before the code runs, and which are then deleted. Every valid JavaScript file is valid TypeScript given loose enough settings, and the output is ordinary JavaScript with no runtime library."
+  },
+  {
+   "n": 2,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the difference between <code>interface</code> and <code>type</code>?",
+   "a": "For object shapes they are nearly interchangeable. Interfaces merge, which is what makes module augmentation possible; type aliases can express unions, tuples, primitives and computed types. I use interfaces for extensible object shapes and aliases for everything else."
+  },
+  {
+   "n": 3,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the difference between <code>any</code> and <code>unknown</code>?",
+   "a": "Both accept any value, but <code>any</code> switches checking off and spreads through everything it touches, while <code>unknown</code> forces you to narrow before doing anything. Anywhere external data enters, <code>unknown</code> is the correct choice."
+  },
+  {
+   "n": 4,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What does <code>strict</code> actually turn on, and would you use it?",
+   "a": "Always on for a new project. It enables <code>noImplicitAny</code>, <code>strictNullChecks</code>, <code>strictFunctionTypes</code>, <code>strictBindCallApply</code>, <code>strictPropertyInitialization</code>, <code>noImplicitThis</code> and <code>useUnknownInCatchVariables</code>. The two that matter most are implicit any and null checks."
+  },
+  {
+   "n": 5,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Do types exist at runtime?",
+   "a": "No. Everything is erased at compile time, so there is no way to ask whether an object matches an interface at runtime. That is precisely why runtime validation libraries like Zod exist."
+  },
+  {
+   "n": 6,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What are generics and when do you use one?",
+   "a": "A generic makes a type a parameter, so reusable code preserves the caller's types instead of erasing them. The signal you need one is that two positions in a signature must be linked — an input type and a return type, or an object and one of its keys."
+  },
+  {
+   "n": 7,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a union type and how do you use one safely?",
+   "a": "A value that is one of several types. You can only do what is valid for every member until you narrow it with a check the compiler understands — <code>typeof</code>, <code>in</code>, <code>instanceof</code>, or a literal comparison."
+  },
+  {
+   "n": 8,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a discriminated union and why is it useful?",
+   "a": "A union of object shapes sharing a property with distinct literal types, so checking that one property narrows the whole object. It is how I model results, job states and message protocols, and with a <code>never</code> check in the default branch the compiler tells me every place to update when I add a case."
+  },
+  {
+   "n": 9,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is type inference and how much should you rely on it?",
+   "a": "TypeScript works out types from initialisers, return expressions and context. I annotate at the edges — parameters and external data — and let inference carry everything in between, because written-down types that the compiler already knew tend to rot."
+  },
+  {
+   "n": 10,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is <code>strictNullChecks</code> and why does it matter?",
+   "a": "It stops null and undefined being assignable to every type, so a possibly-missing value becomes a union you must handle. It eliminates the largest single class of production crashes, and it is the flag most existing codebases have not turned on."
+  },
+  {
+   "n": 11,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What are utility types and which do you use most?",
+   "a": "Built-in type transformations. Daily: <code>Partial</code>, <code>Pick</code>, <code>Omit</code>, <code>Record</code>, <code>Required</code>, <code>ReturnType</code> and <code>Awaited</code>. They are all written in TypeScript with mapped and conditional types, so I can write them by hand if needed."
+  },
+  {
+   "n": 12,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is structural typing?",
+   "a": "Compatibility is decided by shape, not by declared name. If a value has the right properties with the right types it fits, regardless of what class it came from. Java and C# use nominal typing, where the relationship has to be declared."
+  },
+  {
+   "n": 13,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you validate data coming from an API?",
+   "a": "With a schema, not an annotation. An annotation on <code>res.json()</code> compiles because the value is <code>any</code> and nothing is checked. I define a Zod schema, derive the static type from it with <code>z.infer</code>, and parse at the boundary so the runtime check and the type cannot drift."
+  },
+  {
+   "n": 14,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is <code>keyof</code> and when do you use it?",
+   "a": "It produces the union of a type's keys. I use it to constrain a parameter to real property names, most often in a generic getter of the form <code>&lt;T, K extends keyof T&gt;(obj: T, key: K): T[K]</code>."
+  },
+  {
+   "n": 15,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is a mapped type?",
+   "a": "A transformation over every member of a shape, written <code>{ [K in keyof T]: ... }</code>, with modifiers to add or remove optionality and readonly. It is how <code>Partial</code> and <code>Readonly</code> are implemented."
+  },
+  {
+   "n": 16,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is a conditional type?",
+   "a": "<code>T extends U ? X : Y</code> — a branch in type space, where <code>extends</code> means assignable to. Over a naked type parameter it distributes across union members, which is how <code>Exclude</code> filters a union."
+  },
+  {
+   "n": 17,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What does <code>as const</code> do?",
+   "a": "Makes a literal maximally narrow and deeply readonly, so an array of strings keeps its exact members instead of widening to <code>string[]</code>. It is how I define a list once and derive the union type from it rather than maintaining both."
+  },
+  {
+   "n": 18,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is <code>never</code> and where have you used it?",
+   "a": "The empty type, which no value has. I use it for exhaustiveness — assigning the value to a <code>never</code> in the default branch of a switch, so adding a case to the union produces a compile error at every place that must be updated."
+  },
+  {
+   "n": 19,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you type an async function?",
+   "a": "Annotate the resolved type; the return is a promise of it. <code>Awaited&lt;T&gt;</code> unwraps nested promises when you need the settled type, and a rejected promise carries no type at all because a throw can be anything."
+  },
+  {
+   "n": 20,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is a type predicate?",
+   "a": "A function returning <code>x is User</code> that performs a real runtime check. It concentrates the unsafe claim in one testable place instead of scattering assertions across every use site."
+  },
+  {
+   "n": 21,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "When would you use <code>satisfies</code> instead of an annotation?",
+   "a": "When I want a value checked against a type without losing its precise inferred shape — typically a config or registry object whose exact keys I need to derive a union from later."
+  },
+  {
+   "n": 22,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you extend a third-party library's types?",
+   "a": "Module augmentation. <code>declare module 'fastify'</code> with an interface declaration merges into their type, which is how you attach a user to the request object. The file must be a module, and the property should be optional unless it truly always exists."
+  },
+  {
+   "n": 23,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is the difference between <code>unknown</code> and <code>object</code>?",
+   "a": "<code>unknown</code> accepts anything including primitives and requires narrowing before any use. <code>object</code> accepts anything non-primitive but still tells you nothing about its properties, so it is rarely the useful choice."
+  },
+  {
+   "n": 24,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you handle errors in a typed codebase?",
+   "a": "The caught value is <code>unknown</code>, because JavaScript can throw anything. I narrow with <code>instanceof</code> or a predicate for my own error classes, and for expected failures I prefer returning a result union so the caller cannot ignore the failure path."
+  },
+  {
+   "n": 25,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is declaration merging?",
+   "a": "Two declarations of the same interface in a scope combine into one. It is a language feature, and it is the mechanism behind module augmentation and behind how libraries let you extend their types."
+  },
+  {
+   "n": 26,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What are template literal types?",
+   "a": "Types that build and constrain strings — turning <code>'click'</code> into <code>'onClick'</code>, or extracting route parameters from a path string. Combined with key remapping in mapped types they let you generate whole APIs at the type level."
+  },
+  {
+   "n": 27,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What does <code>infer</code> do?",
+   "a": "Declares a type variable captured by pattern matching inside a conditional type, such as extracting the resolved type from a promise. It is how <code>ReturnType</code> and <code>Awaited</code> are implemented."
+  },
+  {
+   "n": 28,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What are branded types and when are they worth it?",
+   "a": "A way to make structurally identical types incompatible by intersecting a marker property. Worth it where mixing up two of the same primitive would be a real bug — currency amounts, entity IDs, validated versus unvalidated strings."
+  },
+  {
+   "n": 29,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What are decorators and where do you meet them?",
+   "a": "Annotations on classes and members, used heavily by Angular, NestJS and TypeORM. TypeScript had an experimental version for a decade and 5.0 shipped the standardised one; they are not fully compatible, so you have to know which a codebase uses."
+  },
+  {
+   "n": 30,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is a <code>.d.ts</code> file?",
+   "a": "Types without implementations — a description of what some JavaScript provides. <code>tsc</code> generates them for published packages, and DefinitelyTyped is a repository of hand-written ones for untyped libraries."
+  },
+  {
+   "n": 31,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What are project references?",
+   "a": "A way to split a repository into separately buildable units with <code>composite</code>, so the compiler can build in order and avoid rechecking packages that have not changed."
+  },
+  {
+   "n": 32,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What does <code>using</code> do?",
+   "a": "Explicit resource management from TypeScript 5.2 — a declaration whose disposal runs automatically at the end of scope, for things like file handles and database connections."
+  },
+  {
+   "n": 33,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your production app crashes with 'cannot read property of undefined' on data from an API, but the code type-checks. What happened and how do you fix it permanently?",
+   "a": "The annotation was a claim over an <code>any</code>, so nothing validated the response. The fix is parsing at the boundary with a schema and deriving the type from it, so a shape change surfaces as a handled validation error rather than a crash deep in the call stack."
+  },
+  {
+   "n": 34,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "CI is green but the deployment crashes on a type error. Diagnose it.",
+   "a": "The build ran a transpile-only tool that never checks types. There is no <code>tsc --noEmit</code> step in CI, so the error was only ever visible in an editor. Add it as a required job."
+  },
+  {
+   "n": 35,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your code type-checks and then throws module not found at runtime. What is going on?",
+   "a": "A <code>paths</code> alias that only the type-checker knows about. TypeScript and the runtime resolve modules by separate mechanisms, so the bundler or runtime resolver needs the same alias configured."
+  },
+  {
+   "n": 36,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "The editor shows a type that no longer exists in the source. What do you check?",
+   "a": "A stale build. The editor is reading generated <code>.d.ts</code> output from a previous build of a referenced package. Rebuild, and check that project references and <code>declarationMap</code> are set so navigation lands in source."
+  },
+  {
+   "n": 37,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A team member added an <code>any</code> and now unrelated files have lost their type safety. Explain and fix.",
+   "a": "<code>any</code> is contagious: it propagates through generic instantiation, spreads and derived values, silently disabling checks downstream. Replace it with <code>unknown</code> plus one validation at the point of entry."
+  },
+  {
+   "n": 38,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "After adding a case to a union, some code silently does the wrong thing instead of failing to compile. Why?",
+   "a": "Nothing forced exhaustiveness at that site — either there is no <code>never</code> check, or a widened type or assertion upstream means the default branch does not receive <code>never</code>."
+  },
+  {
+   "n": 39,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your build has slowed from twenty seconds to three minutes. How do you find the cause?",
+   "a": "Measure with <code>tsc --extendedDiagnostics</code>, then <code>--generateTrace</code> if the summary is inconclusive. Usual culprits are one deep recursive or conditional type, large union combinations, and inferred return types on exported functions. Then check <code>skipLibCheck</code>, <code>incremental</code> and project references."
+  },
+  {
+   "n": 40,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "You need to turn on <code>strictNullChecks</code> in a 200-file codebase mid-sprint. How do you approach it?",
+   "a": "Not as one commit. Enable it in a branch to measure the blast radius, then migrate module by module using per-file overrides or a staged config, fix implicit any first because it unblocks inference, and treat every <code>!</code> added as debt rather than a fix."
+  },
+  {
+   "n": 41,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A worker or queue consumer throws on a message it used to handle. What is the likely cause and the structural fix?",
+   "a": "The two sides were built from different versions of the message shape, and the receiving side asserted rather than validated. Type the protocol as a discriminated union in a shared package and validate on receipt."
+  },
+  {
+   "n": 42,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A third-party <code>@types</code> package disagrees with the library's actual behaviour. What do you do?",
+   "a": "Verify against the library's source, then either augment the module locally to correct the declaration or pin and patch. <code>@types</code> packages are volunteer-written and versioned separately, so they can be wrong — worth saying explicitly rather than doubting your own code."
+  },
+  {
+   "n": 43,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "When is TypeScript not worth it?",
+   "a": "Genuinely small scripts with one author and a short life, and prototypes intended to be thrown away. The cost is real — build tooling, a learning curve, and time spent satisfying the checker — and it pays back through longevity and team size, not through line count."
+  },
+  {
+   "n": 44,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Zod versus generated types from OpenAPI — how do you choose?",
+   "a": "Zod when the data source cannot describe itself or you need real runtime checking, since the schema is the source and the type is derived. Generated types when there is an authoritative machine-readable contract, accepting that they only guarantee agreement at generation time and a stale file is a false model."
+  },
+  {
+   "n": 45,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Drizzle versus Prisma, in typing terms?",
+   "a": "Drizzle infers types from TypeScript values, so the schema lives in the type system and there is no generation step. Prisma generates from its own schema language, giving a cleaner API and a nicer client at the cost of a build step that can go stale."
+  },
+  {
+   "n": 46,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Enums or string literal unions?",
+   "a": "Unions almost always. They are erased, they narrow naturally, and they work with runtimes that strip types. Enums emit runtime code, numeric ones are unsound, and they break under <code>erasableSyntaxOnly</code>. Enums are defensible only where you genuinely need a runtime object to iterate."
+  },
+  {
+   "n": 47,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "How much type-level programming is too much?",
+   "a": "When it needs a comment to explain, when its error message is unreadable, or when it measurably slows the build. A type is worth what it prevents; a clever type nobody on the team can modify is a liability, and a runtime check with a good message is often the better engineering call."
+  },
+  {
+   "n": 48,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Should exported functions have explicit return types?",
+   "a": "Yes for a published or cross-package API — it protects the contract, improves error messages and speeds up compilation. Internally, inference is better because it stays honest as the body changes."
+  },
+  {
+   "n": 49,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "tRPC versus a REST API with generated types?",
+   "a": "tRPC gives full end-to-end inference with no codegen but requires TypeScript on both sides and a shared repository. REST with OpenAPI is language-neutral and survives a client you do not own, at the cost of a generation step."
+  },
+  {
+   "n": 50,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Would you turn on <code>noUncheckedIndexedAccess</code>?",
+   "a": "On a new codebase, yes — array indexing genuinely can be out of range and the flag is correct. On an existing one it produces a large amount of friction for a narrower class of bugs than null checks, so it is a considered decision rather than an automatic one."
+  },
+  {
+   "n": 51,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Result types or exceptions?",
+   "a": "Result unions for expected failures, because the caller cannot ignore the failure path and the compiler enforces handling. Exceptions for genuinely exceptional conditions and for framework boundaries that expect them. Mixing both without a rule is what makes error handling unreadable."
+  },
+  {
+   "n": 52,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Is a monorepo with project references worth the setup?",
+   "a": "Once you have a package shared by more than one consumer, yes — it gives incremental builds and real declaration boundaries. Below that it is configuration for its own sake, and module resolution issues will cost you more than the sharing saves."
+  },
+  {
+   "n": 53,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Walk me through a TypeScript project you built and the type decisions you made.",
+   "a": "In <code>recast</code>, a file conversion tool, the central decision was that a file's declared extension is untrusted metadata — every file is identified by reading its magic bytes and returned as a discriminated union of detected kinds with a confidence level, so nothing downstream ever trusts the name."
+  },
+  {
+   "n": 54,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Show me somewhere you used type-level programming for a real reason.",
+   "a": "The conversion registry is a graph, so multi-step routes like HEIC to PDF via JPEG have to be discovered rather than hand-written. A recursive conditional type resolves whether a route exists at compile time, so an impossible conversion fails to compile, and a runtime pathfinder over the same edge list executes it — with a test asserting they agree."
+  },
+  {
+   "n": 55,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Where did you decide a type was not worth it?",
+   "a": "The route resolver dominated compile time. I capped its recursion depth and kept the graph small enough that the type stays fast, and where the same idea would have needed an unbounded search I used a runtime check with a clear error instead."
+  },
+  {
+   "n": 56,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Describe a bug that types caught before it shipped.",
+   "a": "Adding a cancelled job state. The state is a discriminated union with a <code>never</code> exhaustiveness check, so the compiler listed every renderer and handler that needed the new case — a change I would otherwise have found by testing every path by hand."
+  },
+  {
+   "n": 57,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Describe a bug that types did not catch.",
+   "a": "Transferring an <code>ArrayBuffer</code> to a worker. The type still says you hold a full buffer; at runtime its length is zero because ownership moved. TypeScript cannot express transfer of ownership, and that is a genuine limitation rather than a mistake I made."
+  },
+  {
+   "n": 58,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How did you handle configuration and secrets?",
+   "a": "Parsed the whole environment through a schema at startup, so a missing or malformed variable kills the process immediately with a legible message rather than failing later on a rare code path. <code>process.env</code> is otherwise all possibly-undefined strings."
+  },
+  {
+   "n": 59,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Tell me about publishing a package.",
+   "a": "I extracted the format registry and detection into a package with <code>declaration</code> and <code>declarationMap</code>, a conditional <code>exports</code> map for import, require, browser and types, and then tested it by installing it into a scratch project with a different <code>moduleResolution</code> — because a package that only works inside your own monorepo is not published, it is exported."
+  },
+  {
+   "n": 60,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "What would you do differently if you rebuilt it?",
+   "a": "Set the registry's type design in two passes from the start. I built a fully generic registry up front and spent real time debugging inference that would have been obvious if I had shipped a simpler type first and tightened it once the shape had settled."
+  },
+  {
+   "n": 61,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How do you know your types are actually correct?",
+   "a": "They are not self-validating, so I test the boundary rather than the type: schema round-trip tests, a test asserting the type-level and runtime pathfinders agree, and type-level assertions for the utilities. Where a type is unverifiable I prefer a runtime check."
+  },
+  {
+   "n": 62,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why was TypeScript created rather than everyone moving to a typed language?",
+   "a": "Because the JavaScript already existed and ran everywhere, with an enormous untyped package ecosystem. Any solution had to run existing code, interoperate with untyped libraries, and be adoptable one file at a time — which is what made a structural, erased, gradual type system the only viable design."
+  },
+  {
+   "n": 63,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why is TypeScript structurally typed?",
+   "a": "Because it had to describe JavaScript written years before it existed, which is full of object literals and duck typing. A nominal system would have rejected virtually all of it."
+  },
+  {
+   "n": 64,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why are types erased instead of available at runtime?",
+   "a": "So the output is clean JavaScript with no runtime library and no performance cost, which meant adopting TypeScript could never be blamed for slowing anything down. The consequence is that runtime validation is a separate problem you must solve yourself."
+  },
+  {
+   "n": 65,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why is TypeScript's type system deliberately unsound?",
+   "a": "Because the alternative was rejecting real JavaScript that works. Method bivariance, array covariance, assertions and <code>any</code> are all conscious trades. The goal was never to prove programs correct; it was to catch the most bugs possible while staying usable."
+  },
+  {
+   "n": 66,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does <code>tsc</code> emit JavaScript even when there are type errors?",
+   "a": "To make adoption possible — a codebase with thousands of errors can still ship while it is being migrated. <code>noEmitOnError</code> changes it, and in practice most projects gate on a separate <code>tsc --noEmit</code> instead."
+  },
+  {
+   "n": 67,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why do so many projects not compile with <code>tsc</code> at all?",
+   "a": "Because checking and emitting are separable, and emitting is nearly free while checking is slow. Fast transpilers give an instant dev loop, and the check moves to the editor and CI where waiting is acceptable."
+  },
+  {
+   "n": 68,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "Explain variance in TypeScript function types.",
+   "a": "Return types are covariant — a function returning a subtype is substitutable. Parameters are contravariant — a function accepting a supertype is substitutable, because it handles everything the specific one could. Method-syntax parameters are checked bivariantly, which is unsound and kept because array and DOM types depend on it; <code>strictFunctionTypes</code> fixes only the function-property syntax."
+  },
+  {
+   "n": 69,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does control flow analysis actually narrow types?",
+   "a": "The checker walks the control flow graph and, at each node, computes the type of a reference given the conditions that must hold to reach it. Narrowing is discarded when it cannot be proven to survive — for example after a function call that could mutate a property."
+  },
+  {
+   "n": 70,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What is distribution in conditional types and how do you suppress it?",
+   "a": "A conditional over a naked type parameter is applied to each union member separately and the results re-unioned, which is how <code>Exclude</code> works, since non-matching members become <code>never</code> and vanish. Wrapping both sides in tuples suppresses it."
+  },
+  {
+   "n": 71,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "Why is excess property checking a special case rather than a rule?",
+   "a": "Structural typing says extra properties are fine, and they are — but a fresh object literal with an unknown property is almost always a typo or a misplaced field, so the compiler makes an exception for freshness specifically."
+  },
+  {
+   "n": 72,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does module resolution differ between <code>node16</code>, <code>bundler</code> and the classic <code>node</code> mode?",
+   "a": "Classic <code>node</code> mimics CommonJS lookup. <code>node16</code>/<code>nodenext</code> respects <code>package.json</code> <code>type</code> and <code>exports</code> and requires extensions on relative ESM imports. <code>bundler</code> models the common case where a bundler resolves, allowing extensionless imports while still honouring <code>exports</code>."
+  },
+  {
+   "n": 73,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What makes type-checking slow, at the level of what the checker is doing?",
+   "a": "It lazily instantiates and compares types across a graph. Large unions multiply comparisons combinatorially, recursive conditionals instantiate deeply, and an inferred return type on an exported function has to be reconstructed at every use site."
+  },
+  {
+   "n": 74,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What is the difference between an assertion function and a type predicate?",
+   "a": "A predicate returns a boolean and narrows in the branch where it is true. An assertion function returns void, throws on failure, and narrows for the rest of the enclosing scope — requiring an explicit type annotation on the declaration to work."
+  },
+  {
+   "n": 75,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "Why are class <code>private</code> fields not real privacy, and what is?",
+   "a": "They are erased compile-time annotations, so the field is readable at runtime and appears in serialisation. JavaScript's <code>#private</code> fields are genuinely inaccessible from outside the class."
+  },
+  {
+   "n": 76,
+   "c": "config",
+   "t": "Config",
+   "q": "Walk me through the tsconfig options you actually care about.",
+   "a": "<code>strict</code>, <code>target</code> and <code>lib</code>, <code>module</code> and <code>moduleResolution</code> chosen to match how the code is actually run, <code>skipLibCheck</code>, <code>isolatedModules</code> and <code>verbatimModuleSyntax</code> for transpiler correctness, <code>declaration</code> and <code>declarationMap</code> for published packages, and <code>paths</code> only when the runtime has the same aliases."
+  },
+  {
+   "n": 77,
+   "c": "config",
+   "t": "Config",
+   "q": "What is <code>isolatedModules</code> and why do modern setups require it?",
+   "a": "It forbids constructs that cannot be compiled one file at a time. esbuild and swc never see your whole program, so an ambiguous type re-export has to be written as <code>export type</code> for them to handle it correctly."
+  },
+  {
+   "n": 78,
+   "c": "config",
+   "t": "Config",
+   "q": "What does <code>skipLibCheck</code> skip and is it safe?",
+   "a": "Type-checking of declaration files in dependencies. It is on in nearly every real project because their errors are not yours to fix and checking them is slow; the risk is that a genuinely broken declaration goes unnoticed until it affects your code."
+  },
+  {
+   "n": 79,
+   "c": "config",
+   "t": "Config",
+   "q": "Why does raising <code>target</code> change which standard library methods exist?",
+   "a": "Because <code>lib</code> defaults from <code>target</code>. The two are separable — you can target older syntax while including newer library declarations, but declaring an API does not polyfill it."
+  },
+  {
+   "n": 80,
+   "c": "config",
+   "t": "Config",
+   "q": "How do you share configuration across a monorepo?",
+   "a": "A base config with <code>extends</code>, plus project references for build ordering. The published <code>@tsconfig/*</code> bases are a reasonable starting point rather than copying settings nobody has read."
+  },
+  {
+   "n": 81,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why does <code>typeof null</code> return <code>'object'</code> and can TypeScript fix it?",
+   "a": "It is a bug from JavaScript in 1995 that cannot be fixed without breaking existing pages. TypeScript models the behaviour faithfully rather than correcting it, which is why narrowing null needs an explicit equality check rather than a <code>typeof</code> test."
+  },
+  {
+   "n": 82,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What happens when you intersect two object types with a conflicting property?",
+   "a": "The property's type becomes <code>never</code> rather than producing an error at the declaration site, so the failure surfaces later and somewhere else — a genuinely confusing error to trace."
+  },
+  {
+   "n": 83,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why can an empty array be typed <code>never[]</code> and what do you do about it?",
+   "a": "With no annotation and no contextual type there is nothing to infer from. Annotate the variable, or let evolving-array inference learn from what you push in the same scope."
+  },
+  {
+   "n": 84,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why does <code>.filter(Boolean)</code> not narrow out null?",
+   "a": "Because the compiler cannot see that <code>Boolean</code> is a narrowing function. A type predicate such as <code>(x): x is T =&gt; x != null</code> makes the element type follow the runtime behaviour."
+  },
+  {
+   "n": 85,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why do two identical-looking types sometimes fail to be assignable?",
+   "a": "Usually a private field or brand making them nominal, a readonly mismatch, or a generic that has not been instantiated the same way. Structural equality is about members, and invisible members count."
+  },
+  {
+   "n": 86,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "When does <code>instanceof</code> narrowing stop working?",
+   "a": "Across serialisation boundaries — a worker message, a queue payload, an HTTP response — because the prototype is lost. Only data-based discriminants survive, which is why error classes need a literal <code>kind</code> property if they cross a boundary."
+  }
+ ]
 }

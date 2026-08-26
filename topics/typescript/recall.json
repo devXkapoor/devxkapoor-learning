@@ -1,3 +1,2139 @@
 {
- "cards": []
+ "cards": [
+  {
+   "n": 1,
+   "c": "node-0",
+   "t": "Node 0 · The problem before TypeScript",
+   "q": "What are the four distinct problems that JavaScript's lack of types causes?",
+   "a": "Errors found late (only when that exact line runs with that exact value), editors that know nothing about your values, refactoring by text search rather than by meaning, and documentation in comments that silently rots."
+  },
+  {
+   "n": 2,
+   "c": "node-0",
+   "t": "Node 0 · The problem before TypeScript",
+   "q": "Why didn't teams just switch to Java or C# instead of inventing TypeScript?",
+   "a": "The JavaScript already existed, ran in browsers and Node, and depended on hundreds of thousands of untyped packages. Any solution had to run existing JavaScript, interoperate with untyped libraries, and be adoptable one file at a time."
+  },
+  {
+   "n": 3,
+   "c": "node-0",
+   "t": "Node 0 · The problem before TypeScript",
+   "q": "Who created TypeScript and when was it announced?",
+   "a": "Anders Hejlsberg at Microsoft, announced October 2012. He had previously designed Turbo Pascal, Delphi and C#."
+  },
+  {
+   "n": 4,
+   "c": "node-0",
+   "t": "Node 0 · The problem before TypeScript",
+   "q": "Why is 'the editor knows nothing' a serious problem rather than a comfort issue?",
+   "a": "Without type information the only way to learn what a value holds is to read the code that produced it, and then the code that produced that. It is the main reason developers cannot move quickly in unfamiliar codebases."
+  },
+  {
+   "n": 5,
+   "c": "node-0",
+   "t": "Node 0 · The problem before TypeScript",
+   "q": "Why does untyped code calcify over time?",
+   "a": "Renaming or reshaping something can only be done by text search, which cannot distinguish this <code>email</code> from an unrelated one. Refactoring becomes a gamble, so bad names and shapes survive for years."
+  },
+  {
+   "n": 6,
+   "c": "node-0",
+   "t": "Node 0 · The problem before TypeScript",
+   "q": "What is wrong with documenting a function's parameters in a comment?",
+   "a": "Nothing enforces it, so it is correct the day it is written and slowly becomes fiction. The only trustworthy documentation becomes the implementation, which defeats the purpose of an interface."
+  },
+  {
+   "n": 7,
+   "c": "node-0",
+   "t": "Node 0 · The problem before TypeScript",
+   "q": "What constraint most shaped TypeScript's design, and what did it rule out?",
+   "a": "That it had to describe JavaScript that already existed. This ruled out nominal typing, ruled out changing runtime semantics, and required gradual, file-by-file adoption."
+  },
+  {
+   "n": 8,
+   "c": "node-0",
+   "t": "Node 0 · The problem before TypeScript",
+   "q": "Give the canonical example of the class of bug TypeScript exists to prevent.",
+   "a": "A function reads <code>user.email</code> but a caller passes an object with <code>emailAddress</code>. Nothing complains, tests pass because they call it correctly, and it fails in production on a path nobody exercised."
+  },
+  {
+   "n": 9,
+   "c": "node-1",
+   "t": "Node 1 · Annotations, inference, the compiler",
+   "q": "What is a type annotation?",
+   "a": "A claim about what a value is, written after a colon: <code>let count: number = 0</code>. The compiler checks every place the claim could be violated."
+  },
+  {
+   "n": 10,
+   "c": "node-1",
+   "t": "Node 1 · Annotations, inference, the compiler",
+   "q": "Does <code>tsc</code> ever run your program?",
+   "a": "No. It reads the code, builds a model of what every expression's type must be, and compares that model against itself. Everything TypeScript knows, it knows from reading."
+  },
+  {
+   "n": 11,
+   "c": "node-1",
+   "t": "Node 1 · Annotations, inference, the compiler",
+   "q": "What does TypeScript infer for <code>let count = 0</code> versus <code>const name = 'devansh'</code>?",
+   "a": "<code>count</code> is inferred as <code>number</code>. <code>name</code> is inferred as the literal type <code>'devansh'</code>, because a <code>const</code> can never be reassigned so no other value is possible."
+  },
+  {
+   "n": 12,
+   "c": "node-1",
+   "t": "Node 1 · Annotations, inference, the compiler",
+   "q": "Why does the <code>let</code> versus <code>const</code> inference difference matter later?",
+   "a": "Literal inference from <code>const</code> is what makes literal unions, discriminated unions and <code>as const</code> work. Without it every string would widen to <code>string</code> and narrowing would have nothing to distinguish."
+  },
+  {
+   "n": 13,
+   "c": "node-1",
+   "t": "Node 1 · Annotations, inference, the compiler",
+   "q": "Where should you annotate, and where should you let inference work?",
+   "a": "Annotate where information enters the program — function parameters and the shapes of external data. Let inference carry it through everything in between."
+  },
+  {
+   "n": 14,
+   "c": "node-1",
+   "t": "Node 1 · Annotations, inference, the compiler",
+   "q": "Why is over-annotating a real problem rather than harmless extra safety?",
+   "a": "It writes down things the compiler already knew, and those written-down facts then rot the way comments do. It also hides genuine inference errors behind your assertion of what you expected."
+  },
+  {
+   "n": 15,
+   "c": "node-1",
+   "t": "Node 1 · Annotations, inference, the compiler",
+   "q": "By default, does <code>tsc</code> emit JavaScript when it finds type errors?",
+   "a": "Yes. Type errors are reported, not fatal, so that a codebase with thousands of errors can still ship during adoption. <code>noEmitOnError</code> changes this."
+  },
+  {
+   "n": 16,
+   "c": "node-1",
+   "t": "Node 1 · Annotations, inference, the compiler",
+   "q": "Why does 'it ran' prove nothing about whether code type-checked?",
+   "a": "Because emit is independent of checking by default, and because most real projects use a transpile-only tool that never checks at all, with <code>tsc --noEmit</code> as a separate gate."
+  },
+  {
+   "n": 17,
+   "c": "node-1",
+   "t": "Node 1 · Annotations, inference, the compiler",
+   "q": "How does inference flow through an expression like <code>'a,b'.split(',')</code>?",
+   "a": "TypeScript ships type declarations for every built-in JavaScript function, so it knows <code>String.prototype.split</code> returns <code>string[]</code> and infers that for the result."
+  },
+  {
+   "n": 18,
+   "c": "node-1",
+   "t": "Node 1 · Annotations, inference, the compiler",
+   "q": "What does a well-typed TypeScript file usually look like in terms of annotation density?",
+   "a": "Annotations at the edges only — parameters and external data shapes — with everything internal inferred. A file dense with annotations is usually a smell."
+  },
+  {
+   "n": 19,
+   "c": "node-1",
+   "t": "Node 1 · Annotations, inference, the compiler",
+   "q": "You annotate <code>const ids: string[] = []</code> and later push numbers by mistake — caught or not?",
+   "a": "Caught. The annotation fixes the element type, so the push is an error. Without the annotation an empty array literal infers as <code>never[]</code> or widens under evolving-array inference, which behaves differently."
+  },
+  {
+   "n": 20,
+   "c": "node-1",
+   "t": "Node 1 · Annotations, inference, the compiler",
+   "q": "Why does an empty array sometimes accept anything and sometimes accept nothing?",
+   "a": "With an annotation it is fixed. Without one, in a <code>let</code> or <code>var</code> with no annotation, TypeScript uses evolving array inference and learns the element type from what you push; in other positions it becomes <code>never[]</code>."
+  },
+  {
+   "n": 21,
+   "c": "node-1",
+   "t": "Node 1 · Annotations, inference, the compiler",
+   "q": "What is type widening?",
+   "a": "When a literal type is generalised to its base type — <code>'a'</code> becomes <code>string</code> on assignment to a mutable binding. <code>as const</code> and <code>satisfies</code> are the tools for preventing it."
+  },
+  {
+   "n": 22,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "What does it mean that TypeScript is structurally typed?",
+   "a": "A value is compatible with a type if it has the right shape — the right properties with the right types — regardless of what it was declared as or what class it came from. No declared intention to be compatible is needed."
+  },
+  {
+   "n": 23,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "What is nominal typing and which languages use it?",
+   "a": "Compatibility requires a declared relationship by name — this class implements that interface. Java and C# work this way."
+  },
+  {
+   "n": 24,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "Why did TypeScript choose structural over nominal typing?",
+   "a": "JavaScript code is written with object literals and duck typing everywhere. A nominal system would have rejected virtually all existing JavaScript as untyped, defeating the adoption goal."
+  },
+  {
+   "n": 25,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "What practical problem does structural typing create with IDs?",
+   "a": "If <code>UserId</code> and <code>PostId</code> are both <code>string</code>, nothing prevents passing one where the other belongs, because they are structurally identical. Branded types are the workaround."
+  },
+  {
+   "n": 26,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "What is excess property checking, and why does it seem to contradict structural typing?",
+   "a": "Passing an object literal directly with unknown extra properties is an error, even though structurally extra properties are fine. It is a deliberate special case because a fresh literal with an extra property is nearly always a typo."
+  },
+  {
+   "n": 27,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "Why does assigning a literal to a variable first make an excess property error disappear?",
+   "a": "The check only applies to fresh object literals at the assignment or call site. Once stored in a variable the value is no longer fresh, and ordinary structural rules apply."
+  },
+  {
+   "n": 28,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "What does erasure mean in TypeScript?",
+   "a": "Every annotation, interface and generic parameter is deleted at compile time. The output is JavaScript with types stripped and nothing added — no runtime library, no runtime type information."
+  },
+  {
+   "n": 29,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "Why was erasure a deliberate design constraint?",
+   "a": "The emitted code had to be clean, readable JavaScript with no runtime cost, so adopting TypeScript could never be blamed for slowing anything down."
+  },
+  {
+   "n": 30,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "Name the two biggest consequences of erasure.",
+   "a": "You cannot check a type at runtime — there is no <code>if (x is User)</code> — and types cannot influence what the program does, so generics never generate specialized code."
+  },
+  {
+   "n": 31,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "Why can't <code>typeof</code> or <code>instanceof</code> tell you whether an object matches an interface?",
+   "a": "They are JavaScript operators that predate TypeScript. <code>typeof</code> only distinguishes primitives plus function and object; <code>instanceof</code> checks the prototype chain, so it only works for class or constructor-built values."
+  },
+  {
+   "n": 32,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "Do generics generate specialized code the way C++ templates do?",
+   "a": "No. There is exactly one function at runtime; the type parameter is gone. You cannot write <code>new T()</code> or ask what <code>T</code> was."
+  },
+  {
+   "n": 33,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "A function expects <code>{ name: string }</code> and you pass an object with <code>name</code> and <code>age</code> stored in a variable. Error or not?",
+   "a": "Not an error. Structural typing accepts extra properties; only fresh object literals trigger excess property checking."
+  },
+  {
+   "n": 34,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "How would you make two string-based ID types incompatible?",
+   "a": "Brand them: <code>type UserId = string &amp; { readonly __brand: 'UserId' }</code>, constructed only through a function that asserts the brand."
+  },
+  {
+   "n": 35,
+   "c": "node-2",
+   "t": "Node 2 · Structural typing and erasure",
+   "q": "Why is 'can I check at runtime whether this object is a User?' always answered no?",
+   "a": "Because interfaces are erased. Nothing about a plain object at runtime records which interface it satisfied at compile time."
+  },
+  {
+   "n": 36,
+   "c": "node-3",
+   "t": "Node 3 · Object types",
+   "q": "What is the practical difference between an <code>interface</code> and a <code>type</code> alias for describing an object?",
+   "a": "Almost none — both are structural, erased, and checked identically. The real differences are that interfaces merge and type aliases can express unions, tuples, primitives and computed types."
+  },
+  {
+   "n": 37,
+   "c": "node-3",
+   "t": "Node 3 · Object types",
+   "q": "What does it mean that interfaces merge?",
+   "a": "Declaring the same interface twice in a scope produces one interface with the union of the members. Type aliases collide and error instead."
+  },
+  {
+   "n": 38,
+   "c": "node-3",
+   "t": "Node 3 · Object types",
+   "q": "Why does interface merging matter beyond being a quirk?",
+   "a": "It is the mechanism behind module augmentation — how you add a property to a type inside someone else's package, which is how Fastify plugins and Express middleware type their additions."
+  },
+  {
+   "n": 39,
+   "c": "node-3",
+   "t": "Node 3 · Object types",
+   "q": "What is the usual working rule for choosing between interface and type alias?",
+   "a": "Interfaces for object shapes others may extend, type aliases for everything else. Consistency within a codebase matters more than the choice."
+  },
+  {
+   "n": 40,
+   "c": "node-3",
+   "t": "Node 3 · Object types",
+   "q": "What does an optional property with <code>?</code> actually do to the type?",
+   "a": "It makes the property possibly absent and gives it the type <code>T | undefined</code>, which is why you must narrow before using it under <code>strictNullChecks</code>."
+  },
+  {
+   "n": 41,
+   "c": "node-3",
+   "t": "Node 3 · Object types",
+   "q": "Is <code>readonly</code> enforced at runtime?",
+   "a": "No. The compiler rejects assignment but the property is fully writable at runtime. <code>Object.freeze</code> is the unrelated runtime equivalent."
+  },
+  {
+   "n": 42,
+   "c": "node-3",
+   "t": "Node 3 · Object types",
+   "q": "What does an index signature buy you and what does it cost?",
+   "a": "<code>{ [key: string]: number }</code> describes a dictionary with arbitrary keys. The cost is that you lose all knowledge of which keys exist, so every lookup is a maybe."
+  },
+  {
+   "n": 43,
+   "c": "node-3",
+   "t": "Node 3 · Object types",
+   "q": "What is an intersection type?",
+   "a": "<code>A &amp; B</code> means a value has all the members of both. It is the type-alias equivalent of <code>interface B extends A</code> for most practical purposes."
+  },
+  {
+   "n": 44,
+   "c": "node-3",
+   "t": "Node 3 · Object types",
+   "q": "What happens when an intersection has conflicting members, like <code>{a: string} &amp; {a: number}</code>?",
+   "a": "The property becomes <code>never</code> rather than producing an error at the declaration. That silent <code>never</code> often surfaces as a confusing error several files away."
+  },
+  {
+   "n": 45,
+   "c": "node-3",
+   "t": "Node 3 · Object types",
+   "q": "Why does one entity often need several object types rather than one?",
+   "a": "Because the shape differs by direction across a boundary — a row you read has an id and timestamps, a row you write does not, and an API response may hide fields the database holds."
+  },
+  {
+   "n": 46,
+   "c": "node-3",
+   "t": "Node 3 · Object types",
+   "q": "When would you deliberately choose a type alias over an interface for an object?",
+   "a": "When the type is a union member, when it is computed with mapped or conditional types, or when you specifically want to prevent third-party augmentation."
+  },
+  {
+   "n": 47,
+   "c": "node-3",
+   "t": "Node 3 · Object types",
+   "q": "How do you express 'an object with these known keys plus arbitrary extras'?",
+   "a": "Combine known properties with an index signature, or use an intersection. Note that the index signature's value type must be compatible with every declared property's type."
+  },
+  {
+   "n": 48,
+   "c": "node-3",
+   "t": "Node 3 · Object types",
+   "q": "Why does adding an index signature often break existing property types?",
+   "a": "Because every declared property must be assignable to the index signature's value type, so a mixed-type object needs the index value type widened to a union."
+  },
+  {
+   "n": 49,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "What is a union type and why is it the feature that lets TypeScript describe JavaScript at all?",
+   "a": "<code>A | B</code> means the value is one of several types. JavaScript code constantly returns a value or null, accepts a string or a number, and branches on what it got; without unions none of that is expressible."
+  },
+  {
+   "n": 50,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "Why can't you call <code>x.toUpperCase()</code> when <code>x: string | number</code>?",
+   "a": "A union only permits operations valid for every member. Until you prove which member you hold, only the common surface is available."
+  },
+  {
+   "n": 51,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "What is narrowing?",
+   "a": "TypeScript's control flow analysis: it reads your branches and, inside a branch, knows more about a value than it did outside. It is what makes unions usable."
+  },
+  {
+   "n": 52,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "List the main narrowing devices.",
+   "a": "<code>typeof</code> for primitives, <code>instanceof</code> for class instances, the <code>in</code> operator for property presence, truthiness checks, equality against literals, <code>Array.isArray</code>, and user-defined type predicates."
+  },
+  {
+   "n": 53,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "How does an early return narrow the rest of a function?",
+   "a": "Narrowing survives <code>return</code>, <code>throw</code> and <code>else</code>, so once the null case has returned, the remainder of the function sees the narrowed type without further checks."
+  },
+  {
+   "n": 54,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "What is a literal type?",
+   "a": "A type inhabited by exactly one value, such as <code>'pending'</code> or <code>42</code>. On its own it is a curiosity; unioned it becomes a checked set of allowed values."
+  },
+  {
+   "n": 55,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "Why do experienced TypeScript teams use string literal unions where a Java developer reaches for an enum?",
+   "a": "They give the same closed set of values with autocomplete and compile-time checking, at zero runtime cost, and they narrow naturally. Enums emit runtime code and numeric ones are unsound."
+  },
+  {
+   "n": 56,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "What is a discriminated union?",
+   "a": "A union of object types where every member has a common property whose type is a distinct literal, so checking that one property narrows the whole object."
+  },
+  {
+   "n": 57,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "Give three real things best modelled as a discriminated union.",
+   "a": "A fetch result (success with data, failure with error), a job state (queued, running, succeeded, failed), and a message protocol where each message kind carries different fields."
+  },
+  {
+   "n": 58,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "How does exhaustiveness checking work?",
+   "a": "Switch on the discriminant, handle every case, and in the default branch assign the value to a variable of type <code>never</code>. If a new member is added and not handled, that assignment fails to compile."
+  },
+  {
+   "n": 59,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "Why is exhaustiveness checking the payoff of the whole type system?",
+   "a": "It turns adding a case into a compiler-generated list of every place that must change — the change-one-thing-and-be-told-what-else-breaks experience that makes static typing worth the cost."
+  },
+  {
+   "n": 60,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "Why does narrowing get forgotten after you call a function?",
+   "a": "TypeScript is conservative: the call might have reassigned a mutable property, so it can no longer prove the narrowing holds. Copying the narrowed value into a <code>const</code> first is the usual fix."
+  },
+  {
+   "n": 61,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "How do you model an operation that can fail without exceptions?",
+   "a": "A <code>Result</code> discriminated union — <code>{ ok: true; data: T } | { ok: false; error: E }</code> — so the caller cannot read the data without first checking, and the compiler enforces it."
+  },
+  {
+   "n": 62,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "What is the difference between a union and an intersection in one line?",
+   "a": "A union is 'one of these', an intersection is 'all of these at once'. Unions restrict what you can do until narrowed; intersections combine members."
+  },
+  {
+   "n": 63,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "Why does discriminating on a boolean property work as well as on a string?",
+   "a": "Because <code>true</code> and <code>false</code> are themselves literal types, so <code>{ ok: true }</code> and <code>{ ok: false }</code> are distinguishable members."
+  },
+  {
+   "n": 64,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "When does <code>in</code> narrowing fail to do what you want?",
+   "a": "When both union members could have the property, or when the property is optional on one — presence then does not uniquely identify the member. An explicit discriminant is more reliable than structural sniffing."
+  },
+  {
+   "n": 65,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "You narrow <code>obj.value</code> with a typeof check, call a helper, then use it — and the narrowing is gone. Why, and what is the fix?",
+   "a": "The helper could have reassigned the property, so the compiler cannot prove the narrowing still holds. Copy the narrowed value into a <code>const</code> before the call."
+  },
+  {
+   "n": 66,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "Your <code>never</code> exhaustiveness check stopped erroring after you added a union member. What likely happened?",
+   "a": "Something upstream widened the type — often an <code>any</code>, an assertion, or a member typed <code>string</code> instead of a literal — so the default branch no longer receives <code>never</code>."
+  },
+  {
+   "n": 67,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "Why does discriminating on an optional property behave badly?",
+   "a": "Because absence and a member that happens to lack the property are not distinguishable enough to narrow reliably. A required discriminant with distinct literals is the robust design."
+  },
+  {
+   "n": 68,
+   "c": "node-4",
+   "t": "Node 4 · Unions and narrowing",
+   "q": "How do you narrow a union of objects with no common discriminant?",
+   "a": "With the <code>in</code> operator on a property unique to one member, or by adding a discriminant. Adding the discriminant is almost always better than sniffing structure."
+  },
+  {
+   "n": 69,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "What did TypeScript do with null and undefined before <code>strictNullChecks</code>?",
+   "a": "They were assignable to every type, so a <code>string</code> could be <code>null</code>. This existed so that mountains of existing JavaScript would not be flagged as broken."
+  },
+  {
+   "n": 70,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "What does <code>strictNullChecks</code> change, and when did it arrive?",
+   "a": "TypeScript 2.0, in 2016. Null and undefined get their own types and are only allowed where you declared them, so a possibly-missing value becomes a union you must narrow."
+  },
+  {
+   "n": 71,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "Why is <code>strictNullChecks</code> the highest-value single flag?",
+   "a": "It points at exactly the places a null-reference crash can occur, eliminating the largest class of production runtime errors at compile time."
+  },
+  {
+   "n": 72,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "Why is turning it on so disruptive for an existing codebase?",
+   "a": "Every place that implicitly relied on null flowing anywhere becomes an error at once, which is often thousands of errors — which is why teams postpone it and why it lives behind a flag."
+  },
+  {
+   "n": 73,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "What does optional chaining <code>a?.b?.c</code> return when something in the chain is nullish?",
+   "a": "<code>undefined</code>, instead of throwing — and the resulting type includes <code>undefined</code>, so the compiler still makes you handle it."
+  },
+  {
+   "n": 74,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "Why does <code>??</code> exist alongside <code>||</code>?",
+   "a": "<code>??</code> supplies a default only for null and undefined, while <code>||</code> also fires on <code>0</code> and the empty string. Using <code>||</code> for defaults silently discards legitimate falsy values."
+  },
+  {
+   "n": 75,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "What is <code>strict</code> and what does it turn on?",
+   "a": "A single flag enabling the whole strict family: <code>noImplicitAny</code>, <code>strictNullChecks</code>, <code>strictFunctionTypes</code>, <code>strictBindCallApply</code>, <code>strictPropertyInitialization</code>, <code>noImplicitThis</code>, <code>useUnknownInCatchVariables</code> and <code>alwaysStrict</code>."
+  },
+  {
+   "n": 76,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "What does <code>noImplicitAny</code> do and why is it second in value only to null checks?",
+   "a": "It errors when a parameter's type cannot be inferred rather than silently making it <code>any</code>. Without it the compiler quietly inserts the one thing that disables checking."
+  },
+  {
+   "n": 77,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "What does <code>strictPropertyInitialization</code> require?",
+   "a": "That every class field is actually assigned — in the declaration, in the constructor, or explicitly marked as possibly undefined or definitely assigned."
+  },
+  {
+   "n": 78,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "Why is a caught error <code>unknown</code> under <code>useUnknownInCatchVariables</code>?",
+   "a": "Because JavaScript can throw any value, including a string or a number. Assuming <code>err.message</code> exists is how error handlers throw their own errors."
+  },
+  {
+   "n": 79,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "What does <code>noUncheckedIndexedAccess</code> do and why is it outside <code>strict</code>?",
+   "a": "It makes <code>arr[0]</code> typed <code>T | undefined</code>, which is technically correct because indices can be out of range. It is excluded because it produces a great deal of friction for a comparatively narrow class of bugs."
+  },
+  {
+   "n": 80,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "Why is 'is this valid TypeScript?' not a well-formed question?",
+   "a": "Because behaviour is configuration-dependent. The same file can compile cleanly in one repo and produce forty errors in another, depending on which strict flags are set."
+  },
+  {
+   "n": 81,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "What is the historical story you can tell about null in an interview?",
+   "a": "Tony Hoare called the null reference his billion-dollar mistake. <code>strictNullChecks</code> is the correction: it makes absence a distinct type you must handle rather than a value hiding inside every type."
+  },
+  {
+   "n": 82,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "What does <code>exactOptionalPropertyTypes</code> distinguish?",
+   "a": "Between a property that is absent and one explicitly set to <code>undefined</code>. Without it both are the same to the checker, which matters when code branches on <code>in</code> or spreads objects."
+  },
+  {
+   "n": 83,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "You enable <code>strict</code> on an existing project and get 900 errors. What is the sane order of attack?",
+   "a": "Fix implicit any parameters first, since they unblock inference everywhere else, then possibly-undefined accesses by module, and treat each <code>!</code> you add as debt to revisit rather than a fix."
+  },
+  {
+   "n": 84,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "Why is <code>x?.y!</code> a contradiction worth flagging in review?",
+   "a": "Optional chaining says this may be missing, the non-null assertion says it definitely is not. One of the two is wrong, and the assertion silences the check the chain just performed."
+  },
+  {
+   "n": 85,
+   "c": "node-5",
+   "t": "Node 5 · Strictness and null",
+   "q": "What is the difference between <code>foo?.()</code> and <code>foo()</code> when <code>foo</code> may be undefined?",
+   "a": "The optional call invokes only if <code>foo</code> is not nullish, returning <code>undefined</code> otherwise, which keeps the type honest instead of requiring a guard or an assertion."
+  },
+  {
+   "n": 86,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "Should you annotate a function's return type?",
+   "a": "Usually let it be inferred so it stays honest as the body changes — except for exported public API functions, where an explicit return type protects the published contract, improves error messages and speeds up compilation."
+  },
+  {
+   "n": 87,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "What is contextual typing?",
+   "a": "When a function is written where its type is already known — a callback to <code>.map</code>, a handler assigned to a typed field — its parameters take their types from that context and need no annotation."
+  },
+  {
+   "n": 88,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "Why does extracting an inline arrow function to a standalone <code>const</code> suddenly produce an implicit any error?",
+   "a": "Because it loses its context. Inline, the parameter type came from the surrounding expression; standalone there is nothing to infer from."
+  },
+  {
+   "n": 89,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "What is the difference between <code>b?: number</code> and <code>b = 0</code> in a parameter list?",
+   "a": "The optional parameter has type <code>number | undefined</code> inside the body. The defaulted parameter is optional at the call site but remains <code>number</code> inside."
+  },
+  {
+   "n": 90,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "Are function return types covariant or contravariant, and what does that mean?",
+   "a": "Covariant: a function returning <code>Dog</code> is usable where one returning <code>Animal</code> is expected, because every caller expecting an animal still gets one."
+  },
+  {
+   "n": 91,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "Are function parameters covariant or contravariant, and why?",
+   "a": "Contravariant: a function accepting <code>Animal</code> is usable where one accepting <code>Dog</code> is expected, because it can handle everything the specific one could and more. The reverse is unsafe."
+  },
+  {
+   "n": 92,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "What is the bivariance hole in method parameters?",
+   "a": "Method-syntax parameters are checked in both directions, which is unsound. It was kept deliberately because array and DOM types in the real world depend on it."
+  },
+  {
+   "n": 93,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "What exactly does <code>strictFunctionTypes</code> fix and what does it leave alone?",
+   "a": "It restores correct contravariance for function-property syntax such as <code>handler: (e: Event) =&gt; void</code>, but leaves method syntax <code>handler(e: Event): void</code> bivariant."
+  },
+  {
+   "n": 94,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "Why is the bivariance hole a good interview answer rather than an embarrassment?",
+   "a": "Because the honest answer includes why: TypeScript accepted some unsoundness to remain usable on real JavaScript, and being able to name a deliberate trade shows you understand the system's goals."
+  },
+  {
+   "n": 95,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "What are function overloads and what is the rule about the implementation signature?",
+   "a": "Several call signatures declared before one implementation. The implementation signature must be compatible with all of them and is not itself callable from outside."
+  },
+  {
+   "n": 96,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "When should you prefer a union or a generic over overloads?",
+   "a": "Almost always in modern TypeScript. Overloads do not narrow well, are easy to get subtly wrong, and a well-typed generic or a union usually expresses the same relationship more clearly."
+  },
+  {
+   "n": 97,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "How do you type <code>this</code> in a standalone function?",
+   "a": "With a fake first parameter — <code>function f(this: HTMLElement, e: Event)</code> — which is erased at compile time and exists to state what the call site must be."
+  },
+  {
+   "n": 98,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "Why do function types need rules at all, rather than just matching by shape?",
+   "a": "Because substituting one function for another is safe only in specific directions; getting it wrong is how code that compiles cleanly still crashes when a handler is called with an input it cannot handle."
+  },
+  {
+   "n": 99,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "What does a rest parameter's type look like and where can it appear?",
+   "a": "<code>...args: number[]</code>, and only in the final position. With tuple types it can express a fixed head and a variadic tail."
+  },
+  {
+   "n": 100,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "You pass a handler typed <code>(e: MouseEvent) =&gt; void</code> where <code>(e: Event) =&gt; void</code> is expected. Sound or unsound?",
+   "a": "Unsound — the handler will receive events that are not mouse events. TypeScript allows it for method-syntax positions because of bivariance, which is exactly the hole to be able to name."
+  },
+  {
+   "n": 101,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "Why do callbacks that ignore extra arguments type-check fine?",
+   "a": "Because a function with fewer parameters is assignable where one with more is expected — extra arguments are simply unused, which is safe and matches how JavaScript callbacks are written."
+  },
+  {
+   "n": 102,
+   "c": "node-6",
+   "t": "Node 6 · Functions and variance",
+   "q": "When does an inferred return type surprise you?",
+   "a": "When a function returns different types on different branches and inference produces a wide union, or when it returns an object literal whose properties widen. An explicit return type both documents and constrains."
+  },
+  {
+   "n": 103,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "Is there any difference between <code>T[]</code> and <code>Array&lt;T&gt;</code>?",
+   "a": "No — they are identical. Pick one and be consistent across the codebase."
+  },
+  {
+   "n": 104,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "Why does <code>.filter(Boolean)</code> not remove <code>null</code> from the element type?",
+   "a": "Because TypeScript cannot see that <code>Boolean</code> narrows. You need a type predicate such as <code>(x): x is T =&gt; x != null</code> for the type to follow the runtime behaviour."
+  },
+  {
+   "n": 105,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "Why does <code>.reduce</code> so often need an explicit type?",
+   "a": "Inference takes the accumulator type from the initial value, which is frequently too narrow — an empty array or object infers as <code>never[]</code> or <code>{}</code>."
+  },
+  {
+   "n": 106,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "What is a tuple type?",
+   "a": "A fixed-length array where each position has its own type, such as <code>[string, number]</code>. It types things like <code>useState</code> returns and coordinate pairs."
+  },
+  {
+   "n": 107,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "What can tuples do beyond fixed positions?",
+   "a": "Optional elements, rest elements such as <code>[string, ...number[]]</code>, and labels such as <code>[x: number, y: number]</code> which exist purely to improve editor hints."
+  },
+  {
+   "n": 108,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "Is tuple-ness enforced at runtime?",
+   "a": "No. At runtime it is an ordinary array and nothing stops <code>.push</code> from lengthening it. Declaring it <code>readonly</code> makes the compiler prevent that."
+  },
+  {
+   "n": 109,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "What does <code>as const</code> do to a literal?",
+   "a": "Makes it maximally narrow and deeply readonly — <code>['a','b'] as const</code> becomes <code>readonly ['a','b']</code>, and object properties get literal types instead of widened ones."
+  },
+  {
+   "n": 110,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "How do you derive a union type from an <code>as const</code> array?",
+   "a": "<code>typeof arr[number]</code> — indexed access with <code>number</code> gives the union of element types, which for an <code>as const</code> array is the union of its literals."
+  },
+  {
+   "n": 111,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "What duplication does <code>as const</code> eliminate?",
+   "a": "Maintaining a runtime list of allowed values and a matching union type by hand. With <code>as const</code> the array is the source and the type is computed from it, so they cannot drift."
+  },
+  {
+   "n": 112,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "Why is array covariance a soundness hole?",
+   "a": "TypeScript lets you treat <code>Dog[]</code> as <code>Animal[]</code>, and then pushing a <code>Cat</code> into it type-checks while corrupting the original array. It was accepted because forbidding it breaks too much real code."
+  },
+  {
+   "n": 113,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "What does <code>readonly T[]</code> actually prevent?",
+   "a": "Calls to mutating methods and index assignment at compile time. It does not freeze anything at runtime, and a <code>readonly</code> array is not assignable to a mutable one."
+  },
+  {
+   "n": 114,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "How do you get the element type out of an array type?",
+   "a": "Indexed access with <code>number</code>: <code>T[number]</code>. The same idiom works on tuples to get the union of their element types."
+  },
+  {
+   "n": 115,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "Why is <code>[1, 2] as const</code> useful when passing to a function expecting a tuple?",
+   "a": "Without it the argument infers as <code>number[]</code>, which is not assignable to <code>[number, number]</code> because length is not guaranteed."
+  },
+  {
+   "n": 116,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "How do you type a function that returns a tuple so destructuring works well?",
+   "a": "Annotate the return as a tuple type or use <code>as const</code> on the returned literal; otherwise it infers as an array union and destructured names all get the union type."
+  },
+  {
+   "n": 117,
+   "c": "node-7",
+   "t": "Node 7 · Arrays, tuples, as const",
+   "q": "What does <code>satisfies</code> do for an <code>as const</code> registry object?",
+   "a": "Checks each entry against a shape while preserving the literal keys and values, so you get validation and still derive precise unions from the object."
+  },
+  {
+   "n": 118,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "What problem do generics solve that <code>any</code> cannot?",
+   "a": "They preserve the relationship between input and output. <code>(arr: any[]) =&gt; any</code> throws the answer away; <code>&lt;T&gt;(arr: T[]) =&gt; T | undefined</code> gives the caller back their own type."
+  },
+  {
+   "n": 119,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "What is the simplest correct mental model for a generic?",
+   "a": "A function that takes types as arguments and returns a type. Same idea as an ordinary function, one level up."
+  },
+  {
+   "n": 120,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "Do you usually pass type arguments explicitly?",
+   "a": "No. TypeScript infers them from the values at the call site. You write them explicitly only when inference cannot get there or gets it wrong."
+  },
+  {
+   "n": 121,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "Why is an unconstrained <code>T</code> nearly useless inside a function body?",
+   "a": "Because <code>T</code> could be anything, so no property access or operation is safe — you cannot even read <code>.length</code>."
+  },
+  {
+   "n": 122,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "What does <code>extends</code> mean in <code>&lt;T extends { length: number }&gt;</code>?",
+   "a": "Is assignable to — the structural relation, not class inheritance. It restricts <code>T</code> to types that at least have that shape, while still returning the caller's precise type."
+  },
+  {
+   "n": 123,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "Write from memory the signature of a fully type-safe property getter.",
+   "a": "<code>function get&lt;T, K extends keyof T&gt;(obj: T, key: K): T[K]</code> — the key must be a real key of the object and the return type is that key's value type."
+  },
+  {
+   "n": 124,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "What is a default type parameter and when is it useful?",
+   "a": "<code>&lt;T = string&gt;</code> supplies a type when the caller does not. Useful for library APIs where a common case should not require an explicit argument."
+  },
+  {
+   "n": 125,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "Where can generics appear besides functions?",
+   "a": "On interfaces, type aliases and classes — <code>interface Box&lt;T&gt;</code>, <code>Map&lt;string, User&gt;</code>, <code>Promise&lt;Response&gt;</code>. You have been using generic types long before writing one."
+  },
+  {
+   "n": 126,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "What is the rule of thumb about a type parameter used in only one place?",
+   "a": "It is probably doing nothing. The value of a generic is in linking two positions; a <code>T</code> that appears once could usually be <code>unknown</code> or a union."
+  },
+  {
+   "n": 127,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "Can you construct a value of type <code>T</code> inside a generic function?",
+   "a": "No. <code>T</code> is erased, so <code>new T()</code> is impossible. If you need construction, take a factory or a constructor type as a parameter instead."
+  },
+  {
+   "n": 128,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "What happens to a generic when you pass it an <code>any</code>?",
+   "a": "The type parameter becomes <code>any</code>, and checking is disabled downstream for everything derived from it. This is one of the main ways <code>any</code> spreads."
+  },
+  {
+   "n": 129,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "How do generic constraints interact with narrowing?",
+   "a": "A constrained <code>T</code> is treated as its constraint for member access, but the value's actual type stays <code>T</code>, which is why returning a modified object often needs care rather than just returning the constraint's shape."
+  },
+  {
+   "n": 130,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "What is a common sign a generic is over-engineered?",
+   "a": "Three or more type parameters where one is always inferred to the same thing, or a signature you cannot read aloud. Simplify by making a parameter concrete or replacing it with a union."
+  },
+  {
+   "n": 131,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "What does it mean that generic type arguments are inferred 'at the call site'?",
+   "a": "Each call independently determines the type arguments from the values passed. There is no single instantiation shared across calls, because at runtime there is only one function anyway."
+  },
+  {
+   "n": 132,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "Inference picked a wider type than you wanted for <code>T</code>. What are your options?",
+   "a": "Pass the type argument explicitly, add <code>as const</code> at the call site, use a <code>const</code> type parameter, or constrain <code>T</code> so the inference site is narrower."
+  },
+  {
+   "n": 133,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "What does a <code>const</code> type parameter do?",
+   "a": "<code>&lt;const T&gt;</code>, added in TypeScript 5.0, makes inference behave as though the argument had <code>as const</code>, preserving literal types without the caller writing it."
+  },
+  {
+   "n": 134,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "What is <code>NoInfer&lt;T&gt;</code> for?",
+   "a": "Excluding a position from inference so that a type parameter is decided by the argument you intended, typically when a default value should not widen the parameter it belongs to."
+  },
+  {
+   "n": 135,
+   "c": "node-8",
+   "t": "Node 8 · Generics",
+   "q": "How do you type a function generic over an object and one of its keys, returning the value?",
+   "a": "<code>&lt;T, K extends keyof T&gt;(obj: T, key: K): T[K]</code>. Both parameters link, which is what makes the generic worth having."
+  },
+  {
+   "n": 136,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "What does <code>any</code> actually do?",
+   "a": "Turns checking off for that value. Anything is assignable to it, it is assignable to anything, and every property access on it succeeds and yields <code>any</code>."
+  },
+  {
+   "n": 137,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "Why is <code>any</code> described as contagious?",
+   "a": "It propagates through every expression it touches — into generics, into spread objects, into derived values — so a single <code>any</code> can silently disable checking across a whole module."
+  },
+  {
+   "n": 138,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "What is <code>unknown</code> and how does it differ from <code>any</code>?",
+   "a": "It also accepts any value, but you can do nothing with it until you narrow. It is the type-safe top type: I do not know what this is, and the compiler will force me to find out."
+  },
+  {
+   "n": 139,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "Where should <code>unknown</code> be your default?",
+   "a": "Anywhere external data enters — parsed JSON, worker messages, caught errors, LLM output. Every place you are tempted to write <code>any</code> for incoming data."
+  },
+  {
+   "n": 140,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "Name the four places <code>never</code> shows up.",
+   "a": "The return type of a function that never returns normally; a branch the compiler has proven unreachable; the result of an impossible intersection; and as the identity element of unions, where <code>string | never</code> is just <code>string</code>."
+  },
+  {
+   "n": 141,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "What is the assignability relationship for <code>never</code>?",
+   "a": "<code>never</code> is assignable to everything, and nothing is assignable to <code>never</code> — exactly the reverse of <code>any</code> and <code>unknown</code>."
+  },
+  {
+   "n": 142,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "What is a type assertion and what does it check?",
+   "a": "<code>value as User</code> tells the compiler to trust you. Nothing is checked at compile time or runtime, and no conversion happens — it is a claim, not a cast."
+  },
+  {
+   "n": 143,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "What does <code>as unknown as X</code> signal?",
+   "a": "That the two types are unrelated enough for TypeScript to refuse a direct assertion. It is a loud sign that something upstream is wrong, not a technique to reach for."
+  },
+  {
+   "n": 144,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "Why is the angle-bracket assertion syntax unusable in <code>.tsx</code> files?",
+   "a": "Because <code>&lt;User&gt;value</code> collides with JSX syntax. Use <code>as</code> everywhere for consistency."
+  },
+  {
+   "n": 145,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "What is the non-null assertion and why is it dangerous?",
+   "a": "<code>x!</code> claims a value is not null or undefined without any check. It is the most common source of runtime null errors in strict codebases, because each one overrides the exact protection you enabled."
+  },
+  {
+   "n": 146,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "What is a type predicate?",
+   "a": "A function returning <code>x is User</code>, which the compiler trusts for narrowing. It concentrates the unsafe claim in one auditable place instead of scattering assertions at every use."
+  },
+  {
+   "n": 147,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "What is an assertion function?",
+   "a": "<code>function assertIsUser(x: unknown): asserts x is User</code> — it narrows for the rest of the enclosing scope by throwing rather than returning a boolean."
+  },
+  {
+   "n": 148,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "What does <code>satisfies</code> do that an annotation does not?",
+   "a": "It checks a value against a type without widening it, so the precise inferred type is preserved. An annotation validates and then replaces the inferred type with the declared one."
+  },
+  {
+   "n": 149,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "When was <code>satisfies</code> added and what pattern does it replace?",
+   "a": "TypeScript 4.9, in 2022. It replaces a large amount of code that used <code>as</code> purely to keep literal precision while still getting some checking."
+  },
+  {
+   "n": 150,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "Give a concrete case where <code>satisfies</code> is clearly right.",
+   "a": "A config object that must conform to a <code>Config</code> type but whose exact keys you want to keep for deriving a union later — annotate and you lose the keys, assert and you lose the checking, <code>satisfies</code> keeps both."
+  },
+  {
+   "n": 151,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "How should you handle a caught error properly?",
+   "a": "Treat it as <code>unknown</code>, narrow with <code>instanceof Error</code> or a type predicate for your own error classes, and have a fallback path for values that are neither."
+  },
+  {
+   "n": 152,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "You are given <code>data: any</code> from a legacy helper. What is the minimal responsible change?",
+   "a": "Change the helper's return to <code>unknown</code> and validate at the one call site, rather than leaving <code>any</code> to spread through everything downstream."
+  },
+  {
+   "n": 153,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "Why is a type predicate safer than an assertion even though both are unchecked claims?",
+   "a": "The predicate is one function you can test and audit; assertions are scattered claims at every use site with no shared implementation to review."
+  },
+  {
+   "n": 154,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "How do you write a type predicate that actually checks?",
+   "a": "Inspect the value at runtime and return a boolean: check it is an object, not null, and that each required property exists with the right <code>typeof</code>. The signature only tells the compiler what your check proves."
+  },
+  {
+   "n": 155,
+   "c": "node-9",
+   "t": "Node 9 · Escape hatches",
+   "q": "What does <code>never</code> in an error message usually mean in practice?",
+   "a": "That the compiler proved a case impossible — often because a union member was excluded by narrowing, or because an intersection conflicted. Read it as 'nothing can be here'."
+  },
+  {
+   "n": 156,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "What kind of language is TypeScript's type system?",
+   "a": "A pure, functional, lazily-evaluated programming language in which you compute new types from existing types. It is Turing-complete in practice, which is both its power and its danger."
+  },
+  {
+   "n": 157,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "What does <code>keyof</code> produce?",
+   "a": "The union of a type's keys — <code>keyof User</code> is <code>'name' | 'email'</code>."
+  },
+  {
+   "n": 158,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "How does <code>typeof</code> in type position differ from the JavaScript operator?",
+   "a": "They share a spelling and nothing else. In type position it lifts a value's inferred type into type space, so <code>typeof config</code> is the type of that value."
+  },
+  {
+   "n": 159,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "What does indexed access do?",
+   "a": "Reads a property's type: <code>User['email']</code> is <code>string</code>. With <code>number</code> on an array it gives the element type."
+  },
+  {
+   "n": 160,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "How do you derive a union of an object's values?",
+   "a": "<code>typeof obj[keyof typeof obj]</code> — take the value's type, take its keys, index into it with all of them."
+  },
+  {
+   "n": 161,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "What is a mapped type?",
+   "a": "<code>{ [K in keyof T]: ... }</code> — a transformation applied to every member of a shape, optionally changing the value type, the optionality or the readonly-ness."
+  },
+  {
+   "n": 162,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "What do the <code>-?</code> and <code>-readonly</code> modifiers do in a mapped type?",
+   "a": "They remove optionality and remove readonly respectively, which is how <code>Required&lt;T&gt;</code> and a mutable-ising utility are written."
+  },
+  {
+   "n": 163,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "Name the utility types you should know cold and what each does.",
+   "a": "<code>Partial</code>, <code>Required</code>, <code>Readonly</code>, <code>Pick</code>, <code>Omit</code>, <code>Record</code>, <code>ReturnType</code>, <code>Parameters</code>, <code>Awaited</code>, <code>NonNullable</code>, <code>Exclude</code> and <code>Extract</code>."
+  },
+  {
+   "n": 164,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "How would you write <code>Pick</code> from scratch?",
+   "a": "<code>type Pick&lt;T, K extends keyof T&gt; = { [P in K]: T[P] }</code> — a mapped type over a constrained subset of keys."
+  },
+  {
+   "n": 165,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "How would you write <code>Omit</code> from scratch?",
+   "a": "<code>type Omit&lt;T, K&gt; = Pick&lt;T, Exclude&lt;keyof T, K&gt;&gt;</code> — everything except the named keys, which is why it composes <code>Exclude</code>."
+  },
+  {
+   "n": 166,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "What is a conditional type?",
+   "a": "<code>T extends U ? X : Y</code> — the <code>if</code> of type space, where <code>extends</code> again means assignable to."
+  },
+  {
+   "n": 167,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "What is distribution in a conditional type?",
+   "a": "A conditional over a naked type parameter applies to each union member separately and re-unions the results. That is how <code>Exclude</code> filters a union — non-matching members become <code>never</code> and vanish."
+  },
+  {
+   "n": 168,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "How do you stop a conditional type from distributing?",
+   "a": "Wrap both sides in a tuple: <code>[T] extends [U] ? X : Y</code>. You will need this the first time distribution surprises you."
+  },
+  {
+   "n": 169,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "What does <code>infer</code> do?",
+   "a": "Declares a type variable captured by pattern matching inside a conditional type — <code>T extends Promise&lt;infer U&gt; ? U : T</code> extracts what a promise resolves to."
+  },
+  {
+   "n": 170,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "Which built-in utilities are written with <code>infer</code>?",
+   "a": "<code>ReturnType</code>, <code>Parameters</code>, <code>Awaited</code>, <code>InstanceType</code> and <code>ConstructorParameters</code>."
+  },
+  {
+   "n": 171,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "What are template literal types good for?",
+   "a": "String manipulation in type space — building <code>'onClick'</code> from <code>'click'</code>, typing route parameter objects from a path string, or constraining a string to a pattern."
+  },
+  {
+   "n": 172,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "What is key remapping in a mapped type?",
+   "a": "Using <code>as</code> inside the mapping to rename keys — <code>{ [K in keyof T as `get${Capitalize&lt;K &amp; string&gt;}`]: () =&gt; T[K] }</code>. Mapping a key to <code>never</code> removes it."
+  },
+  {
+   "n": 173,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "What are branded types and why do they need type-level tricks?",
+   "a": "A way to fake nominal typing by intersecting a primitive with an impossible marker property, so <code>UserId</code> and <code>PostId</code> stop being interchangeable despite both being strings."
+  },
+  {
+   "n": 174,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "What is the danger of type-level programming, stated as a rule?",
+   "a": "A clever type nobody on the team can modify is a liability. Use the built-in utilities freely, write a simple mapped or conditional type to remove real duplication, and treat anything needing a comment to explain as a design smell."
+  },
+  {
+   "n": 175,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "Does any of this produce runtime code?",
+   "a": "No. It is all erased. Type-level programming is an elaborate way of arranging compile-time checks and nothing else."
+  },
+  {
+   "n": 176,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "Your conditional type behaves oddly on a union argument. What is the first thing to check?",
+   "a": "Whether distribution is happening. A naked type parameter distributes over unions; wrap in a tuple to stop it if you want the union treated as a whole."
+  },
+  {
+   "n": 177,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "How do you make a mapped type that drops keys rather than transforming them?",
+   "a": "Use key remapping with <code>as</code> and map unwanted keys to <code>never</code>, which removes them from the resulting type."
+  },
+  {
+   "n": 178,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "How would you type a path string so <code>/users/:id</code> produces <code>{ id: string }</code>?",
+   "a": "A recursive template literal type that infers the segment after a colon and intersects it with the result of recursing on the rest of the string."
+  },
+  {
+   "n": 179,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "Why prefer built-in utility types over hand-rolled equivalents?",
+   "a": "They are correct, familiar to every reader, and maintained. A hand-rolled <code>Omit</code> is another thing to debug for no benefit."
+  },
+  {
+   "n": 180,
+   "c": "node-10",
+   "t": "Node 10 · Type-level programming",
+   "q": "What is the practical limit you should impose on recursive types?",
+   "a": "A hard depth cap, so a mistake produces a clear failure rather than a compiler error about excessive instantiation depth or a hung editor."
+  },
+  {
+   "n": 181,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "Are <code>private</code> and <code>protected</code> enforced at runtime?",
+   "a": "No. They are compile-time only, and a private field is fully readable at runtime and appears in <code>JSON.stringify</code>."
+  },
+  {
+   "n": 182,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "How does JavaScript's <code>#private</code> differ from TypeScript's <code>private</code>?",
+   "a": "<code>#private</code> is a runtime language feature genuinely inaccessible from outside the class. TypeScript's <code>private</code> is an erased compile-time annotation. They coexist and mean different things."
+  },
+  {
+   "n": 183,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "What does <code>implements</code> actually do?",
+   "a": "Checks that the class structurally satisfies the interface. It does not create a nominal relationship — a different class with the same shape is still assignable."
+  },
+  {
+   "n": 184,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "What is a parameter property?",
+   "a": "<code>constructor(private name: string)</code> — declares and assigns a field in one stroke. It is TypeScript-only syntax that emits an assignment, which is why it is not erasable."
+  },
+  {
+   "n": 185,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "Why are enums the odd feature out in TypeScript?",
+   "a": "They emit a runtime object. Every other type-level construct disappears at compile time; an enum exists in the output JavaScript."
+  },
+  {
+   "n": 186,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "What is unsound about numeric enums?",
+   "a": "For historical reasons any number is assignable to a numeric enum type in many positions, so a value that is not a member of the enum passes the check."
+  },
+  {
+   "n": 187,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "What is a reverse mapping in a numeric enum?",
+   "a": "The emitted object maps both name to value and value back to name, so <code>Status[0]</code> yields <code>'Active'</code>. String enums do not get this."
+  },
+  {
+   "n": 188,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "What should you use instead of an enum, and why?",
+   "a": "A union of string literals, usually derived from an <code>as const</code> object. Same closed set with narrowing and autocomplete, no runtime emit, and compatible with type-stripping runtimes."
+  },
+  {
+   "n": 189,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "What are namespaces and should you write new ones?",
+   "a": "TypeScript's pre-ES-modules module system. Legacy — you will meet them in old code and in declaration files, but should not write new ones."
+  },
+  {
+   "n": 190,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "What is the state of decorators in TypeScript?",
+   "a": "There was a decade-old experimental version behind <code>experimentalDecorators</code>, and TypeScript 5.0 shipped the standardized ECMAScript version. They are not fully compatible, so you must know which flavour a codebase uses."
+  },
+  {
+   "n": 191,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "Which frameworks depend heavily on decorators?",
+   "a": "Angular, NestJS and TypeORM. If you work on any of those, decorator flavour and metadata emission become practical concerns."
+  },
+  {
+   "n": 192,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "Which TypeScript constructs are not erasable, and why does that matter now?",
+   "a": "Enums, parameter properties and namespaces. They emit runtime code, so they are incompatible with runtimes that strip types, which is why <code>erasableSyntaxOnly</code> exists."
+  },
+  {
+   "n": 193,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "What does <code>abstract</code> give you?",
+   "a": "A class that cannot be instantiated and may declare members without implementations that subclasses must provide. Purely a compile-time constraint."
+  },
+  {
+   "n": 194,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "When are classes genuinely the right tool in a TypeScript backend?",
+   "a": "Error hierarchies where <code>instanceof</code> narrowing is useful, and framework-mandated structures such as NestJS providers. Most data modelling is better served by plain object types and unions."
+  },
+  {
+   "n": 195,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "How do you get exhaustive narrowing over a set of error classes?",
+   "a": "Give each a literal discriminant property, or use <code>instanceof</code> checks with a final <code>never</code> assignment. A discriminant survives across process boundaries; <code>instanceof</code> does not."
+  },
+  {
+   "n": 196,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "Why does <code>instanceof</code> fail on errors that crossed a boundary?",
+   "a": "Serialisation loses the prototype — a thrown error sent through a worker, a queue or an HTTP response arrives as a plain object, so class identity is gone and only data-based discriminants survive."
+  },
+  {
+   "n": 197,
+   "c": "node-11",
+   "t": "Node 11 · Classes and enums",
+   "q": "What replaces an enum in an erasable codebase?",
+   "a": "An <code>as const</code> object plus a union derived from its values, giving named constants at runtime and a closed literal union at compile time."
+  },
+  {
+   "n": 198,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "What does <code>import type</code> do?",
+   "a": "States that an import is types only, so the emitted JavaScript drops it entirely rather than leaving a runtime import for something that does not exist at runtime."
+  },
+  {
+   "n": 199,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "What problem does <code>verbatimModuleSyntax</code> solve?",
+   "a": "Ambiguity about which imports get elided. It keeps exactly what you wrote and requires <code>import type</code> where you mean types, which also makes single-file transpilers correct."
+  },
+  {
+   "n": 200,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "What is a declaration file?",
+   "a": "A <code>.d.ts</code> file containing types with no implementations — a description of what some JavaScript elsewhere provides."
+  },
+  {
+   "n": 201,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "How do you produce declaration files from your own source?",
+   "a": "<code>tsc</code> with <code>declaration: true</code>. Only <code>tsc</code> can emit them; esbuild, swc and other transpilers cannot."
+  },
+  {
+   "n": 202,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "What are the three ways an npm package can have types?",
+   "a": "Bundled with the package and pointed at by <code>types</code> or the <code>exports</code> map; published separately on DefinitelyTyped as <code>@types/name</code>; or absent, in which case you write your own or declare it as any."
+  },
+  {
+   "n": 203,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "What is DefinitelyTyped and what is the catch?",
+   "a": "A community repository of type declarations for JavaScript-only packages, published as <code>@types/*</code>. They are volunteer-written, versioned separately from the library, and can be wrong or stale."
+  },
+  {
+   "n": 204,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "How do you debug 'my editor does not know about this library'?",
+   "a": "Check in order: does the package ship its own types, is there an <code>@types</code> package, and does your <code>moduleResolution</code> match how the package declares its entry points."
+  },
+  {
+   "n": 205,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "What does the <code>declare</code> keyword mean?",
+   "a": "This exists, I am not defining it. It is how you describe ambient globals, modules you do not control, or non-JavaScript imports such as CSS files."
+  },
+  {
+   "n": 206,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "Why has module resolution been through several incompatible eras?",
+   "a": "Because CommonJS and ES modules have genuinely different semantics, and TypeScript must describe both plus the interop layer. <code>node</code>, <code>node16</code>/<code>nodenext</code> and <code>bundler</code> each model a different reality."
+  },
+  {
+   "n": 207,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "When should you use <code>moduleResolution: bundler</code>?",
+   "a": "When a bundler resolves your imports rather than Node — which is most frontend projects. It permits extensionless relative imports that <code>nodenext</code> would reject."
+  },
+  {
+   "n": 208,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "What does <code>esModuleInterop</code> do?",
+   "a": "Makes CommonJS modules without a real default export importable with default-import syntax, by emitting interop helpers. It is on in most modern configs and changes what a default import means."
+  },
+  {
+   "n": 209,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "Why do relative imports need file extensions under <code>nodenext</code>?",
+   "a": "Because that is what Node's ESM resolver requires at runtime, and TypeScript refuses to let you write an import that would fail when executed."
+  },
+  {
+   "n": 210,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "What is the difference between augmenting a module and declaring one?",
+   "a": "<code>declare module 'x'</code> inside a file with imports or exports augments the existing module; in a file with none, it declares a whole new ambient module, which silently shadows rather than extends."
+  },
+  {
+   "n": 211,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "Can a package ship working JavaScript and broken types?",
+   "a": "Yes, and it is common — a mismatched <code>exports</code> map or a missing types condition means consumers get the code and no type information, or types that only resolve under one configuration."
+  },
+  {
+   "n": 212,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "How do you type an import of a non-JavaScript asset such as a CSS or SVG file?",
+   "a": "Declare the module pattern in a <code>.d.ts</code> included in the project — <code>declare module '*.svg' { const src: string; export default src }</code>."
+  },
+  {
+   "n": 213,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "Your import works at runtime but the editor cannot find its types. Where do you look first?",
+   "a": "The package's <code>exports</code> map and <code>types</code> condition, then whether an <code>@types</code> package exists, then whether your <code>moduleResolution</code> matches the package's declared format."
+  },
+  {
+   "n": 214,
+   "c": "node-12",
+   "t": "Node 12 · Modules and declaration files",
+   "q": "Why can an <code>@types</code> package be wrong?",
+   "a": "It is written by volunteers and versioned independently of the library, so it can describe an older or newer API than the one you installed."
+  },
+  {
+   "n": 215,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "What are the three jobs <code>tsconfig.json</code> does?",
+   "a": "Says which files are in the project, what checking rules apply, and what output to produce."
+  },
+  {
+   "n": 216,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "What determines which files are actually included?",
+   "a": "<code>include</code>, <code>exclude</code> and <code>files</code> — plus everything imported by an included file, whether or not you listed it."
+  },
+  {
+   "n": 217,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "What does <code>target</code> control, and what does it not do?",
+   "a": "Which JavaScript version to emit, so newer syntax gets downlevelled. It does not add missing runtime APIs — no polyfills, ever."
+  },
+  {
+   "n": 218,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "What is <code>lib</code> for?",
+   "a": "Which built-in API declarations to include, such as <code>DOM</code> for browser globals or <code>ES2023</code> for newer standard library methods. It is why a method errors in one project and works in another."
+  },
+  {
+   "n": 219,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "What is the cost of setting a low <code>target</code>?",
+   "a": "Bigger, slower, harder-to-debug output, because features like async/await get compiled into state machines instead of being emitted as written."
+  },
+  {
+   "n": 220,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "What do <code>paths</code> and <code>baseUrl</code> do, and what is the trap?",
+   "a": "They teach the type-checker about import aliases such as <code>@/lib/db</code>. They do not affect runtime resolution, so a bundler or runtime resolver must be configured to match or the code type-checks and crashes on start."
+  },
+  {
+   "n": 221,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "What does <code>isolatedModules</code> enforce and why?",
+   "a": "It forbids constructs that cannot be understood one file at a time, because esbuild, swc and similar tools compile each file in isolation and never see your types."
+  },
+  {
+   "n": 222,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "What does <code>skipLibCheck</code> do and why is it almost always on?",
+   "a": "Skips type-checking declaration files in dependencies. Checking other people's declarations is slow and their errors are not yours to fix."
+  },
+  {
+   "n": 223,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "What are project references and <code>composite</code> for?",
+   "a": "Splitting a repository into separately buildable units so a change in one package does not force rechecking everything, and so <code>tsc --build</code> can order the work."
+  },
+  {
+   "n": 224,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "What does <code>declarationMap</code> add on top of <code>declaration</code>?",
+   "a": "Source maps for the declarations, so go-to-definition in a consuming project lands in your original TypeScript rather than in the generated <code>.d.ts</code>."
+  },
+  {
+   "n": 225,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "What does <code>extends</code> in a tsconfig give you, and what is a good base?",
+   "a": "Shared configuration across several configs. The published <code>@tsconfig/*</code> bases are a reasonable starting point rather than copying settings you have not read."
+  },
+  {
+   "n": 226,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "What is the single best mental model for tsconfig?",
+   "a": "It is not settings, it is the definition of the language dialect this repository speaks — which is why it is the first file to read in an unfamiliar codebase."
+  },
+  {
+   "n": 227,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "Which flags are linting-adjacent rather than type-safety flags?",
+   "a": "<code>noUnusedLocals</code>, <code>noUnusedParameters</code>, <code>noImplicitReturns</code> and <code>noFallthroughCasesInSwitch</code>. They catch mistakes but are not about type soundness."
+  },
+  {
+   "n": 228,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "What does <code>incremental</code> do and what does it write?",
+   "a": "Caches type information between runs in a <code>.tsbuildinfo</code> file so a second build only rechecks what changed."
+  },
+  {
+   "n": 229,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "Your code type-checks but crashes with a module not found error at runtime. What is the likely cause?",
+   "a": "A <code>paths</code> alias known to the type-checker but not configured in the bundler or runtime resolver. The checker and the runtime resolve modules by separate mechanisms."
+  },
+  {
+   "n": 230,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "A standard library method errors as not existing, though it works when you run it. What do you change?",
+   "a": "<code>lib</code> — the declarations for that version of the standard library are not included. Raising <code>target</code> usually raises the default <code>lib</code> as well."
+  },
+  {
+   "n": 231,
+   "c": "node-13",
+   "t": "Node 13 · tsconfig.json",
+   "q": "Why might the same file produce errors in CI and not locally?",
+   "a": "Different config resolution — a different tsconfig being picked up, a stale <code>.tsbuildinfo</code>, or different dependency versions supplying different declarations."
+  },
+  {
+   "n": 232,
+   "c": "node-14",
+   "t": "Node 14 · The build story",
+   "q": "What two jobs does <code>tsc</code> do, and why did the ecosystem split them?",
+   "a": "Type-checking and emitting. Checking is inherently slow because it builds a graph of every type; stripping types is nearly free. So fast tools transpile and <code>tsc</code> checks separately."
+  },
+  {
+   "n": 233,
+   "c": "node-14",
+   "t": "Node 14 · The build story",
+   "q": "Name the fast transpile-only tools and what they skip.",
+   "a": "esbuild (Go), swc (Rust), and wrappers such as tsx, Vite and Bun. They delete types and emit JavaScript in milliseconds and check nothing at all."
+  },
+  {
+   "n": 234,
+   "c": "node-14",
+   "t": "Node 14 · The build story",
+   "q": "What is the correct project setup for running and checking?",
+   "a": "A fast transpiler for running, <code>tsc --noEmit</code> in CI and as a pre-commit or pre-push check, and a real <code>tsc</code> build with <code>declaration: true</code> only if you publish a library."
+  },
+  {
+   "n": 235,
+   "c": "node-14",
+   "t": "Node 14 · The build story",
+   "q": "Why will your dev server happily run code with type errors?",
+   "a": "Because the transpiler never checks. The errors appear in your editor, not in the terminal, and if CI lacks a check step they reach main unnoticed."
+  },
+  {
+   "n": 236,
+   "c": "node-14",
+   "t": "Node 14 · The build story",
+   "q": "Why does <code>isolatedModules</code> matter specifically for transpilers?",
+   "a": "They see one file at a time, so re-exporting a type without <code>export type</code> is ambiguous to them even though <code>tsc</code> can resolve it from the whole program."
+  },
+  {
+   "n": 237,
+   "c": "node-14",
+   "t": "Node 14 · The build story",
+   "q": "What do you need for readable production stack traces?",
+   "a": "Source maps enabled at build time plus <code>--enable-source-maps</code> in Node or the <code>source-map-support</code> package. Without them every trace points at compiled line numbers."
+  },
+  {
+   "n": 238,
+   "c": "node-14",
+   "t": "Node 14 · The build story",
+   "q": "Why is a second <code>tsc</code> build much faster than the first?",
+   "a": "Watch mode and <code>incremental</code> reuse cached type information from <code>.tsbuildinfo</code>, so only changed files and their dependents are rechecked."
+  },
+  {
+   "n": 239,
+   "c": "node-14",
+   "t": "Node 14 · The build story",
+   "q": "Which build tool can generate <code>.d.ts</code> files?",
+   "a": "Only <code>tsc</code> (or tools that wrap it, such as some bundler plugins that shell out to it). This is the main reason a published package still needs a real TypeScript build."
+  },
+  {
+   "n": 240,
+   "c": "node-14",
+   "t": "Node 14 · The build story",
+   "q": "How would you set up CI so type errors cannot reach main?",
+   "a": "A required job running <code>tsc --noEmit</code> across the workspace, separate from the build and test steps so its failure is legible on its own."
+  },
+  {
+   "n": 241,
+   "c": "node-14",
+   "t": "Node 14 · The build story",
+   "q": "Your CI passes but the deployed app crashes on a type-level mistake. What was missing?",
+   "a": "A <code>tsc --noEmit</code> step. The build tool transpiled without checking, so nothing gated on type correctness."
+  },
+  {
+   "n": 242,
+   "c": "node-14",
+   "t": "Node 14 · The build story",
+   "q": "When is a real <code>tsc</code> build still required?",
+   "a": "When you publish a package and need <code>.d.ts</code> output, or when you rely on features a transpiler cannot implement in isolation."
+  },
+  {
+   "n": 243,
+   "c": "node-14",
+   "t": "Node 14 · The build story",
+   "q": "Why does a pre-push type check beat a pre-commit one in practice?",
+   "a": "Commits are frequent and often intermediate; pushes are the point where work becomes shared. Checking on push keeps the loop fast while still gating what others see."
+  },
+  {
+   "n": 244,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "Why does <code>const user: User = await res.json()</code> compile despite validating nothing?",
+   "a": "<code>res.json()</code> returns <code>Promise&lt;any&gt;</code>, and <code>any</code> is assignable to <code>User</code>. The annotation is accepted as a claim and nothing is checked."
+  },
+  {
+   "n": 245,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "State the rule about annotations on external data.",
+   "a": "A type annotation on external data is a lie until something validates it. Erasure means there is nothing at runtime to enforce the claim."
+  },
+  {
+   "n": 246,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "What are the three honest ways to cross the runtime boundary?",
+   "a": "Hand-written type predicates, schema validation libraries such as Zod, and types generated from a source that describes itself such as OpenAPI or a database schema."
+  },
+  {
+   "n": 247,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "Why do hand-written type predicates degrade over time?",
+   "a": "Nothing forces you to update the predicate when the type changes, so the check silently stops matching the type it claims to prove."
+  },
+  {
+   "n": 248,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "What is the key inversion that makes Zod feel inevitable?",
+   "a": "The schema is a runtime value and the static type is derived from it with <code>z.infer</code>. One source of truth, validated at runtime and typed at compile time, and the two cannot drift."
+  },
+  {
+   "n": 249,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "Why can't you just use an interface instead of a schema?",
+   "a": "An interface is erased, so it can describe the expected shape but can never check it. A schema exists at runtime and can."
+  },
+  {
+   "n": 250,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "What is the trade-off with generated types?",
+   "a": "They give compile-time safety with no runtime cost, but only guarantee agreement at generation time — a stale generated file is its own failure mode."
+  },
+  {
+   "n": 251,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "State the boundary rule for where to validate.",
+   "a": "Validate at the edges, trust in the interior. Parse everything entering the process, then work with typed values without defensive checks."
+  },
+  {
+   "n": 252,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "Which specific boundaries should always be validated?",
+   "a": "HTTP handlers, queue consumers, <code>process.env</code>, file reads, third-party API responses, worker messages, and LLM tool-call arguments."
+  },
+  {
+   "n": 253,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "How is <code>process.env</code> typed by default and why is that a problem?",
+   "a": "<code>Record&lt;string, string | undefined&gt;</code> — every variable is possibly undefined and always a string, so config errors surface at the moment a rare code path runs."
+  },
+  {
+   "n": 254,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "What is the correct treatment of environment configuration?",
+   "a": "Parse the whole environment through a schema at startup so the process refuses to boot with a bad config, rather than failing later on one code path."
+  },
+  {
+   "n": 255,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "Why is LLM output the purest example of untrusted data?",
+   "a": "It is produced by a probabilistic system that can return a plausible but wrong shape. It parses as JSON and satisfies no guarantee, so it must be validated before use like any external input."
+  },
+  {
+   "n": 256,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "What does a repair loop look like for schema-validated LLM output?",
+   "a": "Parse with the schema; on failure, feed the validation error back to the model and retry a bounded number of times; on repeated failure, fall back to storing the raw input and flagging it."
+  },
+  {
+   "n": 257,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "Why is validating everywhere as wrong as validating nowhere?",
+   "a": "Interior validation is noise that hides the real boundaries and slows everything, while adding no guarantee that the boundary check did not already provide."
+  },
+  {
+   "n": 258,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "A file is named <code>.pdf</code> but its bytes are a JPEG. What is the general lesson?",
+   "a": "The declared type of external data is metadata written by someone else, exactly like a type annotation on a network response. The only truth is in the content, learned by inspection."
+  },
+  {
+   "n": 259,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "Why is validating a worker message as important as validating an HTTP body?",
+   "a": "Messages are serialised and arrive as <code>unknown</code>, and the two sides can be built from different versions of the protocol. It is the same boundary in a different transport."
+  },
+  {
+   "n": 260,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "What does <code>z.infer</code> actually give you?",
+   "a": "The static type that a schema's successful parse produces, computed from the schema at compile time so the runtime check and the static type cannot disagree."
+  },
+  {
+   "n": 261,
+   "c": "node-15",
+   "t": "Node 15 · The runtime boundary",
+   "q": "What is the difference between <code>parse</code> and <code>safeParse</code> in Zod, in type terms?",
+   "a": "<code>parse</code> throws and returns the typed value; <code>safeParse</code> returns a discriminated union of success and failure, which is the shape you want in a handler that must respond rather than crash."
+  },
+  {
+   "n": 262,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "What is the goal of end-to-end type inference?",
+   "a": "One definition, with every other representation derived from it, so a change in one place produces compile errors everywhere that must change."
+  },
+  {
+   "n": 263,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "How does Drizzle derive row types?",
+   "a": "Tables are defined as TypeScript values, so <code>typeof users.$inferSelect</code> is the row type and <code>$inferInsert</code> is the insert shape. The schema is the source and the types are computed."
+  },
+  {
+   "n": 264,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "Why are <code>$inferSelect</code> and <code>$inferInsert</code> different?",
+   "a": "A row you read has generated columns such as id and timestamps; a row you write does not. The same entity has different shapes depending on the direction it crosses the boundary."
+  },
+  {
+   "n": 265,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "How does Prisma differ from Drizzle in its typing approach?",
+   "a": "Prisma generates types from a separate schema file via a code-generation step; Drizzle infers them from TypeScript values directly. Both give one source of truth, but only one keeps it inside the type system."
+  },
+  {
+   "n": 266,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "What does a Fastify type provider do?",
+   "a": "Connects a route's Zod or JSON schema to the types of <code>request.body</code>, params and reply, so declaring the schema types the handler and validates it from one declaration."
+  },
+  {
+   "n": 267,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "Why do Express codebases often end up validated but untyped?",
+   "a": "Express types request bodies as <code>any</code> by default, so validation middleware can check the value at runtime without the handler's static type reflecting it."
+  },
+  {
+   "n": 268,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "What is tRPC and what does it require?",
+   "a": "A way to share types across the client/server boundary by importing the server's router type into the client — no code generation, full autocomplete, at the cost of one TypeScript codebase on both sides."
+  },
+  {
+   "n": 269,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "When is OpenAPI generation the right choice over type sharing?",
+   "a": "When the client is not yours or is not TypeScript, so a language-neutral contract with generated types is the only way both sides can agree."
+  },
+  {
+   "n": 270,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "How does an LLM tool definition fit this pattern?",
+   "a": "The tool's JSON Schema and the type of the arguments you receive should both come from one Zod definition, and the returned arguments must still be validated because they are external data."
+  },
+  {
+   "n": 271,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "State the general principle this node teaches.",
+   "a": "Pick one artifact as the source of truth and derive every other representation from it mechanically. Everything else in a large system's type story is an instance of that."
+  },
+  {
+   "n": 272,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "What is the failure mode when this principle is not followed?",
+   "a": "The same entity is declared in the database, the API layer, the client and the tests, and the four copies drift silently until something breaks in production."
+  },
+  {
+   "n": 273,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "Why does deriving types not eliminate the need for runtime validation?",
+   "a": "Derivation guarantees internal consistency, not that incoming data matches. The database and the client can agree perfectly while a third-party payload arrives in a different shape."
+  },
+  {
+   "n": 274,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "You change a database column and want to know everything that breaks. What arrangement gives you that?",
+   "a": "Row types derived from the schema, API schemas derived from those, and client types derived from the API — then the compiler produces the list without you searching."
+  },
+  {
+   "n": 275,
+   "c": "node-16",
+   "t": "Node 16 · Types across the system",
+   "q": "Where do generated types fail you?",
+   "a": "When the generation step is stale or skipped in CI, the types describe a system that no longer exists and the compiler confidently confirms a false model."
+  },
+  {
+   "n": 276,
+   "c": "node-17",
+   "t": "Node 17 · Declaration merging",
+   "q": "What is module augmentation and what makes it possible?",
+   "a": "Adding members to a type inside someone else's package, using <code>declare module 'pkg'</code>. It works because interfaces merge."
+  },
+  {
+   "n": 277,
+   "c": "node-17",
+   "t": "Node 17 · Declaration merging",
+   "q": "Write the shape of a Fastify request augmentation.",
+   "a": "<code>declare module 'fastify' { interface FastifyRequest { user?: AuthUser } }</code> — after which every use site knows about the property."
+  },
+  {
+   "n": 278,
+   "c": "node-17",
+   "t": "Node 17 · Declaration merging",
+   "q": "What does <code>declare global</code> do?",
+   "a": "Augments global types — extending <code>Window</code>, adding your variable names to <code>ProcessEnv</code>, or typing something injected by a script tag."
+  },
+  {
+   "n": 279,
+   "c": "node-17",
+   "t": "Node 17 · Declaration merging",
+   "q": "What is the most common augmentation failure and why does it happen?",
+   "a": "Writing <code>declare module</code> in a file with no imports or exports, which declares a new ambient module instead of augmenting the existing one. The file must be a module."
+  },
+  {
+   "n": 280,
+   "c": "node-17",
+   "t": "Node 17 · Declaration merging",
+   "q": "What is the second most common augmentation failure?",
+   "a": "The file is not included in the project, so nothing loads it. Augmentations placed in files nothing imports appear to do nothing at all."
+  },
+  {
+   "n": 281,
+   "c": "node-17",
+   "t": "Node 17 · Declaration merging",
+   "q": "Why should an augmented property usually be optional?",
+   "a": "Because the augmentation is global and unconditional. Declaring <code>user: AuthUser</code> claims every request has one, including unauthenticated routes, which is exactly the false confidence you are trying to avoid."
+  },
+  {
+   "n": 282,
+   "c": "node-17",
+   "t": "Node 17 · Declaration merging",
+   "q": "Which ecosystems depend on this mechanism?",
+   "a": "Fastify plugins and decorators, Express middleware via <code>Express.Request</code>, Next.js, Vitest matcher extensions — essentially every plugin system in the TypeScript world."
+  },
+  {
+   "n": 283,
+   "c": "node-17",
+   "t": "Node 17 · Declaration merging",
+   "q": "Does <code>declare global</code> on <code>ProcessEnv</code> make your environment safe?",
+   "a": "No. It is a claim, not a check. Startup validation with a schema is what makes the claim true."
+  },
+  {
+   "n": 284,
+   "c": "node-17",
+   "t": "Node 17 · Declaration merging",
+   "q": "Can type aliases be augmented the way interfaces are?",
+   "a": "No. Only interfaces (and namespaces) merge, which is the main practical reason libraries expose extension points as interfaces."
+  },
+  {
+   "n": 285,
+   "c": "node-18",
+   "t": "Node 18 · When types get slow",
+   "q": "What are the three dominant causes of slow type-checking?",
+   "a": "Large unions and their combinations, deep recursive conditional types, and inferred return types on exported functions that the checker must reconstruct at every use site."
+  },
+  {
+   "n": 286,
+   "c": "node-18",
+   "t": "Node 18 · When types get slow",
+   "q": "What does <code>Type instantiation is excessively deep and possibly infinite</code> usually mean?",
+   "a": "You have hit the recursion depth limit in a conditional or mapped type. It is usually a signal to simplify rather than to optimise."
+  },
+  {
+   "n": 287,
+   "c": "node-18",
+   "t": "Node 18 · When types get slow",
+   "q": "What is the single highest-leverage fix for compile speed in a library?",
+   "a": "Explicit return type annotations on exported functions, so the checker does not have to reconstruct a possibly enormous inferred type at every call site."
+  },
+  {
+   "n": 288,
+   "c": "node-18",
+   "t": "Node 18 · When types get slow",
+   "q": "Which tools tell you where compile time goes?",
+   "a": "<code>tsc --diagnostics</code> and <code>--extendedDiagnostics</code> for a summary, and <code>--generateTrace</code> for a profile you can open in a trace viewer."
+  },
+  {
+   "n": 289,
+   "c": "node-18",
+   "t": "Node 18 · When types get slow",
+   "q": "What structural options reduce repeat work?",
+   "a": "<code>incremental</code> with its <code>.tsbuildinfo</code> cache, and project references so unchanged packages are not rechecked."
+  },
+  {
+   "n": 290,
+   "c": "node-18",
+   "t": "Node 18 · When types get slow",
+   "q": "State the judgement rule this node exists to install.",
+   "a": "A type is only worth what it prevents. A clever type that catches a bug nobody would write, at the cost of a slow build and unreadable errors, is a net loss."
+  },
+  {
+   "n": 291,
+   "c": "node-18",
+   "t": "Node 18 · When types get slow",
+   "q": "What does senior-level TypeScript skill actually look like?",
+   "a": "Knowing which guarantees are worth their cost, keeping error messages legible, and being willing to use <code>unknown</code> plus a runtime check where the type-level version would be a monster."
+  },
+  {
+   "n": 292,
+   "c": "node-18",
+   "t": "Node 18 · When types get slow",
+   "q": "Why does an unreadable error message count as a real cost?",
+   "a": "Because the type exists to help a future developer, and a fifty-line error that nobody can parse consumes more time than the bug it prevented would have."
+  },
+  {
+   "n": 293,
+   "c": "node-18",
+   "t": "Node 18 · When types get slow",
+   "q": "Your editor becomes sluggish after adding a recursive type. What is the fastest diagnostic?",
+   "a": "Comment the type out and see whether responsiveness returns, then bound its depth or simplify. <code>--generateTrace</code> confirms it if you need evidence."
+  },
+  {
+   "n": 294,
+   "c": "node-18",
+   "t": "Node 18 · When types get slow",
+   "q": "When should you deliberately choose a runtime check over a type-level guarantee?",
+   "a": "When the type-level version is unreadable, slow, or produces errors no one can act on — the check still catches the bug and costs almost nothing to understand."
+  },
+  {
+   "n": 295,
+   "c": "node-19",
+   "t": "Node 19 · Where it is going",
+   "q": "What is native type stripping and where does it stand?",
+   "a": "Runtimes executing TypeScript by deleting the types. Node added <code>--experimental-strip-types</code> in Node 22 and made it on by default in Node 23; Deno and Bun run TypeScript directly."
+  },
+  {
+   "n": 296,
+   "c": "node-19",
+   "t": "Node 19 · Where it is going",
+   "q": "What does <code>erasableSyntaxOnly</code> do and why does it exist?",
+   "a": "Added in TypeScript 5.8, it errors on constructs that cannot simply be stripped — enums, parameter properties and namespaces — so your code stays compatible with type-stripping runtimes."
+  },
+  {
+   "n": 297,
+   "c": "node-19",
+   "t": "Node 19 · Where it is going",
+   "q": "What is the practical argument against enums now?",
+   "a": "It is no longer style. Enums emit runtime code, so they are incompatible with running TypeScript without a build step, which is where the ecosystem is heading."
+  },
+  {
+   "n": 298,
+   "c": "node-19",
+   "t": "Node 19 · Where it is going",
+   "q": "What is the Go port of the compiler?",
+   "a": "A rewrite of <code>tsc</code> in Go announced by Microsoft in 2025, targeting roughly ten-times-faster checking and better editor responsiveness, shipping as TypeScript 7 while the JavaScript compiler continues as 6.x."
+  },
+  {
+   "n": 299,
+   "c": "node-19",
+   "t": "Node 19 · Where it is going",
+   "q": "Name the notable recent additions to the language.",
+   "a": "<code>satisfies</code> (4.9), <code>const</code> type parameters and standard decorators (5.0), <code>using</code> and explicit resource management (5.2), <code>NoInfer</code> (5.4), and <code>erasableSyntaxOnly</code> (5.8)."
+  },
+  {
+   "n": 300,
+   "c": "node-19",
+   "t": "Node 19 · Where it is going",
+   "q": "Why does upgrading TypeScript sometimes let you delete assertions?",
+   "a": "Narrowing and inference get smarter between versions, so code that genuinely needed an assertion two years ago may now be understood by the checker."
+  },
+  {
+   "n": 301,
+   "c": "node-19",
+   "t": "Node 19 · Where it is going",
+   "q": "Is TypeScript's type system sound?",
+   "a": "No, deliberately. Known holes include bivariant method parameters, type assertions, <code>any</code>, unchecked index access and mutable array covariance."
+  },
+  {
+   "n": 302,
+   "c": "node-19",
+   "t": "Node 19 · Where it is going",
+   "q": "What was TypeScript's actual design goal, given that unsoundness?",
+   "a": "Not to prove programs correct, but to catch the most bugs possible while staying usable on the JavaScript people actually write. Every hole is a conscious trade for that usability."
+  },
+  {
+   "n": 303,
+   "c": "node-19",
+   "t": "Node 19 · Where it is going",
+   "q": "Name three soundness holes and why each exists.",
+   "a": "Method bivariance, because array and DOM types depend on it; assertions, because sometimes you know more than the checker and migration requires an escape hatch; array covariance, because forbidding it breaks too much existing code."
+  },
+  {
+   "n": 304,
+   "c": "node-19",
+   "t": "Node 19 · Where it is going",
+   "q": "What has to be true of your code for it to run under Node type stripping?",
+   "a": "Only erasable syntax — no enums, no parameter properties, no namespaces — and imports that Node itself can resolve, since no bundler is involved."
+  },
+  {
+   "n": 305,
+   "c": "node-19",
+   "t": "Node 19 · Where it is going",
+   "q": "Does type stripping mean you no longer need <code>tsc</code>?",
+   "a": "No. Nothing is checked when types are stripped, so <code>tsc --noEmit</code> becomes more important, not less — it is the only thing standing between you and untyped JavaScript."
+  }
+ ]
 }

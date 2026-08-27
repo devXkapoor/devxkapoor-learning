@@ -33,38 +33,56 @@ Invoking `/topic-mastery <topic>` prints a run plan whose first line reads
 | **git** | Landscape, recall (145), prep, elaboration. No discuss pieces. |
 | **typescript** | Landscape, recall (305), prep, elaboration, project spec. |
 
-## What is happening right now — the Discuss track
+## What is happening right now — the Discuss track (Phase 8)
 
-He read the recall bank and accumulated **64 follow-ups across 63 questions**
-(~25,800 words), almost all in Nodes 0–4. Analysis of that corpus found:
+He read 63 recall questions and left **64 follow-up notes** (~25,800 words), almost all
+in Nodes 0–4. They are dictated by voice: long, unpunctuated, circling back, and each
+containing several distinct asks.
 
-- **40 of 64 open by flagging themselves as a repeat** ("again", "same question",
-  "I already brought this up")
-- Dominant themes: primitives-vs-objects **28/64**, functions/scope/closures 30/64,
-  "what exactly does this mean" 29/64, numbers/floating point 20/64,
-  references/copies 19/64, coercion/equality 14/64
-- An earlier claim that the doubts were "about memory internals" was **wrong** and was
-  retracted to him — "in memory" appears 3 times in the whole corpus.
+### The rule, which was corrected once — do not get this wrong again
 
-**Conclusion: these are not 64 doubts but roughly six root gaps asked repeatedly.** So
-resolutions are written per *gap*, not per question, each listing which follow-ups it
-resolves. This is the agreed plan:
+**Answer one follow-up at a time, in question order. Never cluster.**
 
-1. ✅ **Why a separate language, and how it was wired to the page** — resolves Q1,2,3,7
-2. ⬜ The primitive/object division — the largest cluster
-3. ⬜ Why there is one number type, and what falls out
-4. ⬜ What a reference actually is
-5. ⬜ Why first-class functions earned their own vocabulary (his Q41)
-6. ⬜ Scope, hoisting and the TDZ as one mechanism
+The first attempt analysed the corpus, found the doubts fell into roughly six recurring
+themes, and wrote one long piece per theme. He rejected it, for reasons worth keeping:
 
-Pieces live in `topics/<slug>/discuss.json` and render in the **Discuss** tab (distinct
-from the `? Discuss` marker on cards). Depth calibration: he asked for Resolution 1 to
-go **deeper**, so ~23,000 characters with period-accurate code, primary dates, and
-explicit corrections of his misconceptions is the right level. Do not compress.
+- **He writes each follow-up deliberately.** Clustering compresses several into a
+  summary and silently drops whatever did not fit the theme. In his words, he does not
+  want to compromise on anything, having put real effort into expressing them.
+- **Later follow-ups reference earlier ones.** About two-thirds open with "again" or
+  "same as the previous question". Answering out of order breaks a thread he built in
+  order.
 
-**He is exhausted by the follow-up process** and knows it is inefficient. Advice already
-given: after the six pieces exist, read the remaining ~120 questions and only add a
-follow-up when something is genuinely new.
+So: the first question that has a follow-up, then the next, and so on. Cross-reference
+freely — "this is the same ground as Q17, and here is what changes" — but still answer
+*this* follow-up's own framing in full.
+
+### Method
+
+Read the whole follow-up. **List the distinct asks you found**, so he sees his own
+questions reflected back before they are answered. Then answer every one; if one cannot
+be answered, say so rather than letting it vanish.
+
+**No length limit.** He asked for more depth after seeing the first piece. The accepted
+calibration is ~20,000+ characters with period-accurate code, real dates and versions,
+mechanism traced to the substrate, and explicit correction of misconceptions — including
+our own earlier looseness where he catches it. Do not compress.
+
+Full format: `~/.claude/skills/topic-mastery/references/resolution-format.md`.
+
+### State
+
+- **Resolution 1** exists and covers Q1/Q2/Q3/Q7 together — written under the old
+  clustered approach. He said to leave it in place.
+- **Everything from here restarts at the first follow-up and proceeds one at a time.**
+  Resolution 1 already covers some of Q1's ground; reference it rather than repeating it,
+  but still address anything in Q1's follow-up it did not answer.
+
+Pieces live in `topics/<slug>/discuss.json` and render in the **Discuss** tab — unrelated
+to the `? Discuss` marker on cards. Push after each one.
+
+An earlier claim that the doubts were "about memory internals" was **wrong** and was
+retracted to him; "in memory" appears three times in the whole corpus.
 
 ## Site features built beyond the base scaffold
 

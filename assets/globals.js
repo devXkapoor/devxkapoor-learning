@@ -1252,20 +1252,18 @@ const DK = (() => {
     function scopes() {
       const out = [];
       const topic = topicSlug();
-      const tabs = [
-        ["landscape", "Landscape"],
-        ["recall", "Recall"],
-        ["prep", "Prep"],
-        ["elaboration", "Elaboration"],
-      ];
-      let sawTab = false;
-      tabs.forEach(([tab, label]) => {
+
+      // Discovered from the DOM rather than from a list kept here: the pack
+      // grew a fifth tab (Discuss) after this was written, and a sixth should
+      // not need an edit either. The tab button supplies the label.
+      document.querySelectorAll(".tab-btn[data-tab]").forEach((btn) => {
+        const tab = btn.dataset.tab;
         const root = document.getElementById("tab-" + tab);
         if (!root) return;
-        sawTab = true;
+        const label = (btn.textContent || tab).trim();
         out.push({ id: `${topic}:${tab}`, tab, root, label, topic });
       });
-      if (sawTab) return out;
+      if (out.length) return out;
 
       // Pages outside a topic pack (the global deck, search) have one body of
       // content and a page intro. The scope is the content container itself,
@@ -2775,11 +2773,16 @@ const DK = (() => {
     // get none: hundreds of tiny buttons is clutter, not control.
     function mountInline() {
       if (!hasSpeech) return;
+      // Prose blocks in any tab — landscape nodes, elaboration and discuss
+      // sections. Deck groups are excluded: a play button on every question
+      // group is the clutter this was meant to avoid.
       const targets = [];
-      const landscape = document.getElementById("tab-landscape");
-      const elaboration = document.getElementById("tab-elaboration");
-      if (landscape) targets.push(...landscape.querySelectorAll("details.node-block > summary.node-summary"));
-      if (elaboration) targets.push(...elaboration.querySelectorAll("details.el-block > summary.node-summary"));
+      scopes().forEach((scope) => {
+        if (!scope.tab) return;
+        targets.push(...scope.root.querySelectorAll(
+          "details.node-block:not(.deck-group) > summary.node-summary, details.el-block > summary.node-summary"
+        ));
+      });
       targets.forEach((summary) => {
         if (summary.querySelector(".dkr-inline")) return;
         const btn = document.createElement("button");
@@ -2792,9 +2795,7 @@ const DK = (() => {
           e.preventDefault();
           e.stopPropagation();
           const block = summary.parentElement;
-          const tab = block.closest("#tab-landscape, #tab-elaboration");
-          if (!tab) return;
-          const scope = scopes().find((s) => s.root === tab);
+          const scope = scopes().find((s) => s.root.contains(block));
           if (scope) playScope(scope.id, { element: block });
         });
         summary.appendChild(btn);

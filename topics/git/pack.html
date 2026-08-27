@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Git — devxkapoor mastery track</title>
-<link rel="stylesheet" href="../../assets/styles.css?v=1b906b948f">
+<link rel="stylesheet" href="../../assets/styles.css?v=2407b8bffd">
 <script src="../../assets/globals.js?v=5b1cbbb0dc"></script>
 </head>
 <body>
@@ -30,6 +30,7 @@
     <button class="tab-btn" data-tab="recall">Recall</button>
     <button class="tab-btn" data-tab="prep">Prep</button>
     <button class="tab-btn" data-tab="elaboration">Elaboration</button>
+    <button class="tab-btn" data-tab="discuss">Discuss</button>
   </div>
 
   <div id="tab-landscape">
@@ -180,6 +181,10 @@
   <div id="tab-elaboration" style="display:none">
     <div class="card-list" id="elabCards"></div>
   </div>
+
+  <div id="tab-discuss" style="display:none">
+    <div class="card-list" id="discussCards"></div>
+  </div>
 </div>
 
 <footer class="site-footer">devxkapoor-learning · git · built with Claude</footer>
@@ -187,7 +192,7 @@
 <script>
 DK.wireThemeToggle(document.getElementById("themeToggle"));
 
-const TABS = ["landscape", "recall", "prep", "elaboration"];
+const TABS = ["landscape", "recall", "prep", "elaboration", "discuss"];
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -222,6 +227,33 @@ function renderCards(container, cards, bank) {
     renderCards(prepEl, prep.cards, "prep");
   } else {
     prepEl.innerHTML = "<p class='empty-note'>Interview and scenario prep lands here once this topic's build gets underway.</p>";
+  }
+
+  const discuss = await DK.fetchJSON("topics/git/discuss.json");
+  const discussEl = document.getElementById("discussCards");
+  if (discuss && discuss.pieces && discuss.pieces.length) {
+    discuss.pieces.forEach(pc => {
+      const block = document.createElement("details");
+      block.className = "el-block";
+      block.id = pc.anchor || "";
+      block.innerHTML =
+        `<summary class="node-summary">` +
+          `<span class="node-chevron">${DK.ICON.chevron}</span>` +
+          `<span class="node-title">${pc.title}</span>` +
+          (pc.resolves ? `<span class="node-count">${pc.resolves.length} doubts</span>` : "") +
+        `</summary>` +
+        `<div class="node-body"><div class="prose">${pc.content}</div></div>`;
+      discussEl.appendChild(block);
+    });
+    discussEl.querySelectorAll(".el-block .prose").forEach(pr => {
+      DK.makeSectionsCollapsible(pr, { startOpen: false, level: "sub" });
+      DK.addCopyButtons(pr);
+    });
+    DK.decorateBlocks(discussEl);
+    DK.addExpandControls(document.getElementById("tab-discuss"), discussEl,
+      discuss.pieces.length + " resolutions");
+  } else {
+    discussEl.innerHTML = "<p class='empty-note'>Resolutions to your follow-up questions land here.</p>";
   }
 
   const elab = await DK.fetchJSON("topics/git/elaboration.json");

@@ -1808,3 +1808,13 @@ body.dk-sheet-open { overflow: hidden; }
   .dkr-line { transition: none; }
   .dkr-btn { transition: none; }
 }
+
+/* Opening line of a resolution piece. */
+.prose .dk-lede {
+  color: var(--text-dim);
+  font-size: 15.5px;
+  font-style: italic;
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}

@@ -1240,3 +1240,339 @@ details[open] > summary .node-count { color: var(--accent); border-color: var(--
 .tm-swatch.cream::after { background: #a8660f; }
 .tm-check { margin-left: auto; opacity: 0; color: var(--accent); display: inline-flex; }
 .tm-opt.active .tm-check { opacity: 1; }
+
+/* ---------- Read-aloud player ---------- */
+/* Everything below is built from the shared variables, so the player follows
+   both themes without a second palette of its own. */
+
+.dkr-launcher, .dkr-lock {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
+  width: 30px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.dkr-launcher:hover, .dkr-lock:hover { color: var(--accent); border-color: var(--accent-dim); }
+.dkr-launcher.on, .dkr-lock.on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+.dkr-launcher:focus-visible, .dkr-lock:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+/* Frozen: titles stop responding to clicks, so a long read cannot be collapsed
+   out from under the reader by a stray tap. */
+html.dk-locked summary.node-summary,
+html.dk-locked .node-foot { cursor: default; }
+html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
+
+/* Live sentence and word. The Custom Highlight API paints arbitrary ranges
+   without wrapping anything, so inline <strong>/<em> never break the run. */
+::highlight(dk-read-sentence) {
+  background-color: var(--accent-glow);
+  color: var(--text-strong);
+}
+::highlight(dk-read-word) {
+  background-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  color: var(--text-strong);
+}
+
+.dk-reader {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  font-family: var(--mono);
+  pointer-events: none;
+}
+.dk-reader[hidden] { display: none; }
+.dk-reader > * { pointer-events: auto; }
+
+.dkr-chip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  max-width: min(92vw, 460px);
+  background: var(--panel-raised);
+  border: 1px solid var(--accent-dim);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: var(--shadow-lift);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dkr-chip[hidden] { display: none; }
+.dkr-chip:hover { border-color: var(--accent); }
+.dkr-chip-icon { color: var(--accent); display: inline-flex; }
+.dkr-chip-cta { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+.dkr-bar {
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  box-shadow: var(--shadow-lift);
+  padding: 10px 18px 12px;
+}
+
+.dkr-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 1140px;
+  margin: 0 auto;
+}
+
+.dkr-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.dkr-btn:hover { color: var(--text); border-color: var(--border-bright); }
+.dkr-btn:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.dkr-primary { color: var(--accent); border-color: var(--accent-dim); }
+.dkr-primary:hover { color: var(--accent-soft); border-color: var(--accent); }
+
+.dkr-mid { flex: 1; min-width: 0; padding: 0 6px; }
+.dkr-now {
+  font-family: var(--sans);
+  font-size: 13.5px;
+  color: var(--text);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 19px;
+}
+.dkr-track {
+  margin: 6px 0 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+  position: relative;
+}
+.dkr-track:focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; }
+.dkr-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.2s linear;
+}
+.dkr-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-dimmer);
+  letter-spacing: 0.03em;
+}
+
+.dkr-rate-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dimmer);
+  letter-spacing: 0.04em;
+  flex: none;
+}
+.dkr-rate {
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  padding: 5px 6px;
+  cursor: pointer;
+}
+
+.dkr-tray {
+  max-width: 1140px;
+  margin: 12px auto 2px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dkr-tray[hidden] { display: none; }
+.dkr-lbl {
+  font-size: 11px;
+  color: var(--text-dimmer);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.dkr-field { display: flex; flex-direction: column; gap: 7px; }
+.dkr-inline-field { flex-direction: row; align-items: center; gap: 12px; }
+.dkr-inline-field .dkr-pitch { flex: 1; accent-color: var(--accent); }
+.dkr-pitch-val { font-size: 11px; color: var(--text-dim); min-width: 34px; }
+
+/* One full-width selector rather than a native <select>: the list has to stay
+   open while several voices are auditioned. */
+.dkr-voice-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  font-family: var(--mono);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+.dkr-voice-btn:hover { border-color: var(--border-bright); }
+.dkr-voice-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dkr-chev { color: var(--text-dimmer); display: inline-flex; transform: rotate(90deg); }
+.dkr-voice-btn[aria-expanded="true"] .dkr-chev { transform: rotate(-90deg); }
+
+.dkr-voice-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+.dkr-voice-list[hidden] { display: none; }
+.dkr-voice {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.dkr-voice:last-child { border-bottom: none; }
+.dkr-voice.on { background: var(--accent-glow); }
+.dkr-voice-pick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  text-align: left;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+.dkr-voice-pick:hover { color: var(--accent); }
+.dkr-voice.on .dkr-voice-pick { color: var(--accent); }
+.dkr-vname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dkr-vlang { color: var(--text-dimmer); font-size: 11px; flex: none; }
+.dkr-vtag {
+  flex: none;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--done);
+  border: 1px solid color-mix(in srgb, var(--done) 45%, transparent);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.dkr-vtag.alt { color: var(--mk-discuss); border-color: color-mix(in srgb, var(--mk-discuss) 45%, transparent); }
+.dkr-voice-prev {
+  flex: none;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--border);
+  color: var(--text-dimmer);
+  padding: 9px 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+.dkr-voice-prev:hover { color: var(--accent); }
+
+.dkr-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.dkr-check input { accent-color: var(--accent); width: 15px; height: 15px; }
+.dkr-note { font-size: 11.5px; color: var(--text-dimmer); }
+.dkr-note:empty { display: none; }
+
+/* Inline section play. Sits in the summary row, revealed on hover so a page of
+   nineteen nodes does not read as a page of nineteen buttons. */
+.dkr-inline {
+  flex: none;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-dimmer);
+  border-radius: var(--radius-sm);
+  width: 26px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-left: 8px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+summary.node-summary:hover .dkr-inline,
+.dkr-inline:focus-visible { opacity: 1; }
+.dkr-inline:hover { color: var(--accent); border-color: var(--accent-dim); }
+@media (hover: none) { .dkr-inline { opacity: 0.7; } }
+
+/* The bar is fixed, so the last section of a page would otherwise sit under it. */
+body.dk-reader-open .wrap { padding-bottom: 210px; }
+
+@media (max-width: 860px) {
+  .dkr-rate-wrap span { display: none; }
+}
+
+@media (max-width: 640px) {
+  .dkr-bar { padding: 9px 12px 11px; }
+  .dkr-row { flex-wrap: wrap; gap: 6px; }
+  .dkr-mid { order: -1; width: 100%; flex: 1 0 100%; padding: 0 2px 4px; }
+  .dkr-btn { width: 34px; height: 34px; }
+  .dkr-now { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .dkr-chip { font-size: 11px; padding: 6px 12px; max-width: 94vw; }
+  .dkr-voice-list { max-height: 180px; }
+  body.dk-reader-open .wrap { padding-bottom: 250px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dkr-fill { transition: none; }
+}

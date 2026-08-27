@@ -2025,11 +2025,15 @@ const DK = (() => {
       const anchor = state.units[state.idx];
       const anchorEl = anchor ? anchor.el : null;
       const anchorStart = anchor ? anchor.s : 0;
+      const anchorText = anchor ? anchor.text : "";
       const wasPlaying = state.status === "playing";
       rebuild();
       let next = 0;
       if (anchorEl) {
-        const hit = state.units.findIndex((u) => u.el === anchorEl && u.e > anchorStart);
+        let hit = state.units.findIndex((u) => u.el === anchorEl && u.e > anchorStart);
+        // A re-rendered deck replaces its elements outright, so fall back to
+        // finding the same sentence again by its text.
+        if (hit < 0 && anchorText) hit = state.units.findIndex((u) => u.text === anchorText);
         next = hit >= 0 ? hit : Math.min(state.idx, Math.max(0, state.units.length - 1));
       }
       state.idx = Math.max(0, Math.min(next, Math.max(0, state.units.length - 1)));
@@ -2279,7 +2283,16 @@ const DK = (() => {
       let pending = null;
       const obs = new MutationObserver(() => {
         clearTimeout(pending);
-        pending = setTimeout(() => { mountHeader(); mountInline(); drawChip(); }, 200);
+        pending = setTimeout(() => {
+          mountHeader();
+          mountInline();
+          drawChip();
+          // A filter change or a deck re-render replaces the very elements the
+          // unit list points at. Detached elements still yield text, so this
+          // would otherwise keep narrating a list that is no longer on screen.
+          const cur = state.units[state.idx];
+          if (state.status !== "idle" && cur && !cur.el.isConnected) recollectInPlace();
+        }, 200);
       });
       obs.observe(document.body, { childList: true, subtree: true });
 

@@ -1196,6 +1196,12 @@ const DK = (() => {
     let hlSentence = null;
     let hlWord = null;
     let lockBtn = null;
+    let keepAlive = null;        // silent track that owns the media session
+    let keepAliveUrl = null;
+    const artCache = new Map();
+    let sheetOpen = false;
+    let follow = true;           // does the lyric list track the narration
+    let lineEls = [];
     let detailsSnapshot = null;
 
     // ----- small helpers ------------------------------------------------
@@ -1596,6 +1602,7 @@ const DK = (() => {
           state.lastChar = state.charOffset + ev.charIndex;
           state.retries = 0;
           paintWord(state.units[state.idx], state.lastChar, ev.charLength || 0);
+          paintSpokenWords();
         };
         u.onend = () => {
           if (myGen !== state.gen) return;
@@ -1629,6 +1636,7 @@ const DK = (() => {
       const text = unit.text.slice(state.charOffset - unit.s < 0 ? 0 : state.charOffset - unit.s);
       safeSpeak(text || unit.text, ++state.gen);
       draw();
+      paintLines();
     }
 
     function advance(step) {
@@ -1687,17 +1695,177 @@ const DK = (() => {
       speakFrom(state.idx, from);
     }
 
+    // ----- background playback -------------------------------------------
+    // speechSynthesis is not media playback as far as the browser is
+    // concerned: on its own it puts nothing in the notification shade, and a
+    // backgrounded tab with no audio gets frozen, which is what stops the
+    // narration the moment you press Home. An <audio> element that is actually
+    // playing fixes both — it makes the page an audible media player, so the
+    // tab keeps running and the media session has something to attach to.
+    //
+    // The track is generated here rather than shipped as a file: four seconds
+    // of 16-bit PCM at ±2/32768, which is -84 dBFS. Inaudible, but not digital
+    // silence, which some engines discard as "not really playing".
+    function silentTrackUrl() {
+      if (keepAliveUrl) return keepAliveUrl;
+      const hz = 8000, secs = 4, n = hz * secs;
+      const buf = new ArrayBuffer(44 + n * 2);
+      const dv = new DataView(buf);
+      const str = (off, text) => {
+        for (let i = 0; i < text.length; i++) dv.setUint8(off + i, text.charCodeAt(i));
+      };
+      str(0, "RIFF"); dv.setUint32(4, 36 + n * 2, true); str(8, "WAVEfmt ");
+      dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+      dv.setUint32(24, hz, true); dv.setUint32(28, hz * 2, true);
+      dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+      str(36, "data"); dv.setUint32(40, n * 2, true);
+      for (let i = 0; i < n; i++) dv.setInt16(44 + i * 2, i % 2 ? 2 : -2, true);
+      try {
+        keepAliveUrl = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+      } catch (e) {
+        keepAliveUrl = "";
+      }
+      if (!keepAliveUrl) {
+        // No object URLs here: inline it instead, which needs no lifetime
+        // management at all.
+        try {
+          const bytes = new Uint8Array(buf);
+          let bin = "";
+          for (let i = 0; i < bytes.length; i += 4096) {
+            bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 4096));
+          }
+          keepAliveUrl = "data:audio/wav;base64," + btoa(bin);
+        } catch (e2) {
+          keepAliveUrl = "";
+        }
+      }
+      return keepAliveUrl;
+    }
+
+    function startKeepAlive() {
+      if (!keepAlive) {
+        const url = silentTrackUrl();
+        if (!url) return;
+        try {
+          keepAlive = new Audio(url);
+          keepAlive.loop = true;
+          keepAlive.preload = "auto";
+          keepAlive.setAttribute("aria-hidden", "true");
+        } catch (e) {
+          keepAlive = null;
+          return;
+        }
+      }
+      // Started from the play button, so this is inside a user gesture.
+      try {
+        const p = keepAlive.play();
+        if (p && p.catch) p.catch(() => { /* autoplay policy; controls still work */ });
+      } catch (e) { /* nothing else to try */ }
+    }
+
+    // Paused rather than torn down: the notification should stay on screen with
+    // a play button on it, the way a paused song does.
+    function pauseKeepAlive() {
+      if (keepAlive) { try { keepAlive.pause(); } catch (e) { /* ignore */ } }
+    }
+
+    function stopKeepAlive() {
+      if (!keepAlive) return;
+      try { keepAlive.pause(); keepAlive.currentTime = 0; } catch (e) { /* ignore */ }
+    }
+
+    // The lock-screen poster. Google Play Music showed album art on the lock
+    // screen and nothing since has; here it is the topic and tab, drawn from
+    // the live theme so it matches the site it came from.
+    function artworkFor(scope) {
+      if (!scope) return null;
+      const theme = document.documentElement.getAttribute("data-theme") || "dark";
+      const key = scope.id + ":" + theme;
+      if (artCache.has(key)) return artCache.get(key);
+      artCache.set(key, null);                 // don't retry on every sentence
+      try {
+        const cvs = document.createElement("canvas");
+        cvs.width = 512; cvs.height = 512;
+        const g = cvs.getContext("2d");
+        if (!g) return null;
+        const css = getComputedStyle(document.documentElement);
+        const varOf = (name, fallback) => (css.getPropertyValue(name) || "").trim() || fallback;
+        const bg = varOf("--panel", "#0e1520");
+        const accent = varOf("--accent", "#f0b45f");
+        const text = varOf("--text-strong", "#e2eaf5");
+        const dim = varOf("--text-dimmer", "#5b6a80");
+
+        g.fillStyle = bg;
+        g.fillRect(0, 0, 512, 512);
+        g.fillStyle = accent;
+        g.globalAlpha = 0.13;
+        g.fillRect(0, 0, 512, 190);
+        g.globalAlpha = 1;
+        g.fillRect(56, 150, 60, 5);
+
+        g.fillStyle = dim;
+        g.font = "500 26px ui-monospace, monospace";
+        g.fillText("devxkapoor/mastery-track", 56, 100);
+
+        g.fillStyle = text;
+        g.font = "700 68px system-ui, sans-serif";
+        g.fillText(scope.topic.replace(/-/g, " "), 56, 300);
+
+        g.fillStyle = accent;
+        g.font = "500 38px ui-monospace, monospace";
+        g.fillText(scope.label.toLowerCase(), 56, 360);
+
+        g.strokeStyle = dim;
+        g.globalAlpha = 0.5;
+        g.lineWidth = 3;
+        g.beginPath(); g.moveTo(56, 420); g.lineTo(456, 420); g.stroke();
+        g.globalAlpha = 1;
+        g.fillStyle = dim;
+        g.font = "400 24px ui-monospace, monospace";
+        g.fillText("read aloud", 56, 462);
+
+        const url = cvs.toDataURL("image/png");
+        artCache.set(key, url);
+        return url;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Title is the sentence being narrated, so the notification and the lock
+    // screen say what is actually being read, not just which page it came from.
     function setMediaMetadata(unit) {
       if (!("mediaSession" in navigator) || typeof window.MediaMetadata !== "function") return;
       const scope = scopeById(state.scope);
       try {
+        const art = artworkFor(scope);
         navigator.mediaSession.metadata = new MediaMetadata({
-          title: unit.text.slice(0, 120),
-          artist: scope ? scope.label : "devxkapoor",
-          album: scope ? scope.topic.replace(/-/g, " ") : "mastery track",
+          title: unit.text.slice(0, 160),
+          artist: scope ? `${scope.topic.replace(/-/g, " ")} · ${scope.label.toLowerCase()}` : "devxkapoor",
+          album: "devxkapoor / mastery-track",
+          artwork: art
+            ? [96, 192, 256, 512].map((n) => ({ src: art, sizes: `${n}x${n}`, type: "image/png" }))
+            : [],
         });
         navigator.mediaSession.playbackState = state.status === "playing" ? "playing" : "paused";
       } catch (e) { /* metadata is a nicety */ }
+      setPositionState();
+    }
+
+    // Feeds the notification's scrub bar. The numbers are the same word-count
+    // estimate the player bar shows — honest to about a sentence.
+    function setPositionState() {
+      if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
+      const total = secondsFor(state.units, 0, state.units.length);
+      if (!isFinite(total) || total <= 0) return;
+      const at = Math.min(secondsFor(state.units, 0, state.idx), total);
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: total,
+          position: Math.max(0, at),
+          playbackRate: 1,
+        });
+      } catch (e) { /* some engines reject rapid updates */ }
     }
 
     function wireMediaSession() {
@@ -1705,11 +1873,18 @@ const DK = (() => {
       const set = (action, fn) => {
         try { navigator.mediaSession.setActionHandler(action, fn); } catch (e) { /* unsupported */ }
       };
-      set("play", () => { if (state.status === "paused") resume(); });
+      set("play", () => { if (state.status === "paused") resume(); else if (state.status === "idle") toggle(); });
       set("pause", () => pause());
       set("stop", () => stop());
       set("previoustrack", () => seek(-1));
       set("nexttrack", () => seek(1));
+      set("seekbackward", () => seek(-1));
+      set("seekforward", () => seek(1));
+      set("seekto", (ev) => {
+        const total = secondsFor(state.units, 0, state.units.length);
+        if (!ev || typeof ev.seekTime !== "number" || total <= 0) return;
+        seekTo(Math.round((ev.seekTime / total) * (state.units.length - 1)));
+      });
     }
 
     // ----- public playback ------------------------------------------------
@@ -1717,6 +1892,18 @@ const DK = (() => {
       const scope = scopeById(state.scope);
       if (!scope) return;
       state.units = collect(scope);
+    }
+
+    // Loads a scope and places the cursor at its bookmark without speaking, so
+    // the transcript can be opened and browsed before anything is playing.
+    function prepare(scopeId) {
+      const scope = scopeById(scopeId);
+      if (!scope || state.status !== "idle") return !!scope;
+      state.scope = scope.id;
+      state.units = collect(scope);
+      const bm = getBookmark(scope.id);
+      state.idx = bm && typeof bm.i === "number" && bm.i < state.units.length ? bm.i : 0;
+      return true;
     }
 
     function playScope(scopeId, opts) {
@@ -1756,6 +1943,8 @@ const DK = (() => {
       state.status = "playing";
       state.retries = 0;
       openPlayer();
+      if (sheetOpen) renderLines();
+      startKeepAlive();
       startWatchdog();
       speakFrom(start, 0);
     }
@@ -1767,6 +1956,7 @@ const DK = (() => {
       try { synth.cancel(); } catch (e) { /* ignore */ }
       state.status = "paused";
       stopWatchdog();
+      pauseKeepAlive();
       if (state.scope) setBookmark(state.scope, state.idx, state.units.length);
       if (hlWord) hlWord.clear();
       if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
@@ -1778,6 +1968,7 @@ const DK = (() => {
       if (!state.units.length) rebuild();
       state.status = "playing";
       state.retries = 0;
+      startKeepAlive();
       startWatchdog();
       resumeFromWord();
       if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
@@ -1818,6 +2009,7 @@ const DK = (() => {
     function hardStop(restore) {
       state.gen++;
       stopWatchdog();
+      stopKeepAlive();
       try { synth.cancel(); } catch (e) { /* ignore */ }
       clearHighlights();
       if (restore !== false) restoreDetails();
@@ -1867,6 +2059,8 @@ const DK = (() => {
       stop: '<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><rect x="3.5" y="3.5" width="9" height="9" rx="1.5"/></svg>',
       gear: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.3"/><path d="M8 1.6v1.7M8 12.7v1.7M14.4 8h-1.7M3.3 8H1.6M12.5 3.5l-1.2 1.2M4.7 11.3l-1.2 1.2M12.5 12.5l-1.2-1.2M4.7 4.7L3.5 3.5"/></svg>',
       lock: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>',
+      up: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l4-4 4 4"/></svg>',
+      down: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>',
       speaker: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.2h2.3L8.5 3.4v9.2L5.3 9.8H3z"/><path d="M11 5.8a3 3 0 0 1 0 4.4"/></svg>',
     };
 
@@ -1888,53 +2082,101 @@ const DK = (() => {
       const el = document.createElement("div");
       el.className = "dk-reader";
       el.hidden = true;
+      // One transport markup, used twice: the bar's compact copy and the
+      // sheet's large one. Both carry the same data-act values, so a single
+      // delegated click handler drives either.
+      const transport = (size) =>
+        `<div class="dkr-transport ${size}">` +
+          `<button class="dkr-btn dkr-stop" data-act="stop" type="button" aria-label="Stop">${ICONS.stop}</button>` +
+          `<button class="dkr-btn dkr-step" data-act="prev" type="button" aria-label="Previous sentence">${ICONS.prev}</button>` +
+          `<button class="dkr-btn dkr-primary" data-act="toggle" type="button" aria-label="Play">${ICONS.play}</button>` +
+          `<button class="dkr-btn dkr-step" data-act="next" type="button" aria-label="Next sentence">${ICONS.next}</button>` +
+          `<button class="dkr-btn dkr-cog" data-act="tray" type="button" aria-label="Settings">${ICONS.gear}</button>` +
+        `</div>`;
+
+      const scrubber = (cls) =>
+        `<div class="dkr-scrub ${cls}">` +
+          `<div class="dkr-track" role="slider" tabindex="0" aria-label="Position"><div class="dkr-fill"></div></div>` +
+          `<div class="dkr-meta"><span class="dkr-time-at"></span><span class="dkr-scope"></span><span class="dkr-time-all"></span></div>` +
+        `</div>`;
+
       el.innerHTML =
         `<button class="dkr-chip" type="button" hidden></button>` +
+
+        `<div class="dkr-sheet" role="dialog" aria-label="Transcript" hidden>` +
+          `<div class="dkr-sheet-head">` +
+            `<button class="dkr-btn dkr-ghost" data-act="sheet-close" type="button" aria-label="Close transcript">${ICONS.down}</button>` +
+            `<div class="dkr-sheet-title">` +
+              `<strong class="dkr-sheet-topic"></strong>` +
+              `<span class="dkr-sheet-tab"></span>` +
+            `</div>` +
+            `<span class="dkr-count"></span>` +
+          `</div>` +
+          `<div class="dkr-lines" tabindex="0"></div>` +
+          `<button class="dkr-follow" type="button" hidden>${ICONS.down}<span>back to what's playing</span></button>` +
+          `<div class="dkr-sheet-foot">` +
+            scrubber("big") +
+            transport("big") +
+          `</div>` +
+        `</div>` +
+
         `<div class="dkr-bar" role="region" aria-label="Read aloud player">` +
           `<div class="dkr-row">` +
-            `<button class="dkr-btn dkr-primary" data-act="toggle" type="button" aria-label="Play">${ICONS.play}</button>` +
-            `<button class="dkr-btn" data-act="prev" type="button" aria-label="Previous sentence">${ICONS.prev}</button>` +
-            `<button class="dkr-btn" data-act="next" type="button" aria-label="Next sentence">${ICONS.next}</button>` +
-            `<button class="dkr-btn" data-act="stop" type="button" aria-label="Stop">${ICONS.stop}</button>` +
             `<div class="dkr-mid">` +
-              `<div class="dkr-now"></div>` +
-              `<div class="dkr-track" role="slider" tabindex="0" aria-label="Position"><div class="dkr-fill"></div></div>` +
-              `<div class="dkr-meta"><span class="dkr-scope"></span><span class="dkr-time"></span></div>` +
+              `<button class="dkr-now" data-act="sheet" type="button" aria-label="Open transcript"></button>` +
+              scrubber("small") +
             `</div>` +
             `<label class="dkr-rate-wrap"><span>speed</span><select class="dkr-rate" aria-label="Speed"></select></label>` +
-            `<button class="dkr-btn" data-act="tray" type="button" aria-label="Settings">${ICONS.gear}</button>` +
-            `<button class="dkr-btn" data-act="close" type="button" aria-label="Close player">×</button>` +
-          `</div>` +
-          `<div class="dkr-tray" hidden>` +
-            `<div class="dkr-field">` +
-              `<span class="dkr-lbl">Voice</span>` +
-              `<button class="dkr-voice-btn" type="button" aria-expanded="false">` +
-                `<span class="dkr-voice-name">Loading voices…</span>` +
-                `<span class="dkr-chev">${ICON.chevron}</span>` +
-              `</button>` +
-              `<div class="dkr-voice-list" hidden></div>` +
+            transport("small") +
+            `<div class="dkr-corner">` +
+              `<button class="dkr-btn dkr-ghost" data-act="sheet" type="button" aria-label="Open transcript">${ICONS.up}</button>` +
+              `<button class="dkr-btn dkr-ghost" data-act="close" type="button" aria-label="Close player">×</button>` +
             `</div>` +
-            `<div class="dkr-field dkr-inline-field">` +
-              `<span class="dkr-lbl">Pitch</span>` +
-              `<input class="dkr-pitch" type="range" min="0.6" max="1.6" step="0.05">` +
-              `<span class="dkr-pitch-val"></span>` +
-            `</div>` +
-            `<label class="dkr-check"><input type="checkbox" class="dkr-code"><span>Read code blocks</span></label>` +
-            `<label class="dkr-check"><input type="checkbox" class="dkr-answers"><span>Read answers on hidden cards</span></label>` +
-            `<div class="dkr-note"></div>` +
           `</div>` +
+        `</div>` +
+
+        // The tray is a sibling of both, not a child of the bar: it has to be
+        // reachable from the sheet, which covers the bar on a phone.
+        `<div class="dkr-tray" hidden>` +
+          `<div class="dkr-tray-head">` +
+            `<span class="dkr-lbl">Playback settings</span>` +
+            `<button class="dkr-btn dkr-ghost" data-act="tray-close" type="button" aria-label="Close settings">×</button>` +
+          `</div>` +
+          `<div class="dkr-field">` +
+            `<span class="dkr-lbl">Voice</span>` +
+            `<button class="dkr-voice-btn" type="button" aria-expanded="false">` +
+              `<span class="dkr-voice-name">Loading voices…</span>` +
+              `<span class="dkr-chev">${ICON.chevron}</span>` +
+            `</button>` +
+            `<div class="dkr-voice-list" hidden></div>` +
+          `</div>` +
+          `<div class="dkr-field dkr-inline-field">` +
+            `<span class="dkr-lbl">Pitch</span>` +
+            `<input class="dkr-pitch" type="range" min="0.6" max="1.6" step="0.05">` +
+            `<span class="dkr-pitch-val"></span>` +
+          `</div>` +
+          `<label class="dkr-check"><input type="checkbox" class="dkr-code"><span>Read code blocks</span></label>` +
+          `<label class="dkr-check"><input type="checkbox" class="dkr-answers"><span>Read answers on hidden cards</span></label>` +
+          `<div class="dkr-note"></div>` +
         `</div>`;
       document.body.appendChild(el);
 
       ui = {
         el,
         chip: el.querySelector(".dkr-chip"),
-        toggle: el.querySelector('[data-act="toggle"]'),
+        toggles: el.querySelectorAll('[data-act="toggle"]'),
         now: el.querySelector(".dkr-now"),
-        track: el.querySelector(".dkr-track"),
-        fill: el.querySelector(".dkr-fill"),
-        scope: el.querySelector(".dkr-scope"),
-        time: el.querySelector(".dkr-time"),
+        tracks: el.querySelectorAll(".dkr-track"),
+        fills: el.querySelectorAll(".dkr-fill"),
+        scopes: el.querySelectorAll(".dkr-scope"),
+        timeAt: el.querySelectorAll(".dkr-time-at"),
+        timeAll: el.querySelectorAll(".dkr-time-all"),
+        sheet: el.querySelector(".dkr-sheet"),
+        sheetTopic: el.querySelector(".dkr-sheet-topic"),
+        sheetTab: el.querySelector(".dkr-sheet-tab"),
+        lines: el.querySelector(".dkr-lines"),
+        count: el.querySelector(".dkr-count"),
+        followBtn: el.querySelector(".dkr-follow"),
         rate: el.querySelector(".dkr-rate"),
         tray: el.querySelector(".dkr-tray"),
         voiceBtn: el.querySelector(".dkr-voice-btn"),
@@ -1969,8 +2211,31 @@ const DK = (() => {
         else if (act === "next") seek(1);
         else if (act === "stop") stop();
         else if (act === "tray") { ui.tray.hidden = !ui.tray.hidden; }
+        else if (act === "tray-close") { ui.tray.hidden = true; }
+        else if (act === "sheet") toggleSheet();
+        else if (act === "sheet-close") closeSheet();
         else if (act === "close") closePlayer();
       });
+
+      // Transcript interaction. A word inside the live line is the finest jump
+      // the engine can honour; anywhere else on a line starts that sentence.
+      ui.lines.addEventListener("click", (e) => {
+        const word = e.target.closest(".dkr-w");
+        const line = e.target.closest(".dkr-line");
+        if (!line) return;
+        const i = Number(line.dataset.i);
+        jumpTo(i, word ? Number(word.dataset.c) : null);
+      });
+
+      // Scrolling is browsing, never seeking. Any real scroll gesture drops
+      // the follow lock and raises the way back.
+      ["wheel", "touchmove", "pointerdown"].forEach((ev) => {
+        ui.lines.addEventListener(ev, () => { if (follow) setFollow(false); }, { passive: true });
+      });
+      ui.lines.addEventListener("keydown", (e) => {
+        if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"].includes(e.key)) setFollow(false);
+      });
+      ui.followBtn.addEventListener("click", () => setFollow(true));
 
       ui.chip.addEventListener("click", jumpToPlaying);
 
@@ -2003,16 +2268,36 @@ const DK = (() => {
         ui.voiceBtn.setAttribute("aria-expanded", open ? "true" : "false");
       });
 
-      ui.track.addEventListener("click", (e) => {
-        if (!state.units.length) return;
-        const rect = ui.track.getBoundingClientRect();
-        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-        seekTo(Math.round(ratio * (state.units.length - 1)));
+      ui.tracks.forEach((track) => {
+        track.addEventListener("click", (e) => {
+          if (!state.units.length) return;
+          const rect = track.getBoundingClientRect();
+          const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          seekTo(Math.round(ratio * (state.units.length - 1)));
+        });
+        track.addEventListener("keydown", (e) => {
+          if (e.key === "ArrowLeft") { e.preventDefault(); seek(-1); }
+          if (e.key === "ArrowRight") { e.preventDefault(); seek(1); }
+        });
       });
-      ui.track.addEventListener("keydown", (e) => {
-        if (e.key === "ArrowLeft") { e.preventDefault(); seek(-1); }
-        if (e.key === "ArrowRight") { e.preventDefault(); seek(1); }
-      });
+
+      // The speed control belongs beside the transport on a laptop and inside
+      // the settings tray on a phone, where the bar has no room for it. One
+      // control, moved — not two that can disagree.
+      const narrow = window.matchMedia
+        ? window.matchMedia("(max-width: 640px)")
+        : { matches: false, addEventListener: null };
+      const placeRate = () => {
+        const wrap = el.querySelector(".dkr-rate-wrap");
+        const home = narrow.matches ? ui.tray : el.querySelector(".dkr-row");
+        if (wrap.parentElement !== home) {
+          if (narrow.matches) home.insertBefore(wrap, home.querySelector(".dkr-field"));
+          else home.insertBefore(wrap, home.querySelector(".dkr-transport"));
+        }
+        wrap.classList.toggle("in-tray", narrow.matches);
+      };
+      placeRate();
+      if (narrow.addEventListener) narrow.addEventListener("change", placeRate);
 
       drawVoices();
       return ui;
@@ -2037,6 +2322,7 @@ const DK = (() => {
         next = hit >= 0 ? hit : Math.min(state.idx, Math.max(0, state.units.length - 1));
       }
       state.idx = Math.max(0, Math.min(next, Math.max(0, state.units.length - 1)));
+      if (sheetOpen) renderLines();
       if (wasPlaying) speakFrom(state.idx, 0);
       else draw();
     }
@@ -2099,24 +2385,195 @@ const DK = (() => {
       if (ui && ui.note) ui.note.textContent = msg || "";
     }
 
+    // ----- transcript sheet -------------------------------------------------
+    // The whole scope as a scrollable list of sentences, the current one lit,
+    // scrolling itself as the narration moves. Scrolling it never changes what
+    // is playing — browsing ahead and jumping are deliberately separate
+    // gestures, so looking for something you half-remember cannot knock the
+    // narration off its place. Tapping a line is the jump.
+
+    // 3,000-odd sentences is a lot of DOM. `content-visibility` lets the
+    // browser skip layout and paint for the ones off screen, and a per-line
+    // size estimate keeps the scrollbar honest while it does.
+    let paintedIdx = -1;
+
+    function estimateHeight(text) {
+      const lines = Math.max(1, Math.ceil(text.length / 42));
+      return 18 + lines * 30;
+    }
+
+    function renderLines() {
+      if (!ui) return;
+      ui.lines.innerHTML = "";
+      lineEls = [];
+      paintedIdx = -1;
+      const frag = document.createDocumentFragment();
+      state.units.forEach((unit, i) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "dkr-line";
+        b.dataset.i = String(i);
+        b.style.containIntrinsicSize = "auto " + estimateHeight(unit.text) + "px";
+        b.textContent = unit.text;
+        frag.appendChild(b);
+        lineEls.push(b);
+      });
+      ui.lines.appendChild(frag);
+      paintLines(true);
+    }
+
+    // Splits the live sentence into words so a single word can be the target of
+    // a jump — the finest grain the engine can actually resume from.
+    function decorateWords(el, unit) {
+      el.textContent = "";
+      const text = unit.text;
+      const re = /\S+\s*/g;
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        const span = document.createElement("span");
+        span.className = "dkr-w";
+        span.dataset.c = String(unit.s + m.index);
+        span.textContent = m[0];
+        el.appendChild(span);
+      }
+    }
+
+    function paintSpokenWords() {
+      if (!sheetOpen || !ui) return;
+      const el = lineEls[state.idx];
+      if (!el || !el.firstElementChild) return;
+      const upto = state.lastChar;
+      el.querySelectorAll(".dkr-w").forEach((w) => {
+        w.classList.toggle("is-spoken", Number(w.dataset.c) < upto);
+      });
+    }
+
+    function paintLines(force) {
+      if (!ui || !lineEls.length) return;
+      if (!force && paintedIdx === state.idx) return;
+      const prev = lineEls[paintedIdx];
+      if (prev) {
+        prev.classList.remove("is-current");
+        prev.textContent = state.units[paintedIdx] ? state.units[paintedIdx].text : prev.textContent;
+      }
+      if (force) {
+        lineEls.forEach((el, i) => el.classList.toggle("is-past", i < state.idx));
+      } else {
+        for (let i = Math.min(paintedIdx, state.idx); i <= Math.max(paintedIdx, state.idx) && i >= 0; i++) {
+          if (lineEls[i]) lineEls[i].classList.toggle("is-past", i < state.idx);
+        }
+      }
+      const cur = lineEls[state.idx];
+      if (cur) {
+        cur.classList.add("is-current");
+        cur.classList.remove("is-past");
+        decorateWords(cur, state.units[state.idx]);
+        paintSpokenWords();
+      }
+      paintedIdx = state.idx;
+      if (ui.count) ui.count.textContent = `${state.idx + 1} / ${state.units.length}`;
+      if (sheetOpen && follow) followCurrent();
+    }
+
+    function followCurrent(instant) {
+      const cur = lineEls[state.idx];
+      if (!cur || !ui) return;
+      const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      try {
+        cur.scrollIntoView({ block: "center", behavior: instant || reduce ? "auto" : "smooth" });
+      } catch (e) {
+        cur.scrollIntoView(true);
+      }
+    }
+
+    function setFollow(on) {
+      follow = !!on;
+      if (ui && ui.followBtn) ui.followBtn.hidden = follow;
+      if (follow) followCurrent();
+    }
+
+    // A jump is always explicit: a tap on a line, or on a word inside the live
+    // line. Never a scroll.
+    function jumpTo(index, charOffset) {
+      if (index < 0 || index >= state.units.length) return;
+      setFollow(true);
+      if (state.status === "idle") {
+        playScope(state.scope, { index });
+        if (charOffset != null) speakFrom(index, charOffset);
+        return;
+      }
+      state.retries = 0;
+      if (state.status === "paused") {
+        state.idx = index;
+        const unit = state.units[index];
+        state.lastChar = charOffset != null ? charOffset : unit.s;
+        state.charOffset = state.lastChar;
+        revealUnit(unit);
+        paintSentence(unit);
+        draw();
+        paintLines();
+        return;
+      }
+      speakFrom(index, charOffset != null ? charOffset : 0);
+    }
+
+    function openSheet() {
+      if (!ui) buildUI();
+      if (state.status === "idle" && !state.units.length) {
+        const viewed = viewedScope();
+        if (viewed) prepare(viewed.id);
+      }
+      sheetOpen = true;
+      ui.sheet.hidden = false;
+      document.body.classList.add("dk-sheet-open");
+      renderLines();
+      setFollow(true);
+      followCurrent(true);
+      draw();
+    }
+
+    function closeSheet() {
+      sheetOpen = false;
+      if (ui) ui.sheet.hidden = true;
+      document.body.classList.remove("dk-sheet-open");
+      draw();
+    }
+
+    function toggleSheet() {
+      if (sheetOpen) closeSheet(); else openSheet();
+    }
+
     function draw() {
       if (!ui) return;
       const playing = state.status === "playing";
-      ui.toggle.innerHTML = playing ? ICONS.pausing : ICONS.play;
-      ui.toggle.setAttribute("aria-label", playing ? "Pause" : "Play");
+      ui.toggles.forEach((b) => {
+        b.innerHTML = playing ? ICONS.pausing : ICONS.play;
+        b.setAttribute("aria-label", playing ? "Pause" : "Play");
+      });
       ui.el.classList.toggle("is-playing", playing);
+      ui.el.classList.toggle("sheet-open", sheetOpen);
 
       const scope = scopeById(state.scope);
       const total = state.units.length;
       const done = total ? state.idx + 1 : 0;
-      ui.scope.textContent = scope ? `${scope.label.toLowerCase()} · ${done}/${total}` : "nothing loaded";
-      ui.fill.style.width = total ? `${(done / total) * 100}%` : "0%";
+      const label = scope ? `${scope.label.toLowerCase()} · ${done}/${total}` : "nothing loaded";
+      ui.scopes.forEach((n) => { n.textContent = label; });
+      const pct = total ? `${(done / total) * 100}%` : "0%";
+      ui.fills.forEach((n) => { n.style.width = pct; });
       ui.now.textContent = state.units[state.idx] ? state.units[state.idx].text : "";
-      const elapsed = secondsFor(state.units, 0, state.idx);
-      const all = secondsFor(state.units, 0, total);
-      ui.time.textContent = `${fmtTime(elapsed)} / ${fmtTime(all)}`;
-      ui.track.setAttribute("aria-valuenow", String(done));
-      ui.track.setAttribute("aria-valuemax", String(total));
+      const elapsed = fmtTime(secondsFor(state.units, 0, state.idx));
+      const all = fmtTime(secondsFor(state.units, 0, total));
+      ui.timeAt.forEach((n) => { n.textContent = elapsed; });
+      ui.timeAll.forEach((n) => { n.textContent = all; });
+      ui.tracks.forEach((n) => {
+        n.setAttribute("aria-valuenow", String(done));
+        n.setAttribute("aria-valuemax", String(total));
+      });
+      if (scope) {
+        ui.sheetTopic.textContent = scope.topic.replace(/-/g, " ");
+        ui.sheetTab.textContent = scope.label.toLowerCase();
+      }
+      if (ui.count) ui.count.textContent = total ? `${done} / ${total}` : "";
 
       if (ui.launcher) {
         ui.launcher.classList.toggle("on", state.status !== "idle");
@@ -2166,7 +2623,8 @@ const DK = (() => {
 
     function closePlayer() {
       if (state.status !== "idle") stop();
-      if (ui) ui.el.hidden = true;
+      if (sheetOpen) closeSheet();
+      if (ui) { ui.el.hidden = true; ui.tray.hidden = true; }
       state.open = false;
       document.body.classList.remove("dk-reader-open");
     }
@@ -2255,7 +2713,14 @@ const DK = (() => {
       if (e.key === " " || e.code === "Space") { e.preventDefault(); toggle(); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); seek(-1); }
       else if (e.key === "ArrowRight") { e.preventDefault(); seek(1); }
-      else if (e.key === "Escape") { e.preventDefault(); closePlayer(); }
+      else if (e.key === "Escape") {
+        e.preventDefault();
+        // Esc peels one layer at a time: settings, then transcript, then the
+        // player itself.
+        if (ui && !ui.tray.hidden) ui.tray.hidden = true;
+        else if (sheetOpen) closeSheet();
+        else closePlayer();
+      }
     }
 
     // ----- mount ------------------------------------------------------------------
@@ -2309,6 +2774,9 @@ const DK = (() => {
       pause, resume, stop, toggle, seek,
       open: openPlayer,
       close: closePlayer,
+      sheet: toggleSheet,
+      openSheet,
+      closeSheet,
       lock: setLocked,
       scopes,
       collect: (scopeId) => {

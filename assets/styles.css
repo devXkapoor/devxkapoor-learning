@@ -1242,8 +1242,10 @@ details[open] > summary .node-count { color: var(--accent); border-color: var(--
 .tm-opt.active .tm-check { opacity: 1; }
 
 /* ---------- Read-aloud player ---------- */
-/* Everything below is built from the shared variables, so the player follows
-   both themes without a second palette of its own. */
+/* Built entirely from the shared variables, so the player follows both themes
+   without a palette of its own. Two shapes: a compact bar on a laptop, and on a
+   phone a mini player with one large thumb-sized transport, expanding into a
+   full-screen transcript. */
 
 .dkr-launcher, .dkr-lock {
   background: transparent;
@@ -1273,8 +1275,9 @@ html.dk-locked summary.node-summary,
 html.dk-locked .node-foot { cursor: default; }
 html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
 
-/* Live sentence and word. The Custom Highlight API paints arbitrary ranges
-   without wrapping anything, so inline <strong>/<em> never break the run. */
+/* Live sentence and word in the page itself. The Custom Highlight API paints
+   arbitrary ranges without wrapping anything, so inline <strong>/<em> never
+   break the run. */
 ::highlight(dk-read-sentence) {
   background-color: var(--accent-glow);
   color: var(--text-strong);
@@ -1286,9 +1289,7 @@ html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
 
 .dk-reader {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 40;
   font-family: var(--mono);
   pointer-events: none;
@@ -1296,10 +1297,12 @@ html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
 .dk-reader[hidden] { display: none; }
 .dk-reader > * { pointer-events: auto; }
 
+/* ----- "now playing elsewhere" chip ----- */
+
 .dkr-chip {
   position: absolute;
-  bottom: calc(100% + 10px);
   left: 50%;
+  bottom: 128px;
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
@@ -1319,11 +1322,18 @@ html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
   text-overflow: ellipsis;
 }
 .dkr-chip[hidden] { display: none; }
+.dk-reader.sheet-open .dkr-chip { display: none; }
 .dkr-chip:hover { border-color: var(--accent); }
 .dkr-chip-icon { color: var(--accent); display: inline-flex; }
 .dkr-chip-cta { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 
+/* ----- the bar ----- */
+
 .dkr-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: color-mix(in srgb, var(--panel) 96%, transparent);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
@@ -1334,7 +1344,7 @@ html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
 .dkr-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   max-width: 1140px;
   margin: 0 auto;
 }
@@ -1344,8 +1354,8 @@ html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
   border: 1px solid var(--border);
   color: var(--text-dim);
   border-radius: var(--radius-sm);
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -1354,32 +1364,63 @@ html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
   padding: 0;
   font-size: 16px;
   line-height: 1;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.1s;
 }
 .dkr-btn:hover { color: var(--text); border-color: var(--border-bright); }
+.dkr-btn:active { transform: scale(0.94); }
 .dkr-btn:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
-.dkr-primary { color: var(--accent); border-color: var(--accent-dim); }
-.dkr-primary:hover { color: var(--accent-soft); border-color: var(--accent); }
+.dkr-ghost { border-color: transparent; }
+.dkr-ghost:hover { border-color: var(--border); }
 
-.dkr-mid { flex: 1; min-width: 0; padding: 0 6px; }
+/* The play button is the one control you reach for without looking: filled,
+   round, and larger than everything around it. */
+.dkr-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  border-radius: 999px;
+  width: 40px;
+  height: 40px;
+}
+.dkr-primary:hover { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--bg); }
+.dkr-primary svg { margin-left: 1px; }
+
+.dkr-transport {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.dkr-mid { flex: 1; min-width: 0; }
 .dkr-now {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 0;
   font-family: var(--sans);
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--text);
-  line-height: 1.4;
+  line-height: 1.45;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-height: 19px;
+  min-height: 20px;
+  cursor: pointer;
 }
+.dkr-now:hover { color: var(--text-strong); }
+.dkr-now:focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
 .dkr-track {
-  margin: 6px 0 4px;
   height: 4px;
   border-radius: 999px;
   background: var(--border);
   cursor: pointer;
   position: relative;
 }
+.dkr-scrub.small .dkr-track { margin: 7px 0 4px; }
 .dkr-track:focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; }
 .dkr-fill {
   height: 100%;
@@ -1391,11 +1432,13 @@ html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
 .dkr-meta {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 12px;
   font-size: 11px;
   color: var(--text-dimmer);
   letter-spacing: 0.03em;
 }
+.dkr-meta .dkr-scope { flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .dkr-rate-wrap {
   display: inline-flex;
@@ -1416,17 +1459,161 @@ html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
   padding: 5px 6px;
   cursor: pointer;
 }
+.dkr-rate-wrap.in-tray { justify-content: space-between; width: 100%; }
+.dkr-rate-wrap.in-tray span { text-transform: uppercase; letter-spacing: 0.06em; }
+.dkr-rate-wrap.in-tray .dkr-rate { padding: 8px 10px; font-size: 13px; }
 
-.dkr-tray {
-  max-width: 1140px;
-  margin: 12px auto 2px;
-  padding-top: 12px;
-  border-top: 1px dashed var(--border);
+.dkr-corner { display: flex; align-items: center; gap: 4px; flex: none; }
+
+/* ----- transcript sheet ----- */
+
+/* The sheet covers the whole overlay, so the bar must stand down while it is
+   up — the sheet carries its own, larger transport. */
+.dk-reader.sheet-open .dkr-bar { display: none; }
+
+.dkr-sheet {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+.dkr-sheet[hidden] { display: none; }
+
+.dkr-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.dkr-sheet-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.dkr-sheet-topic {
+  font-size: 14px;
+  color: var(--text-strong);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dkr-sheet-tab { font-size: 11.5px; color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; }
+.dkr-count { font-size: 11.5px; color: var(--text-dimmer); flex: none; letter-spacing: 0.03em; }
+
+.dkr-lines {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 34vh 20px;
+  scrollbar-width: thin;
+}
+.dkr-lines:focus { outline: none; }
+
+/* Three thousand sentences is a lot of DOM. content-visibility lets the browser
+   skip layout and paint for everything off screen; the per-line intrinsic size
+   set in JS keeps the scrollbar from lurching while it does. */
+.dkr-line {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  font-family: var(--sans);
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--text-dimmer);
+  cursor: pointer;
+  content-visibility: auto;
+  transition: color 0.25s, background 0.15s;
+}
+.dkr-line:hover { background: var(--panel); color: var(--text-dim); }
+.dkr-line.is-past { color: var(--text-dimmer); opacity: 0.55; }
+.dkr-line.is-current {
+  color: var(--text-strong);
+  font-size: 23px;
+  font-weight: 600;
+  opacity: 1;
+  content-visibility: visible;
+}
+.dkr-line:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+/* Word-level target inside the live sentence — the finest grain the engine can
+   resume from. */
+.dkr-w { border-radius: 3px; transition: color 0.15s; }
+.dkr-line.is-current .dkr-w:hover { background: var(--accent-glow); color: var(--accent); }
+.dkr-w.is-spoken { color: var(--accent); }
+
+.dkr-follow {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 148px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  box-shadow: var(--shadow-lift);
+}
+.dkr-follow[hidden] { display: none; }
+.dkr-follow:hover { background: var(--accent-soft); }
+
+.dkr-sheet-foot {
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  padding: 14px 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+.dkr-sheet-foot .dkr-scrub { width: 100%; max-width: 720px; }
+.dkr-scrub.big .dkr-track { height: 5px; margin-bottom: 9px; }
+.dkr-scrub.big .dkr-meta { font-size: 12px; }
+.dkr-transport.big { gap: 18px; }
+.dkr-transport.big .dkr-btn { width: 44px; height: 44px; }
+.dkr-transport.big .dkr-primary { width: 64px; height: 64px; }
+.dkr-transport.big .dkr-primary svg { width: 24px; height: 24px; }
+.dkr-transport.big .dkr-step svg { width: 20px; height: 20px; }
+
+/* ----- settings tray ----- */
+/* A sibling of the bar and the sheet rather than a child, so it is reachable
+   from either — on a phone the sheet covers the bar entirely. */
+
+.dkr-tray {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: min(100%, 1140px);
+  max-height: min(78vh, 620px);
+  overflow-y: auto;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: var(--shadow-lift);
+  padding: 16px 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 .dkr-tray[hidden] { display: none; }
+.dkr-tray-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .dkr-lbl {
   font-size: 11px;
   color: var(--text-dimmer);
@@ -1446,11 +1633,11 @@ html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  background: var(--panel-raised);
+  background: var(--panel);
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: var(--radius-sm);
-  padding: 9px 12px;
+  padding: 11px 12px;
   font-family: var(--mono);
   font-size: 13px;
   cursor: pointer;
@@ -1462,7 +1649,7 @@ html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
 .dkr-voice-btn[aria-expanded="true"] .dkr-chev { transform: rotate(-90deg); }
 
 .dkr-voice-list {
-  max-height: 220px;
+  max-height: 260px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -1488,7 +1675,7 @@ html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
   font-family: var(--mono);
   font-size: 12.5px;
   text-align: left;
-  padding: 9px 12px;
+  padding: 11px 12px;
   cursor: pointer;
 }
 .dkr-voice-pick:hover { color: var(--accent); }
@@ -1512,7 +1699,7 @@ html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
   border: none;
   border-left: 1px solid var(--border);
   color: var(--text-dimmer);
-  padding: 9px 12px;
+  padding: 11px 14px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1522,12 +1709,12 @@ html.dk-locked summary.node-summary .node-chevron { opacity: 0.3; }
 .dkr-check {
   display: flex;
   align-items: center;
-  gap: 9px;
-  font-size: 12.5px;
+  gap: 10px;
+  font-size: 13px;
   color: var(--text-dim);
   cursor: pointer;
 }
-.dkr-check input { accent-color: var(--accent); width: 15px; height: 15px; }
+.dkr-check input { accent-color: var(--accent); width: 17px; height: 17px; }
 .dkr-note { font-size: 11.5px; color: var(--text-dimmer); }
 .dkr-note:empty { display: none; }
 
@@ -1556,23 +1743,68 @@ summary.node-summary:hover .dkr-inline,
 @media (hover: none) { .dkr-inline { opacity: 0.7; } }
 
 /* The bar is fixed, so the last section of a page would otherwise sit under it. */
-body.dk-reader-open .wrap { padding-bottom: 210px; }
+body.dk-reader-open .wrap { padding-bottom: 190px; }
+body.dk-sheet-open { overflow: hidden; }
 
-@media (max-width: 860px) {
+/* On a laptop the transport keeps its place at the left of the bar. */
+@media (min-width: 641px) {
+  .dkr-transport.small { order: -1; }
+  .dkr-transport.small .dkr-btn { border-color: transparent; }
+  .dkr-transport.small .dkr-btn:hover { border-color: var(--border); }
+  .dkr-transport.small .dkr-primary { border-color: var(--accent); }
+}
+
+@media (max-width: 900px) {
   .dkr-rate-wrap span { display: none; }
 }
 
+/* ----- phone ----- */
+/* The bar becomes a mini player: what is being read, where you are in it, and
+   one thumb-sized transport centred under both. Everything else — speed,
+   voice, pitch, the toggles — moves into the tray, which is a sheet of its own
+   at this width. */
+
 @media (max-width: 640px) {
-  .dkr-bar { padding: 9px 12px 11px; }
-  .dkr-row { flex-wrap: wrap; gap: 6px; }
-  .dkr-mid { order: -1; width: 100%; flex: 1 0 100%; padding: 0 2px 4px; }
-  .dkr-btn { width: 34px; height: 34px; }
-  .dkr-now { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-  .dkr-chip { font-size: 11px; padding: 6px 12px; max-width: 94vw; }
-  .dkr-voice-list { max-height: 180px; }
-  body.dk-reader-open .wrap { padding-bottom: 250px; }
+  .dkr-bar { padding: 10px 14px calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .dkr-row { flex-wrap: wrap; gap: 0; position: relative; }
+  .dkr-mid { flex: 1 0 100%; padding-right: 76px; }
+  .dkr-now { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 14.5px; }
+  .dkr-corner { position: absolute; top: -2px; right: 0; }
+  .dkr-scrub.small .dkr-track { height: 5px; margin: 10px 0 5px; }
+
+  .dkr-transport.small {
+    flex: 1 0 100%;
+    justify-content: center;
+    gap: 22px;
+    margin-top: 10px;
+  }
+  .dkr-transport.small .dkr-btn { width: 40px; height: 40px; border-color: transparent; }
+  .dkr-transport.small .dkr-step svg { width: 20px; height: 20px; }
+  .dkr-transport.small .dkr-primary { width: 58px; height: 58px; border-color: var(--accent); }
+  .dkr-transport.small .dkr-primary svg { width: 22px; height: 22px; }
+  .dkr-transport.small .dkr-stop, .dkr-transport.small .dkr-cog { color: var(--text-dimmer); }
+
+  .dkr-tray {
+    width: 100%;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: 16px 16px calc(22px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .dkr-sheet-head { padding: 12px 14px; gap: 10px; }
+  .dkr-lines { padding: 30vh 6px; }
+  .dkr-line { font-size: 19.5px; padding: 10px 12px; }
+  .dkr-line.is-current { font-size: 24px; }
+  .dkr-sheet-foot { padding: 12px 14px calc(16px + env(safe-area-inset-bottom, 0px)); gap: 12px; }
+  .dkr-transport.big { gap: 20px; }
+  .dkr-transport.big .dkr-btn { border-color: transparent; }
+  .dkr-follow { bottom: 168px; }
+
+  .dkr-chip { font-size: 11px; padding: 6px 12px; max-width: 94vw; bottom: 160px; }
+  body.dk-reader-open .wrap { padding-bottom: 230px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .dkr-fill { transition: none; }
+  .dkr-line { transition: none; }
+  .dkr-btn { transition: none; }
 }

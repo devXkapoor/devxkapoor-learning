@@ -1818,3 +1818,52 @@ body.dk-sheet-open { overflow: hidden; }
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
 }
+
+/* ----- ambient reading ----- */
+/* The transcript with everything else taken away: for a phone left face-up on
+   a desk while it reads. Held awake by the screen wake lock, so it stays here
+   rather than falling to a lock screen that cannot show any of this. */
+
+.dk-reader.is-ambient .dkr-sheet { background: #000; }
+.dk-reader.is-ambient .dkr-sheet-head,
+.dk-reader.is-ambient .dkr-sheet-foot { background: transparent; border-color: transparent; }
+.dk-reader.is-ambient .dkr-line { color: #4a5568; }
+.dk-reader.is-ambient .dkr-line.is-past { opacity: 0.35; }
+.dk-reader.is-ambient .dkr-line.is-current { color: #f3f6fb; }
+.dk-reader.is-ambient .dkr-w.is-spoken { color: var(--accent); }
+
+/* Chrome fades out until touched. Still focusable — hidden to the eye, not to
+   the keyboard, so nothing becomes unreachable. */
+.dk-reader.is-ambient.chrome-hidden .dkr-sheet-head,
+.dk-reader.is-ambient.chrome-hidden .dkr-sheet-foot {
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+.dk-reader.is-ambient .dkr-sheet-head,
+.dk-reader.is-ambient .dkr-sheet-foot { transition: opacity 0.25s ease; }
+.dk-reader.is-ambient.chrome-hidden .dkr-sheet-head:focus-within,
+.dk-reader.is-ambient.chrome-hidden .dkr-sheet-foot:focus-within { opacity: 1; }
+
+/* A bright line held still on an OLED for an hour is how burn-in happens, so
+   the column drifts a few pixels over several minutes. */
+@keyframes dkr-drift {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(6px, -5px); }
+  50%  { transform: translate(-5px, 4px); }
+  75%  { transform: translate(4px, 6px); }
+  100% { transform: translate(0, 0); }
+}
+.dk-reader.is-ambient .dkr-lines { animation: dkr-drift 240s ease-in-out infinite; }
+
+.dkr-ambient.on { color: var(--accent); }
+
+@media (max-width: 640px) {
+  .dk-reader.is-ambient .dkr-line { font-size: 21px; }
+  .dk-reader.is-ambient .dkr-line.is-current { font-size: 27px; line-height: 1.42; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dk-reader.is-ambient .dkr-lines { animation: none; }
+  .dk-reader.is-ambient .dkr-sheet-head,
+  .dk-reader.is-ambient .dkr-sheet-foot { transition: none; }
+}

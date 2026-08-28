@@ -1144,6 +1144,7 @@ const DK = (() => {
     const KEY_PITCH = "dk-reader-pitch";
     const KEY_CODE = "dk-reader-code";
     const KEY_ANSWERS = "dk-reader-answers";
+    const KEY_AWAKE = "dk-reader-awake";
 
     const synth = typeof window !== "undefined" ? window.speechSynthesis : null;
     const hasSpeech = !!(synth && typeof window.SpeechSynthesisUtterance === "function");
@@ -1198,7 +1199,10 @@ const DK = (() => {
     let lockBtn = null;
     let keepAlive = null;        // silent track that owns the media session
     let keepAliveUrl = null;
+    let wakeLock = null;
     let sheetOpen = false;
+    let ambient = false;
+    let ambientTimer = null;
     let follow = true;           // does the lyric list track the narration
     let lineEls = [];
     let detailsSnapshot = null;
@@ -1226,6 +1230,7 @@ const DK = (() => {
     function pitch() { return parseFloat(pref(KEY_PITCH, "1")) || 1; }
     function readCode() { return pref(KEY_CODE, "0") === "1"; }
     function readAnswers() { return pref(KEY_ANSWERS, "0") === "1"; }
+    function keepAwake() { return pref(KEY_AWAKE, "1") === "1"; }
 
     function marks() { return readJSON(KEY_MARKS, {}); }
     function getBookmark(id) { return marks()[id] || null; }
@@ -1781,6 +1786,37 @@ const DK = (() => {
       try { keepAlive.pause(); keepAlive.currentTime = 0; } catch (e) { /* ignore */ }
     }
 
+    // ----- screen wake lock -------------------------------------------------
+    // The lock screen cannot be given the transcript — that surface belongs to
+    // the OS. What can be done is to stop needing it: while narrating, hold a
+    // screen wake lock so the phone never locks, and the real transcript stays
+    // up, scrollable and tappable, for as long as the reading lasts.
+    //
+    // The lock is dropped by the browser whenever the page is hidden, so it has
+    // to be taken again when the page comes back — otherwise it silently stops
+    // working the first time you switch apps.
+    async function acquireWake() {
+      if (!keepAwake() || !navigator.wakeLock) return;
+      // Both signals, not just the event: a sentinel that has been released
+      // reports it on the object too, and relying on the event alone means one
+      // missed callback leaves the screen free to sleep for the rest of the
+      // session with nothing to show for it.
+      if (wakeLock && !wakeLock.released) return;
+      wakeLock = null;
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLock.addEventListener("release", () => { wakeLock = null; });
+      } catch (e) {
+        wakeLock = null;                       // denied, or not permitted here
+      }
+    }
+
+    function releaseWake() {
+      if (!wakeLock) return;
+      try { wakeLock.release(); } catch (e) { /* already gone */ }
+      wakeLock = null;
+    }
+
     // ----- media artwork --------------------------------------------------
     // Not a card, and deliberately not text. Android launchers do not show
     // media artwork as a thumbnail beside the controls — One UI stretches and
@@ -1961,6 +1997,7 @@ const DK = (() => {
       openPlayer();
       if (sheetOpen) renderLines();
       startKeepAlive();
+      acquireWake();
       startWatchdog();
       speakFrom(start, 0);
     }
@@ -1973,6 +2010,7 @@ const DK = (() => {
       state.status = "paused";
       stopWatchdog();
       pauseKeepAlive();
+      releaseWake();
       if (state.scope) setBookmark(state.scope, state.idx, state.units.length);
       if (hlWord) hlWord.clear();
       if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
@@ -1985,6 +2023,7 @@ const DK = (() => {
       state.status = "playing";
       state.retries = 0;
       startKeepAlive();
+      acquireWake();
       startWatchdog();
       resumeFromWord();
       if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
@@ -2026,6 +2065,7 @@ const DK = (() => {
       state.gen++;
       stopWatchdog();
       stopKeepAlive();
+      releaseWake();
       try { synth.cancel(); } catch (e) { /* ignore */ }
       clearHighlights();
       if (restore !== false) restoreDetails();
@@ -2075,6 +2115,7 @@ const DK = (() => {
       stop: '<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><rect x="3.5" y="3.5" width="9" height="9" rx="1.5"/></svg>',
       gear: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.3"/><path d="M8 1.6v1.7M8 12.7v1.7M14.4 8h-1.7M3.3 8H1.6M12.5 3.5l-1.2 1.2M4.7 11.3l-1.2 1.2M12.5 12.5l-1.2-1.2M4.7 4.7L3.5 3.5"/></svg>',
       lock: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1.6"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>',
+      ambient: '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="3.1"/><path d="M8 1.4v1.6M8 13v1.6M14.6 8H13M3 8H1.4M12.67 3.33l-1.13 1.13M4.46 11.54l-1.13 1.13M12.67 12.67l-1.13-1.13M4.46 4.46L3.33 3.33"/></svg>',
       up: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l4-4 4 4"/></svg>',
       down: '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>',
       speaker: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.2h2.3L8.5 3.4v9.2L5.3 9.8H3z"/><path d="M11 5.8a3 3 0 0 1 0 4.4"/></svg>',
@@ -2126,6 +2167,8 @@ const DK = (() => {
               `<strong class="dkr-sheet-topic"></strong>` +
               `<span class="dkr-sheet-tab"></span>` +
             `</div>` +
+            `<button class="dkr-btn dkr-ghost dkr-ambient" data-act="ambient" type="button" ` +
+              `aria-pressed="false" aria-label="Ambient mode" title="Ambient mode — dim everything but the words">${ICONS.ambient}</button>` +
             `<span class="dkr-count"></span>` +
           `</div>` +
           `<div class="dkr-lines" tabindex="0"></div>` +
@@ -2173,6 +2216,7 @@ const DK = (() => {
           `</div>` +
           `<label class="dkr-check"><input type="checkbox" class="dkr-code"><span>Read code blocks</span></label>` +
           `<label class="dkr-check"><input type="checkbox" class="dkr-answers"><span>Read answers on hidden cards</span></label>` +
+          `<label class="dkr-check"><input type="checkbox" class="dkr-awake"><span>Keep the screen on while reading</span></label>` +
           `<div class="dkr-note"></div>` +
         `</div>`;
       document.body.appendChild(el);
@@ -2193,6 +2237,7 @@ const DK = (() => {
         lines: el.querySelector(".dkr-lines"),
         count: el.querySelector(".dkr-count"),
         followBtn: el.querySelector(".dkr-follow"),
+        ambientBtn: el.querySelector(".dkr-ambient"),
         rate: el.querySelector(".dkr-rate"),
         tray: el.querySelector(".dkr-tray"),
         voiceBtn: el.querySelector(".dkr-voice-btn"),
@@ -2202,6 +2247,7 @@ const DK = (() => {
         pitchVal: el.querySelector(".dkr-pitch-val"),
         code: el.querySelector(".dkr-code"),
         answers: el.querySelector(".dkr-answers"),
+        awake: el.querySelector(".dkr-awake"),
         note: el.querySelector(".dkr-note"),
         launcher: null,
       };
@@ -2217,6 +2263,11 @@ const DK = (() => {
       ui.pitchVal.textContent = pitch().toFixed(2);
       ui.code.checked = readCode();
       ui.answers.checked = readAnswers();
+      ui.awake.checked = keepAwake();
+      if (!navigator.wakeLock) {
+        ui.awake.disabled = true;
+        ui.awake.parentElement.title = "This browser cannot hold a screen wake lock";
+      }
 
       el.addEventListener("click", (e) => {
         const btn = e.target.closest("[data-act]");
@@ -2228,6 +2279,7 @@ const DK = (() => {
         else if (act === "stop") stop();
         else if (act === "tray") { ui.tray.hidden = !ui.tray.hidden; }
         else if (act === "tray-close") { ui.tray.hidden = true; }
+        else if (act === "ambient") setAmbient(!ambient);
         else if (act === "sheet") toggleSheet();
         else if (act === "sheet-close") closeSheet();
         else if (act === "close") closePlayer();
@@ -2253,6 +2305,10 @@ const DK = (() => {
       });
       ui.followBtn.addEventListener("click", () => setFollow(true));
 
+      ["pointerdown", "wheel", "keydown"].forEach((ev) => {
+        ui.sheet.addEventListener(ev, wakeChrome, { passive: true });
+      });
+
       ui.chip.addEventListener("click", jumpToPlaying);
 
       ui.rate.addEventListener("change", () => {
@@ -2276,6 +2332,11 @@ const DK = (() => {
       ui.answers.addEventListener("change", () => {
         setPref(KEY_ANSWERS, ui.answers.checked ? "1" : "0");
         recollectInPlace();
+      });
+      ui.awake.addEventListener("change", () => {
+        setPref(KEY_AWAKE, ui.awake.checked ? "1" : "0");
+        if (ui.awake.checked && state.status === "playing") acquireWake();
+        else if (!ui.awake.checked) releaseWake();
       });
 
       ui.voiceBtn.addEventListener("click", () => {
@@ -2533,6 +2594,33 @@ const DK = (() => {
       speakFrom(index, charOffset != null ? charOffset : 0);
     }
 
+    // Ambient: the transcript with everything else taken away. Large type, the
+    // page dimmed right down, and the chrome fading out until you touch it —
+    // for a phone left face-up on a desk while it reads to you. The whole
+    // column drifts a few pixels a minute, because a static bright line on an
+    // OLED for an hour is how you get burn-in.
+    function setAmbient(on) {
+      ambient = !!on;
+      if (!ui) return;
+      ui.el.classList.toggle("is-ambient", ambient);
+      if (ui.ambientBtn) {
+        ui.ambientBtn.classList.toggle("on", ambient);
+        ui.ambientBtn.setAttribute("aria-pressed", ambient ? "true" : "false");
+      }
+      if (ambient) { wakeChrome(); followCurrent(true); }
+      else { clearTimeout(ambientTimer); ui.el.classList.remove("chrome-hidden"); }
+    }
+
+    // Any touch brings the controls back for a few seconds, then they go again.
+    function wakeChrome() {
+      if (!ui || !ambient) return;
+      ui.el.classList.remove("chrome-hidden");
+      clearTimeout(ambientTimer);
+      ambientTimer = setTimeout(() => {
+        if (ambient) ui.el.classList.add("chrome-hidden");
+      }, 3200);
+    }
+
     function openSheet() {
       if (!ui) buildUI();
       if (state.status === "idle" && !state.units.length) {
@@ -2549,6 +2637,7 @@ const DK = (() => {
     }
 
     function closeSheet() {
+      if (ambient) setAmbient(false);
       sheetOpen = false;
       if (ui) ui.sheet.hidden = true;
       document.body.classList.remove("dk-sheet-open");
@@ -2755,6 +2844,13 @@ const DK = (() => {
         loadVoices();
         synth.addEventListener("voiceschanged", loadVoices);
         wireMediaSession();
+        // A wake lock is dropped whenever the page is hidden, so it has to be
+        // taken again on return or it quietly stops working after the first
+        // app switch.
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible" && state.status === "playing") acquireWake();
+        });
+
         // Audio does not survive navigation — bookmark what is in flight.
         window.addEventListener("pagehide", () => {
           if (state.scope && state.units.length) setBookmark(state.scope, state.idx, state.units.length);
@@ -2794,6 +2890,7 @@ const DK = (() => {
       open: openPlayer,
       close: closePlayer,
       sheet: toggleSheet,
+      ambient: setAmbient,
       openSheet,
       closeSheet,
       lock: setLocked,
@@ -2812,6 +2909,17 @@ const DK = (() => {
 
 // Apply theme immediately on script load (before body renders) to avoid a flash.
 DK.initTheme();
+
+// Installable, and usable with no connection. The worker caches the shell and
+// whatever topic data has already been opened, so a pack that has been read
+// once opens again on a train. Registration is best-effort: file:// and any
+// browser without service workers simply carry on as a normal site.
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register(DK.basePath + "sw.js", { scope: DK.basePath })
+      .catch((e) => console.warn("DK: service worker not registered", e));
+  });
+}
 
 // The read-aloud player mounts itself: every page in the repo already loads this
 // file, so there is nothing to add to the pages themselves.

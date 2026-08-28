@@ -1867,3 +1867,6 @@ body.dk-sheet-open { overflow: hidden; }
   .dk-reader.is-ambient .dkr-sheet-head,
   .dk-reader.is-ambient .dkr-sheet-foot { transition: none; }
 }
+
+.dkr-voice-note { font-size: 11px; color: var(--text-dimmer); letter-spacing: 0.02em; }
+.dkr-voice-note.waiting { color: var(--accent); }

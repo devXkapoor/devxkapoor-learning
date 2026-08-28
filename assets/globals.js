@@ -1543,26 +1543,132 @@ const DK = (() => {
     }
 
     // ----- voices ---------------------------------------------------------
-    // getVoices() is empty on the first synchronous call; the list only exists
-    // once the engine fires voiceschanged.
-    function loadVoices() {
-      if (!hasSpeech) return;
-      const all = synth.getVoices() || [];
-      voices = all.filter((v) => /^en(-|_|$)/i.test(v.lang || ""));
-      if (!voices.length) voices = all.slice();
-      voices.sort((a, b) => {
-        const na = naturalRank(a), nb = naturalRank(b);
-        if (na !== nb) return na - nb;
-        return (a.name || "").localeCompare(b.name || "");
-      });
-      if (ui) drawVoices();
+    // The single most unreliable corner of the Web Speech API, and the source
+    // of the "it only offers one robotic voice until I open Edge's own Read
+    // Aloud" bug. Three separate engine behaviours conspire:
+    //
+    //   1. getVoices() returns [] on the first synchronous call, everywhere.
+    //   2. voiceschanged fires once, early, with only the *local* voices.
+    //      Microsoft's Natural voices are cloud voices: they do not exist in
+    //      the list until Edge has initialised its online voice provider, and
+    //      no second voiceschanged is guaranteed when it does. Edge's own Read
+    //      Aloud performs that initialisation, which is exactly why opening it
+    //      once made the voices appear, and why a refresh undid it.
+    //   3. Chrome on Android reports [] for a while after load, and again for
+    //      a moment after the tab has been backgrounded.
+    //
+    // So the list is never trusted to be final: it is polled, it is re-read on
+    // every gesture that could have changed it, and the engine is deliberately
+    // warmed up on the first play so the online provider comes up on our terms
+    // rather than only inside somebody else's reader.
+    let voiceSig = "";
+    let voicePoll = null;
+    let voicePollStart = 0;
+    let warmedUp = false;
+    let speakingVoiceName = "";
+    let firstSpeakTimer = null;
+
+    function isEnglish(v) {
+      return /^en(-|_|$)/i.test(v.lang || "");
     }
 
+    // Ranked so the best thing available floats to the top in either browser.
+    // localService === false is the portable signal for a network voice, which
+    // is what both Microsoft's Natural and Google's cloud voices are.
     function naturalRank(v) {
       const n = (v.name || "").toLowerCase();
       if (n.includes("natural")) return 0;
       if (n.includes("online")) return 1;
-      return 2;
+      if (v.localService === false || n.startsWith("google")) return 2;
+      return 3;
+    }
+
+    function voiceTag(v) {
+      const r = naturalRank(v);
+      return r === 0 ? "natural" : r === 1 ? "online" : r === 2 ? "network" : "";
+    }
+
+    // Every voice is listed, English first: hiding the rest is how a voice the
+    // user actually wants goes missing from a list that looks complete.
+    function loadVoices() {
+      if (!hasSpeech) return false;
+      let all = [];
+      try { all = synth.getVoices() || []; } catch (e) { return false; }
+      const sig = all.map((v) => v.name + "|" + v.lang).join("\u0001");
+      if (sig === voiceSig) return false;
+      voiceSig = sig;
+
+      voices = all.slice().sort((a, b) => {
+        const ea = isEnglish(a) ? 0 : 1, eb = isEnglish(b) ? 0 : 1;
+        if (ea !== eb) return ea - eb;
+        const na = naturalRank(a), nb = naturalRank(b);
+        if (na !== nb) return na - nb;
+        return (a.name || "").localeCompare(b.name || "");
+      });
+
+      if (ui) drawVoices();
+      upgradeVoice();
+      return true;
+    }
+
+    // When the voice that should be speaking finally turns up — the saved one,
+    // or simply a better one than the local fallback we started with — switch
+    // to it mid-read, from the last word boundary. The alternative is what
+    // happened before: a whole session in the robotic voice because the good
+    // one loaded four seconds too late.
+    function upgradeVoice() {
+      if (state.status !== "playing") return;
+      const want = currentVoice();
+      if (!want || want.name === speakingVoiceName) return;
+      resumeFromWord();
+    }
+
+    function haveGoodVoice() {
+      const want = pref(KEY_VOICE, "");
+      if (want) return voices.some((v) => v.name === want);
+      return voices.some((v) => naturalRank(v) <= 2);
+    }
+
+    // Decaying poll: attentive for the first ten seconds, then a background
+    // heartbeat, and it stops early the moment the voice we are waiting for is
+    // there. Cheap — getVoices() is a synchronous array read.
+    function watchVoices() {
+      if (!hasSpeech || voicePoll) return;
+      voicePollStart = Date.now();
+      const tick = () => {
+        loadVoices();
+        const age = Date.now() - voicePollStart;
+        if (age > 45000 || (age > 4000 && haveGoodVoice())) {
+          clearInterval(voicePoll);
+          voicePoll = null;
+          return;
+        }
+        const wanted = age < 10000 ? 300 : 2000;
+        if (wanted !== watchVoices.every) {
+          watchVoices.every = wanted;
+          clearInterval(voicePoll);
+          voicePoll = setInterval(tick, wanted);
+        }
+      };
+      watchVoices.every = 300;
+      voicePoll = setInterval(tick, 300);
+      tick();
+    }
+
+    // Edge brings its cloud voices up the first time something asks it to
+    // speak. Doing that ourselves, inside the play gesture, is what stops the
+    // natural voices from being reachable only by opening a different reader
+    // first. Silent, instant, and harmless where the engine needs no warming.
+    function warmUpVoices() {
+      if (warmedUp || !hasSpeech) return;
+      warmedUp = true;
+      try {
+        const u = new SpeechSynthesisUtterance(" ");
+        u.volume = 0;
+        u.rate = 2;
+        synth.speak(u);
+      } catch (e) { /* the watch below still catches the list */ }
+      watchVoices();
     }
 
     function currentVoice() {
@@ -1583,6 +1689,7 @@ const DK = (() => {
       const u = new SpeechSynthesisUtterance(text);
       const v = currentVoice();
       if (v) { u.voice = v; u.lang = v.lang; }
+      speakingVoiceName = v ? v.name : "";
       u.rate = rate();
       u.pitch = pitch();
       return u;
@@ -1639,6 +1746,25 @@ const DK = (() => {
       safeSpeak(text || unit.text, ++state.gen);
       draw();
       paintLines();
+    }
+
+    // On the very first play the chosen voice may still be loading. Rather
+    // than open in the local robotic voice and jump mid-word a moment later,
+    // hold the first utterance for up to a beat and a bit while it arrives.
+    // Capped, so a voice that never comes back cannot stall playback.
+    function speakWhenReady(start, deadline) {
+      clearTimeout(firstSpeakTimer);
+      if (state.status !== "playing") return;
+      const end = deadline || Date.now() + 1200;
+      const want = pref(KEY_VOICE, "");
+      const ready = !want || voices.some((v) => v.name === want);
+      if (ready || Date.now() >= end) { speakFrom(start, 0); return; }
+      // Show the sentence immediately even though it is not being spoken yet,
+      // so the wait reads as the player being ready rather than stuck.
+      state.idx = start;
+      draw();
+      loadVoices();
+      firstSpeakTimer = setTimeout(() => speakWhenReady(start, end), 100);
     }
 
     function advance(step) {
@@ -1994,12 +2120,14 @@ const DK = (() => {
       snapshotDetails(scope);
       state.status = "playing";
       state.retries = 0;
+      warmUpVoices();
+      loadVoices();
       openPlayer();
       if (sheetOpen) renderLines();
       startKeepAlive();
       acquireWake();
       startWatchdog();
-      speakFrom(start, 0);
+      speakWhenReady(start);
     }
 
     function pause() {
@@ -2066,6 +2194,7 @@ const DK = (() => {
       stopWatchdog();
       stopKeepAlive();
       releaseWake();
+      clearTimeout(firstSpeakTimer);
       try { synth.cancel(); } catch (e) { /* ignore */ }
       clearHighlights();
       if (restore !== false) restoreDetails();
@@ -2207,6 +2336,7 @@ const DK = (() => {
               `<span class="dkr-voice-name">Loading voices…</span>` +
               `<span class="dkr-chev">${ICON.chevron}</span>` +
             `</button>` +
+            `<div class="dkr-voice-note"></div>` +
             `<div class="dkr-voice-list" hidden></div>` +
           `</div>` +
           `<div class="dkr-field dkr-inline-field">` +
@@ -2243,6 +2373,7 @@ const DK = (() => {
         voiceBtn: el.querySelector(".dkr-voice-btn"),
         voiceName: el.querySelector(".dkr-voice-name"),
         voiceList: el.querySelector(".dkr-voice-list"),
+        voiceNote: el.querySelector(".dkr-voice-note"),
         pitch: el.querySelector(".dkr-pitch"),
         pitchVal: el.querySelector(".dkr-pitch-val"),
         code: el.querySelector(".dkr-code"),
@@ -2408,6 +2539,18 @@ const DK = (() => {
       if (!ui) return;
       const cur = currentVoice();
       ui.voiceName.textContent = cur ? cur.name : (hasSpeech ? "System default" : "No speech engine");
+
+      // Says plainly whether the cloud voices are still on their way, rather
+      // than presenting a list of one robotic voice as if it were the whole
+      // inventory.
+      if (ui.voiceNote) {
+        const waiting = !!voicePoll && !haveGoodVoice();
+        ui.voiceNote.textContent = waiting
+          ? `${voices.length} so far — the natural voices load a moment after the first play`
+          : `${voices.length} voice${voices.length === 1 ? "" : "s"} available`;
+        ui.voiceNote.classList.toggle("waiting", waiting);
+      }
+
       ui.voiceList.innerHTML = "";
       voices.forEach((v) => {
         const row = document.createElement("div");
@@ -2415,11 +2558,12 @@ const DK = (() => {
         const pick = document.createElement("button");
         pick.type = "button";
         pick.className = "dkr-voice-pick";
-        const rank = naturalRank(v);
+        const tag = voiceTag(v);
+        pick.title = v.name;
         pick.innerHTML =
           `<span class="dkr-vname">${escapeHtml(v.name)}</span>` +
           `<span class="dkr-vlang">${escapeHtml(v.lang || "")}</span>` +
-          (rank === 0 ? `<span class="dkr-vtag">natural</span>` : rank === 1 ? `<span class="dkr-vtag alt">online</span>` : "");
+          (tag ? `<span class="dkr-vtag${tag === "natural" ? "" : " alt"}">${tag}</span>` : "");
         pick.addEventListener("click", () => {
           setPref(KEY_VOICE, v.name);
           drawVoices();
@@ -2720,6 +2864,7 @@ const DK = (() => {
 
     function openPlayer() {
       if (!ui) buildUI();
+      watchVoices();
       ui.el.hidden = false;
       state.open = true;
       document.body.classList.add("dk-reader-open");
@@ -2841,14 +2986,20 @@ const DK = (() => {
       document.addEventListener("click", guardLock, true);
 
       if (hasSpeech) {
-        loadVoices();
-        synth.addEventListener("voiceschanged", loadVoices);
+        watchVoices();
+        // Still honoured — it is just no longer the only thing we rely on.
+        synth.addEventListener("voiceschanged", () => loadVoices());
         wireMediaSession();
         // A wake lock is dropped whenever the page is hidden, so it has to be
         // taken again on return or it quietly stops working after the first
         // app switch.
         document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "visible" && state.status === "playing") acquireWake();
+          if (document.visibilityState !== "visible") return;
+          if (state.status === "playing") acquireWake();
+          // Chrome on Android can empty and refill the voice list across a
+          // backgrounding, which would otherwise strand us on a stale entry.
+          loadVoices();
+          if (!haveGoodVoice()) watchVoices();
         });
 
         // Audio does not survive navigation — bookmark what is in flight.

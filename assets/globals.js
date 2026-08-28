@@ -1198,10 +1198,6 @@ const DK = (() => {
     let lockBtn = null;
     let keepAlive = null;        // silent track that owns the media session
     let keepAliveUrl = null;
-    let lastCard = null;
-    let lastCardAt = 0;
-    let lastCardIdx = -1;
-    let cardTimer = null;
     let sheetOpen = false;
     let follow = true;           // does the lyric list track the narration
     let lineEls = [];
@@ -1785,143 +1781,70 @@ const DK = (() => {
       try { keepAlive.pause(); keepAlive.currentTime = 0; } catch (e) { /* ignore */ }
     }
 
-    // ----- the lock-screen card ------------------------------------------
-    // Android draws the lock screen itself, from the media session: title,
-    // artist, artwork, position, and a few actions. A page cannot put its own
-    // scrollable view there — that surface belongs to the OS, and has since
-    // lock-screen widgets were removed in Android 5.
+    // ----- media artwork --------------------------------------------------
+    // Not a card, and deliberately not text. Android launchers do not show
+    // media artwork as a thumbnail beside the controls — One UI stretches and
+    // blurs it as the *background* of the notification, and stock Android
+    // colourises it the same way. Text drawn here does not get read; it gets
+    // smeared behind the notification's own title, which is exactly how the
+    // first attempt looked on the lock screen.
     //
-    // The artwork, though, is ours, and it is redrawn every sentence. So the
-    // card carries the transcript: the sentence being narrated, large, with the
-    // one before and the one after dimmed around it for context, over the
-    // topic and a progress bar. Not scrollable — nothing on that surface can
-    // be — but it is the reading position, legible at a glance, on the lock
-    // screen. Scrolling and jumping stay in the in-page transcript.
+    // So the artwork is what that treatment actually wants: a dark, quiet wash
+    // in the site's palette that stays out of the way of white text on top of
+    // it. The narration itself rides on the metadata title, which is the one
+    // text field on that surface the OS renders properly.
+    //
+    // It depends only on the scope and the theme, so it is drawn once and
+    // cached — no per-sentence PNG encoding, and nothing for the battery.
+    const artCache = new Map();
 
-    // Greedy wrap against real glyph widths, so long words and short ones both
-    // land correctly whatever the font resolves to.
-    function wrapLines(g, text, maxWidth, maxLines) {
-      const words = String(text || "").split(/\s+/).filter(Boolean);
-      const lines = [];
-      let line = "";
-      for (let i = 0; i < words.length; i++) {
-        const next = line ? line + " " + words[i] : words[i];
-        if (g.measureText(next).width <= maxWidth || !line) {
-          line = next;
-        } else {
-          lines.push(line);
-          line = words[i];
-          if (lines.length === maxLines) break;
-        }
-      }
-      if (lines.length < maxLines && line) lines.push(line);
-      if (lines.length === maxLines && words.length) {
-        // Ellipsise the last line if there was more to say.
-        const joined = lines.join(" ");
-        if (joined.replace(/\s+/g, " ") !== words.join(" ")) {
-          let last = lines[maxLines - 1];
-          while (last && g.measureText(last + "…").width > maxWidth) {
-            last = last.slice(0, -1);
-          }
-          lines[maxLines - 1] = last + "…";
-        }
-      }
-      return lines;
-    }
-
-    function drawCard(unit) {
-      const scope = scopeById(state.scope);
-      const cvs = document.createElement("canvas");
-      cvs.width = 512; cvs.height = 512;
-      const g = cvs.getContext("2d");
-      if (!g) return null;
-
-      const css = getComputedStyle(document.documentElement);
-      const varOf = (name, fallback) => (css.getPropertyValue(name) || "").trim() || fallback;
-      const bg = varOf("--panel", "#0e1520");
-      const accent = varOf("--accent", "#f0b45f");
-      const strong = varOf("--text-strong", "#e2eaf5");
-      const dim = varOf("--text-dimmer", "#5b6a80");
-      const border = varOf("--border", "#223047");
-
-      g.fillStyle = bg;
-      g.fillRect(0, 0, 512, 512);
-
-      // Header: where this is coming from.
-      g.fillStyle = accent;
-      g.fillRect(40, 40, 40, 4);
-      g.font = "500 20px ui-monospace, monospace";
-      g.fillText(scope ? scope.label.toLowerCase() : "read aloud", 40, 80);
-      g.fillStyle = dim;
-      g.font = "400 20px ui-monospace, monospace";
-      g.fillText(scope ? scope.topic.replace(/-/g, " ") : "devxkapoor", 40, 108);
-
-      const width = 432;
-      const prev = state.units[state.idx - 1];
-      const next = state.units[state.idx + 1];
-
-      // The sentence before, dimmed — the same context the in-page transcript
-      // gives you above the live line.
-      if (prev) {
-        g.fillStyle = dim;
-        g.font = "400 21px system-ui, sans-serif";
-        wrapLines(g, prev.text, width, 2).forEach((ln, i) => g.fillText(ln, 40, 158 + i * 27));
-      }
-
-      // The sentence being narrated. Five lines is what fits above the
-      // progress bar at this size; anything longer is ellipsised rather than
-      // running off the card.
-      g.fillStyle = strong;
-      g.font = "600 30px system-ui, sans-serif";
-      const cur = wrapLines(g, unit ? unit.text : "", width, 5);
-      cur.forEach((ln, i) => g.fillText(ln, 40, 240 + i * 38));
-
-      // The sentence after, but only while it genuinely fits: a long current
-      // sentence takes the space, and context is what gives way.
-      const nextTop = 240 + cur.length * 38 + 20;
-      if (next && nextTop + 27 <= 440) {
-        g.fillStyle = dim;
-        g.font = "400 21px system-ui, sans-serif";
-        const room = nextTop + 54 <= 440 ? 2 : 1;
-        wrapLines(g, next.text, width, room).forEach((ln, i) => g.fillText(ln, 40, nextTop + i * 27));
-      }
-
-      // Position, matching the player's own progress bar.
-      const total = state.units.length || 1;
-      const done = Math.min(state.idx + 1, total);
-      g.fillStyle = border;
-      g.fillRect(40, 462, width, 4);
-      g.fillStyle = accent;
-      g.fillRect(40, 462, Math.max(4, (width * done) / total), 4);
-      g.fillStyle = dim;
-      g.font = "400 17px ui-monospace, monospace";
-      g.fillText(`${done} / ${total}`, 40, 494);
-
-      return cvs.toDataURL("image/png");
-    }
-
-    // Redrawing on every sentence is the point, but a run of very short ones
-    // should not become a stream of PNG encodes. At most one card every 400ms
-    // — and when a redraw is skipped it is *scheduled*, never dropped, so the
-    // card can never sit showing a sentence that has already been read.
-    function cardFor(unit) {
-      const now = Date.now();
-      const wait = 400 - (now - lastCardAt);
-      if (lastCard && lastCardIdx !== state.idx && wait > 0) {
-        clearTimeout(cardTimer);
-        cardTimer = setTimeout(() => {
-          if (state.status === "idle") return;
-          setMediaMetadata(state.units[state.idx]);
-        }, wait + 20);
-        return lastCard;
-      }
-      if (lastCard && lastCardIdx === state.idx) return lastCard;
+    function artworkFor(scope) {
+      if (!scope) return null;
+      const theme = document.documentElement.getAttribute("data-theme") || "dark";
+      const key = scope.id + ":" + theme;
+      if (artCache.has(key)) return artCache.get(key);
+      artCache.set(key, null);                 // never retry a failed draw
       try {
-        const url = drawCard(unit);
-        if (url) { lastCard = url; lastCardAt = now; lastCardIdx = state.idx; }
-        return lastCard;
+        const cvs = document.createElement("canvas");
+        cvs.width = 512; cvs.height = 512;
+        const g = cvs.getContext("2d");
+        if (!g) return null;
+
+        const css = getComputedStyle(document.documentElement);
+        const varOf = (name, fallback) => (css.getPropertyValue(name) || "").trim() || fallback;
+        const bg = varOf("--bg", "#080d16");
+        const panel = varOf("--panel-raised", "#141d2c");
+        const accent = varOf("--accent", "#f0b45f");
+
+        // Ground: a soft vertical lift from the page background to the panel,
+        // so a blurred copy still reads as the site rather than a grey block.
+        const ground = g.createLinearGradient(0, 0, 0, 512);
+        ground.addColorStop(0, panel);
+        ground.addColorStop(1, bg);
+        g.fillStyle = ground;
+        g.fillRect(0, 0, 512, 512);
+
+        // One warm glow, low and off-centre. Survives heavy blur as a single
+        // amber bloom instead of turning to mud.
+        const glow = g.createRadialGradient(150, 370, 10, 150, 370, 330);
+        glow.addColorStop(0, accent);
+        glow.addColorStop(1, "transparent");
+        g.globalAlpha = 0.3;
+        g.fillStyle = glow;
+        g.fillRect(0, 0, 512, 512);
+        g.globalAlpha = 1;
+
+        // Kept dark overall: the OS lays white text over this.
+        g.fillStyle = bg;
+        g.globalAlpha = 0.22;
+        g.fillRect(0, 0, 512, 512);
+        g.globalAlpha = 1;
+
+        const url = cvs.toDataURL("image/png");
+        artCache.set(key, url);
+        return url;
       } catch (e) {
-        return lastCard;
+        return null;
       }
     }
 
@@ -1931,7 +1854,7 @@ const DK = (() => {
       if (!("mediaSession" in navigator) || typeof window.MediaMetadata !== "function") return;
       const scope = scopeById(state.scope);
       try {
-        const art = cardFor(unit);
+        const art = artworkFor(scope);
         navigator.mediaSession.metadata = new MediaMetadata({
           title: unit.text.slice(0, 160),
           artist: scope ? `${scope.topic.replace(/-/g, " ")} · ${scope.label.toLowerCase()}` : "devxkapoor",
@@ -2103,7 +2026,6 @@ const DK = (() => {
       state.gen++;
       stopWatchdog();
       stopKeepAlive();
-      clearTimeout(cardTimer);
       try { synth.cancel(); } catch (e) { /* ignore */ }
       clearHighlights();
       if (restore !== false) restoreDetails();

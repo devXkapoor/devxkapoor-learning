@@ -1,0 +1,627 @@
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "What is client-side routing?",
+   "a": "It's keeping the URL and what's on screen in sync without letting the browser do a full page load. You intercept link clicks, use the History API to change the address bar, and render the component that matches the new path. The reason it exists is that once you start swapping content with JavaScript, the URL stops describing the screen — and the back button, refresh, bookmarks, deep links and screen-reader announcements are all built on the URL describing the screen."
+  },
+  {
+   "n": 2,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "How does React Router actually work under the hood?",
+   "a": "Three browser things. <code>history.pushState</code> changes the URL and adds a history entry without a request. A <code>popstate</code> listener catches back and forward. And <code>&lt;Link&gt;</code> renders a real anchor whose click it intercepts with <code>preventDefault</code>, then pushes. On top of that it matches the path against a route tree, ranked by specificity, and renders the matched chain through <code>&lt;Outlet&gt;</code>s. Everything else is ergonomics."
+  },
+  {
+   "n": 3,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "What's the difference between <code>BrowserRouter</code> and <code>HashRouter</code>?",
+   "a": "<code>BrowserRouter</code> uses real paths via the History API. <code>HashRouter</code> puts the route in the fragment after <code>#</code>, which is never sent to the server. You use the hash one when you can't configure the server to rewrite unknown paths to <code>index.html</code> — GitHub Pages, a browser extension, an Electron app on <code>file://</code>. Otherwise you use real paths, because the hash can't be server-rendered."
+  },
+  {
+   "n": 4,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "Why do deep links 404 in production but work locally?",
+   "a": "Locally the dev server has <code>historyApiFallback</code> on, so any unmatched path returns <code>index.html</code>. In production the host looks for an actual file at <code>/products/42</code>, doesn't find one, and returns 404 — and your router lives inside the HTML that never got sent. You fix it at the host: <code>try_files</code> in nginx, a <code>_redirects</code> rule on Netlify, a catch-all after your API routes in Express."
+  },
+  {
+   "n": 5,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "What's the difference between <code>&lt;Link&gt;</code> and <code>useNavigate</code>?",
+   "a": "<code>&lt;Link&gt;</code> is for when the user chooses to go somewhere — it renders a real anchor, so Cmd-click, copy-link, the status bar and keyboard activation all work. <code>useNavigate</code> is for when the app sends them somewhere as a consequence: after a form submits, after login, on a redirect. If it's a user choice, it should be a link."
+  },
+  {
+   "n": 6,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "How do you read a route parameter?",
+   "a": "<code>useParams()</code> in the component, or the <code>params</code> argument in the route's loader. And they're always strings — <code>params.id</code> for <code>/products/42</code> is <code>\"42\"</code>, so I parse at the boundary rather than comparing to a number later."
+  },
+  {
+   "n": 7,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "How do you protect a route so only logged-in users can see it?",
+   "a": "Wrap the subtree in a layout route whose loader checks the session and throws a redirect to <code>/login</code> if there isn't one, carrying the attempted path so I can send them back afterwards. The redirect uses <code>replace</code> so the back button doesn't bounce them forward again. And I'd say clearly that this is UX, not security — the real check is that every API endpoint authorises every request."
+  },
+  {
+   "n": 8,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "What are nested routes and why do they matter?",
+   "a": "The route tree mirrors the URL's segments, and each level renders its own layout with an <code>&lt;Outlet /&gt;</code> where the child goes. It matters because the layout doesn't remount when you move between its children — the sidebar's scroll, an open panel and in-progress form state all survive, which is the thing a full page load could never do."
+  },
+  {
+   "n": 9,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "How do you handle a 404 in a SPA?",
+   "a": "A catch-all <code>path=\"*\"</code> route that renders the not-found screen. But I'd flag that the HTTP status is still 200, because the server returned <code>index.html</code> — a soft 404. Crawlers and monitoring can't see it. Getting a real 404 status needs a server that knows the route table, which means SSR or an edge rewrite."
+  },
+  {
+   "n": 10,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "What's the difference between <code>pushState</code> and <code>replaceState</code>, and when do you use each?",
+   "a": "<code>pushState</code> adds a history entry; <code>replaceState</code> overwrites the current one. Push for deliberate navigations the user should be able to undo with back. Replace for anything the user was never really \"at\" — redirects, URL normalisation, and continuous state sync like typing in a search box."
+  },
+  {
+   "n": 11,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "Why must redirects use replace?",
+   "a": "Otherwise you get the redirect trap. <code>/dashboard</code> pushes <code>/login</code>, the user logs in, presses back, lands on <code>/login</code>, which now redirects forward to <code>/dashboard</code>. Back looks completely broken. A redirect means \"you were never here\", so it shouldn't leave an entry."
+  },
+  {
+   "n": 12,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "How do you code-split by route?",
+   "a": "Dynamic <code>import()</code> per route — <code>React.lazy</code> with a <code>&lt;Suspense&gt;</code> boundary, or better, a per-route <code>lazy</code> field in a data router, so the router can start the chunk download and the data fetch at the same time. Then prefetch on hover so the chunk is usually already there when the click lands."
+  },
+  {
+   "n": 13,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "What is a request waterfall and how does routing fix it?",
+   "a": "A parent component fetches, shows a spinner, so the child never renders and never starts its own fetch. Two independent requests get serialised for no reason. Route loaders fix it because the router knows the whole matched chain the instant the URL changes, so it starts every fetch in parallel before rendering anything."
+  },
+  {
+   "n": 14,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "How do you put filter state in the URL and why would you?",
+   "a": "<code>useSearchParams</code>, which is shaped like <code>useState</code>. The rule I use: if another person opening your link should see the same view, it belongs in the URL. Filters, sort, pagination, the selected tab. It means support can ask for a link, users can bookmark, and back undoes a filter change."
+  },
+  {
+   "n": 15,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "How do you handle scroll position on navigation?",
+   "a": "Three cases. Push scrolls to top. Pop restores the position saved for that entry, which means recording <code>scrollY</code> before leaving. Replace leaves it alone. React Router's <code>&lt;ScrollRestoration&gt;</code> does this, and I'd set <code>history.scrollRestoration = \"manual\"</code> so the browser isn't fighting me."
+  },
+  {
+   "n": 16,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "How do you show a loading state during navigation?",
+   "a": "<code>useNavigation().state</code> in a data router, or <code>isPending</code> from <code>useTransition</code>. The important part is that it comes from outside the destination component — the destination doesn't exist yet. And I delay showing it by a couple of hundred milliseconds with a minimum display time, so it doesn't flash."
+  },
+  {
+   "n": 17,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "How do you handle errors in a route?",
+   "a": "An <code>errorElement</code> per route. Anything the loader, action or render throws goes to the nearest boundary up the route tree, and every ancestor stays mounted, so the shell and navigation survive. <code>isRouteErrorResponse</code> lets me tell a deliberate thrown 404 or 403 from a real exception and render different screens."
+  },
+  {
+   "n": 18,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "What changed between React Router v5 and v6?",
+   "a": "<code>&lt;Switch&gt;</code> became <code>&lt;Routes&gt;</code>, <code>useHistory</code> became <code>useNavigate</code>, <code>exact</code> disappeared because matching is exact by default, and — the important one — routes are ranked by specificity rather than resolved in declaration order, so <code>/products/new</code> always beats <code>/products/:id</code> regardless of order."
+  },
+  {
+   "n": 19,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "What is <code>&lt;Outlet /&gt;</code>?",
+   "a": "The placeholder a parent route renders where its matched child should appear. Same idea as <code>children</code>, except the router supplies the child based on the URL. Vue calls it <code>&lt;router-view&gt;</code>, Angular <code>&lt;router-outlet&gt;</code>, and Next's App Router passes it as the <code>children</code> prop to a layout."
+  },
+  {
+   "n": 20,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "What is an index route?",
+   "a": "A child with no path that renders into the parent's outlet when the URL matches the parent exactly. It's what fills the content pane at <code>/settings</code> before the user picks a section."
+  },
+  {
+   "n": 21,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "How does route matching decide between two patterns that both match?",
+   "a": "In React Router v6+, a specificity score: more segments beats fewer, and within a segment static beats dynamic beats splat. Order in the file is irrelevant. Express is the opposite — first match in declaration order wins, which is why the \"put the specific route first\" advice still circulates."
+  },
+  {
+   "n": 22,
+   "c": "occasional",
+   "t": "Occasional question",
+   "q": "How would you write a router from scratch?",
+   "a": "Intercept clicks on same-origin anchors, bailing out on modifier keys, non-primary buttons, <code>target</code>, <code>download</code> and cross-origin hrefs. <code>preventDefault</code>, <code>history.pushState</code>, then call render. Register a <code>popstate</code> listener that also calls render. Render compares <code>location.pathname</code> against compiled patterns and picks the best. That's a working router in about twenty lines."
+  },
+  {
+   "n": 23,
+   "c": "occasional",
+   "t": "Occasional question",
+   "q": "Why doesn't <code>popstate</code> fire when you call <code>pushState</code>?",
+   "a": "Because the browser assumes your own code knows it changed the URL. It only fires on traversal — back, forward, <code>history.go</code>. The practical consequence is that a hand-rolled router needs two paths into its render function, and it's the number one reason a homemade router \"doesn't re-render\"."
+  },
+  {
+   "n": 24,
+   "c": "occasional",
+   "t": "Occasional question",
+   "q": "What's in the state object of a history entry?",
+   "a": "Anything structured-cloneable you attach at push time — routers typically put a location key and sometimes scroll position there. It is not part of the URL, so it doesn't survive copy-paste, and browsers cap it (Firefox at 16 MB), so it's for small breadcrumbs, not data."
+  },
+  {
+   "n": 25,
+   "c": "occasional",
+   "t": "Occasional question",
+   "q": "How do you block navigation when a form has unsaved changes?",
+   "a": "Two mechanisms, because there are two kinds of leaving. In-app navigation goes through the router, so <code>useBlocker</code> gives me a blocked state with <code>proceed()</code> and <code>reset()</code> and I show my own dialog. Leaving the site is the browser's call — a <code>beforeunload</code> listener, registered only while dirty, and the browser shows its own uncustomisable prompt."
+  },
+  {
+   "n": 26,
+   "c": "occasional",
+   "t": "Occasional question",
+   "q": "What is the Navigation API?",
+   "a": "The browser shipping what routers have simulated for fifteen years — one <code>navigate</code> event covering link clicks, form submits, back, forward and programmatic navigation, with <code>intercept()</code>, a real <code>preventDefault</code> that works for back, a readable list of your own entries, and built-in scroll and focus handling. Chrome 102 in 2022, still Chromium-only."
+  },
+  {
+   "n": 27,
+   "c": "occasional",
+   "t": "Occasional question",
+   "q": "What are View Transitions and how do they relate to routing?",
+   "a": "A browser API from Chrome 111 that captures the page before and after a DOM change and animates between them, including shared elements. Routers expose it as a flag on a navigation, and it's why SPA transitions are starting to look like native app ones without an animation library."
+  },
+  {
+   "n": 28,
+   "c": "occasional",
+   "t": "Occasional question",
+   "q": "How does a file-based router differ from a config-based one?",
+   "a": "The filesystem is the route table — <code>app/products/[id]/page.tsx</code>. It removes the \"forgot to register the route\" bug and makes routes statically discoverable for prefetch and type generation, at the cost of coupling structure to file layout and inventing per-framework filename conventions."
+  },
+  {
+   "n": 29,
+   "c": "occasional",
+   "t": "Occasional question",
+   "q": "What is hydration and how does it relate to routing?",
+   "a": "The server rendered HTML for the requested URL; hydration is the client attaching event listeners and taking over. So SSR handles the <em>first</em> navigation and everything after it is client-side routing. SSR doesn't replace the router, it replaces the first render."
+  },
+  {
+   "n": 30,
+   "c": "occasional",
+   "t": "Occasional question",
+   "q": "What does <code>useFetcher</code> do?",
+   "a": "Loads or submits without navigating — a like button, an inline delete, a type-ahead. It still runs route actions and revalidates loaders, but the URL and the screen don't change. Recognising \"this is a data operation, not a navigation\" is the point."
+  },
+  {
+   "n": 31,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Users report the back button \"doesn't work\" — it takes them out of the app. Walk me through diagnosing it.",
+   "a": "First I check whether history entries are being created at all: if content changes without <code>pushState</code>, there are no entries and back leaves the site. If entries exist, I check for over-use of <code>replace</code> — a filter or redirect replacing everything means back skips the whole session. Then I check for redirect loops: a guard pushing <code>/login</code> so back re-enters it and bounces forward."
+  },
+  {
+   "n": 32,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Deep links 404 after deploy but worked in staging. What do you check?",
+   "a": "Whether staging and production use the same host config. The SPA fallback — rewrite anything that isn't a file to <code>index.html</code> with a 200 — is per-host, so a platform change (S3 without CloudFront, a new nginx config, a different Netlify site) drops it silently. I'd curl a deep path and look at the status and content type before touching the app."
+  },
+  {
+   "n": 33,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "After a deploy, users with the app open get a blank screen when they navigate. What happened?",
+   "a": "Stale chunk error. Their cached HTML references hashed chunk filenames that no longer exist, so the dynamic import rejects and, with no boundary, unmounts the tree. Short term: catch the import failure at a route error boundary and reload. Better: a version check that prompts \"a new version is available\" instead of reloading mid-task."
+  },
+  {
+   "n": 34,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A user says clicking a link does nothing for a second, so they click again and it submits twice. Fix it.",
+   "a": "That's a blocking navigation with no pending state. I'd surface <code>useNavigation().state</code> as a progress indicator with a short delay before it appears, disable or mark the triggering control while pending, and for submissions make the action idempotent server-side so a double click can't double-write."
+  },
+  {
+   "n": 35,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Cmd-clicking links in the app opens nothing. Diagnose.",
+   "a": "The click interceptor isn't checking modifier keys. It calls <code>preventDefault</code> unconditionally, so the browser's new-tab behaviour is cancelled. The fix is the full bail-out list: <code>button !== 0</code>, <code>metaKey</code>, <code>ctrlKey</code>, <code>shiftKey</code>, <code>altKey</code>, <code>target</code>, <code>download</code>, cross-origin."
+  },
+  {
+   "n": 36,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Every page refresh flashes the login screen for half a second before showing the app. Fix it.",
+   "a": "The guard is treating \"session not yet resolved\" as \"logged out\". There are three states, not two. Either render a splash while the session check is in flight, or move the check into a loader so nothing renders until the answer is known."
+  },
+  {
+   "n": 37,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "The app's error page appears and won't go away even when navigating.",
+   "a": "The error boundary is outside the router, so nothing remounts it on navigation. Move boundaries onto the routes themselves — a data router resets them per navigation — or give the boundary a reset key tied to the location."
+  },
+  {
+   "n": 38,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Users lose their place in a long list every time they go back from a detail page.",
+   "a": "Scroll restoration. It needs the position saved before leaving, keyed to the history entry, and restored on pop — and it has to wait until the list's data has rendered, or the document is too short to scroll to the saved offset. That \"restore after data\" step is the part that's usually missing."
+  },
+  {
+   "n": 39,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A stakeholder shares a link to a filtered report and the recipient sees everything unfiltered.",
+   "a": "The filters are in component state, not the URL. Move them to search params with <code>useSearchParams</code>, replacing rather than pushing for continuous inputs, and validate them on read so a hand-edited URL degrades to a sensible default."
+  },
+  {
+   "n": 40,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A page in the app does a full reload when you click certain links.",
+   "a": "Those anchors aren't going through the router — usually markdown or CMS HTML rendered with <code>dangerouslySetInnerHTML</code>, or an anchor written by hand instead of <code>&lt;Link&gt;</code>. Either post-process the HTML or add a document-level delegated click handler for same-origin anchors."
+  },
+  {
+   "n": 41,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "The search box syncs to the URL and the browser starts throwing errors in Safari.",
+   "a": "History rate limiting — roughly 100 calls in 30 seconds. It's pushing an entry per keystroke. Debounce to about 300 ms and use <code>replace</code>, which also fixes the forty-presses-of-back problem."
+  },
+  {
+   "n": 42,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A screen-reader user reports the app \"does nothing\" when they activate links. What's wrong?",
+   "a": "No focus management and no announcement. The document never changed, so the browser announces nothing, and focus stays on an anchor that may no longer exist. I'd move focus to the new page's heading with <code>tabIndex={-1}</code>, update <code>document.title</code> per route, and add a polite live region naming the new page."
+  },
+  {
+   "n": 43,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Hash routing or history routing?",
+   "a": "History routing by default — real URLs, server-renderable, crawlable. Hash routing when you can't configure the server to rewrite unknown paths: static hosts like GitHub Pages, an app embedded in someone else's product, a browser extension, Electron on <code>file://</code>. The hash never reaches the server, which is both why it works there and why it can't be server-rendered."
+  },
+  {
+   "n": 44,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Route loaders or fetching in components with TanStack Query?",
+   "a": "They solve different halves. Loaders decide <em>when</em> to fetch and remove waterfalls because the router knows the whole matched chain before rendering. A query cache decides <em>freshness</em> — dedupe, background revalidation, stale-while-revalidate. Loaders alone refetch on every visit. So the mature setup is a loader calling <code>queryClient.ensureQueryData</code>."
+  },
+  {
+   "n": 45,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Blocking navigation or optimistic navigation?",
+   "a": "Blocking — keep the old screen with a pending indicator — feels like the web and avoids spinner flash, and it's right when the destination can't render usefully without data. Optimistic is right when the destination has a genuinely good skeleton, or when the user needs instant confirmation the click registered, like tab switching."
+  },
+  {
+   "n": 46,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "URL state or component state?",
+   "a": "If someone opening the link should see the same view, it's URL state. Filters, sort, pagination, selected tab, an open shareable panel. If it's private to this moment in this tab — a dropdown's open flag, an uncommitted input, animation progress — it's component state. The test is \"should a link reproduce this?\""
+  },
+  {
+   "n": 47,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Should you code-split every route?",
+   "a": "No. Split at boundaries a user either enters or doesn't — the admin area, the editor, a heavy chart or map dependency. Splitting every leaf fragments code that always loads together, adds request overhead, and buys a flash of fallback on every navigation unless you also add pending states and prefetching."
+  },
+  {
+   "n": 48,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "React Router, TanStack Router, or Next.js?",
+   "a": "If it needs SEO or has a server anyway, a meta-framework like Next — retrofitting SSR onto a SPA is a migration, not a config change. Behind a login and client-rendered, React Router in data mode is the safe default and the one people ask about. If the URL carries a lot of structured state, TanStack Router's typed, schema-validated search params earn their cost."
+  },
+  {
+   "n": 49,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "File-based routing or config-based routing?",
+   "a": "File-based removes a bug class — you can't forget to register a route — and makes routes statically analysable for prefetch and codegen. Config-based keeps route structure independent of file layout and handles dynamic or conditional routes cleanly. In practice the framework decides for you, which is itself a reason to pick the framework deliberately."
+  },
+  {
+   "n": 50,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Would you ever write your own router?",
+   "a": "For a small internal tool with a handful of static screens, yes — click interception plus <code>pushState</code> plus a matcher is about twenty lines, and a library is more configuration than the problem deserves. The moment I need nesting, loaders, code splitting or blocking, I'd stop and take React Router, because that's where the real work is."
+  },
+  {
+   "n": 51,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Should search params be validated with a schema?",
+   "a": "Yes for anything the app relies on. They're user-editable strings from an untrusted source, so parsing once at the route boundary gives typed values and a defined fallback for garbage, instead of <code>Number(x) || 1</code> scattered through components. That's TanStack Router's built-in pitch, and Zod does it fine anywhere else."
+  },
+  {
+   "n": 52,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Client-side guards versus server-side authorisation?",
+   "a": "They're not alternatives. The client guard is UX — it stops an honest user landing on a screen that can't work. Server-side authorisation on every endpoint is the actual security boundary, because every byte of the client is on the user's machine and editable. If the answer to \"what if they bypass the guard\" isn't \"they get an empty screen because the API refuses them\", the design is wrong."
+  },
+  {
+   "n": 53,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does client-side routing exist at all?",
+   "a": "Because full page navigation throws away the whole document, and once apps started swapping content with JavaScript to avoid that, the URL stopped describing the screen — and the back button, refresh, sharing, deep links, crawling and screen-reader announcements are all built on the URL describing the screen. A router is the machinery that restores that binding."
+  },
+  {
+   "n": 54,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why did hash routing come first?",
+   "a": "Because until HTML5's History API shipped around 2011, the fragment was the only part of a URL JavaScript could change without triggering a navigation — a side effect of it being an in-page anchor mechanism the server never sees."
+  },
+  {
+   "n": 55,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why do routes need to be a tree rather than a flat table?",
+   "a": "Because URLs are hierarchical and UIs usually are too, in the same shape. A tree lets each level own a layout that <em>doesn't remount</em> when its children change, which is what preserves sidebar scroll, open panels and form state — the exact thing a page reload could never do."
+  },
+  {
+   "n": 56,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why did loaders get invented when <code>useEffect</code> fetching already worked?",
+   "a": "Because component-level fetching serialises independent requests: a child can't start fetching until its parent has finished and rendered. The router knows the whole matched chain before rendering anything, so declaring data per route lets everything start in parallel."
+  },
+  {
+   "n": 57,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does a <code>&lt;Link&gt;</code> have to be an anchor?",
+   "a": "Because <code>href</code> is the platform contract. New-tab clicks, copy-link-address, the status bar preview, keyboard focus and Enter, the link role for assistive technology, and crawlability all come from the href. A div with a click handler makes you reimplement six things badly."
+  },
+  {
+   "n": 58,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does the SPA deployment fallback exist?",
+   "a": "Because a fresh request for <code>/products/42</code> is a real HTTP request and there is no file there. Returning <code>index.html</code> for anything that isn't a file lets the app boot and let its own router handle the path. Hash routing never needed it because the fragment never reaches the server."
+  },
+  {
+   "n": 59,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why did the ecosystem move back toward declared route configs after React Router v4 made everything components?",
+   "a": "Because components are opaque until rendered. If the route table only exists as rendered JSX, nothing can know what the next screen needs before it renders — which makes route-level data loading, prefetch and type generation impossible. v6.4 brought back route objects to get that analysability."
+  },
+  {
+   "n": 60,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Walk me through the routing in an app you've built.",
+   "a": "Honest version, and a good one to rehearse: name the router and version, the shape of the route tree (which layout routes exist and why), where auth is enforced, what state lives in the URL versus in components, how data is loaded, and what you split. If a project used a router by default without those decisions being made, say that and describe what you'd change now — that reads better than pretending to a design you didn't make."
+  },
+  {
+   "n": 61,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Why did you choose that router?",
+   "a": "The defensible framing: what the app needed (SEO or not, server or not, how much structured URL state, how many screens), and what that ruled in and out. \"It was the default in the template\" is a real answer if followed by what you'd choose now and why."
+  },
+  {
+   "n": 62,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "What's the hardest routing bug you've hit?",
+   "a": "Pick one with a mechanism you can trace: the deep-link 404 after deploy (host rewrite missing), the login redirect trap (push instead of replace), or the stale chunk after deploy. Each has a clean cause, a clean fix, and shows you understand the layer below the library."
+  },
+  {
+   "n": 63,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How would you add routing to an app that doesn't have it?",
+   "a": "Inventory the screens and what identifies each one, decide which of them deserve URLs and what state belongs in search params, build the route tree with layout routes for shared shells, move auth to a loader on a layout route, add the host rewrite before shipping, and then do the parts everyone skips — focus, title, scroll and a catch-all 404."
+  },
+  {
+   "n": 64,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "What would you do differently on the frontend of your last project?",
+   "a": "A strong routing-shaped answer: put filter and pagination state in the URL from the start. Retrofitting it is invasive, and it's the change that most improves support, sharing and the back button for the least code."
+  },
+  {
+   "n": 65,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does a router compile a path pattern?",
+   "a": "Once, at startup, into a regular expression with named capture groups — <code>/products/:id</code> becomes roughly <code>^/products/([^/]+)$</code> — so matching per navigation is a regex test rather than a parse. <code>path-to-regexp</code> did this for Express and older React Router; v6 uses its own smaller matcher so it can also compute a specificity score."
+  },
+  {
+   "n": 66,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does route ranking actually score a route?",
+   "a": "Per segment, with static scoring highest, dynamic lower, and splat lowest, summed across segments so more segments outrank fewer. The router sorts all routes by score once and matches in that order, which makes declaration order irrelevant and eliminates the \"<code>/products/new</code> renders the detail page\" bug."
+  },
+  {
+   "n": 67,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does a router give each location a stable identity?",
+   "a": "It attaches a generated <code>key</code> to each location and stores it in the history entry's state. That's what lets it tell two visits to the same URL apart — necessary for scroll restoration, for deciding whether to remount, and for keying caches per visit."
+  },
+  {
+   "n": 68,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What happens to an in-flight loader when the user navigates again?",
+   "a": "The router aborts it through the <code>AbortSignal</code> on the loader's <code>request</code> and discards the result. Without cancellation, a slow first response can land after the second and overwrite the newer screen — the classic out-of-order race."
+  },
+  {
+   "n": 69,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does a data router revalidate after a mutation?",
+   "a": "After an action resolves, it re-runs the loaders for the currently matched routes by default, then renders once with the fresh data. It's the browser's own model — submit a form, get a fresh page — which is why it removes most manual cache invalidation."
+  },
+  {
+   "n": 70,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "Why can't <code>popstate</code> be cancelled?",
+   "a": "Because by the time it fires the browser has already traversed — the URL is already the previous one. There is no veto point. That's why blocked back navigation historically needed the push-a-decoy-entry hack, and why the Navigation API's real <code>preventDefault</code> for back is significant."
+  },
+  {
+   "n": 71,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does a router integrate with React's concurrent rendering?",
+   "a": "It wraps the location update in <code>startTransition</code>, so React keeps the current screen mounted while it prepares the next one and exposes <code>isPending</code>. That's what makes a lazy route's chunk download not flash a fallback."
+  },
+  {
+   "n": 72,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What is structured cloning and why does it constrain history state?",
+   "a": "It's the browser's algorithm for deep-copying values across boundaries. It handles plain objects, arrays, dates, maps and typed arrays, but not functions, DOM nodes or class instances — so anything you stash in a history entry's state must be plain data."
+  },
+  {
+   "n": 73,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does a bundler know to split at a dynamic import?",
+   "a": "It treats <code>import()</code> as a static signal at build time, emits the module and its exclusive dependencies as a separate chunk with a content-hashed filename, and replaces the call with a runtime loader that injects a script tag and resolves a promise. That hashing is exactly why stale chunks 404 after a deploy."
+  },
+  {
+   "n": 74,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What does <code>event.intercept()</code> in the Navigation API do that a click handler cannot?",
+   "a": "It tells the browser this navigation is being handled asynchronously, so the browser keeps ownership: it holds the URL, tracks the navigation as ongoing, and applies its own scroll and focus behaviour once the handler settles — for back and forward as well as clicks."
+  },
+  {
+   "n": 75,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What's the nginx config for a SPA?",
+   "a": "<code>location / { try_files $uri $uri/ /index.html; }</code> — try the exact file, then the directory, then fall back to the shell. API routes need their own location block declared so they aren't swallowed."
+  },
+  {
+   "n": 76,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What's the Netlify config?",
+   "a": "A <code>_redirects</code> file with <code>/*  /index.html  200</code>. The explicit 200 makes it a rewrite rather than a redirect, so the URL stays as the user typed it."
+  },
+  {
+   "n": 77,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What's the Express config, and what's the ordering trap?",
+   "a": "<code>app.get(\"*\", (req, res) =&gt; res.sendFile(indexHtml))</code> — declared after your API routes and static middleware. Put it first and it swallows <code>/api/*</code>, your assets, <code>robots.txt</code> and everything else."
+  },
+  {
+   "n": 78,
+   "c": "config",
+   "t": "Configuration",
+   "q": "How do you host a SPA on S3?",
+   "a": "Set the bucket's error document to <code>index.html</code>. It works, but responses carry a 404 status, so front it with CloudFront and a rewrite function if the status code matters — which it does for SEO and monitoring."
+  },
+  {
+   "n": 79,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What is <code>basename</code> and when do you need it?",
+   "a": "The path prefix the app is mounted under — <code>/app</code> if it's served from a subdirectory. Set it on the router so links and matching are relative to that prefix, and make sure the build's asset base path matches, or you get a working router serving 404 assets."
+  },
+  {
+   "n": 80,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What does <code>history.scrollRestoration</code> control?",
+   "a": "Whether the browser restores scroll position on history traversal. Default <code>\"auto\"</code>. SPAs set it to <code>\"manual\"</code> so the router can control restoration itself instead of the browser restoring a position that no longer means anything after a client-side render."
+  },
+  {
+   "n": 81,
+   "c": "config",
+   "t": "Configuration",
+   "q": "How do you configure prefetching?",
+   "a": "Next's <code>&lt;Link&gt;</code> prefetches viewport links by default and can be turned off per link. TanStack Router prefetches on hover by default with a configurable delay. React Router v7 exposes <code>prefetch</code> options on <code>&lt;Link&gt;</code>. On mobile data, viewport prefetch on a long list is worth reconsidering."
+  },
+  {
+   "n": 82,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "A route param contains a slash. What happens?",
+   "a": "A dynamic segment matches one segment only, so it splits. Encode with <code>encodeURIComponent</code> when building the link — <code>a%2Fb</code> — and remember params arrive decoded, so you get <code>a/b</code> back."
+  },
+  {
+   "n": 83,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Two links to the same URL, clicked twice. What does the router do?",
+   "a": "It pushes two entries. The stack records entries, not unique URLs, so the user must press back twice. Routers with a location key can detect it; some apps replace instead of push when the target equals the current location."
+  },
+  {
+   "n": 84,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "A route matches but the resource doesn't exist — <code>/products/99999</code>.",
+   "a": "That's not a routing 404, it's a data 404. The loader should <code>throw new Response(null, { status: 404 })</code> so the error boundary renders the not-found state, rather than the component rendering an empty product page."
+  },
+  {
+   "n": 85,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What happens to <code>beforeunload</code> and the back/forward cache?",
+   "a": "Registering a <code>beforeunload</code> listener disqualifies the page from bfcache in some browsers, so returning to your site via back becomes a full reload instead of an instant restore. Register it only while there are unsaved changes."
+  },
+  {
+   "n": 86,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What if a user edits the search params by hand to something invalid?",
+   "a": "You must assume they will. Parse at the route boundary with a schema and fall back to defaults — <code>?page=banana</code> should render page 1, not <code>NaN</code> or a crash. This is also why <code>?redirectTo=</code> must be validated as a same-origin path."
+  },
+  {
+   "n": 87,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What happens if two routes have identical specificity scores?",
+   "a": "The router falls back to declaration order among the tied routes. That's rare and usually a sign the route table has genuine ambiguity worth removing rather than relying on."
+  },
+  {
+   "n": 88,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What does a trailing slash do?",
+   "a": "<code>/about</code> and <code>/about/</code> are different strings. Most client routers normalise by stripping it; servers often 301 instead. The mismatch is a common cause of \"the link works in the app but not when pasted\"."
+  },
+  {
+   "n": 89,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Can you use client-side routing inside an iframe or a browser extension?",
+   "a": "In an extension or Electron the document loads from a non-http scheme, so <code>pushState</code> with real paths is problematic and hash routing is the standard answer. In an iframe, history entries go into the <em>parent</em> tab's stack, which is why embedded apps usually avoid pushing at all."
+  }
+ ]
+}

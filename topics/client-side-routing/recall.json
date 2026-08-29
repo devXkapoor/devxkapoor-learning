@@ -1,0 +1,2223 @@
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "node-0",
+   "t": "Node 0 · Before routing",
+   "q": "Before client-side routing existed, what happened in the browser when a user clicked a link?",
+   "a": "A <strong>full page navigation</strong>. The browser sent an HTTP request for the <code>href</code>, the server returned a complete HTML document, and the browser <strong>destroyed the entire current document</strong> — every DOM node, every JavaScript variable — and built the new one from scratch."
+  },
+  {
+   "n": 2,
+   "c": "node-0",
+   "t": "Node 0 · Before routing",
+   "q": "In a traditional server-rendered app, what does the word \"routing\" actually refer to?",
+   "a": "Server-side dispatch: code on the server reads the request path, picks a handler (<code>app.get(\"/products/:id\")</code>, a PHP file on disk, a Django URL pattern), that handler queries data and fills a template, and returns HTML. The URL is the address of a document the server produces on demand."
+  },
+  {
+   "n": 3,
+   "c": "node-0",
+   "t": "Node 0 · Before routing",
+   "q": "Name four things multi-page navigation gives you for free that a SPA has to rebuild.",
+   "a": "The URL always matches the screen; the back and forward buttons always work; bookmarking, sharing and refresh work; and the browser resets focus, announces the new document and restores scroll. All of it follows from the browser being the thing that moved."
+  },
+  {
+   "n": 4,
+   "c": "node-0",
+   "t": "Node 0 · Before routing",
+   "q": "What does a full page navigation destroy that users notice?",
+   "a": "Everything held in memory: applied filters, sidebar scroll position, an open WebSocket, a half-typed comment, playing audio, an in-progress upload. Plus a white flash while the new document loads."
+  },
+  {
+   "n": 5,
+   "c": "node-0",
+   "t": "Node 0 · Before routing",
+   "q": "Why is re-rendering an entire page wasteful when two URLs share most of their layout?",
+   "a": "If the header, nav and sidebar are identical between <code>/products</code> and <code>/settings</code>, you re-download, re-parse, re-execute and re-paint all of it to change the small region that actually differs."
+  },
+  {
+   "n": 6,
+   "c": "node-0",
+   "t": "Node 0 · Before routing",
+   "q": "Name an interface that is impossible with full page navigation.",
+   "a": "A music player that keeps playing while you browse, a chat panel that stays connected, or a multi-step wizard whose state survives moving between steps. Each requires the document to persist across screen changes."
+  },
+  {
+   "n": 7,
+   "c": "node-0",
+   "t": "Node 0 · Before routing",
+   "q": "What technology made in-place content updates possible, and roughly when?",
+   "a": "<code>XMLHttpRequest</code>, which became widely usable around 2005 with the \"Ajax\" wave — Gmail and Google Maps are the canonical early examples. Once you could fetch data without navigating, you could change the page without navigating."
+  },
+  {
+   "n": 8,
+   "c": "node-0",
+   "t": "Node 0 · Before routing",
+   "q": "What is the honest trade being made when you move from server routing to client routing?",
+   "a": "You trade correctness-by-default for speed and continuity. The server model gets URL, history, SEO, accessibility and refresh right automatically; the client model gets instant navigation and preserved state, and you must rebuild everything else by hand."
+  },
+  {
+   "n": 9,
+   "c": "node-0",
+   "t": "Node 0 · Before routing",
+   "q": "Why is Node 0 worth understanding rather than skipping?",
+   "a": "Because every later node is restoring one specific thing that full page navigation did for free. If you know what was lost, you can derive what a router must do rather than memorise its API."
+  },
+  {
+   "n": 10,
+   "c": "node-0",
+   "t": "Node 0 · Before routing",
+   "q": "A colleague says \"server-side rendering and server-side routing are the same thing.\" Correct them.",
+   "a": "Server-side <em>routing</em> is dispatch — mapping a request path to a handler. Server-side <em>rendering</em> is producing HTML. A JSON API does the first without the second; a static site generator does the second without per-request routing."
+  },
+  {
+   "n": 11,
+   "c": "node-0",
+   "t": "Node 0 · Before routing",
+   "q": "Why does a server-rendered app work with JavaScript disabled?",
+   "a": "Because the HTML for that URL is produced before it reaches the browser. Navigation is the browser's built-in behaviour, which does not depend on scripting at all."
+  },
+  {
+   "n": 12,
+   "c": "node-0",
+   "t": "Node 0 · Before routing",
+   "q": "What is the single invariant that holds in a server-rendered app and is broken by a SPA?",
+   "a": "<strong>The URL caused the page to exist.</strong> Everything the browser gives you free follows from that; a SPA inverts it, so the URL now has to be kept true by hand."
+  },
+  {
+   "n": 13,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "Define a single-page application precisely.",
+   "a": "An application where the browser loads one HTML <strong>document</strong>, once, and JavaScript thereafter swaps the page's contents in response to user action. There are many screens; there is one document, and no further full navigations."
+  },
+  {
+   "n": 14,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "Why is the name \"single-page application\" misleading?",
+   "a": "\"Page\" means document, not screen. A SPA typically has dozens of screens. What is singular is the document lifecycle — it is created once and never torn down."
+  },
+  {
+   "n": 15,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "In one sentence, what is a router?",
+   "a": "A <strong>two-way binding between the URL and what the application is currently rendering</strong> — it reads the URL to decide what to show, and writes the URL when what is shown changes."
+  },
+  {
+   "n": 16,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "A router is not a rendering technology and not a data-fetching technology. What is it actually opting back into?",
+   "a": "The browser's public API for URL, history stack and document lifecycle — which a SPA opted out of by never navigating."
+  },
+  {
+   "n": 17,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "Why does the back button leave your site entirely in a router-less SPA?",
+   "a": "Because no history entries were ever created for your internal screen changes. The most recent entry before the current one is whatever site the user was on before yours, so \"back\" goes there."
+  },
+  {
+   "n": 18,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "A user has navigated three screens deep in a router-less SPA and presses refresh. What happens and why?",
+   "a": "They land back at the home screen. Refresh re-requests the current URL, and the URL never changed — so the app boots in its initial state with no record of where they were."
+  },
+  {
+   "n": 19,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "Why can't a user share what they're looking at in a router-less SPA?",
+   "a": "The address bar still shows the entry URL. There is no string that describes their current screen, so there is nothing to copy, and pasting what they have sends the recipient to the front door."
+  },
+  {
+   "n": 20,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "What is a deep link and why does a router-less SPA break it?",
+   "a": "A URL that points at a specific screen or resource inside the app — the target of a \"your order shipped\" email. Without routing, no such URL exists, so every external link can only reach the home screen."
+  },
+  {
+   "n": 21,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "Why do search engines and link previews see only one page in a router-less SPA?",
+   "a": "There is one URL, returning one HTML document. Whatever content that document has after JavaScript runs, every crawlable address is the same address, so there is nothing per-screen to index or unfurl."
+  },
+  {
+   "n": 22,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "What exactly does a screen reader user experience when a router-less SPA changes screens?",
+   "a": "Nothing. On a real navigation the browser announces the new document; here the document never changed, so no announcement fires, focus stays where it was, and the title is unchanged. They activated a link and, as far as their software knows, nothing happened."
+  },
+  {
+   "n": 23,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "Why is \"the address bar is a lie\" the root cause rather than one symptom among many?",
+   "a": "Because back, refresh, bookmarking, sharing, deep linking, crawling and announcements are all built on the URL describing the current view. Break that single invariant and all seven break together."
+  },
+  {
+   "n": 24,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "What is the smallest possible \"router-less SPA\" and why is it instructive?",
+   "a": "A variable holding the current screen name, a click handler that sets it, and a render function that reads it. It is fast, nothing flashes, and state survives — and it demonstrates that the missing piece is purely the URL binding, not the rendering."
+  },
+  {
+   "n": 25,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "A stakeholder asks why the app \"needs a routing library\" when navigation already works. What do you say?",
+   "a": "Navigation works visually. What is broken is invisible to us and obvious to users: back, refresh, sharing, bookmarks, deep links from email, previews, and screen-reader announcements. A router restores those, not the screen switching."
+  },
+  {
+   "n": 26,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "How would you demonstrate the missing-router problem to a non-technical person in ten seconds?",
+   "a": "Navigate three screens deep, press refresh, and watch them land back at the home screen. Then try to send someone a link to what they were looking at."
+  },
+  {
+   "n": 27,
+   "c": "node-1",
+   "t": "Node 1 · The SPA and what it breaks",
+   "q": "Why is a SPA's speed advantage real even though it downloads more JavaScript up front?",
+   "a": "Because the cost is paid once. After the first load, a navigation transfers only data, keeps the DOM and CSS in place, and skips document teardown and script re-execution entirely."
+  },
+  {
+   "n": 28,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "What is the fragment of a URL?",
+   "a": "Everything after the <code>#</code>. In <code>https://example.com/app#/settings</code> the fragment is <code>/settings</code>. It was invented for in-page anchors — <code>#chapter-3</code> scrolls to the element with that id."
+  },
+  {
+   "n": 29,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "What two properties of the fragment made hash routing possible?",
+   "a": "The fragment is <strong>never sent to the server</strong> (the browser strips it before making the request), and consequently <strong>changing only the fragment causes no navigation</strong> — the browser updates the address bar and pushes a history entry, and does nothing else."
+  },
+  {
+   "n": 30,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "How do you change the route in a hash router, in raw JavaScript?",
+   "a": "<code>window.location.hash = \"/settings\"</code>. That updates the address bar and creates a history entry with no request and no document teardown."
+  },
+  {
+   "n": 31,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "Which event tells you the fragment changed, and what triggers it?",
+   "a": "<code>hashchange</code> on <code>window</code>. It fires for any fragment change: your own code setting it, the user clicking a <code>#/...</code> link, or the user pressing back or forward."
+  },
+  {
+   "n": 32,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "When did <code>hashchange</code> become available, and what did libraries do before that?",
+   "a": "It was formalised in HTML5 and shipped in Internet Explorer 8 in 2009. Before it, routers <strong>polled</strong> <code>location.hash</code> on a timer, typically every 50 ms, because no event existed at all."
+  },
+  {
+   "n": 33,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "Write the shape of a complete hash router in words.",
+   "a": "Read <code>location.hash</code>, strip the leading <code>#</code>, match the remainder against a table of screens, render the match; and register a <code>hashchange</code> listener that does the same thing again. About fifteen lines, no library."
+  },
+  {
+   "n": 34,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "Why can a hash-routed app never be server-rendered?",
+   "a": "The server never receives the fragment, so a request for the settings screen and one for the home screen are literally the same HTTP request. The server cannot produce different HTML for them."
+  },
+  {
+   "n": 35,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "What is the collision problem in hash routing?",
+   "a": "The fragment's original job — scrolling to an element id — is taken. You cannot use <code>#reviews</code> to jump to a heading while <code>#</code> also carries the route, which is why hash routers grew the awkward <code>#/products/42#reviews</code> double-hash convention."
+  },
+  {
+   "n": 36,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "What was the hashbang scheme, and what happened to it?",
+   "a": "Google published a <code>#!</code> convention in 2009 so crawlers could request an equivalent server URL for hash-routed pages. Google <strong>deprecated it in 2015</strong> and told everyone to use real URLs instead."
+  },
+  {
+   "n": 37,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "Name four situations where hash routing is still the correct choice today.",
+   "a": "Any host you cannot configure to rewrite paths: GitHub Pages and similar static hosts, an app embedded inside someone else's CMS or product, a browser extension, and an Electron or desktop app loading from <code>file://</code>."
+  },
+  {
+   "n": 38,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "What does React Router still ship for this case?",
+   "a": "<code>HashRouter</code>, which is the same API as <code>BrowserRouter</code> but stores the route in the fragment. It exists precisely for hosts without rewrite rules."
+  },
+  {
+   "n": 39,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "Why is \"the URL is ugly\" not the only objection to hash routing?",
+   "a": "Because ugliness is cosmetic and the real costs are structural: no SSR, no per-screen server response, degraded crawling and link previews, and the loss of the fragment for its native purpose."
+  },
+  {
+   "n": 40,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "You deploy a SPA to GitHub Pages with a BrowserRouter and every deep link 404s. What are your two options?",
+   "a": "Switch to <code>HashRouter</code>, or add a <code>404.html</code> that re-enters the app — the standard GitHub Pages hack. Hash routing is the honest fix; the 404 trick works but pollutes history and breaks the status code."
+  },
+  {
+   "n": 41,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "Does a fragment change count as a history entry?",
+   "a": "Yes. That is exactly what makes hash routing work at all — <code>location.hash = \"/x\"</code> pushes an entry, so back and forward move between routes."
+  },
+  {
+   "n": 42,
+   "c": "node-2",
+   "t": "Node 2 · The hash fragment",
+   "q": "Why does <code>hashchange</code> not need a distinction between \"I changed it\" and \"the user pressed back\"?",
+   "a": "Because it fires for both. That symmetry is what makes a hash router simpler than a History API one, where <code>pushState</code> is silent and <code>popstate</code> is not."
+  },
+  {
+   "n": 43,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "What three pieces make up the History API that every router is built on?",
+   "a": "<code>history.pushState(state, \"\", url)</code>, <code>history.replaceState(state, \"\", url)</code>, and the <code>popstate</code> event on <code>window</code>. Everything React Router, Vue Router and Next.js do for navigation is a wrapper over these three."
+  },
+  {
+   "n": 44,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "When did the History API ship?",
+   "a": "Specified in HTML5 around 2010 and shipped across browsers through 2011–2012 — Chrome 5, Firefox 4, Safari 5, and Internet Explorer 10, which is why adoption lagged until IE9 could be dropped."
+  },
+  {
+   "n": 45,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "What exactly does <code>pushState</code> do?",
+   "a": "It adds an entry to the history stack and changes the address bar to the given URL — and <strong>nothing else</strong>. No HTTP request, no document teardown, no re-render. It is pure bookkeeping that says \"pretend the user navigated here.\""
+  },
+  {
+   "n": 46,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "What is the second argument to <code>pushState</code>?",
+   "a": "A historical mistake. It was meant to be the page title, no browser ever implemented it, and the spec now says pass an empty string. Setting <code>document.title</code> is a separate manual step."
+  },
+  {
+   "n": 47,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "What is the <code>state</code> argument for?",
+   "a": "An arbitrary serialisable object stored <em>with that history entry</em> and handed back to you via <code>event.state</code> if the user returns to it. Useful for scroll position, a \"where did they come from\" breadcrumb, or a snapshot of the screen."
+  },
+  {
+   "n": 48,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "What are the constraints on the <code>state</code> object?",
+   "a": "It is serialised with the structured clone algorithm, so functions, DOM nodes and class instances are not allowed. Browsers cap the size — Firefox at 16 MB per entry — and anything beyond a few kilobytes should be treated as a design mistake."
+  },
+  {
+   "n": 49,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "How does <code>replaceState</code> differ from <code>pushState</code>?",
+   "a": "It <strong>overwrites the current history entry</strong> instead of adding one. The stack length and the pointer do not change. This is the single most practically important distinction in routing."
+  },
+  {
+   "n": 50,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "When does <code>popstate</code> fire?",
+   "a": "When the user or script <em>traverses</em> the history stack: the back button, the forward button, <code>history.back()</code>, <code>history.forward()</code>, <code>history.go(n)</code>."
+  },
+  {
+   "n": 51,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "Does <code>popstate</code> fire when you call <code>pushState</code>?",
+   "a": "<strong>No.</strong> The browser assumes that if your own code changed the URL, your own code already knows. This is the classic gotcha when writing a router by hand."
+  },
+  {
+   "n": 52,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "Given that asymmetry, what two paths must a hand-rolled router have into its re-render function?",
+   "a": "One it calls itself immediately after <code>pushState</code> or <code>replaceState</code>, and one wired to the <code>popstate</code> listener for back and forward. Routers wrap this in a single subscription so consumers see one uniform \"location changed\" event."
+  },
+  {
+   "n": 53,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "What restriction applies to the URL you pass to <code>pushState</code>?",
+   "a": "It must be <strong>same-origin</strong> — you may change path, query and fragment, but not scheme, host or port, or the call throws a <code>SecurityError</code>. Otherwise any page could make the address bar read <code>bank.com</code>."
+  },
+  {
+   "n": 54,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "Why do browsers rate-limit <code>pushState</code>, and when do real apps hit the limit?",
+   "a": "To stop pages spamming the history stack. Safari has historically thrown after roughly 100 calls in 30 seconds. Apps hit it by syncing a range slider or a search input to the URL on every keystroke; the fix is debouncing plus <code>replaceState</code>."
+  },
+  {
+   "n": 55,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "Name four things <code>pushState</code> deliberately does not do that a real navigation did.",
+   "a": "It does not scroll, does not move focus, does not change <code>document.title</code>, and does not announce anything to assistive technology. Each becomes its own problem later in the chain."
+  },
+  {
+   "n": 56,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "Does <code>pushState</code> re-run your JavaScript or reload assets?",
+   "a": "No. The document, its scripts, its stylesheets and all in-memory state are untouched. That is precisely why it is fast, and precisely why nothing happens unless you make it happen."
+  },
+  {
+   "n": 57,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "Can you read the browser's history stack?",
+   "a": "No. For privacy reasons the entries are opaque. <code>history.length</code> is the only observable, and even that includes entries from before the user reached your site."
+  },
+  {
+   "n": 58,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "What is the difference between <code>history.pushState</code> and <code>location.assign</code>?",
+   "a": "<code>location.assign(url)</code> performs a real navigation — request, document teardown, everything. <code>pushState</code> changes only the address bar and the stack. Confusing them is how \"why did my whole app reload?\" bugs happen."
+  },
+  {
+   "n": 59,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "Roughly, how would you implement <code>navigate(url)</code> from scratch?",
+   "a": "<code>history.pushState(null, \"\", url)</code>, then call your own render function with the new <code>location.pathname</code>. Two lines — the rest of a router is matching, interception and the ergonomics around it."
+  },
+  {
+   "n": 60,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "You call <code>pushState</code> and nothing on screen changes. Is that a bug?",
+   "a": "No — it is the specified behaviour. <code>pushState</code> only updates the address bar and the stack. Rendering is entirely your responsibility, and forgetting that is the single most common first-router mistake."
+  },
+  {
+   "n": 61,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "Why do routers wrap the History API in their own object rather than exposing it directly?",
+   "a": "To hide the asymmetry — <code>pushState</code> is silent, <code>popstate</code> is not — behind one uniform subscription, and to add a stable <code>key</code> per location for scroll restoration and remount decisions."
+  },
+  {
+   "n": 62,
+   "c": "node-3",
+   "t": "Node 3 · The History API",
+   "q": "What is stored where: the URL, or the state object?",
+   "a": "Both, per entry. The URL is what the address bar shows and what a refresh re-requests; the state object is side data the browser keeps for you and hands back on <code>popstate</code>, and it is <em>not</em> in the URL, so it does not survive being copied and pasted."
+  },
+  {
+   "n": 63,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "Why must a router intercept link clicks at all?",
+   "a": "Because <code>pushState</code> is something your code calls, and users do not call functions — they click anchors, and an anchor's default behaviour is a full page navigation that destroys the application."
+  },
+  {
+   "n": 64,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "What is the core mechanism of link interception?",
+   "a": "Listen for <code>click</code>, call <code>event.preventDefault()</code> to cancel the browser's navigation, then <code>pushState</code> the link's <code>href</code> and re-render. That is the entire trick."
+  },
+  {
+   "n": 65,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "List the conditions under which a router must NOT intercept a link click.",
+   "a": "Non-primary button (<code>event.button !== 0</code>); any of <code>metaKey</code>, <code>ctrlKey</code>, <code>shiftKey</code>, <code>altKey</code> held; a <code>target</code> other than <code>_self</code>; the <code>download</code> attribute; <code>rel=\"external\"</code>; a cross-origin href or a non-http scheme like <code>mailto:</code> or <code>tel:</code>; or an event already default-prevented."
+  },
+  {
+   "n": 66,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "What do users experience if a router forgets the modifier-key checks?",
+   "a": "Cmd-click or Ctrl-click on a link opens nothing at all — the router swallows the click and navigates in place, or does nothing. It reads as the app being broken, and it never surfaces in testing because nobody Cmd-clicks while testing."
+  },
+  {
+   "n": 67,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "Why does <code>metaKey</code> matter separately from <code>ctrlKey</code>?",
+   "a": "Cmd (<code>metaKey</code>) is \"open in new tab\" on macOS; Ctrl is the same gesture on Windows and Linux. Checking only one breaks half your users."
+  },
+  {
+   "n": 68,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "Why must <code>&lt;Link&gt;</code> render a real <code>&lt;a href&gt;</code> rather than a div with an onClick?",
+   "a": "The href is the platform contract. It gives you middle-click and Cmd-click new tabs, \"Copy link address\", the destination in the status bar on hover, keyboard focusability and Enter activation with no extra code, the correct <code>link</code> role for screen readers, and crawlability. A div gives you none of it."
+  },
+  {
+   "n": 69,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "Which is decoration and which is the contract — the href or the onClick?",
+   "a": "The <strong>href is the contract</strong>; the onClick is the optimisation. The link works without JavaScript and works correctly for every input method because of the href; the handler only makes it faster."
+  },
+  {
+   "n": 70,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "When should you use programmatic navigation instead of a link?",
+   "a": "When the application is sending the user somewhere as a consequence of something — after a successful form submit, after login, on a timer, in response to a socket message. If the <em>user</em> is choosing to go somewhere, it is a link."
+  },
+  {
+   "n": 71,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "What is the API for programmatic navigation in React Router?",
+   "a": "<code>const navigate = useNavigate()</code>, then <code>navigate(\"/products/42\")</code>, or <code>navigate(\"/x\", { replace: true })</code>, or <code>navigate(-1)</code> to go back one entry."
+  },
+  {
+   "n": 72,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "Why is <code>navigate(-1)</code> risky as a \"back\" button?",
+   "a": "The history stack belongs to the tab, not your app. If the current entry is the first one the user reached in your app, <code>navigate(-1)</code> ejects them from your site entirely."
+  },
+  {
+   "n": 73,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "Forms are the second kind of real navigation. What do they do by default?",
+   "a": "A <code>&lt;form&gt;</code> submit serialises its fields and performs a GET or POST navigation to its <code>action</code> — a full page load, exactly like a link click."
+  },
+  {
+   "n": 74,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "How do data routers handle form submits?",
+   "a": "They ship a <code>&lt;Form&gt;</code> component that intercepts <code>submit</code> the same way <code>&lt;Link&gt;</code> intercepts <code>click</code>, then routes the serialised data to a route <code>action</code> instead of navigating."
+  },
+  {
+   "n": 75,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "Why does a router listen at the document level rather than attaching handlers to every anchor?",
+   "a": "Some routers do delegate at the document, which catches anchors rendered by markdown, third-party HTML or dangerouslySetInnerHTML. Component-level <code>&lt;Link&gt;</code> handlers only catch links your components rendered."
+  },
+  {
+   "n": 76,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "After Nodes 0–4, what do you have?",
+   "a": "A complete working router: intercept clicks, push state, listen for popstate, render from the path. Everything after this makes it usable at scale rather than making it work."
+  },
+  {
+   "n": 77,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "A user reports that Cmd-clicking links in your app does nothing. What is the bug?",
+   "a": "The click handler is intercepting without checking <code>metaKey</code> (and <code>ctrlKey</code>, <code>shiftKey</code>, <code>altKey</code>, <code>button</code>). It calls <code>preventDefault</code> and then navigates in place or bails, so the new tab never opens."
+  },
+  {
+   "n": 78,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "An anchor inside markdown rendered from the CMS does a full page reload. Why, and what fixes it?",
+   "a": "It was not rendered by your <code>&lt;Link&gt;</code> component, so nothing intercepts its click. Fix with a delegated document-level click listener that handles any same-origin anchor, or post-process the rendered HTML."
+  },
+  {
+   "n": 79,
+   "c": "node-4",
+   "t": "Node 4 · Intercepting navigation",
+   "q": "Should a router intercept a click on <code>&lt;a href=\"/report.pdf\" download&gt;</code>?",
+   "a": "No. The <code>download</code> attribute means the browser should save the file, not navigate. Intercepting it swallows the download."
+  },
+  {
+   "n": 80,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "Define a route.",
+   "a": "A pairing of a <strong>path pattern</strong> with something to render. Matching is taking the current path, finding the pattern that best describes it, and extracting the variable parts as params."
+  },
+  {
+   "n": 81,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "Why does a chain of <code>if (path === \"/about\")</code> checks stop working?",
+   "a": "It cannot express variables like <code>/products/:id</code>, it has no way to rank two patterns that both match, and it becomes unreadable at roughly a dozen routes."
+  },
+  {
+   "n": 82,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "What is a dynamic segment and what does it match?",
+   "a": "A segment written with a colon, like <code>:id</code> in <code>/products/:id</code>. It matches <strong>exactly one path segment</strong> — not across slashes — and captures it into <code>params</code>."
+  },
+  {
+   "n": 83,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "What type are route params?",
+   "a": "<strong>Always strings</strong>, because a URL is text. <code>params.id === 42</code> is false even for <code>/products/42</code>; you must parse at the boundary with <code>Number(params.id)</code> and handle <code>NaN</code>."
+  },
+  {
+   "n": 84,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "What is a splat or wildcard route?",
+   "a": "<code>*</code>, which matches the remainder of the path <em>including slashes</em>. Used for file-browser style paths and for the catch-all 404 route."
+  },
+  {
+   "n": 85,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "How are optional segments written in React Router v6.5+?",
+   "a": "With a trailing question mark: <code>/users/:id?</code> matches both <code>/users</code> and <code>/users/7</code>. Commonly used for an optional locale prefix like <code>/:lang?/products</code>."
+  },
+  {
+   "n": 86,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "How is a path pattern actually matched at runtime?",
+   "a": "It is compiled once, at startup, into a regular expression — <code>/products/:id</code> becomes roughly <code>^/products/([^/]+)$</code> — with capture-group names remembered so the match array can be converted back into a named params object."
+  },
+  {
+   "n": 87,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "Which library historically did this compilation, and what changed?",
+   "a": "<code>path-to-regexp</code>, used by Express and by React Router for years. React Router v6 replaced it with its own smaller matcher to reduce bundle size and to support ranking."
+  },
+  {
+   "n": 88,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "Given <code>/products/new</code>, both <code>/products/new</code> and <code>/products/:id</code> match. What decides?",
+   "a": "In React Router v6 and later, a <strong>specificity score</strong> computed per route, independent of declaration order: more segments beats fewer; within a segment, static beats dynamic, and dynamic beats splat. So the static route always wins."
+  },
+  {
+   "n": 89,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "What bug does route ranking eliminate?",
+   "a": "The \"new product page renders the detail page for a product with id 'new'\" bug, and its general form — behaviour changing because someone reordered routes in a file."
+  },
+  {
+   "n": 90,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "Is Express first-match-wins or ranked?",
+   "a": "<strong>First-match-wins, in declaration order.</strong> That is why \"put the specific route before the dynamic one\" is still correct advice for Express and wrong for React Router v6+."
+  },
+  {
+   "n": 91,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "What did the <code>exact</code> prop do, and why is it gone?",
+   "a": "In React Router v3–v5, <code>/products</code> also matched <code>/products/42</code> unless you passed <code>exact</code>. v6 made exact matching the default and expresses \"also match children\" through nesting instead, so the prop no longer exists."
+  },
+  {
+   "n": 92,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "How do routers handle trailing slashes?",
+   "a": "<code>/about</code> and <code>/about/</code> are different strings, so most routers normalise by stripping the trailing slash before matching. Servers often issue a redirect instead — a difference worth checking when links break only in production."
+  },
+  {
+   "n": 93,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "What happens to a param value containing a slash?",
+   "a": "It must be percent-encoded — <code>a/b</code> becomes <code>a%2Fb</code> — or it will be read as two segments. Params arrive percent-<em>decoded</em>, so always build links with <code>encodeURIComponent</code>."
+  },
+  {
+   "n": 94,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "What is static routing versus dynamic routing in React Router's history?",
+   "a": "Static (v3 and earlier): the whole route table is declared up front as configuration, before rendering. Dynamic (v4, March 2017): a <code>&lt;Route&gt;</code> is just a component that renders when the URL matches, so routes can appear anywhere and be created conditionally."
+  },
+  {
+   "n": 95,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "What did dynamic routing cost, and how was it resolved?",
+   "a": "Nothing could know the route table without rendering, which made preloading data and code impossible in advance. v6.4 (September 2022) reintroduced a declared route <em>object</em> tree specifically to get that analysability back."
+  },
+  {
+   "n": 96,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "Name the recurring tension this node introduces.",
+   "a": "<strong>Config for analysability versus components for flexibility.</strong> A declared route tree can be inspected before render (enabling loaders, prefetch, type generation); component routes are more dynamic but opaque until rendered. It resurfaces at Nodes 9 and 17."
+  },
+  {
+   "n": 97,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "How do you read params in React Router?",
+   "a": "<code>const { id } = useParams()</code> inside a component rendered by the matching route, or <code>({ params }) =&gt; ...</code> inside that route's loader."
+  },
+  {
+   "n": 98,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "Your route <code>/users/:id</code> stops matching for a user whose id contains a slash. What happened and how do you fix it?",
+   "a": "A dynamic segment matches one segment only, so the slash splits it in two. Encode the value with <code>encodeURIComponent</code> when building the link, or restructure the URL so the id is not path-shaped."
+  },
+  {
+   "n": 99,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "How would you match <code>/docs/getting-started/installation</code> with arbitrary depth?",
+   "a": "A splat: <code>/docs/*</code>. The captured value includes the slashes, so you get <code>getting-started/installation</code> as one string to look up."
+  },
+  {
+   "n": 100,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "Two routes, <code>/:category</code> and <code>/about</code>, both exist. Which wins in React Router v6 and which in Express?",
+   "a": "React Router v6 ranks static above dynamic, so <code>/about</code> wins regardless of order. Express takes whichever was declared first, so <code>/about</code> wins only if it was registered first."
+  },
+  {
+   "n": 101,
+   "c": "node-5",
+   "t": "Node 5 · Route matching",
+   "q": "You want <code>/products</code> to render a list and <code>/products/:id</code> to render a detail — with a shared header. What is the right structure?",
+   "a": "A parent route <code>/products</code> rendering the header and an outlet, with an <strong>index route</strong> for the list and a <code>:id</code> child for the detail. Not two sibling routes duplicating the header."
+  },
+  {
+   "n": 102,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "What limitation of a flat route table does nesting solve?",
+   "a": "A flat list cannot express \"these screens live inside that layout\", so every route re-declares the shared shell — and because it is re-declared, React <strong>remounts</strong> it on every navigation, destroying its state."
+  },
+  {
+   "n": 103,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "What is the central insight behind nested routing?",
+   "a": "A URL path is already hierarchical, and the UI usually is too, in the same shape. <code>/settings/billing/invoices</code> is app shell → settings layout → billing section → invoice list."
+  },
+  {
+   "n": 104,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "What is <code>&lt;Outlet /&gt;</code>?",
+   "a": "The hole a parent route renders where its matched child should appear. It is like <code>props.children</code>, except the router supplies the child based on the URL rather than the parent naming it."
+  },
+  {
+   "n": 105,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "What is <code>&lt;Outlet&gt;</code> called in Vue, Angular and Next.js?",
+   "a": "<code>&lt;router-view&gt;</code> in Vue Router, <code>&lt;router-outlet&gt;</code> in Angular, and in Next.js App Router it is the <code>children</code> prop passed to <code>layout.tsx</code>. Same concept, four names."
+  },
+  {
+   "n": 106,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "What does matching produce in a nested router?",
+   "a": "A <strong>chain</strong> of matched routes, not a single route. <code>/settings/billing</code> matches the settings route and the billing route, and the router renders them nested via outlets."
+  },
+  {
+   "n": 107,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "Why doesn't the layout remount when you move between its children?",
+   "a": "React reconciles it as the same element type in the same tree position, so it keeps its instance and its state. Sidebar scroll, an open accordion, and local form state all survive."
+  },
+  {
+   "n": 108,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "Why is that non-remounting behaviour the payoff rather than a detail?",
+   "a": "It is exactly the thing full page navigation could never do — the reason SPAs exist. Nesting is what turns \"we don't reload\" into a structural property of the UI instead of an accident."
+  },
+  {
+   "n": 109,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "Are child route paths absolute or relative?",
+   "a": "Relative. <code>path=\"profile\"</code> inside <code>path=\"/settings\"</code> means <code>/settings/profile</code>. A leading slash makes it absolute and breaks the portability that nesting buys you."
+  },
+  {
+   "n": 110,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "Why should links inside a nested feature be relative too?",
+   "a": "So the whole feature can be remounted under a different prefix by changing one line. <code>&lt;Link to=\"profile\"&gt;</code> resolves against the current route; <code>&lt;Link to=\"/settings/profile\"&gt;</code> hard-codes the location."
+  },
+  {
+   "n": 111,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "What is an index route?",
+   "a": "A child with no <code>path</code>, marked <code>index</code>, that renders into the parent's outlet when the URL matches the parent <strong>exactly</strong>. It answers \"what fills this pane at <code>/settings</code> before anything is selected.\""
+  },
+  {
+   "n": 112,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "What is a layout route (pathless route)?",
+   "a": "A route with an <code>element</code> but no <code>path</code>. It contributes nothing to the URL while still wrapping its children — used to apply one shell to several unrelated top-level routes, or to attach one error boundary or auth loader to a group."
+  },
+  {
+   "n": 113,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "How do you apply an auth check to a whole subtree in one place?",
+   "a": "Wrap the subtree in a pathless layout route whose element (or loader) performs the check. Every descendant is protected without repeating the guard."
+  },
+  {
+   "n": 114,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "How does a deeply nested route reach a parent's data?",
+   "a": "Through context the parent provides, through <code>&lt;Outlet context={...} /&gt;</code> and <code>useOutletContext()</code>, or in a data router through <code>useRouteLoaderData(routeId)</code>, which reads any ancestor route's loader result by id."
+  },
+  {
+   "n": 115,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "What is the relationship between nesting and code splitting?",
+   "a": "Nesting gives natural split boundaries — a whole subtree under one layout route is often exactly the chunk you want to lazy-load, because a user either enters that area or never does."
+  },
+  {
+   "n": 116,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "How does a file-based router express nesting?",
+   "a": "With directory structure. <code>app/settings/layout.tsx</code> plus <code>app/settings/billing/page.tsx</code> is the same tree, declared by the filesystem instead of by a config object."
+  },
+  {
+   "n": 117,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "Your settings sidebar scroll resets every time the user switches settings tabs. Diagnose it.",
+   "a": "The sidebar is being rendered by each leaf route rather than by a shared parent layout, so React unmounts and remounts it on every navigation. Hoist it into the parent route's element, above the <code>&lt;Outlet /&gt;</code>."
+  },
+  {
+   "n": 118,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "When does a nested layout <em>legitimately</em> remount?",
+   "a": "When you navigate to a route outside its subtree and back, or when the route is keyed by something that changed — for example a layout that is per-workspace and the workspace id changed."
+  },
+  {
+   "n": 119,
+   "c": "node-6",
+   "t": "Node 6 · Nested routes and layouts",
+   "q": "You add <code>&lt;Link to=\"/settings/profile\"&gt;</code> inside a nested feature and later move the feature under <code>/org/:id/settings</code>. What breaks?",
+   "a": "Every absolute link. Relative links (<code>to=\"profile\"</code>) would have moved with the feature; absolute ones now point at a route that no longer exists."
+  },
+  {
+   "n": 120,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "Why is the path a bad place for filters and pagination?",
+   "a": "Paths identify resources and are ordered and required. Filters are an unordered, optional, variable-length set of modifiers, several of which may be absent — that is exactly what the query string is for."
+  },
+  {
+   "n": 121,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "What is the structure of a query string?",
+   "a": "Everything after <code>?</code>, as <code>key=value</code> pairs joined by <code>&amp;</code>. Order is not significant, every key is optional, and keys may <strong>repeat</strong> — <code>?tag=red&amp;tag=blue</code> is a legitimate multi-select."
+  },
+  {
+   "n": 122,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "What is the built-in API for parsing it?",
+   "a": "<code>URLSearchParams</code>, with <code>get</code>, <code>getAll</code>, <code>set</code>, <code>append</code>, <code>delete</code>, <code>has</code> and <code>toString</code>. It handles percent-encoding correctly, which hand-rolled splitting on <code>&amp;</code> does not."
+  },
+  {
+   "n": 123,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "What is the difference between <code>get</code> and <code>getAll</code>?",
+   "a": "<code>get</code> returns the <em>first</em> value or <code>null</code>; <code>getAll</code> returns an array of every value for that key. Using <code>get</code> on a repeated key silently drops the rest of a multi-select."
+  },
+  {
+   "n": 124,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "What type are query values?",
+   "a": "Strings, always — <code>page</code> arrives as <code>\"3\"</code>. Same trap as path params."
+  },
+  {
+   "n": 125,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "What does <code>useSearchParams</code> return, and why is it shaped that way?",
+   "a": "<code>[searchParams, setSearchParams]</code> — deliberately shaped like <code>useState</code> so the mental model is \"this is state that happens to live in the address bar.\""
+  },
+  {
+   "n": 126,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "State the rule for what belongs in the URL.",
+   "a": "<strong>State that another person should see when they open your link belongs in the URL; state private to this moment in this tab does not.</strong>"
+  },
+  {
+   "n": 127,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "Give three examples on each side of that rule.",
+   "a": "URL: filters, search text, sort order, pagination, selected tab, an open detail panel. Not URL: whether a dropdown is open, the uncommitted value of a text input, an animation's progress, a transient toast."
+  },
+  {
+   "n": 128,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "Name three concrete payoffs of putting filters in the URL.",
+   "a": "Support can ask a user for a link and see the identical broken view; users can bookmark a filtered report; and the back button starts undoing filter changes, which is what users expect and which component state can never provide."
+  },
+  {
+   "n": 129,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "When should a search-param change push, and when should it replace?",
+   "a": "<strong>Discrete, deliberate changes push</strong> — changing category, moving to page 2. <strong>Continuous or rapid changes replace</strong> — typing in a search box, dragging a slider."
+  },
+  {
+   "n": 130,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "What goes wrong if you push on every keystroke?",
+   "a": "Every character becomes a history entry, so the user must press back forty times to escape the page — and you may hit the browser's <code>pushState</code> rate limit."
+  },
+  {
+   "n": 131,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "What goes wrong if you replace everything?",
+   "a": "The back button skips straight out of the app instead of undoing the last filter change, which users read as the back button being broken."
+  },
+  {
+   "n": 132,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "What is the standard debounce for URL-synced text input, and why two reasons?",
+   "a": "Around 300 ms — long enough that a normal typing burst produces one update. It avoids both the history-spam problem and the browser's rate limit on history calls."
+  },
+  {
+   "n": 133,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "Now that routes live in the path, what is the fragment good for again?",
+   "a": "Its original job: which section of the current document you are looking at. The browser's native scroll-to-id still works, so deep-linking to a heading needs no code at all."
+  },
+  {
+   "n": 134,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "How do you merge one param change without wiping the others?",
+   "a": "Read the current params, mutate a copy, and write the whole thing back — <code>const next = new URLSearchParams(searchParams); next.set(\"page\", \"2\"); setSearchParams(next, { replace: true })</code>. Passing a fresh object drops every other param."
+  },
+  {
+   "n": 135,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "What is the argument for validating search params with a schema?",
+   "a": "They are user-editable strings from an untrusted source. Parsing them once at the route boundary — with Zod, or TanStack Router's built-in search schema — gives typed values and a defined fallback for garbage instead of scattering <code>Number(x) || 1</code> through components."
+  },
+  {
+   "n": 136,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "A user filters a table, sends the link to a colleague, and the colleague sees an unfiltered table. What is the design error?",
+   "a": "The filter is component state, not URL state. If a link should reproduce the view, the state has to be in the URL — that is the whole test."
+  },
+  {
+   "n": 137,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "You sync a search box to the URL and Safari starts throwing. Why?",
+   "a": "You are pushing a history entry per keystroke and hitting Safari's rate limit of roughly 100 history calls in 30 seconds. Debounce, and use <code>replace</code> rather than <code>push</code>."
+  },
+  {
+   "n": 138,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "How do you represent a multi-select filter in the URL?",
+   "a": "Repeated keys — <code>?tag=red&amp;tag=blue</code> — read with <code>getAll</code>. A comma-joined single value also works but you then own the encoding of commas inside values."
+  },
+  {
+   "n": 139,
+   "c": "node-7",
+   "t": "Node 7 · The query string as state",
+   "q": "Should an open modal be in the URL?",
+   "a": "Usually yes if it represents content — a product quick-view, a shareable dialog, a confirm-by-link flow. No if it is transient chrome, like an unsaved-changes prompt or a menu."
+  },
+  {
+   "n": 140,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "Describe the history stack concretely.",
+   "a": "An ordered list of entries with a pointer at the current one. Every tab has one, and it contains entries from before the user ever reached your site."
+  },
+  {
+   "n": 141,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "What happens to forward entries when you <code>pushState</code>?",
+   "a": "They are <strong>discarded</strong>. <code>pushState</code> inserts after the pointer and truncates everything ahead — which is why the forward button greys out the moment you go back and then click something new."
+  },
+  {
+   "n": 142,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "What does back or forward do to the stack?",
+   "a": "Moves the pointer. Nothing is created or destroyed, and <code>popstate</code> fires with the state object of the entry being restored."
+  },
+  {
+   "n": 143,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "Who owns the history stack?",
+   "a": "The <strong>tab</strong>, not your application. Entries from other sites sit in it, which is why a UI \"back\" button that calls <code>history.back()</code> can eject the user from your app entirely."
+  },
+  {
+   "n": 144,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "What can you actually read about the history stack?",
+   "a": "Only <code>history.length</code>. The entries are opaque for privacy reasons — you cannot ask what the previous URL was or whether the user came from inside your app."
+  },
+  {
+   "n": 145,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "How do you build a reliable in-app \"back\" button given that opacity?",
+   "a": "Don't use <code>history.back()</code> blindly. Either navigate to a known parent route, or leave your own breadcrumb — stash a marker in the <code>state</code> object at push time and check for it, or track an internal depth counter in the router."
+  },
+  {
+   "n": 146,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "Describe the redirect trap.",
+   "a": "<code>/dashboard</code> finds no session and <em>pushes</em> <code>/login</code>. The user logs in and lands on <code>/dashboard</code>. They press back, arriving at <code>/login</code>, which — now that they are authenticated — redirects forward to <code>/dashboard</code>. Back appears completely broken."
+  },
+  {
+   "n": 147,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "What is the one-line fix for the redirect trap?",
+   "a": "<strong>Redirects always replace, never push.</strong> A redirect means \"you were never really here\", so it should not leave an entry to come back to."
+  },
+  {
+   "n": 148,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "Which other navigations should use replace?",
+   "a": "A legacy URL forwarding to its new home, a bare <code>/</code> sending the user to <code>/dashboard</code>, normalising a trailing slash or casing, and any continuous URL-state sync."
+  },
+  {
+   "n": 149,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "Why doesn't the page scroll to the top after a client-side navigation?",
+   "a": "Because <code>pushState</code> does nothing but bookkeeping. The browser's automatic scroll-to-top applies only to real navigations, so the new screen renders at whatever scroll offset the old one had."
+  },
+  {
+   "n": 150,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "What is <code>history.scrollRestoration</code>?",
+   "a": "A property with values <code>\"auto\"</code> (default — the browser restores your scroll position on back) or <code>\"manual\"</code>. SPAs commonly set it to <code>\"manual\"</code> so the router can take over restoration and avoid fighting the browser."
+  },
+  {
+   "n": 151,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "What are the three correct scroll behaviours after a navigation?",
+   "a": "<strong>Push</strong> scrolls to the top. <strong>Pop</strong> restores the position saved for that entry. <strong>Replace</strong> leaves the scroll alone."
+  },
+  {
+   "n": 152,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "How do you save a scroll position for a history entry?",
+   "a": "Record <code>window.scrollY</code> <em>before</em> leaving — keyed by the entry, typically via the history <code>state</code> object or a map keyed by <code>location.key</code> — because once you have navigated away, the value is gone."
+  },
+  {
+   "n": 153,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "Why is scroll restoration genuinely hard, not just fiddly?",
+   "a": "The target position may only exist after data has loaded and the list has re-rendered. Restore too early and the document is too short to scroll that far, so the browser clamps to the bottom and the position is lost."
+  },
+  {
+   "n": 154,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "Which component does React Router provide for this?",
+   "a": "<code>&lt;ScrollRestoration /&gt;</code> in a data router — it implements push/pop/replace behaviour and accepts a <code>getKey</code> function so you can restore per-path rather than per-entry."
+  },
+  {
+   "n": 155,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "What is the difference between a navigation and a history traversal?",
+   "a": "A navigation creates or replaces an entry and moves the pointer forward; a traversal only moves the pointer among existing entries. Only traversal fires <code>popstate</code>."
+  },
+  {
+   "n": 156,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "Why does the same URL pushed twice still create two entries?",
+   "a": "The stack records entries, not unique URLs. Routers therefore attach a unique <code>key</code> to each location so two visits to <code>/products</code> can be told apart for scroll restoration and for remounting decisions."
+  },
+  {
+   "n": 157,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "A user presses back after logging in and gets bounced forward again. Name the bug and the fix.",
+   "a": "The redirect trap. The guard <em>pushed</em> the login route instead of replacing it. Change the redirect to <code>replace</code>."
+  },
+  {
+   "n": 158,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "After clicking back twice and then a link, the forward button is greyed out. Is that a bug?",
+   "a": "No — <code>pushState</code> truncates all forward entries. It is standard browser behaviour and identical to a real navigation."
+  },
+  {
+   "n": 159,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "You click a result at the bottom of a long list and land halfway down the detail page. Why?",
+   "a": "The client-side navigation did not scroll, because <code>pushState</code> never scrolls. A push navigation should reset scroll to the top."
+  },
+  {
+   "n": 160,
+   "c": "node-8",
+   "t": "Node 8 · The history stack",
+   "q": "A user presses back from a detail page to a list and their position is lost. What is missing, and what makes it hard?",
+   "a": "Scroll restoration on pop. It is hard because the target offset only exists once the list's data has loaded and rendered — restore too early and the document is too short."
+  },
+  {
+   "n": 161,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "Walk through a request waterfall for <code>/projects/7/tasks</code> with per-component fetching.",
+   "a": "The layout renders and starts fetching the project, showing a spinner, so the child never renders. The project arrives. Only now does the child render and start fetching tasks. At 300 ms per request the screen is complete after 600 ms of strictly sequential waiting."
+  },
+  {
+   "n": 162,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "Why is that serialisation accidental rather than necessary?",
+   "a": "Neither request depends on the other's result — both are derivable from the URL alone. They are serialised purely because of <em>where the code was written</em>, not because of any real data dependency."
+  },
+  {
+   "n": 163,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "What is the observation that fixes the waterfall?",
+   "a": "The router knows the <strong>entire matched chain of routes the instant the URL changes</strong>, before rendering anything. If each route declares what data it needs, every request in the chain can start in parallel, immediately."
+  },
+  {
+   "n": 164,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "Name the shift in one phrase.",
+   "a": "<strong>Fetch-as-you-route</strong> replacing render-then-fetch."
+  },
+  {
+   "n": 165,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "Who shipped route loaders and when?",
+   "a": "Remix in 2021; React Router absorbed them in <strong>v6.4, September 2022</strong>; Next.js App Router does the equivalent with async server components per segment from 2023; TanStack Router pairs a loader with an integrated query cache."
+  },
+  {
+   "n": 166,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "What arguments does a React Router loader receive?",
+   "a": "An object with <code>params</code> (the matched path params) and <code>request</code> (a Fetch API <code>Request</code> carrying the URL and an abort <code>signal</code>)."
+  },
+  {
+   "n": 167,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "Why does the loader receiving <code>params</code> rather than props matter?",
+   "a": "Because it makes the data depend on the URL, not on a rendered component — which is exactly what allows the fetch to start before render."
+  },
+  {
+   "n": 168,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "What is the <code>request.signal</code> for?",
+   "a": "It is an <code>AbortSignal</code> the router aborts when the user navigates away mid-load, cancelling in-flight requests. The same <code>AbortController</code> from the fetch API, now driven by navigation."
+  },
+  {
+   "n": 169,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "What can a loader throw, and what happens?",
+   "a": "A <code>redirect(...)</code>, which the router turns into a navigation; or a <code>Response</code> with a status like 404 or 403, which routes to the nearest error boundary. Throwing is how a loader says \"do not render this route.\""
+  },
+  {
+   "n": 170,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "Why is an auth check in a loader better than in a component?",
+   "a": "It runs <em>before</em> anything renders, so there is no flash of protected content, and it can redirect by throwing rather than by rendering a <code>&lt;Navigate&gt;</code> in an effect."
+  },
+  {
+   "n": 171,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "What is a route action?",
+   "a": "The write-side mirror of a loader — a per-route function that handles a <code>&lt;Form&gt;</code> submission, receiving the submitted <code>formData</code> and the request."
+  },
+  {
+   "n": 172,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "What does the router do automatically after an action?",
+   "a": "It <strong>re-runs the loaders</strong> for the currently matched routes. That deletes an entire category of manual cache-invalidation code by reusing the browser's own model, where submitting a form yields a fresh page."
+  },
+  {
+   "n": 173,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "What is the main cost of loaders?",
+   "a": "They are <strong>blocking by default</strong> — nothing renders until every loader in the chain resolves, so one slow endpoint holds up the whole screen."
+  },
+  {
+   "n": 174,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "How do you make part of a loader non-blocking?",
+   "a": "Return a promise instead of awaiting it — <code>defer()</code> in v6.4–v6, or simply returning the raw promise in v7 — then render the shell immediately and fill the slow part with <code>&lt;Suspense&gt;</code> plus <code>&lt;Await&gt;</code>."
+  },
+  {
+   "n": 175,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "Loaders and TanStack Query overlap. What does each do well?",
+   "a": "Loaders are excellent at deciding <em>when</em> to fetch and terrible at caching, deduplication and background revalidation. A query cache is the reverse. So the mature pattern is a loader that calls <code>queryClient.ensureQueryData</code>: the router owns timing, the cache owns freshness."
+  },
+  {
+   "n": 176,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "What happens on a repeat visit to a route with a plain loader and no cache?",
+   "a": "It fetches again, every time, because the loader has no memory. That is the concrete reason to pair it with a cache rather than treating loaders as a caching layer."
+  },
+  {
+   "n": 177,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "How does a data router handle a loader that is slow on a navigation that has already started?",
+   "a": "It keeps the current screen mounted and exposes <code>useNavigation().state === \"loading\"</code>, so the UI can show a pending indicator instead of unmounting into a spinner. That is the blocking navigation model of Node 11."
+  },
+  {
+   "n": 178,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "Why can a component-fetching app not simply \"start fetches earlier\"?",
+   "a": "Because nothing outside the component tree knows what the next screen needs until that screen renders. The knowledge lives in the route table, which is why declaring routes as data (Node 5) is a precondition for this whole node."
+  },
+  {
+   "n": 179,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "How do you spot a waterfall in a real app?",
+   "a": "Open the network panel and look at request start times: sequential staircase bars for requests that share no data dependency. Two fetches that both derive from the URL should start together."
+  },
+  {
+   "n": 180,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "A loader fetches on every visit to the same route. Is that a bug?",
+   "a": "Not a bug — loaders have no memory by design. If you need caching or background revalidation, back the loader with a query cache via <code>ensureQueryData</code> rather than reinventing one."
+  },
+  {
+   "n": 181,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "A user navigates away while a loader is still fetching. What should happen?",
+   "a": "The router aborts the in-flight request via <code>request.signal</code> and discards the result. Without that, a late response can overwrite the new screen — the classic race condition."
+  },
+  {
+   "n": 182,
+   "c": "node-9",
+   "t": "Node 9 · Routing meets data",
+   "q": "What is the argument against putting loaders on every route?",
+   "a": "Blocking. Every loader in the matched chain must resolve before anything renders, so one slow endpoint holds up a screen that is 90% ready. Stream the slow part instead."
+  },
+  {
+   "n": 183,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "Why are routes the natural boundary for code splitting?",
+   "a": "A route is exactly a slice of the app a given user may never enter, and the router knows in advance whether they are entering it. Nothing else in the application has both properties."
+  },
+  {
+   "n": 184,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "What is the underlying mechanism?",
+   "a": "The dynamic <code>import()</code> expression — standardised in ES2020 — which every bundler treats as a hard instruction to emit a separate file, resolved as a promise at runtime."
+  },
+  {
+   "n": 185,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "How is that expressed in React?",
+   "a": "<code>const Settings = React.lazy(() =&gt; import(\"./routes/Settings\"))</code>, rendered inside a <code>&lt;Suspense fallback={...}&gt;</code> boundary that shows something while the chunk downloads."
+  },
+  {
+   "n": 186,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "Why is a per-route <code>lazy</code> field better than wrapping the element in <code>React.lazy</code>?",
+   "a": "Because the router can start the chunk download <strong>and</strong> the loader fetch at the same moment. With <code>React.lazy</code> the router only discovers the loader after the chunk lands — a waterfall in a different costume."
+  },
+  {
+   "n": 187,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "What is the fallback flash problem?",
+   "a": "A chunk that arrives in 80 ms still unmounts the current screen and shows a spinner for those 80 ms, which looks worse than not splitting. The fix is keeping the old screen visible during the transition, not designing a nicer spinner."
+  },
+  {
+   "n": 188,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "Can you have too many chunks?",
+   "a": "Yes. Splitting every route separately can mean dozens of tiny requests and duplicated shared code. Split at meaningful boundaries — the admin area, the editor, a heavy chart or map library — rather than reflexively per route."
+  },
+  {
+   "n": 189,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "Describe the stale-chunk error.",
+   "a": "A user has the app open, you deploy, the old hashed chunk filenames no longer exist on the server, they navigate, and the dynamic import rejects. It is one of the most common production errors in the SPA world."
+  },
+  {
+   "n": 190,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "How do you handle a stale-chunk error?",
+   "a": "Catch it at the route's error boundary and reload the page — safe, because a reload fetches the new <code>index.html</code> with the new filenames. Optionally show \"a new version is available\" rather than reloading silently mid-task."
+  },
+  {
+   "n": 191,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "What does prefetching buy you?",
+   "a": "Typically 100–300 ms of head start, which is often the <em>entire</em> perceived latency of a navigation, because the chunk and its data are already in hand when the click arrives."
+  },
+  {
+   "n": 192,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "What are the common prefetch triggers?",
+   "a": "Hover, focus, viewport intersection, and explicit \"likely next\" hints. Next.js prefetches links in the viewport by default; TanStack Router prefetches on hover by default; React Router v7 exposes <code>&lt;Link prefetch&gt;</code> options."
+  },
+  {
+   "n": 193,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "What is the downside of aggressive prefetching?",
+   "a": "Wasted bandwidth and server load for links nobody clicks, which matters most on mobile data. Viewport prefetch on a long list of links can fetch dozens of chunks nobody needs."
+  },
+  {
+   "n": 194,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "How does splitting interact with an admin route's security?",
+   "a": "The admin code is not downloaded for ordinary users, which is a nice privacy and size win — but it is <strong>not</strong> a security measure. Anyone can request the chunk directly."
+  },
+  {
+   "n": 195,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "How does route-based splitting interact with nesting?",
+   "a": "A layout route's subtree is often the right chunk, since a user either enters that area or never does. Splitting per leaf route inside a shared area usually fragments code that always loads together."
+  },
+  {
+   "n": 196,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "What is a preload link and how does it relate?",
+   "a": "<code>&lt;link rel=\"preload\"&gt;</code> or <code>modulepreload</code> tells the browser to fetch a resource at high priority ahead of use. Routers and meta-frameworks emit these for the chunks the current route will need, which is prefetching expressed in HTML rather than JavaScript."
+  },
+  {
+   "n": 197,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "After a deploy, users on the old build get errors when navigating. What is happening and what do you do?",
+   "a": "Their cached HTML references chunk filenames that no longer exist, so the dynamic import rejects. Catch it at the error boundary and reload — or surface an \"update available\" prompt so you do not reload mid-task."
+  },
+  {
+   "n": 198,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "You split every route and navigation now flashes a spinner constantly. What is the fix?",
+   "a": "Not a better spinner — a pending transition that keeps the old screen visible while the chunk loads, plus prefetching on hover so the chunk is usually already there."
+  },
+  {
+   "n": 199,
+   "c": "node-10",
+   "t": "Node 10 · Code splitting",
+   "q": "Why does route-level <code>lazy</code> beat <code>React.lazy</code> in a data router?",
+   "a": "The router can start the chunk download and the loader fetch simultaneously. With <code>React.lazy</code> it only discovers the loader after the chunk arrives, reintroducing a waterfall."
+  },
+  {
+   "n": 200,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "Why does a navigation now take real time?",
+   "a": "Because Nodes 9 and 10 attached data loading and code loading to it. A click is instantaneous; the navigation it triggers is asynchronous, and the gap is visible to the user."
+  },
+  {
+   "n": 201,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "Contrast optimistic and blocking navigation.",
+   "a": "<strong>Optimistic (non-blocking):</strong> the URL and the new screen change immediately, and the new screen renders its own skeletons. <strong>Blocking (pending):</strong> the old screen stays, visibly marked busy, until the new one is ready, then appears complete."
+  },
+  {
+   "n": 202,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "Which model does the browser itself use?",
+   "a": "Blocking. On a real navigation the current page remains on screen with a loading indicator until the new document is ready. That is why blocking transitions feel like the web rather than like a slideshow of spinners."
+  },
+  {
+   "n": 203,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "What makes a blocking transition possible in a SPA?",
+   "a": "Something <em>outside</em> the components must know a navigation is in flight — a data router, or a React transition. A component cannot hold the previous screen on screen, because it is the previous screen."
+  },
+  {
+   "n": 204,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "What is <code>useTransition</code> and when did it arrive?",
+   "a": "A React 18 hook (March 2022). A state update wrapped in <code>startTransition</code> is marked non-urgent, so React keeps the current UI visible while preparing the next one, and gives you an <code>isPending</code> boolean."
+  },
+  {
+   "n": 205,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "What does <code>useNavigation()</code> give you in a data router?",
+   "a": "The routing-shaped version of the same thing: <code>state</code> of <code>\"idle\"</code>, <code>\"loading\"</code> or <code>\"submitting\"</code>, plus the location being navigated to and any submission data — enough for a progress bar, a dimmed page, or highlighting the specific link being loaded."
+  },
+  {
+   "n": 206,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "What is the \"the button doesn't work\" failure?",
+   "a": "The user clicks, the router quietly loads for 400 ms, nothing on screen changes, so they click again — sometimes submitting twice. The cause is a blocking navigation with no pending indicator."
+  },
+  {
+   "n": 207,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "What are the human-factors thresholds for feedback?",
+   "a": "Under roughly 100 ms feels instant and needs no indicator; up to about a second needs some acknowledgement; beyond that needs real progress. These come from decades of interface research and still hold."
+  },
+  {
+   "n": 208,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "What is the flashing-spinner trap and how do you avoid it?",
+   "a": "A spinner shown for 50 ms and removed is worse than none. Give indicators a <strong>delay before showing</strong> (say 150–300 ms) and a <strong>minimum display time</strong> once shown."
+  },
+  {
+   "n": 209,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "What is optimistic UI on the write path?",
+   "a": "Rendering the expected result of a submission immediately from the submitted form data, then reconciling when the action's revalidation returns. React Router's <code>useFetcher</code> and React 19's <code>useOptimistic</code> both provide it."
+  },
+  {
+   "n": 210,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "What is <code>useFetcher</code> for?",
+   "a": "Loading or submitting <strong>without navigating</strong> — a like button, an inline delete, a type-ahead, a row-level save. It still runs actions and revalidates loaders, but the URL and the screen do not change."
+  },
+  {
+   "n": 211,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "Why is \"this is a data operation, not a navigation\" a design skill worth naming?",
+   "a": "Because pushing a history entry for a like button, or navigating to render a search suggestion, pollutes the back button and remounts screens for no reason. Choosing correctly is a strong senior signal."
+  },
+  {
+   "n": 212,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "What is the interaction between pending state and a lazy route?",
+   "a": "The chunk download is part of the navigation, so a data router or a transition holds the previous screen for that too — which is exactly what removes the fallback flash from Node 10."
+  },
+  {
+   "n": 213,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "You need a progress bar for slow navigations. Where does the state come from?",
+   "a": "<code>useNavigation().state</code> in a data router, or the <code>isPending</code> flag from <code>useTransition</code>. It must come from outside the destination component, which does not exist yet."
+  },
+  {
+   "n": 214,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "How do you show which specific link is loading?",
+   "a": "<code>useNavigation().location</code> tells you the destination; compare it to each link's <code>to</code>. React Router's <code>&lt;NavLink&gt;</code> exposes a pending flag in its render prop for exactly this."
+  },
+  {
+   "n": 215,
+   "c": "node-11",
+   "t": "Node 11 · Pending navigation",
+   "q": "When is optimistic navigation the better choice than blocking?",
+   "a": "When the destination has a good skeleton and its data is fast, or when the user needs immediate confirmation that the click registered — for instance moving between tabs of a dashboard."
+  },
+  {
+   "n": 216,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "What does route matching tell you, and what does it not?",
+   "a": "It tells you the URL is valid and which component handles it. It says nothing about whether <em>this</em> user is permitted to see it."
+  },
+  {
+   "n": 217,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "Write the shape of the classic component-era route guard.",
+   "a": "A wrapper component that reads auth state and, if there is no user, returns <code>&lt;Navigate to=\"/login\" state={{ from: location }} replace /&gt;</code>; otherwise it renders its children."
+  },
+  {
+   "n": 218,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "Why <code>&lt;Navigate&gt;</code> rather than calling <code>navigate()</code> during render?",
+   "a": "Navigating is a side effect and React forbids side effects during render. <code>&lt;Navigate&gt;</code> is a component that performs the navigation in an effect after render, which is legal."
+  },
+  {
+   "n": 219,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "Why does the guard's redirect use <code>replace</code>?",
+   "a": "The redirect trap from Node 8. Pushing <code>/login</code> means back returns to <code>/login</code>, which — now authenticated — bounces forward again, and back appears broken."
+  },
+  {
+   "n": 220,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "What are the two ways to preserve the intended destination, and their trade-offs?",
+   "a": "History <code>state</code> (<code>state={{ from: location }}</code>) keeps the URL clean but is lost if the login page is opened fresh. A query param (<code>?redirectTo=/dashboard</code>) survives, at the cost of being user-editable."
+  },
+  {
+   "n": 221,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "What vulnerability does <code>?redirectTo=</code> introduce if unvalidated?",
+   "a": "An <strong>open redirect</strong> — an attacker sends <code>?redirectTo=https://evil.com</code>, the user logs in on your real domain and is bounced to a lookalike. Reject anything that is not a same-origin path starting with a single <code>/</code>."
+  },
+  {
+   "n": 222,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "What is the third auth state everyone forgets?",
+   "a": "\"Not yet known\" — the session check is still in flight, so <code>user</code> is <code>undefined</code> rather than <code>null</code>. Treating that as logged-out bounces every authenticated user to the login screen on every refresh."
+  },
+  {
+   "n": 223,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "How do you handle the unknown auth state correctly?",
+   "a": "Render nothing, a skeleton, or a splash while the session resolves, and only redirect once you positively know there is no session. Or resolve the session in a loader, so the question never arises during render."
+  },
+  {
+   "n": 224,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "What is the data-router way to protect routes?",
+   "a": "Put the check in a <code>loader</code> — usually on a pathless layout route wrapping the subtree — and <code>throw redirect(\"/login\")</code> when unauthenticated. It runs before any render, so there is no flash of protected content."
+  },
+  {
+   "n": 225,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "Is a client-side route guard a security measure?",
+   "a": "<strong>No.</strong> It is a user-experience feature. Every byte of your JavaScript is on the user's machine and can be edited; the route table, the component and the guard are all inspectable and removable."
+  },
+  {
+   "n": 226,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "If the guard can be bypassed in thirty seconds, why does that not matter?",
+   "a": "Because the forced-open admin panel is empty without data, provided <strong>every endpoint independently authorises every request</strong>. The client guard stops an honest user landing on a broken screen; the server stops a dishonest one getting anything."
+  },
+  {
+   "n": 227,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "Where is the trust boundary in a routed application?",
+   "a": "At the server. The client decides what to <em>show</em>; the server decides what to <em>give</em>. Any sentence of the form \"the frontend prevents X\" is a UX claim, never a security claim."
+  },
+  {
+   "n": 228,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "How does role-based access differ from authentication in routing terms?",
+   "a": "Authentication is one check that usually protects a whole subtree. Roles are per-route or per-resource, so they belong in each route's loader (or the API's response), often producing a 403 error boundary rather than a redirect."
+  },
+  {
+   "n": 229,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "What should an authenticated user see when they hit a route they lack permission for?",
+   "a": "A 403 screen inside the app shell — not a redirect to login, which is confusing since they <em>are</em> logged in, and not a 404 unless you are deliberately hiding the resource's existence."
+  },
+  {
+   "n": 230,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "Every refresh briefly flashes the login page before showing the dashboard. Diagnose it.",
+   "a": "The guard treats \"session not yet resolved\" as \"logged out\". Add a third state and render a splash while the check is in flight, or resolve the session in a loader before rendering at all."
+  },
+  {
+   "n": 231,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "An interviewer asks you to secure an admin route. What is the complete answer?",
+   "a": "Client side: a loader-based guard on a layout route that redirects unauthenticated users, plus code-splitting so the bundle is not shipped. Server side — and this is the actual security — every admin endpoint independently authorises every request. The client guard is UX."
+  },
+  {
+   "n": 232,
+   "c": "node-12",
+   "t": "Node 12 · Guards and protected routes",
+   "q": "How do you send a user back to where they were going after login?",
+   "a": "Capture the attempted location at redirect time — in history <code>state</code> or a validated <code>?redirectTo=</code> — and navigate there after a successful login, rejecting anything that is not a same-origin path."
+  },
+  {
+   "n": 233,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "What happens to a React app when an error is thrown during render and nothing catches it?",
+   "a": "React unmounts the <strong>entire tree</strong>. The user gets a blank white page and loses the whole application, including the navigation they would have used to escape."
+  },
+  {
+   "n": 234,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "Why is the route tree a natural place to contain errors?",
+   "a": "Because it already describes containment. A failure inside the billing screen should replace the billing screen, not the settings sidebar and not the app shell — and the route tree knows exactly where those boundaries are."
+  },
+  {
+   "n": 235,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "What is <code>errorElement</code> / <code>ErrorBoundary</code> on a route?",
+   "a": "A component rendered in place of that route when its loader, action, or rendering throws — while every ancestor route stays mounted and interactive."
+  },
+  {
+   "n": 236,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "How do route errors propagate?",
+   "a": "Up the <strong>route tree</strong> to the nearest boundary. One at the root is your safety net; one on a risky subtree is the containment. A route with no boundary anywhere above it takes down the app."
+  },
+  {
+   "n": 237,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "What does <code>useRouteError()</code> return?",
+   "a": "Whatever was thrown — a JavaScript <code>Error</code>, or a <code>Response</code> that a loader threw deliberately."
+  },
+  {
+   "n": 238,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "What does <code>isRouteErrorResponse()</code> distinguish, and why does it matter?",
+   "a": "A thrown HTTP <code>Response</code> (a deliberate 404 or 403) from a genuine exception. That is what lets one boundary render a friendly \"not found\" page for the first and a \"something went wrong\" page for the second."
+  },
+  {
+   "n": 239,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "How do you express \"this URL matches nothing\" on the client?",
+   "a": "A catch-all route, <code>path=\"*\"</code>, placed at the top level. It matches anything no other route did and renders your 404 screen."
+  },
+  {
+   "n": 240,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "What is a soft 404?",
+   "a": "A page that <em>looks</em> like a 404 but was served with HTTP <strong>200 OK</strong> — which is what a client-side catch-all produces, because the server sent your <code>index.html</code> successfully."
+  },
+  {
+   "n": 241,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "Why do soft 404s matter?",
+   "a": "Search engines dislike and may misindex them, uptime and error monitoring cannot see them, and link checkers report the broken page as fine. The status code is the machine-readable signal, and it is wrong."
+  },
+  {
+   "n": 242,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "Can a pure static SPA fix the 404 status?",
+   "a": "No. Fixing it requires the <em>server</em> to know your route table, which means server rendering or an edge function. Saying so plainly is the correct interview answer — it is a real limitation, not an oversight."
+  },
+  {
+   "n": 243,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "What is the difference between a URL that matches no route and a route whose resource does not exist?",
+   "a": "<code>/prodcts/42</code> matches nothing — catch-all 404. <code>/products/99999</code> matches the product route but the product does not exist — the loader should <code>throw new Response(null, { status: 404 })</code> so the error boundary handles it rather than rendering an empty product page."
+  },
+  {
+   "n": 244,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "Where does the chunk-load error from Node 10 get handled?",
+   "a": "At a route error boundary, which detects the failed dynamic import and reloads the page to pick up the new build."
+  },
+  {
+   "n": 245,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "Should an error boundary reset when the user navigates away?",
+   "a": "Yes — a data router remounts boundaries per navigation, so moving to another route clears the error. A plain React error boundary does not, which is why \"the error page is stuck\" happens when boundaries are placed outside the router."
+  },
+  {
+   "n": 246,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "What belongs on a good route error screen?",
+   "a": "What failed in human terms, a way to retry, a way to get back to a known-good route, and — for developers — the error detail in development only. Never a raw stack trace in production."
+  },
+  {
+   "n": 247,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "One failing widget blanks the entire app. What is missing?",
+   "a": "An error boundary. Without one, React unmounts the whole tree. Route-level boundaries contain the failure to the route that produced it, keeping the shell and navigation alive."
+  },
+  {
+   "n": 248,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "Your 404 page renders correctly but SEO tools report the URL as valid. Why?",
+   "a": "The status is 200 — a soft 404 — because the server returned <code>index.html</code> successfully. Only a server that knows your routes can send a real 404 status."
+  },
+  {
+   "n": 249,
+   "c": "node-13",
+   "t": "Node 13 · Errors and not-found",
+   "q": "Where should you place error boundaries in a real app?",
+   "a": "One at the root as a safety net, and one on each subtree whose failure should not take out its siblings — typically per major feature area, and around anything doing risky third-party work."
+  },
+  {
+   "n": 250,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "Describe the deep-link 404 symptom.",
+   "a": "The app works perfectly and every in-app link works, but pasting a deep URL into a fresh tab or pressing refresh returns a bare 404 from the server."
+  },
+  {
+   "n": 251,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "Why does that happen?",
+   "a": "In-app navigation never touches the server. Loading a URL fresh is a real HTTP request; the server looks for something at <code>/products/42</code>, finds no file, and returns 404 — and your router, which would have handled it, lives inside HTML that was never sent."
+  },
+  {
+   "n": 252,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "State the fix as one rule.",
+   "a": "<strong>Any request that is not a real file returns <code>index.html</code> with a 200 status.</strong> The app then boots, reads <code>location.pathname</code>, and renders the right screen."
+  },
+  {
+   "n": 253,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "How is that configured in Vite or webpack dev servers?",
+   "a": "<code>historyApiFallback</code> — on by default in Vite's dev server. It is exactly why the problem never appears locally and always appears in production."
+  },
+  {
+   "n": 254,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "What is the nginx directive?",
+   "a": "<code>try_files $uri $uri/ /index.html;</code> inside the location block — try the file, then the directory, then fall back to the shell."
+  },
+  {
+   "n": 255,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "How do you configure it on Netlify?",
+   "a": "A <code>_redirects</code> file containing <code>/*  /index.html  200</code>. The explicit <code>200</code> matters — without it you get a redirect instead of a rewrite, and the URL changes."
+  },
+  {
+   "n": 256,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "What is the S3 static-hosting approach and its flaw?",
+   "a": "Set the bucket's <strong>error document</strong> to <code>index.html</code>. It works, but responses carry a 404 status, so pair it with CloudFront rewrites if the status matters."
+  },
+  {
+   "n": 257,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "How do you do it in Express, and what is the ordering trap?",
+   "a": "<code>app.get(\"*\", (req, res) =&gt; res.sendFile(indexHtml))</code> — declared <strong>after</strong> your API routes and static middleware, or the catch-all swallows <code>/api/*</code> and every asset."
+  },
+  {
+   "n": 258,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "Which routing approach never had this problem, and why?",
+   "a": "Hash routing. Every hash URL is a request for the same real path, because the fragment is never sent — which is exactly why it survives on hosts you cannot configure."
+  },
+  {
+   "n": 259,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "What is the cost of serving the same empty shell for every URL?",
+   "a": "The first response contains no content, so first paint is slow and anything that does not execute JavaScript sees nothing — which affects crawlers and, especially, social and messaging link previewers."
+  },
+  {
+   "n": 260,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "Do crawlers execute JavaScript?",
+   "a": "Google generally does, on a delay and with a crawl budget. Many others — and most social/messaging unfurlers — do not, which is why a shared link shows a generic title and no image."
+  },
+  {
+   "n": 261,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "What is server-side rendering, in routing terms?",
+   "a": "Running the router and components on the server for the requested URL and sending real HTML for that screen."
+  },
+  {
+   "n": 262,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "What is hydration?",
+   "a": "The client-side step where React attaches event listeners to the server-rendered markup and takes over. After it, all subsequent navigation is client-side."
+  },
+  {
+   "n": 263,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "Does SSR replace client-side routing?",
+   "a": "No. It makes the <strong>first</strong> navigation server-rendered; every one after hydration is client-side and uses everything in this chain."
+  },
+  {
+   "n": 264,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "What is a meta-framework, defined by this node?",
+   "a": "Largely, this node built in — routing that both server and client understand, the fallback/rewrite handled for you, plus hydration. Next.js, Remix, SvelteKit and Nuxt all fit that description."
+  },
+  {
+   "n": 265,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "Why must the fallback rule be ordered carefully?",
+   "a": "Because a catch-all that returns <code>index.html</code> will happily shadow <code>/api/*</code>, <code>/assets/*</code>, <code>robots.txt</code> and <code>sitemap.xml</code> if declared first. Real files and API routes must be matched before the fallback."
+  },
+  {
+   "n": 266,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "It works locally and 404s in production. What is the first thing you check?",
+   "a": "Whether the host is configured to rewrite unmatched paths to <code>index.html</code>. The dev server does it by default (<code>historyApiFallback</code>), which is exactly why the bug only appears after deploy."
+  },
+  {
+   "n": 267,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "After adding the SPA fallback to Express, your API returns HTML. What went wrong?",
+   "a": "The catch-all was registered before the API routes, so it matches <code>/api/*</code> first. Move it to the end, or scope it to exclude <code>/api</code>."
+  },
+  {
+   "n": 268,
+   "c": "node-14",
+   "t": "Node 14 · The server side",
+   "q": "A link shared in a chat app shows a generic title and no image. Why, and what actually fixes it?",
+   "a": "The unfurler does not execute JavaScript, so it sees the empty shell's static <code>&lt;head&gt;</code>. Only server-rendered or pre-rendered per-route meta tags fix it — client-side title management runs too late."
+  },
+  {
+   "n": 269,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "What three things did the browser do on a real navigation that <code>pushState</code> does not?",
+   "a": "Reset focus to the top of the new document, announce the new page to assistive technology, and give the tab and history a new title. Scroll restoration is a fourth."
+  },
+  {
+   "n": 270,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "Walk through what a screen reader user experiences on a default SPA navigation.",
+   "a": "They activate a link. The content swaps. Focus is still on the old anchor — which may no longer exist, dropping focus to <code>document.body</code> and losing their reading position. Nothing is announced. The title is unchanged. From their perspective, nothing happened."
+  },
+  {
+   "n": 271,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "What is the first fix, and how is it implemented?",
+   "a": "<strong>Move focus</strong> after the new route renders — to the <code>&lt;h1&gt;</code> or the main landmark, given <code>tabIndex={-1}</code> so it can receive programmatic focus without joining the tab order."
+  },
+  {
+   "n": 272,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "What does moving focus fix for sighted keyboard users?",
+   "a": "Their next Tab starts from the top of the new page rather than from wherever they happened to be in the old one — which otherwise means tabbing through the entire header again, or landing somewhere nonsensical."
+  },
+  {
+   "n": 273,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "What is an ARIA live region and how is it used for routing?",
+   "a": "A visually hidden element with <code>aria-live=\"polite\"</code> whose text you set to the new page's name. Assistive technology reads the change without stealing focus."
+  },
+  {
+   "n": 274,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "Do you need both focus movement and a live region?",
+   "a": "Doing one or the other <em>deliberately</em> is the requirement. Focusing a heading usually causes it to be announced; a live region announces without disturbing focus. Doing both can cause double announcements."
+  },
+  {
+   "n": 275,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "Why does <code>document.title</code> matter beyond the tab label?",
+   "a": "It is what the browser's history menu, the back-button long-press list, bookmarks and many screen readers use to identify the page. A stack of twenty entries all titled \"My App\" is unusable."
+  },
+  {
+   "n": 276,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "How is the title managed per route?",
+   "a": "Historically <code>react-helmet</code>; natively supported in React 19; and by convention through a <code>metadata</code> export or equivalent in every meta-framework. In a plain SPA, an effect per route or a small router subscription."
+  },
+  {
+   "n": 277,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "Why must skip links be re-examined after adding client-side routing?",
+   "a": "A skip link targets the main landmark. After a client-side navigation, focus and the DOM have changed without a document load, so the skip link only works if the same focus handling is in place."
+  },
+  {
+   "n": 278,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "Why is this node worth over-preparing for interviews?",
+   "a": "Because almost no candidate raises it. Mentioning focus management, live-region announcements and per-route titles unprompted marks you as someone who has shipped to real users rather than followed a tutorial."
+  },
+  {
+   "n": 279,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "Is accessibility a separate concern from routing here?",
+   "a": "No — routing is what <em>removed</em> the browser's focus reset, page announcement and title update. Restoring them is the router's job and nobody else's."
+  },
+  {
+   "n": 280,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "What is the connection between this node and scroll restoration?",
+   "a": "Both are things the browser did automatically for real navigations. Restoring scroll is as much an accessibility and orientation matter as a cosmetic one — a user returning to a list expects their place back."
+  },
+  {
+   "n": 281,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "How do you test route accessibility without a screen reader?",
+   "a": "Navigate with the keyboard only: click a link with Enter, then press Tab and see where focus lands. If it continues from the old page's position or from <code>body</code>, focus management is missing. Then check the tab title changed."
+  },
+  {
+   "n": 282,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "Where exactly should focus go after a route change?",
+   "a": "To a container or heading at the top of the newly rendered main content, with <code>tabIndex={-1}</code> — not to the <code>body</code>, and not to the first interactive element, which skips the page's own heading and context."
+  },
+  {
+   "n": 283,
+   "c": "node-15",
+   "t": "Node 15 · Focus, announcements, titles",
+   "q": "Why is announcing \"Loading\" then \"Products\" better than announcing only at the end?",
+   "a": "Because with a blocking navigation there may be a visible delay in which a screen-reader user has no idea anything is happening. A polite live region can carry both the pending and the completed state."
+  },
+  {
+   "n": 284,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "What are the two kinds of \"leaving\", and why do they need different answers?",
+   "a": "Leaving <em>inside</em> the app (a <code>&lt;Link&gt;</code> click, <code>navigate()</code>) is your router's decision, so you can intercept it cleanly and show your own modal. Leaving <em>the site</em> (closing the tab, refreshing, typing a new address) is the browser's decision, and you get only its generic dialog."
+  },
+  {
+   "n": 285,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "What does <code>useBlocker</code> give you?",
+   "a": "A blocker object whose <code>state</code> becomes <code>\"blocked\"</code> when a matching in-app navigation is attempted, with <code>proceed()</code> and <code>reset()</code> methods — so you render any dialog you like and call one of the two."
+  },
+  {
+   "n": 286,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "How do you block leaving the site?",
+   "a": "Listen for <code>beforeunload</code> and call <code>event.preventDefault()</code>. The browser then shows <strong>its own</strong> generic confirmation dialog."
+  },
+  {
+   "n": 287,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "Why can't you customise the <code>beforeunload</code> message?",
+   "a": "Browsers removed custom text around 2016–2017 because it was used for scams and scareware. You get the browser's wording, in the user's language, and nothing else."
+  },
+  {
+   "n": 288,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "When does <code>beforeunload</code> not fire at all?",
+   "a": "If the user has never interacted with the page — a deliberate anti-abuse rule so a page cannot trap someone who merely opened it."
+  },
+  {
+   "n": 289,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "Why should a <code>beforeunload</code> listener be registered only while there are unsaved changes?",
+   "a": "A permanent listener nags users for no reason and <strong>disqualifies the page from the browser's back/forward cache</strong>, making back navigation to your site measurably slower."
+  },
+  {
+   "n": 290,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "Why is the back button the genuinely hard case for blocking?",
+   "a": "By the time <code>popstate</code> fires, the browser has <strong>already moved</strong> — the URL is the previous one, and there is no way to veto it."
+  },
+  {
+   "n": 291,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "What is the historical workaround for blocking back navigation?",
+   "a": "Push a duplicate history entry so there is something for the user's back press to consume, then on <code>popstate</code> push it again to undo the move while you ask the question. Fragile, and the reason blocked navigation has always been the flakiest part of every router."
+  },
+  {
+   "n": 292,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "What is the Navigation API and what does it unify?",
+   "a": "A browser API (Chrome 102, May 2022) giving a single <code>navigate</code> event for link clicks, form submits, back, forward and programmatic navigation alike, with <code>event.intercept({ handler })</code> to take it over."
+  },
+  {
+   "n": 293,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "What does the Navigation API make unnecessary?",
+   "a": "Most of Node 4's click-interception condition list, much of Node 8's stack reasoning — it exposes a readable list of <em>your own</em> entries — and it has a real <code>preventDefault()</code> that works for back navigation, plus built-in scroll and focus handling."
+  },
+  {
+   "n": 294,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "What is the Navigation API's support status?",
+   "a": "Chromium only as of 2026 — not in Safari or Firefox. So it is something to know about and progressively adopt, not something to build on exclusively."
+  },
+  {
+   "n": 295,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "What are View Transitions?",
+   "a": "A browser API (Chrome 111, March 2023) that captures the page before and after a DOM change and animates between them, including shared-element transitions. Routers expose it as a <code>viewTransition</code> flag on a link or navigation."
+  },
+  {
+   "n": 296,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "Why do View Transitions matter for routing specifically?",
+   "a": "They are what makes SPA navigations start to look like native app transitions — a crossfade or a shared element morphing from list to detail — with no animation library and no manual FLIP maths."
+  },
+  {
+   "n": 297,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "What is the general pattern this node illustrates?",
+   "a": "The platform slowly absorbing what libraries simulated. Routers built click interception, history reasoning and transition animation by hand for fifteen years; the browser is now shipping first-class versions of each."
+  },
+  {
+   "n": 298,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "A user closes the tab with an unsaved draft and loses it. What should you have done, and what is the better answer?",
+   "a": "A <code>beforeunload</code> listener registered only while the draft is dirty. The better answer is autosaving the draft so the question does not arise — prompts are a fallback, not a design."
+  },
+  {
+   "n": 299,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "Why is the Navigation API significant even though it is Chromium-only?",
+   "a": "Because it collapses click interception, form interception, back/forward handling, scroll and focus into one event with a real <code>preventDefault</code> — replacing most of the fragile machinery routers hand-built for fifteen years."
+  },
+  {
+   "n": 300,
+   "c": "node-16",
+   "t": "Node 16 · Blocking navigation and the platform",
+   "q": "What does <code>event.intercept({ handler })</code> do that <code>preventDefault</code> alone cannot?",
+   "a": "It tells the browser you are handling this navigation asynchronously, so the browser keeps the URL, tracks it as an ongoing navigation, and applies its own scroll and focus behaviour when your handler resolves."
+  },
+  {
+   "n": 301,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "What are the three axes routers differ along?",
+   "a": "<strong>How routes are declared</strong> (config object, components, or filesystem), <strong>whether the router owns data</strong> (pure matcher versus loaders and actions), and <strong>whether it is type-safe</strong> (are bad paths a compile error, are params typed)."
+  },
+  {
+   "n": 302,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "What is file-based routing and what does it eliminate?",
+   "a": "Directory structure <em>is</em> the route tree — <code>app/routes/products/[id].tsx</code>. It removes the \"I forgot to register the route\" class of bug and makes the route table discoverable by tooling, which is why Next.js, Remix, SvelteKit and Nuxt all use it."
+  },
+  {
+   "n": 303,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "What is the cost of file-based routing?",
+   "a": "Route structure is coupled to file layout, dynamic or runtime-computed routes are awkward, and each framework invents its own filename conventions — brackets, dollars, parentheses, underscores — which are not transferable."
+  },
+  {
+   "n": 304,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "Summarise React Router's version history.",
+   "a": "v3 and earlier: static config. v4 (March 2017): everything is a component, dynamic routing. v6 (2021): ranking, nesting, <code>&lt;Outlet&gt;</code>, <code>useNavigate</code>. v6.4 (September 2022): route objects with loaders and actions. v7 (late 2024): merged with Remix so one library covers a plain SPA and a full-stack framework."
+  },
+  {
+   "n": 305,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "Why does knowing that history matter practically?",
+   "a": "Because the versions are genuinely different products. Answers, code samples and tutorials from the v4 era are wrong for v6 — <code>exact</code>, <code>&lt;Switch&gt;</code>, render props and <code>useHistory</code> are all gone."
+  },
+  {
+   "n": 306,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "What is TanStack Router's pitch?",
+   "a": "End-to-end <strong>type safety</strong> — a mistyped path is a compile error, <code>params</code> and search params are typed, and search params are validated by a schema per route — plus loaders and an integrated cache. Version 1.0 arrived in late 2023."
+  },
+  {
+   "n": 307,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "When does TanStack Router's cost pay off?",
+   "a": "When the URL carries a lot of structured state — dashboards, data tables, filter-heavy tools — where typed, validated search params replace a pile of hand-written parsing."
+  },
+  {
+   "n": 308,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "What is wouter?",
+   "a": "A roughly 2 kB minimal matcher with a hooks API. The right answer when you need three screens and nothing else, or when bundle size dominates."
+  },
+  {
+   "n": 309,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "How does Vue Router differ in shape?",
+   "a": "Config-based route arrays, <code>&lt;router-view&gt;</code> as the outlet, and <strong>navigation guards as a first-class API</strong> — <code>beforeEach</code> globally, <code>beforeEnter</code> per route, and in-component guards. Guards are more central than in React Router."
+  },
+  {
+   "n": 310,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "What does Angular's router already have that React arrived at later?",
+   "a": "<strong>Resolvers</strong> — per-route data loading before activation, which are loaders under another name and predate them by years — plus <code>CanActivate</code> and <code>CanDeactivate</code> guard interfaces. The convergence is real and worth saying out loud."
+  },
+  {
+   "n": 311,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "What does the convergence across frameworks tell you?",
+   "a": "That the problems are inherent to routing, not to any framework: match, nest, load data before render, guard, contain errors, handle pending states, and manage focus. Every ecosystem reinvents them in a different order."
+  },
+  {
+   "n": 312,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "Give a practical router-selection heuristic.",
+   "a": "Needs SEO or a server: reach for a meta-framework rather than bolting SSR onto a SPA. Behind a login, client-rendered: React Router in data mode. URL carrying lots of structured state: TanStack Router. Three screens: wouter, or the twenty lines from Nodes 3 and 4."
+  },
+  {
+   "n": 313,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "Why is \"write your own router\" a legitimate answer sometimes?",
+   "a": "Because Nodes 3 and 4 are twenty lines. For a small internal tool with a handful of static screens, a library is more configuration than the problem deserves — and knowing you <em>could</em> is what makes the choice informed rather than default."
+  },
+  {
+   "n": 314,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "What is the one thing every router shares, no matter the API?",
+   "a": "They all wrap <code>pushState</code>, <code>replaceState</code> and <code>popstate</code>, and they all intercept anchor clicks. Everything above that is ergonomics, matching strategy, and how much of Nodes 9 through 15 they hand you."
+  },
+  {
+   "n": 315,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "A tutorial uses <code>&lt;Switch&gt;</code>, <code>useHistory</code> and <code>exact</code>. What version is it, and what are the equivalents now?",
+   "a": "React Router v5. <code>&lt;Switch&gt;</code> became <code>&lt;Routes&gt;</code>, <code>useHistory</code> became <code>useNavigate</code>, and <code>exact</code> is gone because matching is exact by default."
+  },
+  {
+   "n": 316,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "Your app is a client-rendered internal dashboard behind a login with heavy filtering. Which router and why?",
+   "a": "React Router in data mode is the safe default; TanStack Router earns its cost here specifically because the URL carries a lot of structured filter state that benefits from typed, schema-validated search params."
+  },
+  {
+   "n": 317,
+   "c": "node-17",
+   "t": "Node 17 · Choosing a router",
+   "q": "Someone proposes adding SSR to an existing client-only SPA for SEO. What is the honest advice?",
+   "a": "Retrofitting SSR usually means adopting a meta-framework, because you need routing both server and client understand plus hydration. If SEO is the driver, evaluate that migration rather than bolting a render server onto the existing app."
+  }
+ ]
+}

@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<!--
+  TOPIC PACK TEMPLATE — filled by the topic-mastery skill per topic.
+  Placeholders to replace: client-data-fetching Client-side data fetching Server data is not state you own — it is a cache of a value that lives somewhere else. Twenty nodes from XMLHttpRequest to MSW, each one existing because the previous left something broken.
+  <p>Read this top to bottom, in order. Each node exists because the node before it left something specifically broken. Every node ends by naming what is still broken, and that broken thing is the entire reason the next node exists. Read this way, you should be able to <em>derive</em> most of this topic rather than memorise it &mdash; and when you forget a detail later, you'll know which link in the chain it hangs off.</p>
+
+<p>Depth markers appear inline. <strong>[EXPLAIN]</strong> means you must be able to explain it out loud, from first principles, under interview pressure, with no notes. <strong>[USE]</strong> means you must use it correctly and debug it when it breaks, without needing the internals cold. <strong>[AWARE]</strong> means know it exists, know what problem it solves, know roughly when to reach for it.</p>
+
+<h3>Node 0 &mdash; the problem before client-side fetching exists</h3>
+
+<p>Imagine a website built the way essentially all websites were built until the mid-2000s. The browser asks a server for a page. The server runs some code, talks to a database, and builds one complete HTML document with the data already baked into it. That document comes back, the browser throws away everything currently on screen, and paints the new page from scratch.</p>
+
+<p>Every single interaction that needs new data is a full page navigation. You click "next page" of a product list, and the browser discards the entire document &mdash; your scroll position, the text you half-typed in another field, the open dropdown, every bit of JavaScript state &mdash; and asks the server for a whole new document that differs from the old one in about forty words. You submit a form, and the browser does an HTTP POST, and the server responds with a whole new page. If you then hit refresh, the browser offers to resubmit the form, which is where the double-charged-credit-card bug comes from.</p>
+
+<p>The specific failures here are worth naming precisely, because everything later in this chain is an answer to one of them. <strong>First, the unit of update is wrong</strong> &mdash; the smallest thing you can change is the entire page, when the thing that actually changed was one row. <strong>Second, all state is destroyed on every interaction</strong> &mdash; the page has no memory across navigations, so anything the user was in the middle of is lost. <strong>Third, the user waits for the slowest thing</strong> &mdash; the page cannot appear until the server has finished every database query it needs, because the HTML is only assembled once at the end. <strong>Fourth, there is no way to react to time</strong> &mdash; if the data changes on the server thirty seconds after the page loaded, the page has no mechanism to find out; the user must manually refresh.</p>
+
+<p>The workarounds people used were genuinely bad. Hidden <code>&lt;iframe&gt;</code> elements that could be navigated independently of the main page, so a small region could update without a full reload. Meta-refresh tags that reloaded the whole page every N seconds. Java applets and Flash movies embedded in the page purely because those runtimes could open their own network connections when the page could not.</p>
+
+<p><strong>What's still broken:</strong> the browser can fetch documents, but only by replacing the page. There is no way for JavaScript already running in a page to go and get more data and keep running.</p>
+
+<h3>Node 1 &mdash; the browser learns to make a request without navigating</h3>
+
+<p><strong>The limitation:</strong> every data request destroys the page.</p>
+
+<p>The fix was a browser API that lets JavaScript make an HTTP request on its own, receive the response as a value, and do whatever it likes with it &mdash; while the page stays exactly where it is. That API was <strong>XMLHttpRequest</strong> [AWARE], usually shortened to XHR. Microsoft shipped it first, as an ActiveX control called <code>XMLHTTP</code>, in Internet Explorer 5 in March 1999, built so that the web version of Outlook could update a mail list without reloading. Mozilla copied it as a native object called <code>XMLHttpRequest</code> in 2000, Safari and Opera followed, and by 2005 every browser had it.</p>
+
+<p>For four years almost nobody used it seriously. Then Google shipped Gmail in 2004 and Google Maps in 2005, both of which felt impossibly fast because they fetched data in the background instead of navigating &mdash; Maps in particular fetched map tiles as you dragged. In February 2005 Jesse James Garrett wrote an essay giving the technique a name, <strong>Ajax</strong> [AWARE], standing for "Asynchronous JavaScript and XML." The name is now a historical curiosity in two ways: almost nobody sends XML any more, and the technique isn't a technology at all, it's just "use XHR."</p>
+
+<p>Mechanically, XHR is an object you construct, configure, attach event handlers to, and then send. You call <code>open</code> with a method and a URL, you set an <code>onload</code> handler, you call <code>send</code>. When the response arrives, your handler runs and <code>xhr.responseText</code> holds the body as a string, which you then parse. Nothing about this is elegant, but the important part is conceptual, not syntactic: <strong>the request is asynchronous</strong> [EXPLAIN]. <code>send()</code> returns immediately, before any response exists. The rest of your function keeps running. The response arrives later, and the only way to do something with it is to have registered a function in advance that the browser will call for you.</p>
+
+<p>That single fact &mdash; <em>the data is not there when the code that asked for it finishes running</em> &mdash; is the root of everything hard in this entire topic. Every race condition, every stale render, every "why is my state empty" question comes back to it.</p>
+
+<p>The pattern that emerged was: fire a request, get a callback, and inside the callback reach into the document and change the specific elements that need to change. Find the table body, build some row elements, append them.</p>
+
+<p><strong>What you can do at this point:</strong> update part of a page with fresh server data without a navigation, keeping the rest of the page intact. [AWARE]</p>
+
+<p><strong>What's still broken:</strong> the API is clumsy &mdash; event handlers, string parsing, no built-in notion of failure versus success &mdash; and worse, composing two requests means nesting callbacks inside callbacks. And every response handler is a chunk of hand-written DOM manipulation, which does not survive contact with a real application.</p>
+
+<h3>Node 2 &mdash; <code>fetch</code> and promises: a request that is a value</h3>
+
+<p><strong>The limitation:</strong> XHR's callback-and-event shape doesn't compose, and there's no standard way to say "do this, then that."</p>
+
+<p>Two things changed together. JavaScript got <strong>Promises</strong> [EXPLAIN] &mdash; standardised in ES2015 &mdash; which give you an object representing a result that doesn't exist yet, and which you can pass around, chain, and combine. And the browser got <strong>fetch()</strong> [EXPLAIN], specified by WHATWG and shipped in Chrome 42 in April 2015, which is a request API that returns a promise instead of taking callbacks.</p>
+
+<p>The minimum useful shape:</p>
+
+<pre><code>const res = await fetch("/api/todos");
+if (!res.ok) throw new Error(`HTTP ${res.status}`);
+const todos = await res.json();</code></pre>
+
+<p>Three details in those three lines account for a large share of real-world bugs, and each is worth being able to explain.</p>
+
+<p><strong><code>fetch</code> does not reject on HTTP error statuses</strong> [EXPLAIN]. A 404 or a 500 is, from <code>fetch</code>'s point of view, a completely successful round trip &mdash; you asked, the server answered, here is the answer. The promise only rejects on a <em>network-level</em> failure: DNS failure, connection refused, CORS block, request aborted, offline. This is the most-asked <code>fetch</code> question in interviews and the most common source of "why is my error handler never running." <code>res.ok</code> is a boolean that is true for statuses 200 through 299, and checking it is your job, every time. Axios [USE], the most popular alternative library, made the opposite choice and rejects on 4xx and 5xx, which is a large part of why people still reach for it.</p>
+
+<p><strong>The body arrives separately from the headers.</strong> <code>fetch</code>'s promise resolves as soon as the response <em>headers</em> are in &mdash; status, headers, and a body stream that may still be arriving. <code>res.json()</code> returns <em>another</em> promise, which resolves when the body has fully arrived and parsed. That's why there are two <code>await</code>s. It also means the body can only be read once; calling <code>res.json()</code> twice throws, and if you need both the text and the parsed form you call <code>res.clone()</code> first.</p>
+
+<p><strong>Requests can be cancelled, but only if you set that up in advance.</strong> <code>AbortController</code> [EXPLAIN], added to browsers through 2017, is an object with a <code>signal</code> you pass into <code>fetch</code> and an <code>abort()</code> method you call later. Aborting rejects the fetch promise with a <code>DOMException</code> whose <code>name</code> is <code>"AbortError"</code>, which you must distinguish from a real error. Remember this API &mdash; it becomes load-bearing at Node 4.</p>
+
+<p>Two more pieces of the request surface matter constantly in real work. <strong><code>credentials</code></strong> [USE] controls whether cookies are attached: the default is <code>same-origin</code>, so a fetch to a different origin sends no cookies at all unless you pass <code>credentials: "include"</code> &mdash; which is why cookie-based auth "mysteriously" stops working the moment the API moves to a different domain. And <strong>CORS</strong> [USE] means a cross-origin response is invisible to your JavaScript unless the server explicitly sends <code>Access-Control-Allow-Origin</code>; the browser makes the request or blocks it, but either way your code sees a rejected promise with almost no detail, deliberately, because leaking the reason would itself be an information leak.</p>
+
+<p><strong>What you can do at this point:</strong> make a request from JavaScript, handle success and failure distinctly, cancel it, and compose several requests with <code>Promise.all</code>. [USE]</p>
+
+<p><strong>What's still broken:</strong> you have a value. You have nowhere to put it. In a React application you cannot reach into the DOM and change a row &mdash; rendering is a function of state, so the fetched data has to <em>become state</em> before anything appears on screen. And nothing here says <em>when</em> the fetch should happen.</p>
+<h3>Node 3 &mdash; the naive React pattern: <code>useEffect</code> plus <code>useState</code></h3>
+
+<p><strong>The limitation:</strong> React renders from state, and a fetch result isn't state yet. Also, a component's render function must be pure and synchronous, so you cannot fetch during render.</p>
+
+<p>React's answer, for roughly 2019 through 2022, was the pattern every tutorial still shows:</p>
+
+<pre><code>function TodoList() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() =&gt; {
+    setIsLoading(true);
+    fetch("/api/todos")
+      .then(res =&gt; {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(json =&gt; setData(json))
+      .catch(err =&gt; setError(err))
+      .finally(() =&gt; setIsLoading(false));
+  }, []);
+
+  if (isLoading) return &lt;Spinner /&gt;;
+  if (error) return &lt;ErrorBox error={error} /&gt;;
+  return &lt;ul&gt;{data.map(t =&gt; &lt;li key={t.id}&gt;{t.title}&lt;/li&gt;)}&lt;/ul&gt;;
+}</code></pre>
+
+<p>Understand precisely why the pieces are where they are. <strong><code>useEffect</code> exists to hold work that isn't rendering</strong> [EXPLAIN] &mdash; things that reach outside React and touch the world. React runs your component function to produce a description of the UI, commits that to the DOM, and <em>then</em> runs your effects. So on first render there is genuinely no data, the component genuinely renders a spinner, the effect fires, the response comes back, <code>setData</code> schedules a re-render, and the second render has data. Two renders minimum, always. That is not a flaw, it's the shape of the thing: <strong>the loading state is not an inconvenience, it is an accurate description of reality.</strong></p>
+
+<p>The dependency array &mdash; the <code>[]</code> at the end &mdash; tells React when to re-run the effect. Empty means "after the first render only." Put <code>[userId]</code> there and the effect re-runs whenever <code>userId</code> changes, which is how you refetch when the thing you're looking at changes. Getting this array wrong in either direction is its own category of bug: too few dependencies and you fetch with a stale value captured in a closure; too many, or a value that's a fresh object on every render, and you fetch in an infinite loop. <strong>An options object or array literal written inline in a dependency array is a new value every render</strong> [EXPLAIN], which means the effect re-runs every render, which sets state, which re-renders. That's the infinite-fetch loop, and it's a classic interview trap.</p>
+
+<p>The three pieces of state &mdash; <code>data</code>, <code>error</code>, <code>isLoading</code> &mdash; are the <strong>loading triad</strong> [EXPLAIN], and you should notice they encode a small state machine with combinations that can't actually happen (loading <em>and</em> error, data <em>and</em> loading-with-no-previous-data). Hand-managing three booleans that are really one enum is the first sign that this pattern is doing something a library should do.</p>
+
+<p><strong>What you can do at this point:</strong> load data into a React component on mount, show a spinner, show an error, re-fetch when a parameter changes. [EXPLAIN] &mdash; you must be able to write this from memory, because interviewers ask for exactly this and then ask what's wrong with it.</p>
+
+<p><strong>What's still broken:</strong> essentially everything, once more than one thing is happening at once. This code has at least four distinct bugs that don't show up on a fast connection with one component on screen.</p>
+
+<h3>Node 4 &mdash; the four failures of effect-based fetching</h3>
+
+<p><strong>The limitation:</strong> the Node 3 pattern is correct only for a component that mounts once, never changes its parameters, and is the only component on the page.</p>
+
+<p>These four failures are the heart of this topic. If you can explain them cleanly, you can explain why every library in Node 6 onward exists.</p>
+
+<p><strong>Failure one: the race condition.</strong> [EXPLAIN] Your effect depends on <code>userId</code>. The user clicks user 1, then quickly clicks user 2. Two fetches are now in flight. There is no rule saying responses arrive in the order the requests were sent &mdash; request 1 might hit a cold cache and take 900ms while request 2 hits a warm one and takes 80ms. So response 2 arrives, calls <code>setData</code>, and you render user 2. Then response 1 arrives, calls <code>setData</code>, and you render <strong>user 1's data on user 2's page</strong>, permanently, until something else re-renders. Nothing errors. Nothing logs. The screen is simply, quietly wrong. This is the single most important bug in client data fetching, and it is invisible on localhost.</p>
+
+<p>The fix inside the effect is a cleanup function plus a flag, or an <code>AbortController</code>:</p>
+
+<pre><code>useEffect(() =&gt; {
+  const ctrl = new AbortController();
+  fetch(`/api/users/${userId}`, { signal: ctrl.signal })
+    .then(r =&gt; r.json())
+    .then(setData)
+    .catch(err =&gt; { if (err.name !== "AbortError") setError(err); });
+  return () =&gt; ctrl.abort();
+}, [userId]);</code></pre>
+
+<p><strong>The function you return from an effect is its cleanup</strong> [EXPLAIN], and React runs it before re-running the effect and when the component unmounts. That is what makes the fix possible at all.</p>
+
+<p><strong>Failure two: setting state after unmount.</strong> If the component is gone by the time the response lands, you're calling <code>setData</code> on a component that no longer exists. React logged a warning about this for years &mdash; it was removed in React 18 because the warning caused more bad code than the problem did &mdash; but the underlying waste is real: you're holding the whole component closure in memory waiting for a response nobody wants. The same cleanup fixes it.</p>
+
+<p><strong>Failure three: React 18 Strict Mode double-invokes effects.</strong> [EXPLAIN] Since React 18 (March 2022), in development only, <code>&lt;StrictMode&gt;</code> mounts each component, unmounts it, and mounts it again, running your effect twice. This is deliberate: it is a test that your effect cleans up after itself properly, which matters because React's future concurrent features may genuinely mount and unmount components. Every developer's first encounter with it is "why is my API being called twice," and the wrong reactions &mdash; deleting StrictMode, or adding a <code>useRef</code> "has fetched" guard &mdash; both hide a real defect instead of fixing it. The right reaction is to write the cleanup.</p>
+
+<p><strong>Failure four: nothing is shared.</strong> Two components on the same page that both need the current user each run their own effect, so you make two identical requests. Worse, each holds its own copy in its own <code>useState</code>, so when one of them refetches and the other doesn't, <strong>the same data is on screen twice with two different values.</strong> The usual workaround &mdash; hoist the fetch to a common ancestor and pass it down, or shove it into a React Context &mdash; creates its own problem: now the fetch happens at the top of the tree whether or not anything currently needs it, and every consumer of that context re-renders whenever any part of the data changes.</p>
+
+<p>There is a fifth, structural, that shows up as apps grow: <strong>request waterfalls</strong> [EXPLAIN]. A parent fetches, renders, and only then does a child mount and start its own fetch. Three levels of components each fetching means three sequential round trips &mdash; 150ms becomes 450ms &mdash; for requests that had no actual dependency on each other and could have gone out simultaneously. This one comes back at Node 12.</p>
+
+<p><strong>What you can do at this point:</strong> write effect-based fetching that is actually correct for a single component. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> the correct version is roughly thirty lines per component, it's the same thirty lines every time, and the sharing problem cannot be solved inside a single component at all. The problem is not that the code is verbose. The problem is that the mental model is wrong.</p>
+
+<h3>Node 5 &mdash; the pivot: server state is not client state</h3>
+
+<p><strong>The limitation:</strong> we've been storing server data in <code>useState</code>, which is a tool for state the component owns.</p>
+
+<p>This node has almost no API surface and is the most important one in the chain. It is the reframing that makes everything after it obvious.</p>
+
+<p>Think about what <code>useState</code> is genuinely for. Is this dropdown open? What has the user typed into the search box? Which tab is selected? Call this <strong>client state</strong> [EXPLAIN]. It has four properties: your application is the only thing that can change it; it is correct the instant you set it; it exists only in this browser tab; and when the tab closes it is meaningless and should disappear.</p>
+
+<p>Now look at a list of todos fetched from an API. <strong>Every one of those four properties is false.</strong> You do not own it &mdash; a database owns it, and other users are changing it right now. It is not correct the instant you set it; it was correct at the moment the server answered, and its accuracy decays from that moment onward. It is not local; it is shared by every tab, device, and user looking at the same rows. And it does not stop existing when the tab closes; it outlives your application entirely.</p>
+
+<p>So server data in a React app is not state. <strong>It is a cache</strong> [EXPLAIN] &mdash; a local copy of a value whose authoritative version lives somewhere else. Once you say the word "cache," the questions stop being React questions and become cache questions, and they answer themselves in a way they never did before:</p>
+
+<p>What is the key for this cached entry? How long is a cached copy acceptable before I should check again? What do I show while I'm checking &mdash; nothing, or the old value? If two parts of the app want the same entry, do they share one copy or hold two? When I change the underlying data, how does the cache find out it's wrong? What happens to the cache when the user logs out?</p>
+
+<p>None of those questions can even be <em>asked</em> about <code>useState</code>, because <code>useState</code> isn't a cache; it has no key, no age, no sharing, no invalidation. Trying to answer cache questions with a state primitive is why Node 3 and Node 4 got so ugly. <strong>The bug was never in the code; it was in the category.</strong></p>
+
+<p>This is also the cleanest possible interview answer to "why do you use React Query?" The weak answer is "it removes boilerplate." The strong answer is: server state and client state are different kinds of state with different rules, <code>useState</code> models one of them, and a query cache models the other.</p>
+
+<p><strong>What you can do at this point:</strong> correctly classify any piece of state in an application, and predict which category of bug it will produce if handled with the wrong tool. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> you have the right mental model and no implementation of it. You need an actual cache &mdash; something outside any component, keyed by request, that many components can read from at once.</p>
+
+<h3>Node 6 &mdash; the query cache and the query key</h3>
+
+<p><strong>The limitation:</strong> the cache has to live outside the component tree, or it can't be shared, and it dies on unmount.</p>
+
+<p>This is where the libraries arrive. <strong>TanStack Query</strong> [EXPLAIN] &mdash; created by Tanner Linsley, released as React Query in 2019, renamed when it grew Vue, Svelte and Solid adapters, currently v5 &mdash; is the dominant one and the one to learn properly. <strong>SWR</strong> [USE], from Vercel, is smaller and simpler with the same core idea. <strong>RTK Query</strong> [AWARE] ships inside Redux Toolkit and is the natural choice in an existing Redux codebase. <strong>Apollo Client</strong> [AWARE] and <strong>urql</strong> [AWARE] do the same job for GraphQL, with a significant extra idea we'll come back to at Node 16.</p>
+
+<p>The architecture is two pieces. A <code>QueryClient</code> object holds one <strong>cache</strong> &mdash; a plain map from key to cache entry &mdash; and lives outside React entirely. A <code>QueryClientProvider</code> puts that object into React context so hooks can find it. Then <code>useQuery</code> is a hook that reads from the cache and subscribes the component to changes in one entry:</p>
+
+<pre><code>const { data, error, isPending, isFetching } = useQuery({
+  queryKey: ["todos", { status, page }],
+  queryFn: ({ signal }) =&gt;
+    fetch(`/api/todos?status=${status}&amp;page=${page}`, { signal })
+      .then(r =&gt; { if (!r.ok) throw new Error(r.status); return r.json(); }),
+});</code></pre>
+
+<p><strong>The query key is the whole design</strong> [EXPLAIN]. It is an array, hashed deterministically into a string, and it is the address of one entry in the cache. Two components with the same key are looking at the same entry &mdash; same data, one request, one loading state, always in agreement. That alone kills Failure four from Node 4. The key must contain <strong>every input the <code>queryFn</code> depends on</strong>; if <code>status</code> is in the URL but not the key, you'll fetch todos with status "done," store them at the key for "all," and serve them to the wrong caller for as long as they stay cached. The convention is hierarchical and specific-to-general: <code>["todos"]</code>, <code>["todos", "list", filters]</code>, <code>["todos", "detail", id]</code> &mdash; which matters because invalidation at Node 9 matches by prefix.</p>
+
+<p>Two behaviours fall directly out of having a keyed cache. <strong>Deduplication</strong> [EXPLAIN]: if a request for a key is already in flight and another component asks for the same key, it gets attached to the existing promise rather than starting a second request. <strong>Subscriber counting</strong>: the cache knows how many mounted components are observing each key, which is what lets it decide when an entry is garbage and when a background refetch is worth doing.</p>
+
+<p>One more mechanism worth knowing because it produces surprising behaviour: <strong>structural sharing</strong> [EXPLAIN]. When a refetch returns data that is deeply equal to what's already cached, TanStack Query keeps the <em>old object reference</em> rather than replacing it. So <code>data</code> is referentially identical, and components memoised on it don't re-render at all. If the response changed in one field, only the objects along the path to that field are new. This is why a poll every five seconds against unchanged data costs almost nothing in renders.</p>
+
+<p>Also note the <code>signal</code> handed to your <code>queryFn</code> &mdash; the library creates an <code>AbortController</code> per request and cancels it for you when the query becomes irrelevant. That's Node 2's API, wired up automatically.</p>
+
+<p><strong>What you can do at this point:</strong> fetch data with one hook, share it across the whole tree, deduplicate identical requests, and stop writing the loading triad by hand. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> you now have cached copies of data that the server keeps changing. Nothing so far decides when a copy has been sitting there too long.</p>
+<h3>Node 7 &mdash; staleness, freshness, and when to go back to the server</h3>
+
+<p><strong>The limitation:</strong> a cache with no expiry policy serves wrong data forever; a cache that expires instantly is not a cache.</p>
+
+<p>The governing idea is borrowed straight from HTTP. <strong>stale-while-revalidate</strong> [EXPLAIN] was specified in RFC 5861 in May 2010 as a <code>Cache-Control</code> extension: when a cached response has expired, you may serve the stale copy immediately <em>and</em> fetch a fresh one in the background, replacing it when it lands. The user sees content instantly and correctness follows a moment later. SWR the library is named after this policy. TanStack Query implements it too.</p>
+
+<p>TanStack Query splits the lifetime of a cache entry into two independent timers, and confusing them is the most common configuration mistake in the whole library.</p>
+
+<p><strong><code>staleTime</code></strong> [EXPLAIN] is how long fetched data is considered <em>fresh</em>. While fresh, mounting another component with that key triggers <strong>no request at all</strong> &mdash; the cached value is simply returned. The default is <code>0</code>, meaning data is stale the instant it arrives, which is why a fresh install feels like it refetches constantly. <code>staleTime</code> is the knob you actually tune, and you tune it by asking a domain question: how out of date can this be before a user is harmed? A currency rate, seconds. A user's own profile, minutes. A list of countries, effectively forever.</p>
+
+<p><strong><code>gcTime</code></strong> [EXPLAIN] &mdash; called <code>cacheTime</code> before v5, renamed in October 2023 because everyone misread it &mdash; is how long an entry survives in memory <em>after the last component observing it unmounts</em>. Default is five minutes. Its only job is deciding when to free memory. It has nothing to do with freshness, and it is <em>inactive</em> time: an entry being observed is never garbage collected regardless of <code>gcTime</code>.</p>
+
+<p>Say the difference out loud once and it sticks: <strong><code>staleTime</code> decides whether to refetch; <code>gcTime</code> decides whether to forget.</strong></p>
+
+<p>On top of those, a set of triggers decide when to <em>revalidate</em> a stale entry. <strong><code>refetchOnMount</code></strong> &mdash; a component mounts and finds a stale entry: show it immediately, refetch behind it. <strong><code>refetchOnWindowFocus</code></strong> [EXPLAIN] &mdash; the user tabs away, does something else, comes back; the library refetches stale queries on focus. This is the default and it is the feature that startles people most, because they see a network request they didn't write. It is also, for most apps, exactly right: the moment a user looks at your tab again is precisely the moment stale data starts mattering. <strong><code>refetchOnReconnect</code></strong> &mdash; the network came back, so everything held during the outage is suspect. And <strong><code>refetchInterval</code></strong>, which is polling; that gets its own treatment at Node 15.</p>
+
+<p>The interaction to internalise: <strong><code>staleTime</code> gates all of these.</strong> A query with <code>staleTime: 60_000</code> will not refetch on focus, mount, or reconnect within that minute, because it isn't stale. Setting <code>staleTime: Infinity</code> turns a query into a manual-only cache.</p>
+
+<p><strong>What you can do at this point:</strong> reason about when data is refetched, tune it per query from a domain argument, and explain any unexpected request in the network tab. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> you know when to refetch, but not what to show while it happens. With one boolean for "loading," a background revalidation looks identical to a first load, and the screen flashes back to a spinner for data you already have.</p>
+
+<h3>Node 8 &mdash; loading states that tell the truth</h3>
+
+<p><strong>The limitation:</strong> "loading" is two different situations that need two different UIs.</p>
+
+<p>There is a real distinction here. Situation one: this key has <strong>never</strong> been fetched, there is nothing in the cache, and there is genuinely nothing to render. Situation two: this key <strong>has</strong> data, and a request is in flight to check whether it's still right. Showing a spinner in the second situation throws away a perfectly good screen and makes a fast app feel slow.</p>
+
+<p>TanStack Query v5 separates them: <strong><code>isPending</code></strong> [EXPLAIN] means there is no data yet &mdash; the true first load &mdash; while <strong><code>isFetching</code></strong> [EXPLAIN] means a request is in flight for any reason, including a background revalidation. Under a stale-while-revalidate policy, <code>isFetching</code> is often true while <code>isPending</code> is false, and that's the good case. (v4 called the first one <code>isLoading</code>; in v5 <code>isLoading</code> is defined as <code>isPending &amp;&amp; isFetching</code>, which mostly does what people expected <code>isLoading</code> to do. The rename caught a lot of people mid-migration, and blog posts from before October 2023 use the old names.) The idiom is: render a skeleton on <code>isPending</code>, and a small unobtrusive indicator &mdash; a dimmed list, a thin progress bar &mdash; on <code>isFetching</code>.</p>
+
+<p>Then there are two ways to have something to show when you'd otherwise have nothing. <strong><code>initialData</code></strong> [USE] is data you're claiming is <em>real and cacheable</em> &mdash; it's written into the cache and ages under <code>staleTime</code> like anything else. <strong><code>placeholderData</code></strong> [USE] is data you're admitting is <em>fake</em> &mdash; it renders, but it is never written to the cache, and the query stays in a pending-ish state until real data arrives. Choose wrong and you either cache a lie or fail to cache a truth.</p>
+
+<p><code>placeholderData</code> also solves the paging flicker. When the key changes from page 1 to page 2, it's a <em>different cache entry</em> with no data, so the list disappears and a skeleton appears. Passing <code>placeholderData: keepPreviousData</code> [USE] (the v5 helper; v4 had a <code>keepPreviousData: true</code> flag) keeps the previous page rendered, flags it with <code>isPlaceholderData</code>, and swaps it when page 2 lands. The list stays on screen and just refreshes.</p>
+
+<p>The same idea scaled up is <strong>prefetching</strong> [USE] &mdash; <code>queryClient.prefetchQuery</code> on link hover or on intent, so the entry is already warm and the navigation renders instantly with no loading state at all.</p>
+
+<p><strong>What you can do at this point:</strong> build interfaces where the first load is honest and every subsequent load is nearly invisible. [USE]</p>
+
+<p><strong>What's still broken:</strong> every single thing so far is reading. Real applications write, and a write makes every cached copy of the affected data potentially wrong at once.</p>
+
+<h3>Node 9 &mdash; mutations, and how the cache learns it is wrong</h3>
+
+<p><strong>The limitation:</strong> a read cache has no idea that you just changed the underlying data.</p>
+
+<p>A write is different from a read in four ways that justify a separate hook. It isn't idempotent, so you must never fire it automatically the way a query fires on mount. It's imperative &mdash; it happens because a user clicked, not because a component rendered. It shouldn't be retried blindly, because retrying a "create order" that actually succeeded charges someone twice. And it has no cache entry of its own; its result isn't something you'd read later by key.</p>
+
+<p>Hence <strong><code>useMutation</code></strong> [EXPLAIN], which gives you a <code>mutate</code> function to call from an event handler plus <code>isPending</code>, <code>error</code>, and <code>data</code> for the in-flight write. The lifecycle callbacks are <code>onMutate</code> (before the request &mdash; remember this for Node 10), <code>onSuccess</code>, <code>onError</code>, and <code>onSettled</code> (either way, always).</p>
+
+<p>The crucial part is what happens <em>after</em> the write succeeds. You POSTed a new todo. The cache entry at <code>["todos", "list"]</code> was fetched before that todo existed, and it is now definitively wrong, along with any dashboard count and any filtered view containing it. Nothing has told the cache.</p>
+
+<p>There are exactly two answers, and knowing when to use each is the real skill.</p>
+
+<p><strong>Invalidation</strong> [EXPLAIN] &mdash; <code>queryClient.invalidateQueries({ queryKey: ["todos"] })</code> &mdash; marks every matching entry stale and immediately refetches the ones currently being observed. It matches by <strong>prefix</strong>, which is why hierarchical keys were worth the discipline at Node 6: one call invalidates the list, the filtered lists, and every detail view underneath. This is the default choice. It costs a round trip, and it is almost always correct, because the server is the authority and you just asked it for the truth.</p>
+
+<p><strong>Direct cache writing</strong> [USE] &mdash; <code>queryClient.setQueryData(key, updater)</code> &mdash; takes the response your mutation already returned and writes it into the cache by hand, no refetch. Free and instant, and correct only when your local reconstruction exactly matches what the server would say. The moment the server computes anything you don't have &mdash; a derived count, a timestamp, a sort position, a permission &mdash; hand-written cache data drifts from reality and you get bugs that only appear after a full reload. A common combination is to <code>setQueryData</code> the detail entry from the mutation's own response and <code>invalidateQueries</code> the lists.</p>
+
+<p><strong>What you can do at this point:</strong> perform writes and have every affected view in the application correct itself afterwards. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> the user clicks a checkbox and waits &mdash; request out, server thinks, response back, invalidate, refetch, response back &mdash; and only then does the checkbox move. Two round trips for a tick mark. On a phone on mobile data that's most of a second of nothing happening.</p>
+
+<h3>Node 10 &mdash; optimistic updates and rollback</h3>
+
+<p><strong>The limitation:</strong> correctness is bought with latency the user feels on every interaction.</p>
+
+<p>The bet is simple: most writes succeed. So update the screen <em>as if</em> it already worked, send the request, and if it fails, put everything back. <strong>Optimistic update</strong> [EXPLAIN]. It's the difference between an app that feels like a native application and one that feels like a website.</p>
+
+<p>The shape has four steps, and every one is load-bearing:</p>
+
+<pre><code>useMutation({
+  mutationFn: toggleTodo,
+  onMutate: async (next) =&gt; {
+    await queryClient.cancelQueries({ queryKey: ["todos"] });
+    const previous = queryClient.getQueryData(["todos"]);
+    queryClient.setQueryData(["todos"], old =&gt;
+      old.map(t =&gt; t.id === next.id ? { ...t, done: next.done } : t));
+    return { previous };
+  },
+  onError: (err, next, ctx) =&gt; queryClient.setQueryData(["todos"], ctx.previous),
+  onSettled: () =&gt; queryClient.invalidateQueries({ queryKey: ["todos"] }),
+});</code></pre>
+
+<p><code>cancelQueries</code> first, because if a refetch is already in flight it will land <em>after</em> your optimistic write and overwrite it with pre-mutation data &mdash; a race condition of exactly the Node 4 shape, now inside your own cache. Snapshot <code>previous</code> before you touch anything, and return it, because the returned value becomes the <code>context</code> argument that <code>onError</code> needs to undo the change. Write the optimistic value. And on settle, invalidate regardless of outcome, so the server gets the final word either way.</p>
+
+<p>The failure modes are worth naming. <strong>The rollback flash</strong> &mdash; a failure yanks the change back with no explanation, which is worse than a spinner; pair rollback with a toast that says what failed. <strong>Optimistically inventing an ID</strong> &mdash; you create a todo locally with <code>id: Math.random()</code>, the server assigns a real ID, and now a click on the temporary row 404s until the invalidate lands. <strong>Stacked mutations</strong> &mdash; three rapid toggles each snapshot a "previous" that includes the previous optimistic writes, and one failure in the middle rolls back to a state that never existed on the server.</p>
+
+<p>The honest rule: use optimistic updates where the write is small, local, near-certain to succeed, and cheap to be wrong about &mdash; toggles, likes, reorderings, marking read. Don't use them for payments, submissions, or anything where showing a success that didn't happen is a real problem.</p>
+
+<p><strong>What you can do at this point:</strong> build interactions that respond instantly and stay honest when they fail. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> everything so far assumes the data fits in one response. Real lists have fifty thousand rows.</p>
+
+<h3>Node 11 &mdash; pagination and infinite lists</h3>
+
+<p><strong>The limitation:</strong> one key holding one array doesn't survive a dataset that can't be sent at once.</p>
+
+<p>First, the server-side choice, because it determines what the client can do. <strong>Offset pagination</strong> [EXPLAIN] &mdash; <code>?limit=20&amp;offset=40</code>, translating to SQL <code>LIMIT 20 OFFSET 40</code> &mdash; is simple, lets you jump to page 7, and gives you a total count for "page 3 of 19." Its two flaws are real: <code>OFFSET 100000</code> still makes the database walk and discard a hundred thousand rows, so deep pages get slow; and if a row is inserted at the top between your request for page 1 and page 2, everything shifts by one and <strong>the last item of page 1 reappears as the first item of page 2</strong>. <strong>Cursor pagination</strong> [EXPLAIN] &mdash; <code>?limit=20&amp;after=eyJpZCI6NDJ9</code> &mdash; sends back an opaque pointer to the last row, and the next query says "give me rows after this one," which becomes <code>WHERE (created_at, id) &lt; (&hellip;) ORDER BY &hellip; LIMIT 20</code>. Constant cost at any depth, no duplicates or skips under insertion, but no jumping to page 7 and usually no total. Cursor pagination is what feeds work on; offset pagination is what tables with page numbers work on.</p>
+
+<p>On the client, discrete pages just means the page number lives in the query key &mdash; <code>["todos", { page }]</code> &mdash; and each page is a separate cache entry. Which is correct, and which is why you need <code>placeholderData: keepPreviousData</code> from Node 8 to stop the flicker.</p>
+
+<p>Infinite scroll is genuinely different, because the user's mental model is <em>one growing list</em>, not a set of pages, and it must survive as one thing when you scroll away and come back. <strong><code>useInfiniteQuery</code></strong> [USE] models this as a single cache entry whose data is <code>{ pages: [...], pageParams: [...] }</code> &mdash; an array of responses, in load order. You give it <code>initialPageParam</code> and a <code>getNextPageParam(lastPage)</code> function that pulls the cursor out of the last response (returning <code>undefined</code> to say "no more"), and it hands you <code>fetchNextPage</code>, <code>hasNextPage</code>, and <code>isFetchingNextPage</code> &mdash; which is distinct from <code>isFetching</code>, so a footer spinner doesn't also blank the list. Flattening for render is <code>data.pages.flatMap(p =&gt; p.items)</code>.</p>
+
+<p>Two things to know about it. <strong>Refetching an infinite query refetches every loaded page</strong>, sequentially, to keep them consistent &mdash; after 40 pages that's expensive, which is what <code>maxPages</code> in v5 is for. And updating a single item inside it means a nested <code>setQueryData</code> that maps over <code>pages</code> and then over each page's items; it's fiddly enough that invalidation is often the better call.</p>
+
+<p>The trigger for loading more is usually <strong><code>IntersectionObserver</code></strong> [USE] on a sentinel element at the bottom of the list &mdash; a browser API that tells you when an element enters the viewport, far cheaper than listening to scroll events.</p>
+
+<p><strong>What you can do at this point:</strong> page and infinitely scroll real datasets without duplicates, flicker, or unbounded memory. [USE]</p>
+
+<p><strong>What's still broken:</strong> with more queries on a page, the sequencing problem from Node 4 comes back and gets worse &mdash; some queries depend on others, and the ones that don't are still going out one at a time.</p>
+
+<h3>Node 12 &mdash; dependent queries, parallel queries, and killing waterfalls</h3>
+
+<p><strong>The limitation:</strong> components fetch when they render, so the component tree accidentally becomes the request schedule.</p>
+
+<p>A <strong>request waterfall</strong> [EXPLAIN] is any set of requests that run sequentially when they could have run in parallel. On a 150ms connection, three levels of nested fetching is 450ms of blank screen for data that could all have arrived in 150ms. This is one of the largest and least visible performance costs in React applications, and the network tab's waterfall view is where you diagnose it &mdash; sequential staircase bad, aligned bars good.</p>
+
+<p>There are three distinct cases and they have three different answers.</p>
+
+<p><strong>Genuinely dependent queries</strong> [USE]. You need the user before you can fetch their projects, because you need their ID. This waterfall is real and unavoidable on the client; the only true fix is a server endpoint that returns both. In the meantime, the tool is the <strong><code>enabled</code></strong> flag: <code>useQuery({ queryKey: ["projects", userId], queryFn: ..., enabled: !!userId })</code>. A disabled query doesn't fetch and reports status <code>pending</code>, so you must handle "waiting for the dependency" as a state &mdash; this is the source of the eternal-spinner bug where a query is disabled forever because its dependency is <code>undefined</code> for a reason you didn't notice.</p>
+
+<p><strong>Independent queries that only look dependent.</strong> A dashboard needs the user, the notifications, and the billing summary. If those are fetched by three nested components they run in series for no reason at all. Call all three <code>useQuery</code> hooks in the same component and they fire together, because hooks run in order within one render and each kicks off its request immediately. When the number of queries is dynamic &mdash; one per item in a list &mdash; that's <strong><code>useQueries</code></strong> [USE], which takes an array of query options and returns an array of results, letting you call a variable number of queries without breaking the rules of hooks.</p>
+
+<p><strong>Waterfalls caused by code splitting.</strong> A lazily-loaded component can't start fetching until its JavaScript has downloaded, so you get download-then-fetch instead of both at once. The answer is to hoist the query &mdash; or prefetch it &mdash; above the lazy boundary.</p>
+
+<p>Then the general-purpose tool: <strong>prefetching</strong> [USE]. <code>queryClient.prefetchQuery</code> fills the cache before anything renders &mdash; on link hover, on router transition, at app start for things you know you'll need. Prefetching is the cheapest performance win in this entire topic, because the latency is spent during time the user was going to spend anyway.</p>
+
+<p><strong>What you can do at this point:</strong> control request scheduling deliberately instead of inheriting it from your component hierarchy. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> all of it starts <em>after</em> the JavaScript has downloaded, parsed, and rendered once. The very first paint of the application still shows an empty screen, and no amount of client cleverness fixes that, because the client hasn't started yet.</p>
+<h3>Node 13 &mdash; the server boundary: hydration, RSC, and route loaders</h3>
+
+<p><strong>The limitation:</strong> a purely client-fetched app's fastest possible first render is <em>blank</em>, because HTML arrives, then JS downloads, then the app mounts, then a request goes out.</p>
+
+<p>The sequence on a cold load of a client-only app is: HTML shell &rarr; download JS bundle &rarr; parse and execute &rarr; React mounts &rarr; effects run &rarr; request goes out &rarr; response &rarr; render. Each arrow is real time, and the request doesn't even start until the last one. This is bad for perceived speed, bad for Core Web Vitals, and bad for anything that needs to be indexed by a crawler.</p>
+
+<p>The fix is to move the first fetch onto the server, which is closer to the database and doesn't have to wait for a bundle. Three shapes of this exist and you should be able to tell them apart.</p>
+
+<p><strong>Prefetch and hydrate</strong> [USE] &mdash; the TanStack Query answer, and the one that keeps everything you've learned. On the server, create a <code>QueryClient</code>, <code>await queryClient.prefetchQuery(...)</code>, serialise the cache with <code>dehydrate()</code>, ship that JSON with the HTML, and wrap the client tree in <code>&lt;HydrationBoundary state={dehydratedState}&gt;</code>. The client's cache starts populated, so <code>useQuery</code> on first render finds data already there &mdash; no request, no spinner &mdash; and everything from Node 7 onward still applies afterwards. This is Next.js Pages Router with <code>getServerSideProps</code>, and it works in the App Router too.</p>
+
+<p><strong>Route loaders</strong> [AWARE] &mdash; Remix, and React Router 6.4+ from September 2022. Data fetching is attached to the <em>route</em>, not the component, so the router knows every data requirement of a URL before rendering anything and can fire them all in parallel. This structurally eliminates the component-tree waterfall from Node 12, which is the entire point of the design.</p>
+
+<p><strong>React Server Components</strong> [AWARE] &mdash; stable in Next.js 13.4 (May 2023) and part of React 19. Some components render only on the server, never ship to the browser, and can be <code>async</code> &mdash; so a component can <code>await</code> a database call directly during render. No fetch, no <code>useEffect</code>, no cache. It is genuinely a different model, and it removes the need for client fetching for <em>initial, static-ish reads</em>.</p>
+
+<p>What RSC does <strong>not</strong> remove is the reason this whole topic exists. The moment the data has to change without a navigation &mdash; a filter typed into a box, an optimistic toggle, an infinite list, a poll, a websocket push, anything interactive &mdash; you are back in a client component with a cache. The 2023&ndash;2025 consensus that has settled is a split: server components fetch the initial page, client components with TanStack Query own everything interactive, and the server's fetch is handed over via hydration so both agree. Anyone claiming RSC makes React Query obsolete is describing read-only pages.</p>
+
+<p><strong>What you can do at this point:</strong> deliver a first paint with data already in it, and hand the same data to the client cache without refetching it. [USE]</p>
+
+<p><strong>What's still broken:</strong> everything so far assumes requests succeed. Networks are unreliable by nature, and one failed request currently means a dead component.</p>
+
+<h3>Node 14 &mdash; failure: retries, backoff, and error boundaries</h3>
+
+<p><strong>The limitation:</strong> a single dropped packet on a train is currently indistinguishable from a 500, and both give a permanently broken screen.</p>
+
+<p>A large share of client request failures are transient &mdash; a flaky connection, a rolling deploy, a momentary rate limit. So the default should be to try again. TanStack Query <strong>retries failed queries three times by default</strong> [EXPLAIN], with <strong>exponential backoff</strong> [EXPLAIN]: the delay doubles each attempt (roughly 1s, 2s, 4s, capped at 30s). The doubling matters because a fixed short retry interval, multiplied by every client of a struggling server, is a self-inflicted denial of service &mdash; a <strong>thundering herd</strong>. Backoff gives the server room to recover. Production systems add <strong>jitter</strong> [AWARE], a small random offset, so that clients that failed together don't retry in lockstep.</p>
+
+<p>The critical asymmetry: <strong>mutations are not retried by default</strong> [EXPLAIN]. A GET is idempotent &mdash; asking twice is harmless. A POST is not, and retrying one that actually succeeded but whose response was lost creates a duplicate order. If you do want mutation retries, the correct fix is on the server: an <strong>idempotency key</strong> [AWARE], a client-generated unique ID sent with the write, which the server records so a repeat of the same key returns the original result instead of doing the work twice. This is exactly how Stripe's API handles it, and saying so in an interview lands well.</p>
+
+<p>Retrying blindly on every status is also wrong. A 404 will still be a 404 in four seconds; a 401 needs a token refresh, not a retry; a 422 means your payload is invalid. Only 5xx, 429 (respecting <code>Retry-After</code> if present), and network-level failures are worth retrying. That's a <code>retry: (failureCount, error) =&gt; &hellip;</code> function.</p>
+
+<p>Then there's where the error surfaces. By default a query returns <code>error</code> and you branch on it in the component &mdash; explicit, local, verbose across many components. The alternative is <strong><code>throwOnError</code></strong> [USE] (called <code>useErrorBoundary</code> before v5), which rethrows during render so a React <strong>error boundary</strong> [EXPLAIN] catches it &mdash; a class component with <code>getDerivedStateFromError</code>/<code>componentDidCatch</code>, or <code>react-error-boundary</code> in practice &mdash; letting you handle failure once per region instead of once per query. Pair it with <code>QueryErrorResetBoundary</code> so a "try again" button actually resets the failed queries. The same shape applies to loading via <strong>Suspense</strong> [AWARE] with <code>useSuspenseQuery</code>, which moves the pending state up to a <code>&lt;Suspense fallback&gt;</code> &mdash; though note that a suspending component blocks its siblings from rendering, which quietly reintroduces a waterfall if you're careless.</p>
+
+<p><strong>What you can do at this point:</strong> survive an unreliable network without either breaking the UI or hammering a struggling server, and handle failure at the right altitude. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> the cache only learns about changes when <em>this</em> browser asks. If another user changes something, this screen stays confidently wrong until a refetch trigger happens to fire.</p>
+
+<h3>Node 15 &mdash; real time: polling, push, and writing into the cache</h3>
+
+<p><strong>The limitation:</strong> the whole model so far is pull-based, and some data has to arrive without being asked for.</p>
+
+<p>The cheap answer is <strong>polling</strong> [USE]: <code>refetchInterval: 5000</code> refetches on a timer. It costs nothing to build, works through every proxy and firewall, and is genuinely correct for slowly-changing data. Do it with judgement &mdash; pass a function to compute the interval so a job that's finished stops polling, and know that <code>refetchIntervalInBackground</code> defaults to false so a hidden tab stops polling on its own. Its cost is obvious: at scale it's a request per client per interval regardless of whether anything changed, and its latency is on average half the interval.</p>
+
+<p>The push answers are <strong>Server-Sent Events</strong> [AWARE] &mdash; a one-way stream of text events over a plain HTTP response, using the browser's <code>EventSource</code>, with automatic reconnection built in &mdash; and <strong>WebSockets</strong> [AWARE], a full duplex connection after an HTTP upgrade handshake. SSE is the right default for "the server tells the client things"; WebSockets are for genuine two-way traffic like chat or collaborative editing. Both have their own topics in the catalog.</p>
+
+<p>The part that belongs <em>here</em> is what to do with a pushed message once it arrives, and there are two options that mirror Node 9 exactly. <strong>Invalidate</strong> &mdash; the message says "todo 42 changed," you call <code>invalidateQueries({ queryKey: ["todos"] })</code>, and the cache refetches from the authority. Slightly more traffic, always correct, and the right default. <strong>Write directly</strong> &mdash; the message carries the new row and you <code>setQueryData</code> it straight into the cache, no request at all. Fast, and correct only if the message is complete and you can guarantee ordering; out-of-order messages will happily write an older version over a newer one unless every payload carries a version or timestamp you check.</p>
+
+<p>The architectural point worth carrying: <strong>the query cache is the single place all data lands, whatever the transport.</strong> Polling, push, mutations, and prefetches all funnel into the same keyed store, and components subscribe to the store rather than to any transport. Change from polling to websockets and no component changes.</p>
+
+<p><strong>What you can do at this point:</strong> keep a screen live, by pull or push, without any component knowing which. [USE]</p>
+
+<p><strong>What's still broken:</strong> with dozens of live queries, the app starts re-rendering constantly, and payload sizes and render counts become the bottleneck rather than the network.</p>
+
+<h3>Node 16 &mdash; performance: re-renders, selectors, and the normalisation question</h3>
+
+<p><strong>The limitation:</strong> every cache update notifies every subscriber, and correctness has stopped being the problem.</p>
+
+<p>Start with what you already get for free. <strong>Structural sharing</strong> from Node 6 means an unchanged refetch produces identical references and therefore no re-render. <strong>Deduplication</strong> means N components asking for one key make one request. Those two do most of the work.</p>
+
+<p>What's left is a component that subscribes to a whole cache entry when it needs one field of it. A header showing the unread count re-renders on every change to any notification. The tool is <strong><code>select</code></strong> [EXPLAIN] &mdash; <code>useQuery({ queryKey: ["notifications"], queryFn, select: d =&gt; d.filter(n =&gt; !n.read).length })</code> &mdash; which transforms the data before it reaches the component and, crucially, compares <em>the selected value</em>, so the component only re-renders when the count itself changes. The trap: an inline <code>select</code> returning a new object or array every call defeats the comparison entirely, so it must be a stable function returning a primitive or a memoised value. This is the same referential-identity problem as the dependency array in Node 3, appearing in its third distinct costume &mdash; worth noticing as a pattern.</p>
+
+<p><code>notifyOnChangeProps</code> [AWARE] is the blunter version: tell the query to only notify on <code>["data"]</code> and it stops re-rendering for <code>isFetching</code> transitions.</p>
+
+<p>Then, the design argument this node exists to name. TanStack Query is a <strong>document cache</strong> [EXPLAIN]: each key holds whatever the server returned, opaquely. If todo 42 appears in a list response and again in a detail response, those are two independent copies in two entries, and updating one does not update the other. Apollo Client and urql use a <strong>normalised cache</strong> [EXPLAIN]: responses are broken apart by type and ID into a flat store, so todo 42 exists exactly once and every query referencing it updates automatically when it changes. Normalisation is strictly more powerful and strictly more complex &mdash; it needs stable IDs on everything (which is why GraphQL's <code>__typename</code> and <code>id</code> conventions exist), it needs configuration for pagination and merge behaviour, and its failure modes are harder to reason about. TanStack Query's deliberate position is that invalidation is a simpler tool that gets the same result at the cost of a round trip, and that round trips are cheap while cache-consistency bugs are not. Being able to state that trade-off is a genuinely senior-sounding answer.</p>
+
+<p>Beyond the cache: keep payloads small by having the server return what the screen needs, virtualise long lists (TanStack Virtual, react-window) so ten thousand rows aren't ten thousand DOM nodes, and remember that a <strong>normalised, well-indexed backend query</strong> beats any amount of client optimisation.</p>
+
+<p><strong>What you can do at this point:</strong> diagnose a re-render storm, control subscription granularity, and argue document versus normalised caching on the merits. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> the cache is a global object holding server data with no notion of <em>whose</em> data it is &mdash; which stops being a performance question and becomes a security one.</p>
+
+<h3>Node 17 &mdash; authentication, tenancy, and cache safety</h3>
+
+<p><strong>The limitation:</strong> one process-wide cache plus more than one user is a data leak waiting for a logout.</p>
+
+<p>The concrete bug: a user logs in on a shared machine, browses, and logs out, and a second user logs in. If the app is a single-page application, <strong>the page never reloaded</strong>, so the <code>QueryClient</code> from before is still in memory holding the first user's data. The second user's first render finds a warm cache and shows someone else's information. It is a real vulnerability, it has shipped in real products, and the fix is one line: <strong><code>queryClient.clear()</code> on logout</strong> [EXPLAIN]. Do it on the logout path, and defensively when a 401 forces a session end.</p>
+
+<p>Related and equally important: if any query key can vary by user, <strong>the user must be in the key</strong>. <code>["profile"]</code> is a bug; <code>["profile", userId]</code> is not. The same reasoning applies to a tenant or organisation ID in a multi-tenant app &mdash; the rule from Node 6 that "every input to the queryFn must be in the key" includes inputs that arrive implicitly through a token.</p>
+
+<p>Getting the credential onto the request is the other half. <strong>Bearer tokens</strong> [USE] in an <code>Authorization</code> header are simple and immune to CSRF, but a token in JavaScript-readable storage is readable by any XSS on your page. <strong>HttpOnly cookies</strong> [USE] can't be read by JavaScript at all, which is stronger against XSS, but they're sent automatically and therefore need <code>SameSite</code> and CSRF protection &mdash; and, from Node 2, <code>credentials: "include"</code> plus a CORS config with <code>Access-Control-Allow-Credentials: true</code> and a specific origin (the wildcard is rejected with credentials, deliberately). The common production shape is a short-lived access token in memory plus a long-lived refresh token in an HttpOnly cookie.</p>
+
+<p>Which brings the <strong>401 refresh flow</strong> [USE], and one specific mistake. A request 401s, so you refresh the token and retry &mdash; fine. But five queries fire on page load and all five 401 at once, so all five kick off a token refresh, and now you have five concurrent refreshes racing, four of which will use a rotated-and-therefore-invalid refresh token and log the user out. The fix is a single shared in-flight refresh promise that all failing requests await. Put this in one place &mdash; an Axios interceptor or a wrapped <code>fetch</code> &mdash; never in individual <code>queryFn</code>s.</p>
+
+<p><strong>What you can do at this point:</strong> hold per-user server state in a shared cache without leaking it across sessions, and handle token expiry without a stampede. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> all of this assumes the network exists. Close the tab or lose signal and the entire cache evaporates.</p>
+
+<h3>Node 18 &mdash; persistence, offline, and the shape of the ecosystem</h3>
+
+<p><strong>The limitation:</strong> the cache is in memory, so a reload is a cold start and an offline user has nothing.</p>
+
+<p><strong>Persistence</strong> [USE] &mdash; <code>@tanstack/query-persist-client</code> with a <code>localStorage</code> or IndexedDB persister &mdash; writes the dehydrated cache to disk and restores it on boot, so a reload shows the last known data instantly and revalidates behind it. It comes with three obligations. <strong>Never persist per-user data without clearing it on logout</strong> &mdash; that's Node 17's bug written to disk, where it survives a browser restart. <strong>Version the cache with a buster string</strong> tied to your build, or a deploy that changes a data shape will hydrate old-shaped objects into new code. And <strong>respect <code>maxAge</code></strong>, or you'll show data from three weeks ago as if it were current. <code>localStorage</code> is synchronous and roughly 5MB; IndexedDB is asynchronous and far larger, and is the right choice for anything substantial.</p>
+
+<p><strong>Offline mutations</strong> [AWARE] are the harder half. TanStack Query's <code>networkMode</code> defaults to <code>"online"</code>: with no connection, queries stay paused rather than failing, and mutations queue and fire when connectivity returns. Which raises the genuine problems of any offline system &mdash; ordering, and conflicts when the server's version has moved on. Full local-first sync (Replicache, ElectricSQL, Yjs and CRDTs) is a large field of its own; know it exists and know that "offline support" is a much bigger commitment than a persister.</p>
+
+<p>The ecosystem, briefly, so you can answer "why this one." <strong>TanStack Query</strong> &mdash; the default for REST and anything non-GraphQL, framework-agnostic, document cache, largest ecosystem. <strong>SWR</strong> &mdash; same core model, much smaller, fewer knobs, no mutation layer worth the name; good for read-heavy apps. <strong>RTK Query</strong> &mdash; the right answer when the codebase already uses Redux, since it shares the store and devtools, and its endpoint-definition style with tag-based invalidation is a genuinely different ergonomic. <strong>Apollo Client</strong> and <strong>urql</strong> &mdash; GraphQL, normalised caches (Node 16), Apollo heavier and more featured, urql lighter and more composable. <strong>Relay</strong> &mdash; Facebook's, extremely powerful, requires a compiler and strict schema conventions, rarely the right call outside a large org. <strong><code>fetch</code> in a <code>useEffect</code></strong> &mdash; still legitimate for a genuine one-off in a small app, and you should be willing to say so rather than reflexively reaching for a library.</p>
+
+<p><strong>What you can do at this point:</strong> survive reloads and connectivity loss, and choose a data layer with an argument rather than by fashion. [USE] / [AWARE]</p>
+
+<p><strong>What's still broken:</strong> none of this is verifiable. Every behaviour in this chain is asynchronous, cached, and dependent on a server you don't control, which makes it exactly the kind of code that appears to work and isn't.</p>
+
+<h3>Node 19 &mdash; seeing it and testing it</h3>
+
+<p><strong>The limitation:</strong> cache behaviour is invisible, and asynchronous UI is the hardest thing to test.</p>
+
+<p><strong>TanStack Query Devtools</strong> [USE] is the first tool to reach for, and it makes the entire topic concrete: every cache key, its status (fresh, stale, fetching, inactive), its data, its observer count, and buttons to invalidate or reset any entry. Half the confusion in this topic dissolves the first time you watch a key go stale on window blur. Alongside it, the browser's own <strong>network tab</strong> [USE] &mdash; the waterfall view diagnoses Node 12, the initiator column tells you which code fired a request, and throttling to "Slow 3G" is how you make Node 4's race condition reproducible instead of theoretical.</p>
+
+<p>For tests, the decisive choice is <strong>where you fake the server</strong>. Mocking the <code>fetch</code> function or stubbing your API module tests your mock, not your code &mdash; the request URL, headers, status handling, and error paths all go untested. <strong>Mock Service Worker (MSW)</strong> [USE] instead intercepts at the network layer &mdash; a service worker in the browser, an interceptor in Node &mdash; so your application makes a genuine <code>fetch</code> and MSW answers it. That means the same handlers serve unit tests, component tests, and local development against a backend that doesn't exist yet, and you can return a 500 or a delay to test the paths you otherwise never exercise.</p>
+
+<p>The practical rules for testing query-driven components: give each test <strong>its own <code>QueryClient</code></strong> or state leaks between tests; set <code>retry: false</code> in tests or a failure case takes several seconds of backoff before your assertion runs; and assert on what the user sees with <strong><code>findBy*</code></strong> queries from Testing Library, which retry until the element appears, rather than <code>getBy*</code> plus an arbitrary sleep. And write tests for the states people forget: the error state, the empty state, and the second load, not just the happy first render.</p>
+
+<p><strong>What you can do at this point:</strong> observe cache behaviour directly and write tests that actually exercise the asynchronous paths. [USE]</p>
+
+<p><strong>What's still broken:</strong> nothing structural &mdash; this is the end of the chain. What's left is judgement, which comes from building the thing.</p>
+
+<h3>Where the chain gets misread</h3>
+
+<p><strong>"<code>fetch</code> throws on a 404."</strong> (Node 2) It does not. A 404 is a successful HTTP exchange; only network-level failures reject the promise. Check <code>res.ok</code> yourself, every time.</p>
+
+<p><strong>"Strict Mode double-fetching is a React bug &mdash; remove Strict Mode."</strong> (Node 4) It's a deliberate development-only check that your effect cleans up. It runs only in dev. Removing Strict Mode or adding a <code>useRef</code> guard hides a real cleanup defect instead of fixing it.</p>
+
+<p><strong>"React Query is for removing boilerplate."</strong> (Node 5) It's a cache, not a code-shortening device. The value is deduplication, sharing, staleness policy, and invalidation &mdash; things you cannot get from <code>useState</code> at all, at any length.</p>
+
+<p><strong>"<code>cacheTime</code>/<code>gcTime</code> controls how long data stays fresh."</strong> (Node 7) <code>staleTime</code> decides whether to refetch. <code>gcTime</code> decides when to free memory for entries nobody is observing. They're independent, and mixing them up is the most common configuration error in the library.</p>
+
+<p><strong>"Refetching on window focus is annoying, turn it off."</strong> (Node 7) Usually the wrong lever. If you're seeing too many requests, the real fix is a <code>staleTime</code> that reflects how fast your data actually changes; <code>staleTime</code> gates focus refetching automatically.</p>
+
+<p><strong>"<code>isFetching</code> means show a spinner."</strong> (Node 8) <code>isPending</code> (no data at all) means show a skeleton. <code>isFetching</code> during a background revalidation should be a subtle indicator at most &mdash; blanking a good screen to re-fetch the same data is the flicker users hate.</p>
+
+<p><strong>"After a mutation, update the cache manually &mdash; it saves a request."</strong> (Node 9) Only when your local reconstruction exactly matches the server's. Any server-computed field &mdash; counts, timestamps, sort order, permissions &mdash; drifts silently and only reveals itself after a hard reload. Invalidate by default.</p>
+
+<p><strong>"Optimistic updates just mean calling <code>setQueryData</code> before the request."</strong> (Node 10) Without <code>cancelQueries</code> an in-flight refetch overwrites your optimistic write; without a snapshot you cannot roll back; without <code>onSettled</code> invalidation the cache can end up in a state that never existed on the server.</p>
+
+<p><strong>"Two components using the same data means two requests."</strong> (Node 6) Not with the same query key &mdash; one entry, one request, one loading state. If you <em>are</em> seeing two requests, your keys differ, which usually means an inline object or a missing parameter.</p>
+
+<p><strong>"<code>enabled: false</code> means the query is loading."</strong> (Node 12) A disabled query reports <code>pending</code> because it has no data, but nothing is in flight. Rendering a spinner on <code>isPending</code> without checking <code>enabled</code> gives you a spinner that spins forever.</p>
+
+<p><strong>"Mutations retry like queries do."</strong> (Node 14) They do not, by default, and that default is correct &mdash; retrying a non-idempotent write duplicates it. If you need retries on writes, add idempotency keys server-side.</p>
+
+<p><strong>"Server Components make client data fetching obsolete."</strong> (Node 13) They remove the <em>initial read</em> from the client. Every interactive read &mdash; filters, optimistic writes, infinite lists, polling, push &mdash; still needs a client cache. The real answer is a split, with the server's fetch handed to the client cache through hydration.</p>
+
+<p><strong>"The cache is fine on logout, the user is redirected anyway."</strong> (Node 17) In a single-page app the page never reloads and the <code>QueryClient</code> survives, so the next user's first render can show the previous user's data. Call <code>queryClient.clear()</code>.</p>
+
+<p><strong>"Mocking <code>fetch</code> is good enough for tests."</strong> (Node 19) It tests your mock. Intercepting at the network layer with MSW keeps the URL, headers, status handling and error paths under test, and the same handlers work in dev.</p>
+
+<h3>The chain in one paragraph</h3>
+
+<p>Before client-side fetching, the only way to get new data was to throw away the whole page, so every interaction cost all your state and the user's place in it; <code>XMLHttpRequest</code> let JavaScript make a request without navigating, at the cost of making the result <em>arrive later</em>, which is the fact everything else in this topic is downstream of; <code>fetch</code> and promises made that request a value you can compose, cancel and reason about, but a value is not something React can render, so the value has to become state &mdash; and <code>useState</code> plus <code>useEffect</code> is the naive way to do that, correct only for a component that mounts once, alone, with unchanging parameters, because out-of-order responses render the wrong user's data, unmounted components set state into the void, Strict Mode exposes missing cleanup, two components asking the same question fetch twice and then disagree, and nested components turn the render tree into a sequential request schedule; all of which stops being a pile of separate bugs the moment you notice the category error underneath them, that server data is not state you own but a <strong>cache</strong> of a value that lives somewhere else &mdash; at which point every question becomes a cache question and the answers arrive in order: a keyed cache outside the tree gives sharing and deduplication and structural sharing, <code>staleTime</code> and <code>gcTime</code> and the focus/mount/reconnect triggers give a staleness policy under stale-while-revalidate, <code>isPending</code> versus <code>isFetching</code> and <code>placeholderData</code> make loading honest without flicker, <code>useMutation</code> plus prefix invalidation lets writes tell the cache it's wrong, optimistic updates with cancel-snapshot-rollback-settle buy back the latency, <code>useInfiniteQuery</code> over cursor pagination handles data too big to send, <code>enabled</code> and <code>useQueries</code> and prefetching flatten waterfalls, hydration and RSC and route loaders move the first fetch to the server so the first paint isn't blank, retries with exponential backoff plus non-retried mutations and idempotency keys survive an unreliable network, polling and SSE and websockets all funnel into the same cache through invalidation or <code>setQueryData</code> so components never know the transport, <code>select</code> and notify-props control the re-render blast radius (and the document-versus-normalised-cache argument explains why Apollo is different), <code>queryClient.clear()</code> on logout and the user ID in the key keep one shared cache from leaking across sessions, persisters and <code>networkMode</code> extend it past the tab's lifetime, and devtools plus MSW are how you actually see and test any of it.</p>
+ — the landscape content, hand-authored HTML (prose + <h3> subsections)
+  This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
+  elaboration.json live alongside it and are fetched at runtime — do not inline
+  that data here.
+
+  Tabs: Landscape (this file) | Recall (topics/<slug>/recall.json, teaching deck,
+  ordered by landscape node) | Prep (topics/<slug>/prep.json, interview/scenario
+  bank) | Elaboration (topics/<slug>/elaboration.json, deep-dive write-ups).
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Client-side data fetching — devxkapoor mastery track</title>
+<link rel="manifest" href="../../manifest.webmanifest">
+<meta name="theme-color" content="#080d16">
+<link rel="apple-touch-icon" href="../../assets/icons/icon-192.png">
+<link rel="stylesheet" href="../../assets/styles.css?v=5c109ddfa6">
+<script src="../../assets/globals.js?v=58a0eb29e6"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="brand" href="../../index.html">devxkapoor<strong>/mastery-track</strong></a>
+  <div class="right">
+    <nav>
+      <a href="../../index.html">topics</a>
+      <a href="../../recall.html">recall</a>
+      <a href="../../search.html">search</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle"></button>
+  </div>
+</header>
+
+<div class="wrap">
+  <h1>Client-side data fetching</h1>
+  <p class="lede">Server data is not state you own — it is a cache of a value that lives somewhere else. Twenty nodes from XMLHttpRequest to MSW, each one existing because the previous left something broken.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="landscape">Landscape</button>
+    <button class="tab-btn" data-tab="recall">Recall</button>
+    <button class="tab-btn" data-tab="prep">Prep</button>
+    <button class="tab-btn" data-tab="elaboration">Elaboration</button>
+    <button class="tab-btn" data-tab="discuss">Discuss</button>
+  </div>
+
+  <div id="tab-landscape">
+    <div class="prose">
+      <p>Read this top to bottom, in order. Each node exists because the node before it left something specifically broken. Every node ends by naming what is still broken, and that broken thing is the entire reason the next node exists. Read this way, you should be able to <em>derive</em> most of this topic rather than memorise it &mdash; and when you forget a detail later, you'll know which link in the chain it hangs off.</p>
+
+<p>Depth markers appear inline. <strong>[EXPLAIN]</strong> means you must be able to explain it out loud, from first principles, under interview pressure, with no notes. <strong>[USE]</strong> means you must use it correctly and debug it when it breaks, without needing the internals cold. <strong>[AWARE]</strong> means know it exists, know what problem it solves, know roughly when to reach for it.</p>
+
+<h3>Node 0 &mdash; the problem before client-side fetching exists</h3>
+
+<p>Imagine a website built the way essentially all websites were built until the mid-2000s. The browser asks a server for a page. The server runs some code, talks to a database, and builds one complete HTML document with the data already baked into it. That document comes back, the browser throws away everything currently on screen, and paints the new page from scratch.</p>
+
+<p>Every single interaction that needs new data is a full page navigation. You click "next page" of a product list, and the browser discards the entire document &mdash; your scroll position, the text you half-typed in another field, the open dropdown, every bit of JavaScript state &mdash; and asks the server for a whole new document that differs from the old one in about forty words. You submit a form, and the browser does an HTTP POST, and the server responds with a whole new page. If you then hit refresh, the browser offers to resubmit the form, which is where the double-charged-credit-card bug comes from.</p>
+
+<p>The specific failures here are worth naming precisely, because everything later in this chain is an answer to one of them. <strong>First, the unit of update is wrong</strong> &mdash; the smallest thing you can change is the entire page, when the thing that actually changed was one row. <strong>Second, all state is destroyed on every interaction</strong> &mdash; the page has no memory across navigations, so anything the user was in the middle of is lost. <strong>Third, the user waits for the slowest thing</strong> &mdash; the page cannot appear until the server has finished every database query it needs, because the HTML is only assembled once at the end. <strong>Fourth, there is no way to react to time</strong> &mdash; if the data changes on the server thirty seconds after the page loaded, the page has no mechanism to find out; the user must manually refresh.</p>
+
+<p>The workarounds people used were genuinely bad. Hidden <code>&lt;iframe&gt;</code> elements that could be navigated independently of the main page, so a small region could update without a full reload. Meta-refresh tags that reloaded the whole page every N seconds. Java applets and Flash movies embedded in the page purely because those runtimes could open their own network connections when the page could not.</p>
+
+<p><strong>What's still broken:</strong> the browser can fetch documents, but only by replacing the page. There is no way for JavaScript already running in a page to go and get more data and keep running.</p>
+
+<h3>Node 1 &mdash; the browser learns to make a request without navigating</h3>
+
+<p><strong>The limitation:</strong> every data request destroys the page.</p>
+
+<p>The fix was a browser API that lets JavaScript make an HTTP request on its own, receive the response as a value, and do whatever it likes with it &mdash; while the page stays exactly where it is. That API was <strong>XMLHttpRequest</strong> [AWARE], usually shortened to XHR. Microsoft shipped it first, as an ActiveX control called <code>XMLHTTP</code>, in Internet Explorer 5 in March 1999, built so that the web version of Outlook could update a mail list without reloading. Mozilla copied it as a native object called <code>XMLHttpRequest</code> in 2000, Safari and Opera followed, and by 2005 every browser had it.</p>
+
+<p>For four years almost nobody used it seriously. Then Google shipped Gmail in 2004 and Google Maps in 2005, both of which felt impossibly fast because they fetched data in the background instead of navigating &mdash; Maps in particular fetched map tiles as you dragged. In February 2005 Jesse James Garrett wrote an essay giving the technique a name, <strong>Ajax</strong> [AWARE], standing for "Asynchronous JavaScript and XML." The name is now a historical curiosity in two ways: almost nobody sends XML any more, and the technique isn't a technology at all, it's just "use XHR."</p>
+
+<p>Mechanically, XHR is an object you construct, configure, attach event handlers to, and then send. You call <code>open</code> with a method and a URL, you set an <code>onload</code> handler, you call <code>send</code>. When the response arrives, your handler runs and <code>xhr.responseText</code> holds the body as a string, which you then parse. Nothing about this is elegant, but the important part is conceptual, not syntactic: <strong>the request is asynchronous</strong> [EXPLAIN]. <code>send()</code> returns immediately, before any response exists. The rest of your function keeps running. The response arrives later, and the only way to do something with it is to have registered a function in advance that the browser will call for you.</p>
+
+<p>That single fact &mdash; <em>the data is not there when the code that asked for it finishes running</em> &mdash; is the root of everything hard in this entire topic. Every race condition, every stale render, every "why is my state empty" question comes back to it.</p>
+
+<p>The pattern that emerged was: fire a request, get a callback, and inside the callback reach into the document and change the specific elements that need to change. Find the table body, build some row elements, append them.</p>
+
+<p><strong>What you can do at this point:</strong> update part of a page with fresh server data without a navigation, keeping the rest of the page intact. [AWARE]</p>
+
+<p><strong>What's still broken:</strong> the API is clumsy &mdash; event handlers, string parsing, no built-in notion of failure versus success &mdash; and worse, composing two requests means nesting callbacks inside callbacks. And every response handler is a chunk of hand-written DOM manipulation, which does not survive contact with a real application.</p>
+
+<h3>Node 2 &mdash; <code>fetch</code> and promises: a request that is a value</h3>
+
+<p><strong>The limitation:</strong> XHR's callback-and-event shape doesn't compose, and there's no standard way to say "do this, then that."</p>
+
+<p>Two things changed together. JavaScript got <strong>Promises</strong> [EXPLAIN] &mdash; standardised in ES2015 &mdash; which give you an object representing a result that doesn't exist yet, and which you can pass around, chain, and combine. And the browser got <strong>fetch()</strong> [EXPLAIN], specified by WHATWG and shipped in Chrome 42 in April 2015, which is a request API that returns a promise instead of taking callbacks.</p>
+
+<p>The minimum useful shape:</p>
+
+<pre><code>const res = await fetch("/api/todos");
+if (!res.ok) throw new Error(`HTTP ${res.status}`);
+const todos = await res.json();</code></pre>
+
+<p>Three details in those three lines account for a large share of real-world bugs, and each is worth being able to explain.</p>
+
+<p><strong><code>fetch</code> does not reject on HTTP error statuses</strong> [EXPLAIN]. A 404 or a 500 is, from <code>fetch</code>'s point of view, a completely successful round trip &mdash; you asked, the server answered, here is the answer. The promise only rejects on a <em>network-level</em> failure: DNS failure, connection refused, CORS block, request aborted, offline. This is the most-asked <code>fetch</code> question in interviews and the most common source of "why is my error handler never running." <code>res.ok</code> is a boolean that is true for statuses 200 through 299, and checking it is your job, every time. Axios [USE], the most popular alternative library, made the opposite choice and rejects on 4xx and 5xx, which is a large part of why people still reach for it.</p>
+
+<p><strong>The body arrives separately from the headers.</strong> <code>fetch</code>'s promise resolves as soon as the response <em>headers</em> are in &mdash; status, headers, and a body stream that may still be arriving. <code>res.json()</code> returns <em>another</em> promise, which resolves when the body has fully arrived and parsed. That's why there are two <code>await</code>s. It also means the body can only be read once; calling <code>res.json()</code> twice throws, and if you need both the text and the parsed form you call <code>res.clone()</code> first.</p>
+
+<p><strong>Requests can be cancelled, but only if you set that up in advance.</strong> <code>AbortController</code> [EXPLAIN], added to browsers through 2017, is an object with a <code>signal</code> you pass into <code>fetch</code> and an <code>abort()</code> method you call later. Aborting rejects the fetch promise with a <code>DOMException</code> whose <code>name</code> is <code>"AbortError"</code>, which you must distinguish from a real error. Remember this API &mdash; it becomes load-bearing at Node 4.</p>
+
+<p>Two more pieces of the request surface matter constantly in real work. <strong><code>credentials</code></strong> [USE] controls whether cookies are attached: the default is <code>same-origin</code>, so a fetch to a different origin sends no cookies at all unless you pass <code>credentials: "include"</code> &mdash; which is why cookie-based auth "mysteriously" stops working the moment the API moves to a different domain. And <strong>CORS</strong> [USE] means a cross-origin response is invisible to your JavaScript unless the server explicitly sends <code>Access-Control-Allow-Origin</code>; the browser makes the request or blocks it, but either way your code sees a rejected promise with almost no detail, deliberately, because leaking the reason would itself be an information leak.</p>
+
+<p><strong>What you can do at this point:</strong> make a request from JavaScript, handle success and failure distinctly, cancel it, and compose several requests with <code>Promise.all</code>. [USE]</p>
+
+<p><strong>What's still broken:</strong> you have a value. You have nowhere to put it. In a React application you cannot reach into the DOM and change a row &mdash; rendering is a function of state, so the fetched data has to <em>become state</em> before anything appears on screen. And nothing here says <em>when</em> the fetch should happen.</p>
+<h3>Node 3 &mdash; the naive React pattern: <code>useEffect</code> plus <code>useState</code></h3>
+
+<p><strong>The limitation:</strong> React renders from state, and a fetch result isn't state yet. Also, a component's render function must be pure and synchronous, so you cannot fetch during render.</p>
+
+<p>React's answer, for roughly 2019 through 2022, was the pattern every tutorial still shows:</p>
+
+<pre><code>function TodoList() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() =&gt; {
+    setIsLoading(true);
+    fetch("/api/todos")
+      .then(res =&gt; {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(json =&gt; setData(json))
+      .catch(err =&gt; setError(err))
+      .finally(() =&gt; setIsLoading(false));
+  }, []);
+
+  if (isLoading) return &lt;Spinner /&gt;;
+  if (error) return &lt;ErrorBox error={error} /&gt;;
+  return &lt;ul&gt;{data.map(t =&gt; &lt;li key={t.id}&gt;{t.title}&lt;/li&gt;)}&lt;/ul&gt;;
+}</code></pre>
+
+<p>Understand precisely why the pieces are where they are. <strong><code>useEffect</code> exists to hold work that isn't rendering</strong> [EXPLAIN] &mdash; things that reach outside React and touch the world. React runs your component function to produce a description of the UI, commits that to the DOM, and <em>then</em> runs your effects. So on first render there is genuinely no data, the component genuinely renders a spinner, the effect fires, the response comes back, <code>setData</code> schedules a re-render, and the second render has data. Two renders minimum, always. That is not a flaw, it's the shape of the thing: <strong>the loading state is not an inconvenience, it is an accurate description of reality.</strong></p>
+
+<p>The dependency array &mdash; the <code>[]</code> at the end &mdash; tells React when to re-run the effect. Empty means "after the first render only." Put <code>[userId]</code> there and the effect re-runs whenever <code>userId</code> changes, which is how you refetch when the thing you're looking at changes. Getting this array wrong in either direction is its own category of bug: too few dependencies and you fetch with a stale value captured in a closure; too many, or a value that's a fresh object on every render, and you fetch in an infinite loop. <strong>An options object or array literal written inline in a dependency array is a new value every render</strong> [EXPLAIN], which means the effect re-runs every render, which sets state, which re-renders. That's the infinite-fetch loop, and it's a classic interview trap.</p>
+
+<p>The three pieces of state &mdash; <code>data</code>, <code>error</code>, <code>isLoading</code> &mdash; are the <strong>loading triad</strong> [EXPLAIN], and you should notice they encode a small state machine with combinations that can't actually happen (loading <em>and</em> error, data <em>and</em> loading-with-no-previous-data). Hand-managing three booleans that are really one enum is the first sign that this pattern is doing something a library should do.</p>
+
+<p><strong>What you can do at this point:</strong> load data into a React component on mount, show a spinner, show an error, re-fetch when a parameter changes. [EXPLAIN] &mdash; you must be able to write this from memory, because interviewers ask for exactly this and then ask what's wrong with it.</p>
+
+<p><strong>What's still broken:</strong> essentially everything, once more than one thing is happening at once. This code has at least four distinct bugs that don't show up on a fast connection with one component on screen.</p>
+
+<h3>Node 4 &mdash; the four failures of effect-based fetching</h3>
+
+<p><strong>The limitation:</strong> the Node 3 pattern is correct only for a component that mounts once, never changes its parameters, and is the only component on the page.</p>
+
+<p>These four failures are the heart of this topic. If you can explain them cleanly, you can explain why every library in Node 6 onward exists.</p>
+
+<p><strong>Failure one: the race condition.</strong> [EXPLAIN] Your effect depends on <code>userId</code>. The user clicks user 1, then quickly clicks user 2. Two fetches are now in flight. There is no rule saying responses arrive in the order the requests were sent &mdash; request 1 might hit a cold cache and take 900ms while request 2 hits a warm one and takes 80ms. So response 2 arrives, calls <code>setData</code>, and you render user 2. Then response 1 arrives, calls <code>setData</code>, and you render <strong>user 1's data on user 2's page</strong>, permanently, until something else re-renders. Nothing errors. Nothing logs. The screen is simply, quietly wrong. This is the single most important bug in client data fetching, and it is invisible on localhost.</p>
+
+<p>The fix inside the effect is a cleanup function plus a flag, or an <code>AbortController</code>:</p>
+
+<pre><code>useEffect(() =&gt; {
+  const ctrl = new AbortController();
+  fetch(`/api/users/${userId}`, { signal: ctrl.signal })
+    .then(r =&gt; r.json())
+    .then(setData)
+    .catch(err =&gt; { if (err.name !== "AbortError") setError(err); });
+  return () =&gt; ctrl.abort();
+}, [userId]);</code></pre>
+
+<p><strong>The function you return from an effect is its cleanup</strong> [EXPLAIN], and React runs it before re-running the effect and when the component unmounts. That is what makes the fix possible at all.</p>
+
+<p><strong>Failure two: setting state after unmount.</strong> If the component is gone by the time the response lands, you're calling <code>setData</code> on a component that no longer exists. React logged a warning about this for years &mdash; it was removed in React 18 because the warning caused more bad code than the problem did &mdash; but the underlying waste is real: you're holding the whole component closure in memory waiting for a response nobody wants. The same cleanup fixes it.</p>
+
+<p><strong>Failure three: React 18 Strict Mode double-invokes effects.</strong> [EXPLAIN] Since React 18 (March 2022), in development only, <code>&lt;StrictMode&gt;</code> mounts each component, unmounts it, and mounts it again, running your effect twice. This is deliberate: it is a test that your effect cleans up after itself properly, which matters because React's future concurrent features may genuinely mount and unmount components. Every developer's first encounter with it is "why is my API being called twice," and the wrong reactions &mdash; deleting StrictMode, or adding a <code>useRef</code> "has fetched" guard &mdash; both hide a real defect instead of fixing it. The right reaction is to write the cleanup.</p>
+
+<p><strong>Failure four: nothing is shared.</strong> Two components on the same page that both need the current user each run their own effect, so you make two identical requests. Worse, each holds its own copy in its own <code>useState</code>, so when one of them refetches and the other doesn't, <strong>the same data is on screen twice with two different values.</strong> The usual workaround &mdash; hoist the fetch to a common ancestor and pass it down, or shove it into a React Context &mdash; creates its own problem: now the fetch happens at the top of the tree whether or not anything currently needs it, and every consumer of that context re-renders whenever any part of the data changes.</p>
+
+<p>There is a fifth, structural, that shows up as apps grow: <strong>request waterfalls</strong> [EXPLAIN]. A parent fetches, renders, and only then does a child mount and start its own fetch. Three levels of components each fetching means three sequential round trips &mdash; 150ms becomes 450ms &mdash; for requests that had no actual dependency on each other and could have gone out simultaneously. This one comes back at Node 12.</p>
+
+<p><strong>What you can do at this point:</strong> write effect-based fetching that is actually correct for a single component. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> the correct version is roughly thirty lines per component, it's the same thirty lines every time, and the sharing problem cannot be solved inside a single component at all. The problem is not that the code is verbose. The problem is that the mental model is wrong.</p>
+
+<h3>Node 5 &mdash; the pivot: server state is not client state</h3>
+
+<p><strong>The limitation:</strong> we've been storing server data in <code>useState</code>, which is a tool for state the component owns.</p>
+
+<p>This node has almost no API surface and is the most important one in the chain. It is the reframing that makes everything after it obvious.</p>
+
+<p>Think about what <code>useState</code> is genuinely for. Is this dropdown open? What has the user typed into the search box? Which tab is selected? Call this <strong>client state</strong> [EXPLAIN]. It has four properties: your application is the only thing that can change it; it is correct the instant you set it; it exists only in this browser tab; and when the tab closes it is meaningless and should disappear.</p>
+
+<p>Now look at a list of todos fetched from an API. <strong>Every one of those four properties is false.</strong> You do not own it &mdash; a database owns it, and other users are changing it right now. It is not correct the instant you set it; it was correct at the moment the server answered, and its accuracy decays from that moment onward. It is not local; it is shared by every tab, device, and user looking at the same rows. And it does not stop existing when the tab closes; it outlives your application entirely.</p>
+
+<p>So server data in a React app is not state. <strong>It is a cache</strong> [EXPLAIN] &mdash; a local copy of a value whose authoritative version lives somewhere else. Once you say the word "cache," the questions stop being React questions and become cache questions, and they answer themselves in a way they never did before:</p>
+
+<p>What is the key for this cached entry? How long is a cached copy acceptable before I should check again? What do I show while I'm checking &mdash; nothing, or the old value? If two parts of the app want the same entry, do they share one copy or hold two? When I change the underlying data, how does the cache find out it's wrong? What happens to the cache when the user logs out?</p>
+
+<p>None of those questions can even be <em>asked</em> about <code>useState</code>, because <code>useState</code> isn't a cache; it has no key, no age, no sharing, no invalidation. Trying to answer cache questions with a state primitive is why Node 3 and Node 4 got so ugly. <strong>The bug was never in the code; it was in the category.</strong></p>
+
+<p>This is also the cleanest possible interview answer to "why do you use React Query?" The weak answer is "it removes boilerplate." The strong answer is: server state and client state are different kinds of state with different rules, <code>useState</code> models one of them, and a query cache models the other.</p>
+
+<p><strong>What you can do at this point:</strong> correctly classify any piece of state in an application, and predict which category of bug it will produce if handled with the wrong tool. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> you have the right mental model and no implementation of it. You need an actual cache &mdash; something outside any component, keyed by request, that many components can read from at once.</p>
+
+<h3>Node 6 &mdash; the query cache and the query key</h3>
+
+<p><strong>The limitation:</strong> the cache has to live outside the component tree, or it can't be shared, and it dies on unmount.</p>
+
+<p>This is where the libraries arrive. <strong>TanStack Query</strong> [EXPLAIN] &mdash; created by Tanner Linsley, released as React Query in 2019, renamed when it grew Vue, Svelte and Solid adapters, currently v5 &mdash; is the dominant one and the one to learn properly. <strong>SWR</strong> [USE], from Vercel, is smaller and simpler with the same core idea. <strong>RTK Query</strong> [AWARE] ships inside Redux Toolkit and is the natural choice in an existing Redux codebase. <strong>Apollo Client</strong> [AWARE] and <strong>urql</strong> [AWARE] do the same job for GraphQL, with a significant extra idea we'll come back to at Node 16.</p>
+
+<p>The architecture is two pieces. A <code>QueryClient</code> object holds one <strong>cache</strong> &mdash; a plain map from key to cache entry &mdash; and lives outside React entirely. A <code>QueryClientProvider</code> puts that object into React context so hooks can find it. Then <code>useQuery</code> is a hook that reads from the cache and subscribes the component to changes in one entry:</p>
+
+<pre><code>const { data, error, isPending, isFetching } = useQuery({
+  queryKey: ["todos", { status, page }],
+  queryFn: ({ signal }) =&gt;
+    fetch(`/api/todos?status=${status}&amp;page=${page}`, { signal })
+      .then(r =&gt; { if (!r.ok) throw new Error(r.status); return r.json(); }),
+});</code></pre>
+
+<p><strong>The query key is the whole design</strong> [EXPLAIN]. It is an array, hashed deterministically into a string, and it is the address of one entry in the cache. Two components with the same key are looking at the same entry &mdash; same data, one request, one loading state, always in agreement. That alone kills Failure four from Node 4. The key must contain <strong>every input the <code>queryFn</code> depends on</strong>; if <code>status</code> is in the URL but not the key, you'll fetch todos with status "done," store them at the key for "all," and serve them to the wrong caller for as long as they stay cached. The convention is hierarchical and specific-to-general: <code>["todos"]</code>, <code>["todos", "list", filters]</code>, <code>["todos", "detail", id]</code> &mdash; which matters because invalidation at Node 9 matches by prefix.</p>
+
+<p>Two behaviours fall directly out of having a keyed cache. <strong>Deduplication</strong> [EXPLAIN]: if a request for a key is already in flight and another component asks for the same key, it gets attached to the existing promise rather than starting a second request. <strong>Subscriber counting</strong>: the cache knows how many mounted components are observing each key, which is what lets it decide when an entry is garbage and when a background refetch is worth doing.</p>
+
+<p>One more mechanism worth knowing because it produces surprising behaviour: <strong>structural sharing</strong> [EXPLAIN]. When a refetch returns data that is deeply equal to what's already cached, TanStack Query keeps the <em>old object reference</em> rather than replacing it. So <code>data</code> is referentially identical, and components memoised on it don't re-render at all. If the response changed in one field, only the objects along the path to that field are new. This is why a poll every five seconds against unchanged data costs almost nothing in renders.</p>
+
+<p>Also note the <code>signal</code> handed to your <code>queryFn</code> &mdash; the library creates an <code>AbortController</code> per request and cancels it for you when the query becomes irrelevant. That's Node 2's API, wired up automatically.</p>
+
+<p><strong>What you can do at this point:</strong> fetch data with one hook, share it across the whole tree, deduplicate identical requests, and stop writing the loading triad by hand. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> you now have cached copies of data that the server keeps changing. Nothing so far decides when a copy has been sitting there too long.</p>
+<h3>Node 7 &mdash; staleness, freshness, and when to go back to the server</h3>
+
+<p><strong>The limitation:</strong> a cache with no expiry policy serves wrong data forever; a cache that expires instantly is not a cache.</p>
+
+<p>The governing idea is borrowed straight from HTTP. <strong>stale-while-revalidate</strong> [EXPLAIN] was specified in RFC 5861 in May 2010 as a <code>Cache-Control</code> extension: when a cached response has expired, you may serve the stale copy immediately <em>and</em> fetch a fresh one in the background, replacing it when it lands. The user sees content instantly and correctness follows a moment later. SWR the library is named after this policy. TanStack Query implements it too.</p>
+
+<p>TanStack Query splits the lifetime of a cache entry into two independent timers, and confusing them is the most common configuration mistake in the whole library.</p>
+
+<p><strong><code>staleTime</code></strong> [EXPLAIN] is how long fetched data is considered <em>fresh</em>. While fresh, mounting another component with that key triggers <strong>no request at all</strong> &mdash; the cached value is simply returned. The default is <code>0</code>, meaning data is stale the instant it arrives, which is why a fresh install feels like it refetches constantly. <code>staleTime</code> is the knob you actually tune, and you tune it by asking a domain question: how out of date can this be before a user is harmed? A currency rate, seconds. A user's own profile, minutes. A list of countries, effectively forever.</p>
+
+<p><strong><code>gcTime</code></strong> [EXPLAIN] &mdash; called <code>cacheTime</code> before v5, renamed in October 2023 because everyone misread it &mdash; is how long an entry survives in memory <em>after the last component observing it unmounts</em>. Default is five minutes. Its only job is deciding when to free memory. It has nothing to do with freshness, and it is <em>inactive</em> time: an entry being observed is never garbage collected regardless of <code>gcTime</code>.</p>
+
+<p>Say the difference out loud once and it sticks: <strong><code>staleTime</code> decides whether to refetch; <code>gcTime</code> decides whether to forget.</strong></p>
+
+<p>On top of those, a set of triggers decide when to <em>revalidate</em> a stale entry. <strong><code>refetchOnMount</code></strong> &mdash; a component mounts and finds a stale entry: show it immediately, refetch behind it. <strong><code>refetchOnWindowFocus</code></strong> [EXPLAIN] &mdash; the user tabs away, does something else, comes back; the library refetches stale queries on focus. This is the default and it is the feature that startles people most, because they see a network request they didn't write. It is also, for most apps, exactly right: the moment a user looks at your tab again is precisely the moment stale data starts mattering. <strong><code>refetchOnReconnect</code></strong> &mdash; the network came back, so everything held during the outage is suspect. And <strong><code>refetchInterval</code></strong>, which is polling; that gets its own treatment at Node 15.</p>
+
+<p>The interaction to internalise: <strong><code>staleTime</code> gates all of these.</strong> A query with <code>staleTime: 60_000</code> will not refetch on focus, mount, or reconnect within that minute, because it isn't stale. Setting <code>staleTime: Infinity</code> turns a query into a manual-only cache.</p>
+
+<p><strong>What you can do at this point:</strong> reason about when data is refetched, tune it per query from a domain argument, and explain any unexpected request in the network tab. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> you know when to refetch, but not what to show while it happens. With one boolean for "loading," a background revalidation looks identical to a first load, and the screen flashes back to a spinner for data you already have.</p>
+
+<h3>Node 8 &mdash; loading states that tell the truth</h3>
+
+<p><strong>The limitation:</strong> "loading" is two different situations that need two different UIs.</p>
+
+<p>There is a real distinction here. Situation one: this key has <strong>never</strong> been fetched, there is nothing in the cache, and there is genuinely nothing to render. Situation two: this key <strong>has</strong> data, and a request is in flight to check whether it's still right. Showing a spinner in the second situation throws away a perfectly good screen and makes a fast app feel slow.</p>
+
+<p>TanStack Query v5 separates them: <strong><code>isPending</code></strong> [EXPLAIN] means there is no data yet &mdash; the true first load &mdash; while <strong><code>isFetching</code></strong> [EXPLAIN] means a request is in flight for any reason, including a background revalidation. Under a stale-while-revalidate policy, <code>isFetching</code> is often true while <code>isPending</code> is false, and that's the good case. (v4 called the first one <code>isLoading</code>; in v5 <code>isLoading</code> is defined as <code>isPending &amp;&amp; isFetching</code>, which mostly does what people expected <code>isLoading</code> to do. The rename caught a lot of people mid-migration, and blog posts from before October 2023 use the old names.) The idiom is: render a skeleton on <code>isPending</code>, and a small unobtrusive indicator &mdash; a dimmed list, a thin progress bar &mdash; on <code>isFetching</code>.</p>
+
+<p>Then there are two ways to have something to show when you'd otherwise have nothing. <strong><code>initialData</code></strong> [USE] is data you're claiming is <em>real and cacheable</em> &mdash; it's written into the cache and ages under <code>staleTime</code> like anything else. <strong><code>placeholderData</code></strong> [USE] is data you're admitting is <em>fake</em> &mdash; it renders, but it is never written to the cache, and the query stays in a pending-ish state until real data arrives. Choose wrong and you either cache a lie or fail to cache a truth.</p>
+
+<p><code>placeholderData</code> also solves the paging flicker. When the key changes from page 1 to page 2, it's a <em>different cache entry</em> with no data, so the list disappears and a skeleton appears. Passing <code>placeholderData: keepPreviousData</code> [USE] (the v5 helper; v4 had a <code>keepPreviousData: true</code> flag) keeps the previous page rendered, flags it with <code>isPlaceholderData</code>, and swaps it when page 2 lands. The list stays on screen and just refreshes.</p>
+
+<p>The same idea scaled up is <strong>prefetching</strong> [USE] &mdash; <code>queryClient.prefetchQuery</code> on link hover or on intent, so the entry is already warm and the navigation renders instantly with no loading state at all.</p>
+
+<p><strong>What you can do at this point:</strong> build interfaces where the first load is honest and every subsequent load is nearly invisible. [USE]</p>
+
+<p><strong>What's still broken:</strong> every single thing so far is reading. Real applications write, and a write makes every cached copy of the affected data potentially wrong at once.</p>
+
+<h3>Node 9 &mdash; mutations, and how the cache learns it is wrong</h3>
+
+<p><strong>The limitation:</strong> a read cache has no idea that you just changed the underlying data.</p>
+
+<p>A write is different from a read in four ways that justify a separate hook. It isn't idempotent, so you must never fire it automatically the way a query fires on mount. It's imperative &mdash; it happens because a user clicked, not because a component rendered. It shouldn't be retried blindly, because retrying a "create order" that actually succeeded charges someone twice. And it has no cache entry of its own; its result isn't something you'd read later by key.</p>
+
+<p>Hence <strong><code>useMutation</code></strong> [EXPLAIN], which gives you a <code>mutate</code> function to call from an event handler plus <code>isPending</code>, <code>error</code>, and <code>data</code> for the in-flight write. The lifecycle callbacks are <code>onMutate</code> (before the request &mdash; remember this for Node 10), <code>onSuccess</code>, <code>onError</code>, and <code>onSettled</code> (either way, always).</p>
+
+<p>The crucial part is what happens <em>after</em> the write succeeds. You POSTed a new todo. The cache entry at <code>["todos", "list"]</code> was fetched before that todo existed, and it is now definitively wrong, along with any dashboard count and any filtered view containing it. Nothing has told the cache.</p>
+
+<p>There are exactly two answers, and knowing when to use each is the real skill.</p>
+
+<p><strong>Invalidation</strong> [EXPLAIN] &mdash; <code>queryClient.invalidateQueries({ queryKey: ["todos"] })</code> &mdash; marks every matching entry stale and immediately refetches the ones currently being observed. It matches by <strong>prefix</strong>, which is why hierarchical keys were worth the discipline at Node 6: one call invalidates the list, the filtered lists, and every detail view underneath. This is the default choice. It costs a round trip, and it is almost always correct, because the server is the authority and you just asked it for the truth.</p>
+
+<p><strong>Direct cache writing</strong> [USE] &mdash; <code>queryClient.setQueryData(key, updater)</code> &mdash; takes the response your mutation already returned and writes it into the cache by hand, no refetch. Free and instant, and correct only when your local reconstruction exactly matches what the server would say. The moment the server computes anything you don't have &mdash; a derived count, a timestamp, a sort position, a permission &mdash; hand-written cache data drifts from reality and you get bugs that only appear after a full reload. A common combination is to <code>setQueryData</code> the detail entry from the mutation's own response and <code>invalidateQueries</code> the lists.</p>
+
+<p><strong>What you can do at this point:</strong> perform writes and have every affected view in the application correct itself afterwards. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> the user clicks a checkbox and waits &mdash; request out, server thinks, response back, invalidate, refetch, response back &mdash; and only then does the checkbox move. Two round trips for a tick mark. On a phone on mobile data that's most of a second of nothing happening.</p>
+
+<h3>Node 10 &mdash; optimistic updates and rollback</h3>
+
+<p><strong>The limitation:</strong> correctness is bought with latency the user feels on every interaction.</p>
+
+<p>The bet is simple: most writes succeed. So update the screen <em>as if</em> it already worked, send the request, and if it fails, put everything back. <strong>Optimistic update</strong> [EXPLAIN]. It's the difference between an app that feels like a native application and one that feels like a website.</p>
+
+<p>The shape has four steps, and every one is load-bearing:</p>
+
+<pre><code>useMutation({
+  mutationFn: toggleTodo,
+  onMutate: async (next) =&gt; {
+    await queryClient.cancelQueries({ queryKey: ["todos"] });
+    const previous = queryClient.getQueryData(["todos"]);
+    queryClient.setQueryData(["todos"], old =&gt;
+      old.map(t =&gt; t.id === next.id ? { ...t, done: next.done } : t));
+    return { previous };
+  },
+  onError: (err, next, ctx) =&gt; queryClient.setQueryData(["todos"], ctx.previous),
+  onSettled: () =&gt; queryClient.invalidateQueries({ queryKey: ["todos"] }),
+});</code></pre>
+
+<p><code>cancelQueries</code> first, because if a refetch is already in flight it will land <em>after</em> your optimistic write and overwrite it with pre-mutation data &mdash; a race condition of exactly the Node 4 shape, now inside your own cache. Snapshot <code>previous</code> before you touch anything, and return it, because the returned value becomes the <code>context</code> argument that <code>onError</code> needs to undo the change. Write the optimistic value. And on settle, invalidate regardless of outcome, so the server gets the final word either way.</p>
+
+<p>The failure modes are worth naming. <strong>The rollback flash</strong> &mdash; a failure yanks the change back with no explanation, which is worse than a spinner; pair rollback with a toast that says what failed. <strong>Optimistically inventing an ID</strong> &mdash; you create a todo locally with <code>id: Math.random()</code>, the server assigns a real ID, and now a click on the temporary row 404s until the invalidate lands. <strong>Stacked mutations</strong> &mdash; three rapid toggles each snapshot a "previous" that includes the previous optimistic writes, and one failure in the middle rolls back to a state that never existed on the server.</p>
+
+<p>The honest rule: use optimistic updates where the write is small, local, near-certain to succeed, and cheap to be wrong about &mdash; toggles, likes, reorderings, marking read. Don't use them for payments, submissions, or anything where showing a success that didn't happen is a real problem.</p>
+
+<p><strong>What you can do at this point:</strong> build interactions that respond instantly and stay honest when they fail. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> everything so far assumes the data fits in one response. Real lists have fifty thousand rows.</p>
+
+<h3>Node 11 &mdash; pagination and infinite lists</h3>
+
+<p><strong>The limitation:</strong> one key holding one array doesn't survive a dataset that can't be sent at once.</p>
+
+<p>First, the server-side choice, because it determines what the client can do. <strong>Offset pagination</strong> [EXPLAIN] &mdash; <code>?limit=20&amp;offset=40</code>, translating to SQL <code>LIMIT 20 OFFSET 40</code> &mdash; is simple, lets you jump to page 7, and gives you a total count for "page 3 of 19." Its two flaws are real: <code>OFFSET 100000</code> still makes the database walk and discard a hundred thousand rows, so deep pages get slow; and if a row is inserted at the top between your request for page 1 and page 2, everything shifts by one and <strong>the last item of page 1 reappears as the first item of page 2</strong>. <strong>Cursor pagination</strong> [EXPLAIN] &mdash; <code>?limit=20&amp;after=eyJpZCI6NDJ9</code> &mdash; sends back an opaque pointer to the last row, and the next query says "give me rows after this one," which becomes <code>WHERE (created_at, id) &lt; (&hellip;) ORDER BY &hellip; LIMIT 20</code>. Constant cost at any depth, no duplicates or skips under insertion, but no jumping to page 7 and usually no total. Cursor pagination is what feeds work on; offset pagination is what tables with page numbers work on.</p>
+
+<p>On the client, discrete pages just means the page number lives in the query key &mdash; <code>["todos", { page }]</code> &mdash; and each page is a separate cache entry. Which is correct, and which is why you need <code>placeholderData: keepPreviousData</code> from Node 8 to stop the flicker.</p>
+
+<p>Infinite scroll is genuinely different, because the user's mental model is <em>one growing list</em>, not a set of pages, and it must survive as one thing when you scroll away and come back. <strong><code>useInfiniteQuery</code></strong> [USE] models this as a single cache entry whose data is <code>{ pages: [...], pageParams: [...] }</code> &mdash; an array of responses, in load order. You give it <code>initialPageParam</code> and a <code>getNextPageParam(lastPage)</code> function that pulls the cursor out of the last response (returning <code>undefined</code> to say "no more"), and it hands you <code>fetchNextPage</code>, <code>hasNextPage</code>, and <code>isFetchingNextPage</code> &mdash; which is distinct from <code>isFetching</code>, so a footer spinner doesn't also blank the list. Flattening for render is <code>data.pages.flatMap(p =&gt; p.items)</code>.</p>
+
+<p>Two things to know about it. <strong>Refetching an infinite query refetches every loaded page</strong>, sequentially, to keep them consistent &mdash; after 40 pages that's expensive, which is what <code>maxPages</code> in v5 is for. And updating a single item inside it means a nested <code>setQueryData</code> that maps over <code>pages</code> and then over each page's items; it's fiddly enough that invalidation is often the better call.</p>
+
+<p>The trigger for loading more is usually <strong><code>IntersectionObserver</code></strong> [USE] on a sentinel element at the bottom of the list &mdash; a browser API that tells you when an element enters the viewport, far cheaper than listening to scroll events.</p>
+
+<p><strong>What you can do at this point:</strong> page and infinitely scroll real datasets without duplicates, flicker, or unbounded memory. [USE]</p>
+
+<p><strong>What's still broken:</strong> with more queries on a page, the sequencing problem from Node 4 comes back and gets worse &mdash; some queries depend on others, and the ones that don't are still going out one at a time.</p>
+
+<h3>Node 12 &mdash; dependent queries, parallel queries, and killing waterfalls</h3>
+
+<p><strong>The limitation:</strong> components fetch when they render, so the component tree accidentally becomes the request schedule.</p>
+
+<p>A <strong>request waterfall</strong> [EXPLAIN] is any set of requests that run sequentially when they could have run in parallel. On a 150ms connection, three levels of nested fetching is 450ms of blank screen for data that could all have arrived in 150ms. This is one of the largest and least visible performance costs in React applications, and the network tab's waterfall view is where you diagnose it &mdash; sequential staircase bad, aligned bars good.</p>
+
+<p>There are three distinct cases and they have three different answers.</p>
+
+<p><strong>Genuinely dependent queries</strong> [USE]. You need the user before you can fetch their projects, because you need their ID. This waterfall is real and unavoidable on the client; the only true fix is a server endpoint that returns both. In the meantime, the tool is the <strong><code>enabled</code></strong> flag: <code>useQuery({ queryKey: ["projects", userId], queryFn: ..., enabled: !!userId })</code>. A disabled query doesn't fetch and reports status <code>pending</code>, so you must handle "waiting for the dependency" as a state &mdash; this is the source of the eternal-spinner bug where a query is disabled forever because its dependency is <code>undefined</code> for a reason you didn't notice.</p>
+
+<p><strong>Independent queries that only look dependent.</strong> A dashboard needs the user, the notifications, and the billing summary. If those are fetched by three nested components they run in series for no reason at all. Call all three <code>useQuery</code> hooks in the same component and they fire together, because hooks run in order within one render and each kicks off its request immediately. When the number of queries is dynamic &mdash; one per item in a list &mdash; that's <strong><code>useQueries</code></strong> [USE], which takes an array of query options and returns an array of results, letting you call a variable number of queries without breaking the rules of hooks.</p>
+
+<p><strong>Waterfalls caused by code splitting.</strong> A lazily-loaded component can't start fetching until its JavaScript has downloaded, so you get download-then-fetch instead of both at once. The answer is to hoist the query &mdash; or prefetch it &mdash; above the lazy boundary.</p>
+
+<p>Then the general-purpose tool: <strong>prefetching</strong> [USE]. <code>queryClient.prefetchQuery</code> fills the cache before anything renders &mdash; on link hover, on router transition, at app start for things you know you'll need. Prefetching is the cheapest performance win in this entire topic, because the latency is spent during time the user was going to spend anyway.</p>
+
+<p><strong>What you can do at this point:</strong> control request scheduling deliberately instead of inheriting it from your component hierarchy. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> all of it starts <em>after</em> the JavaScript has downloaded, parsed, and rendered once. The very first paint of the application still shows an empty screen, and no amount of client cleverness fixes that, because the client hasn't started yet.</p>
+<h3>Node 13 &mdash; the server boundary: hydration, RSC, and route loaders</h3>
+
+<p><strong>The limitation:</strong> a purely client-fetched app's fastest possible first render is <em>blank</em>, because HTML arrives, then JS downloads, then the app mounts, then a request goes out.</p>
+
+<p>The sequence on a cold load of a client-only app is: HTML shell &rarr; download JS bundle &rarr; parse and execute &rarr; React mounts &rarr; effects run &rarr; request goes out &rarr; response &rarr; render. Each arrow is real time, and the request doesn't even start until the last one. This is bad for perceived speed, bad for Core Web Vitals, and bad for anything that needs to be indexed by a crawler.</p>
+
+<p>The fix is to move the first fetch onto the server, which is closer to the database and doesn't have to wait for a bundle. Three shapes of this exist and you should be able to tell them apart.</p>
+
+<p><strong>Prefetch and hydrate</strong> [USE] &mdash; the TanStack Query answer, and the one that keeps everything you've learned. On the server, create a <code>QueryClient</code>, <code>await queryClient.prefetchQuery(...)</code>, serialise the cache with <code>dehydrate()</code>, ship that JSON with the HTML, and wrap the client tree in <code>&lt;HydrationBoundary state={dehydratedState}&gt;</code>. The client's cache starts populated, so <code>useQuery</code> on first render finds data already there &mdash; no request, no spinner &mdash; and everything from Node 7 onward still applies afterwards. This is Next.js Pages Router with <code>getServerSideProps</code>, and it works in the App Router too.</p>
+
+<p><strong>Route loaders</strong> [AWARE] &mdash; Remix, and React Router 6.4+ from September 2022. Data fetching is attached to the <em>route</em>, not the component, so the router knows every data requirement of a URL before rendering anything and can fire them all in parallel. This structurally eliminates the component-tree waterfall from Node 12, which is the entire point of the design.</p>
+
+<p><strong>React Server Components</strong> [AWARE] &mdash; stable in Next.js 13.4 (May 2023) and part of React 19. Some components render only on the server, never ship to the browser, and can be <code>async</code> &mdash; so a component can <code>await</code> a database call directly during render. No fetch, no <code>useEffect</code>, no cache. It is genuinely a different model, and it removes the need for client fetching for <em>initial, static-ish reads</em>.</p>
+
+<p>What RSC does <strong>not</strong> remove is the reason this whole topic exists. The moment the data has to change without a navigation &mdash; a filter typed into a box, an optimistic toggle, an infinite list, a poll, a websocket push, anything interactive &mdash; you are back in a client component with a cache. The 2023&ndash;2025 consensus that has settled is a split: server components fetch the initial page, client components with TanStack Query own everything interactive, and the server's fetch is handed over via hydration so both agree. Anyone claiming RSC makes React Query obsolete is describing read-only pages.</p>
+
+<p><strong>What you can do at this point:</strong> deliver a first paint with data already in it, and hand the same data to the client cache without refetching it. [USE]</p>
+
+<p><strong>What's still broken:</strong> everything so far assumes requests succeed. Networks are unreliable by nature, and one failed request currently means a dead component.</p>
+
+<h3>Node 14 &mdash; failure: retries, backoff, and error boundaries</h3>
+
+<p><strong>The limitation:</strong> a single dropped packet on a train is currently indistinguishable from a 500, and both give a permanently broken screen.</p>
+
+<p>A large share of client request failures are transient &mdash; a flaky connection, a rolling deploy, a momentary rate limit. So the default should be to try again. TanStack Query <strong>retries failed queries three times by default</strong> [EXPLAIN], with <strong>exponential backoff</strong> [EXPLAIN]: the delay doubles each attempt (roughly 1s, 2s, 4s, capped at 30s). The doubling matters because a fixed short retry interval, multiplied by every client of a struggling server, is a self-inflicted denial of service &mdash; a <strong>thundering herd</strong>. Backoff gives the server room to recover. Production systems add <strong>jitter</strong> [AWARE], a small random offset, so that clients that failed together don't retry in lockstep.</p>
+
+<p>The critical asymmetry: <strong>mutations are not retried by default</strong> [EXPLAIN]. A GET is idempotent &mdash; asking twice is harmless. A POST is not, and retrying one that actually succeeded but whose response was lost creates a duplicate order. If you do want mutation retries, the correct fix is on the server: an <strong>idempotency key</strong> [AWARE], a client-generated unique ID sent with the write, which the server records so a repeat of the same key returns the original result instead of doing the work twice. This is exactly how Stripe's API handles it, and saying so in an interview lands well.</p>
+
+<p>Retrying blindly on every status is also wrong. A 404 will still be a 404 in four seconds; a 401 needs a token refresh, not a retry; a 422 means your payload is invalid. Only 5xx, 429 (respecting <code>Retry-After</code> if present), and network-level failures are worth retrying. That's a <code>retry: (failureCount, error) =&gt; &hellip;</code> function.</p>
+
+<p>Then there's where the error surfaces. By default a query returns <code>error</code> and you branch on it in the component &mdash; explicit, local, verbose across many components. The alternative is <strong><code>throwOnError</code></strong> [USE] (called <code>useErrorBoundary</code> before v5), which rethrows during render so a React <strong>error boundary</strong> [EXPLAIN] catches it &mdash; a class component with <code>getDerivedStateFromError</code>/<code>componentDidCatch</code>, or <code>react-error-boundary</code> in practice &mdash; letting you handle failure once per region instead of once per query. Pair it with <code>QueryErrorResetBoundary</code> so a "try again" button actually resets the failed queries. The same shape applies to loading via <strong>Suspense</strong> [AWARE] with <code>useSuspenseQuery</code>, which moves the pending state up to a <code>&lt;Suspense fallback&gt;</code> &mdash; though note that a suspending component blocks its siblings from rendering, which quietly reintroduces a waterfall if you're careless.</p>
+
+<p><strong>What you can do at this point:</strong> survive an unreliable network without either breaking the UI or hammering a struggling server, and handle failure at the right altitude. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> the cache only learns about changes when <em>this</em> browser asks. If another user changes something, this screen stays confidently wrong until a refetch trigger happens to fire.</p>
+
+<h3>Node 15 &mdash; real time: polling, push, and writing into the cache</h3>
+
+<p><strong>The limitation:</strong> the whole model so far is pull-based, and some data has to arrive without being asked for.</p>
+
+<p>The cheap answer is <strong>polling</strong> [USE]: <code>refetchInterval: 5000</code> refetches on a timer. It costs nothing to build, works through every proxy and firewall, and is genuinely correct for slowly-changing data. Do it with judgement &mdash; pass a function to compute the interval so a job that's finished stops polling, and know that <code>refetchIntervalInBackground</code> defaults to false so a hidden tab stops polling on its own. Its cost is obvious: at scale it's a request per client per interval regardless of whether anything changed, and its latency is on average half the interval.</p>
+
+<p>The push answers are <strong>Server-Sent Events</strong> [AWARE] &mdash; a one-way stream of text events over a plain HTTP response, using the browser's <code>EventSource</code>, with automatic reconnection built in &mdash; and <strong>WebSockets</strong> [AWARE], a full duplex connection after an HTTP upgrade handshake. SSE is the right default for "the server tells the client things"; WebSockets are for genuine two-way traffic like chat or collaborative editing. Both have their own topics in the catalog.</p>
+
+<p>The part that belongs <em>here</em> is what to do with a pushed message once it arrives, and there are two options that mirror Node 9 exactly. <strong>Invalidate</strong> &mdash; the message says "todo 42 changed," you call <code>invalidateQueries({ queryKey: ["todos"] })</code>, and the cache refetches from the authority. Slightly more traffic, always correct, and the right default. <strong>Write directly</strong> &mdash; the message carries the new row and you <code>setQueryData</code> it straight into the cache, no request at all. Fast, and correct only if the message is complete and you can guarantee ordering; out-of-order messages will happily write an older version over a newer one unless every payload carries a version or timestamp you check.</p>
+
+<p>The architectural point worth carrying: <strong>the query cache is the single place all data lands, whatever the transport.</strong> Polling, push, mutations, and prefetches all funnel into the same keyed store, and components subscribe to the store rather than to any transport. Change from polling to websockets and no component changes.</p>
+
+<p><strong>What you can do at this point:</strong> keep a screen live, by pull or push, without any component knowing which. [USE]</p>
+
+<p><strong>What's still broken:</strong> with dozens of live queries, the app starts re-rendering constantly, and payload sizes and render counts become the bottleneck rather than the network.</p>
+
+<h3>Node 16 &mdash; performance: re-renders, selectors, and the normalisation question</h3>
+
+<p><strong>The limitation:</strong> every cache update notifies every subscriber, and correctness has stopped being the problem.</p>
+
+<p>Start with what you already get for free. <strong>Structural sharing</strong> from Node 6 means an unchanged refetch produces identical references and therefore no re-render. <strong>Deduplication</strong> means N components asking for one key make one request. Those two do most of the work.</p>
+
+<p>What's left is a component that subscribes to a whole cache entry when it needs one field of it. A header showing the unread count re-renders on every change to any notification. The tool is <strong><code>select</code></strong> [EXPLAIN] &mdash; <code>useQuery({ queryKey: ["notifications"], queryFn, select: d =&gt; d.filter(n =&gt; !n.read).length })</code> &mdash; which transforms the data before it reaches the component and, crucially, compares <em>the selected value</em>, so the component only re-renders when the count itself changes. The trap: an inline <code>select</code> returning a new object or array every call defeats the comparison entirely, so it must be a stable function returning a primitive or a memoised value. This is the same referential-identity problem as the dependency array in Node 3, appearing in its third distinct costume &mdash; worth noticing as a pattern.</p>
+
+<p><code>notifyOnChangeProps</code> [AWARE] is the blunter version: tell the query to only notify on <code>["data"]</code> and it stops re-rendering for <code>isFetching</code> transitions.</p>
+
+<p>Then, the design argument this node exists to name. TanStack Query is a <strong>document cache</strong> [EXPLAIN]: each key holds whatever the server returned, opaquely. If todo 42 appears in a list response and again in a detail response, those are two independent copies in two entries, and updating one does not update the other. Apollo Client and urql use a <strong>normalised cache</strong> [EXPLAIN]: responses are broken apart by type and ID into a flat store, so todo 42 exists exactly once and every query referencing it updates automatically when it changes. Normalisation is strictly more powerful and strictly more complex &mdash; it needs stable IDs on everything (which is why GraphQL's <code>__typename</code> and <code>id</code> conventions exist), it needs configuration for pagination and merge behaviour, and its failure modes are harder to reason about. TanStack Query's deliberate position is that invalidation is a simpler tool that gets the same result at the cost of a round trip, and that round trips are cheap while cache-consistency bugs are not. Being able to state that trade-off is a genuinely senior-sounding answer.</p>
+
+<p>Beyond the cache: keep payloads small by having the server return what the screen needs, virtualise long lists (TanStack Virtual, react-window) so ten thousand rows aren't ten thousand DOM nodes, and remember that a <strong>normalised, well-indexed backend query</strong> beats any amount of client optimisation.</p>
+
+<p><strong>What you can do at this point:</strong> diagnose a re-render storm, control subscription granularity, and argue document versus normalised caching on the merits. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> the cache is a global object holding server data with no notion of <em>whose</em> data it is &mdash; which stops being a performance question and becomes a security one.</p>
+
+<h3>Node 17 &mdash; authentication, tenancy, and cache safety</h3>
+
+<p><strong>The limitation:</strong> one process-wide cache plus more than one user is a data leak waiting for a logout.</p>
+
+<p>The concrete bug: a user logs in on a shared machine, browses, and logs out, and a second user logs in. If the app is a single-page application, <strong>the page never reloaded</strong>, so the <code>QueryClient</code> from before is still in memory holding the first user's data. The second user's first render finds a warm cache and shows someone else's information. It is a real vulnerability, it has shipped in real products, and the fix is one line: <strong><code>queryClient.clear()</code> on logout</strong> [EXPLAIN]. Do it on the logout path, and defensively when a 401 forces a session end.</p>
+
+<p>Related and equally important: if any query key can vary by user, <strong>the user must be in the key</strong>. <code>["profile"]</code> is a bug; <code>["profile", userId]</code> is not. The same reasoning applies to a tenant or organisation ID in a multi-tenant app &mdash; the rule from Node 6 that "every input to the queryFn must be in the key" includes inputs that arrive implicitly through a token.</p>
+
+<p>Getting the credential onto the request is the other half. <strong>Bearer tokens</strong> [USE] in an <code>Authorization</code> header are simple and immune to CSRF, but a token in JavaScript-readable storage is readable by any XSS on your page. <strong>HttpOnly cookies</strong> [USE] can't be read by JavaScript at all, which is stronger against XSS, but they're sent automatically and therefore need <code>SameSite</code> and CSRF protection &mdash; and, from Node 2, <code>credentials: "include"</code> plus a CORS config with <code>Access-Control-Allow-Credentials: true</code> and a specific origin (the wildcard is rejected with credentials, deliberately). The common production shape is a short-lived access token in memory plus a long-lived refresh token in an HttpOnly cookie.</p>
+
+<p>Which brings the <strong>401 refresh flow</strong> [USE], and one specific mistake. A request 401s, so you refresh the token and retry &mdash; fine. But five queries fire on page load and all five 401 at once, so all five kick off a token refresh, and now you have five concurrent refreshes racing, four of which will use a rotated-and-therefore-invalid refresh token and log the user out. The fix is a single shared in-flight refresh promise that all failing requests await. Put this in one place &mdash; an Axios interceptor or a wrapped <code>fetch</code> &mdash; never in individual <code>queryFn</code>s.</p>
+
+<p><strong>What you can do at this point:</strong> hold per-user server state in a shared cache without leaking it across sessions, and handle token expiry without a stampede. [EXPLAIN]</p>
+
+<p><strong>What's still broken:</strong> all of this assumes the network exists. Close the tab or lose signal and the entire cache evaporates.</p>
+
+<h3>Node 18 &mdash; persistence, offline, and the shape of the ecosystem</h3>
+
+<p><strong>The limitation:</strong> the cache is in memory, so a reload is a cold start and an offline user has nothing.</p>
+
+<p><strong>Persistence</strong> [USE] &mdash; <code>@tanstack/query-persist-client</code> with a <code>localStorage</code> or IndexedDB persister &mdash; writes the dehydrated cache to disk and restores it on boot, so a reload shows the last known data instantly and revalidates behind it. It comes with three obligations. <strong>Never persist per-user data without clearing it on logout</strong> &mdash; that's Node 17's bug written to disk, where it survives a browser restart. <strong>Version the cache with a buster string</strong> tied to your build, or a deploy that changes a data shape will hydrate old-shaped objects into new code. And <strong>respect <code>maxAge</code></strong>, or you'll show data from three weeks ago as if it were current. <code>localStorage</code> is synchronous and roughly 5MB; IndexedDB is asynchronous and far larger, and is the right choice for anything substantial.</p>
+
+<p><strong>Offline mutations</strong> [AWARE] are the harder half. TanStack Query's <code>networkMode</code> defaults to <code>"online"</code>: with no connection, queries stay paused rather than failing, and mutations queue and fire when connectivity returns. Which raises the genuine problems of any offline system &mdash; ordering, and conflicts when the server's version has moved on. Full local-first sync (Replicache, ElectricSQL, Yjs and CRDTs) is a large field of its own; know it exists and know that "offline support" is a much bigger commitment than a persister.</p>
+
+<p>The ecosystem, briefly, so you can answer "why this one." <strong>TanStack Query</strong> &mdash; the default for REST and anything non-GraphQL, framework-agnostic, document cache, largest ecosystem. <strong>SWR</strong> &mdash; same core model, much smaller, fewer knobs, no mutation layer worth the name; good for read-heavy apps. <strong>RTK Query</strong> &mdash; the right answer when the codebase already uses Redux, since it shares the store and devtools, and its endpoint-definition style with tag-based invalidation is a genuinely different ergonomic. <strong>Apollo Client</strong> and <strong>urql</strong> &mdash; GraphQL, normalised caches (Node 16), Apollo heavier and more featured, urql lighter and more composable. <strong>Relay</strong> &mdash; Facebook's, extremely powerful, requires a compiler and strict schema conventions, rarely the right call outside a large org. <strong><code>fetch</code> in a <code>useEffect</code></strong> &mdash; still legitimate for a genuine one-off in a small app, and you should be willing to say so rather than reflexively reaching for a library.</p>
+
+<p><strong>What you can do at this point:</strong> survive reloads and connectivity loss, and choose a data layer with an argument rather than by fashion. [USE] / [AWARE]</p>
+
+<p><strong>What's still broken:</strong> none of this is verifiable. Every behaviour in this chain is asynchronous, cached, and dependent on a server you don't control, which makes it exactly the kind of code that appears to work and isn't.</p>
+
+<h3>Node 19 &mdash; seeing it and testing it</h3>
+
+<p><strong>The limitation:</strong> cache behaviour is invisible, and asynchronous UI is the hardest thing to test.</p>
+
+<p><strong>TanStack Query Devtools</strong> [USE] is the first tool to reach for, and it makes the entire topic concrete: every cache key, its status (fresh, stale, fetching, inactive), its data, its observer count, and buttons to invalidate or reset any entry. Half the confusion in this topic dissolves the first time you watch a key go stale on window blur. Alongside it, the browser's own <strong>network tab</strong> [USE] &mdash; the waterfall view diagnoses Node 12, the initiator column tells you which code fired a request, and throttling to "Slow 3G" is how you make Node 4's race condition reproducible instead of theoretical.</p>
+
+<p>For tests, the decisive choice is <strong>where you fake the server</strong>. Mocking the <code>fetch</code> function or stubbing your API module tests your mock, not your code &mdash; the request URL, headers, status handling, and error paths all go untested. <strong>Mock Service Worker (MSW)</strong> [USE] instead intercepts at the network layer &mdash; a service worker in the browser, an interceptor in Node &mdash; so your application makes a genuine <code>fetch</code> and MSW answers it. That means the same handlers serve unit tests, component tests, and local development against a backend that doesn't exist yet, and you can return a 500 or a delay to test the paths you otherwise never exercise.</p>
+
+<p>The practical rules for testing query-driven components: give each test <strong>its own <code>QueryClient</code></strong> or state leaks between tests; set <code>retry: false</code> in tests or a failure case takes several seconds of backoff before your assertion runs; and assert on what the user sees with <strong><code>findBy*</code></strong> queries from Testing Library, which retry until the element appears, rather than <code>getBy*</code> plus an arbitrary sleep. And write tests for the states people forget: the error state, the empty state, and the second load, not just the happy first render.</p>
+
+<p><strong>What you can do at this point:</strong> observe cache behaviour directly and write tests that actually exercise the asynchronous paths. [USE]</p>
+
+<p><strong>What's still broken:</strong> nothing structural &mdash; this is the end of the chain. What's left is judgement, which comes from building the thing.</p>
+
+<h3>Where the chain gets misread</h3>
+
+<p><strong>"<code>fetch</code> throws on a 404."</strong> (Node 2) It does not. A 404 is a successful HTTP exchange; only network-level failures reject the promise. Check <code>res.ok</code> yourself, every time.</p>
+
+<p><strong>"Strict Mode double-fetching is a React bug &mdash; remove Strict Mode."</strong> (Node 4) It's a deliberate development-only check that your effect cleans up. It runs only in dev. Removing Strict Mode or adding a <code>useRef</code> guard hides a real cleanup defect instead of fixing it.</p>
+
+<p><strong>"React Query is for removing boilerplate."</strong> (Node 5) It's a cache, not a code-shortening device. The value is deduplication, sharing, staleness policy, and invalidation &mdash; things you cannot get from <code>useState</code> at all, at any length.</p>
+
+<p><strong>"<code>cacheTime</code>/<code>gcTime</code> controls how long data stays fresh."</strong> (Node 7) <code>staleTime</code> decides whether to refetch. <code>gcTime</code> decides when to free memory for entries nobody is observing. They're independent, and mixing them up is the most common configuration error in the library.</p>
+
+<p><strong>"Refetching on window focus is annoying, turn it off."</strong> (Node 7) Usually the wrong lever. If you're seeing too many requests, the real fix is a <code>staleTime</code> that reflects how fast your data actually changes; <code>staleTime</code> gates focus refetching automatically.</p>
+
+<p><strong>"<code>isFetching</code> means show a spinner."</strong> (Node 8) <code>isPending</code> (no data at all) means show a skeleton. <code>isFetching</code> during a background revalidation should be a subtle indicator at most &mdash; blanking a good screen to re-fetch the same data is the flicker users hate.</p>
+
+<p><strong>"After a mutation, update the cache manually &mdash; it saves a request."</strong> (Node 9) Only when your local reconstruction exactly matches the server's. Any server-computed field &mdash; counts, timestamps, sort order, permissions &mdash; drifts silently and only reveals itself after a hard reload. Invalidate by default.</p>
+
+<p><strong>"Optimistic updates just mean calling <code>setQueryData</code> before the request."</strong> (Node 10) Without <code>cancelQueries</code> an in-flight refetch overwrites your optimistic write; without a snapshot you cannot roll back; without <code>onSettled</code> invalidation the cache can end up in a state that never existed on the server.</p>
+
+<p><strong>"Two components using the same data means two requests."</strong> (Node 6) Not with the same query key &mdash; one entry, one request, one loading state. If you <em>are</em> seeing two requests, your keys differ, which usually means an inline object or a missing parameter.</p>
+
+<p><strong>"<code>enabled: false</code> means the query is loading."</strong> (Node 12) A disabled query reports <code>pending</code> because it has no data, but nothing is in flight. Rendering a spinner on <code>isPending</code> without checking <code>enabled</code> gives you a spinner that spins forever.</p>
+
+<p><strong>"Mutations retry like queries do."</strong> (Node 14) They do not, by default, and that default is correct &mdash; retrying a non-idempotent write duplicates it. If you need retries on writes, add idempotency keys server-side.</p>
+
+<p><strong>"Server Components make client data fetching obsolete."</strong> (Node 13) They remove the <em>initial read</em> from the client. Every interactive read &mdash; filters, optimistic writes, infinite lists, polling, push &mdash; still needs a client cache. The real answer is a split, with the server's fetch handed to the client cache through hydration.</p>
+
+<p><strong>"The cache is fine on logout, the user is redirected anyway."</strong> (Node 17) In a single-page app the page never reloads and the <code>QueryClient</code> survives, so the next user's first render can show the previous user's data. Call <code>queryClient.clear()</code>.</p>
+
+<p><strong>"Mocking <code>fetch</code> is good enough for tests."</strong> (Node 19) It tests your mock. Intercepting at the network layer with MSW keeps the URL, headers, status handling and error paths under test, and the same handlers work in dev.</p>
+
+<h3>The chain in one paragraph</h3>
+
+<p>Before client-side fetching, the only way to get new data was to throw away the whole page, so every interaction cost all your state and the user's place in it; <code>XMLHttpRequest</code> let JavaScript make a request without navigating, at the cost of making the result <em>arrive later</em>, which is the fact everything else in this topic is downstream of; <code>fetch</code> and promises made that request a value you can compose, cancel and reason about, but a value is not something React can render, so the value has to become state &mdash; and <code>useState</code> plus <code>useEffect</code> is the naive way to do that, correct only for a component that mounts once, alone, with unchanging parameters, because out-of-order responses render the wrong user's data, unmounted components set state into the void, Strict Mode exposes missing cleanup, two components asking the same question fetch twice and then disagree, and nested components turn the render tree into a sequential request schedule; all of which stops being a pile of separate bugs the moment you notice the category error underneath them, that server data is not state you own but a <strong>cache</strong> of a value that lives somewhere else &mdash; at which point every question becomes a cache question and the answers arrive in order: a keyed cache outside the tree gives sharing and deduplication and structural sharing, <code>staleTime</code> and <code>gcTime</code> and the focus/mount/reconnect triggers give a staleness policy under stale-while-revalidate, <code>isPending</code> versus <code>isFetching</code> and <code>placeholderData</code> make loading honest without flicker, <code>useMutation</code> plus prefix invalidation lets writes tell the cache it's wrong, optimistic updates with cancel-snapshot-rollback-settle buy back the latency, <code>useInfiniteQuery</code> over cursor pagination handles data too big to send, <code>enabled</code> and <code>useQueries</code> and prefetching flatten waterfalls, hydration and RSC and route loaders move the first fetch to the server so the first paint isn't blank, retries with exponential backoff plus non-retried mutations and idempotency keys survive an unreliable network, polling and SSE and websockets all funnel into the same cache through invalidation or <code>setQueryData</code> so components never know the transport, <code>select</code> and notify-props control the re-render blast radius (and the document-versus-normalised-cache argument explains why Apollo is different), <code>queryClient.clear()</code> on logout and the user ID in the key keep one shared cache from leaking across sessions, persisters and <code>networkMode</code> extend it past the tab's lifetime, and devtools plus MSW are how you actually see and test any of it.</p>
+
+    </div>
+  </div>
+
+  <div id="tab-recall" style="display:none">
+    <div class="card-list" id="recallCards"></div>
+  </div>
+
+  <div id="tab-prep" style="display:none">
+    <div class="card-list" id="prepCards"></div>
+  </div>
+
+  <div id="tab-elaboration" style="display:none">
+    <div class="card-list" id="elabCards"></div>
+  </div>
+
+  <div id="tab-discuss" style="display:none">
+    <div class="card-list" id="discussCards"></div>
+  </div>
+</div>
+
+<footer class="site-footer">devxkapoor-learning · client-data-fetching · built with Claude</footer>
+
+<script>
+DK.wireThemeToggle(document.getElementById("themeToggle"));
+
+const TABS = ["landscape", "recall", "prep", "elaboration", "discuss"];
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    TABS.forEach(t => {
+      document.getElementById("tab-" + t).style.display = (t === btn.dataset.tab) ? "block" : "none";
+    });
+  });
+});
+
+// Landscape: split the flat prose into collapsible nodes, closed by default,
+// so 19 nodes read as a navigable list instead of one continuous wall.
+(function () {
+  const prose = document.querySelector("#tab-landscape .prose");
+  if (!prose) return;
+  const n = DK.makeSectionsCollapsible(prose, { startOpen: false });
+  DK.addCopyButtons(prose);
+  DK.decorateBlocks(prose);
+  if (n) DK.addExpandControls(document.getElementById("tab-landscape"), prose, n + " nodes");
+})();
+
+// If the URL has a #anchor (e.g. from search.html), jump straight to the elaboration tab.
+if (window.location.hash) {
+  document.querySelector('.tab-btn[data-tab="elaboration"]').click();
+}
+
+function renderCards(container, cards, bank) {
+  DK.renderDeck(container, cards, { bank, topic: "client-data-fetching", showTopic: false });
+}
+
+(async function () {
+  const recall = await DK.fetchJSON("topics/client-data-fetching/recall.json");
+  const recallEl = document.getElementById("recallCards");
+  if (recall && recall.cards && recall.cards.length) {
+    renderCards(recallEl, recall.cards, "recall");
+  } else {
+    recallEl.innerHTML = "<p class='empty-note'>Recall questions land here once this topic's build gets underway.</p>";
+  }
+
+  const prep = await DK.fetchJSON("topics/client-data-fetching/prep.json");
+  const prepEl = document.getElementById("prepCards");
+  if (prep && prep.cards && prep.cards.length) {
+    renderCards(prepEl, prep.cards, "prep");
+  } else {
+    prepEl.innerHTML = "<p class='empty-note'>Interview and scenario prep lands here once this topic's build gets underway.</p>";
+  }
+
+  const discuss = await DK.fetchJSON("topics/client-data-fetching/discuss.json");
+  const discussEl = document.getElementById("discussCards");
+  if (discuss && discuss.pieces && discuss.pieces.length) {
+    discuss.pieces.forEach(pc => {
+      const block = document.createElement("details");
+      block.className = "el-block";
+      block.id = pc.anchor || "";
+      block.innerHTML =
+        `<summary class="node-summary">` +
+          `<span class="node-chevron">${DK.ICON.chevron}</span>` +
+          `<span class="node-title">${pc.title}</span>` +
+          (pc.resolves ? `<span class="node-count">${pc.resolves.length} doubts</span>` : "") +
+        `</summary>` +
+        `<div class="node-body"><div class="prose">${pc.content}</div></div>`;
+      discussEl.appendChild(block);
+    });
+    discussEl.querySelectorAll(".el-block .prose").forEach(pr => {
+      DK.makeSectionsCollapsible(pr, { startOpen: false, level: "sub" });
+      DK.addCopyButtons(pr);
+    });
+    DK.decorateBlocks(discussEl);
+    DK.addExpandControls(document.getElementById("tab-discuss"), discussEl,
+      discuss.pieces.length + " resolutions");
+  } else {
+    discussEl.innerHTML = "<p class='empty-note'>Resolutions to your follow-up questions land here.</p>";
+  }
+
+  const elab = await DK.fetchJSON("topics/client-data-fetching/elaboration.json");
+  const elabEl = document.getElementById("elabCards");
+  if (elab && elab.sections && elab.sections.length) {
+    elab.sections.forEach(s => {
+      const block = document.createElement("details");
+      block.className = "el-block";
+      block.id = s.anchor || "";
+      block.innerHTML =
+        `<summary class="node-summary">` +
+          `<span class="node-chevron">${DK.ICON.chevron}</span>` +
+          `<span class="node-title">${s.title}</span>` +
+        `</summary>` +
+        `<div class="node-body"><div class="prose">${s.content}</div></div>`;
+      elabEl.appendChild(block);
+    });
+    elabEl.querySelectorAll(".el-block .prose").forEach(pr => {
+      // Sub-sections start closed too: opening a node shouldn't dump its
+      // entire subtree on you at once.
+      DK.makeSectionsCollapsible(pr, { startOpen: false, level: "sub" });
+      DK.addCopyButtons(pr);
+    });
+    DK.decorateBlocks(elabEl);
+    DK.addExpandControls(document.getElementById("tab-elaboration"), elabEl,
+      elab.sections.length + " sections");
+    DK.revealHash();
+  } else {
+    elabEl.innerHTML = "<p class='empty-note'>The deep-dive write-up for this topic hasn't been started yet — it'll fill in section by section as we go.</p>";
+  }
+})();
+</script>
+
+</body>
+</html>

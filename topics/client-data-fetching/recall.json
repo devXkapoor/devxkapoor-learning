@@ -1,0 +1,2230 @@
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "node-0",
+   "t": "Node 0 · Before client-side fetching",
+   "q": "Before client-side fetching existed, what happened in the browser when a user needed new data?",
+   "a": "The browser made a full page navigation. The server built a complete HTML document with the data baked in, sent it back, and the browser <strong>discarded the entire current document</strong> and painted the new one from scratch."
+  },
+  {
+   "n": 2,
+   "c": "node-0",
+   "t": "Node 0 · Before client-side fetching",
+   "q": "What is the &ldquo;unit of update&rdquo; problem in a fully server-rendered, navigation-only app?",
+   "a": "The smallest thing you can change is the <strong>entire page</strong>, even when the thing that actually changed is one row. Every data refresh costs a full document round trip and repaint."
+  },
+  {
+   "n": 3,
+   "c": "node-0",
+   "t": "Node 0 · Before client-side fetching",
+   "q": "Name the four specific failures of the pre-Ajax model.",
+   "a": "(1) The unit of update is the whole page. (2) All in-page state is destroyed on every interaction. (3) The user waits for the slowest query because HTML is assembled only once at the end. (4) There is no mechanism to react to data changing over time."
+  },
+  {
+   "n": 4,
+   "c": "node-0",
+   "t": "Node 0 · Before client-side fetching",
+   "q": "Why does the pre-Ajax model destroy user state?",
+   "a": "Every interaction is a navigation, and a navigation throws away the document &mdash; scroll position, half-typed input in other fields, open dropdowns, and all JavaScript variables go with it. The page has no memory across navigations."
+  },
+  {
+   "n": 5,
+   "c": "node-0",
+   "t": "Node 0 · Before client-side fetching",
+   "q": "What is the double-submit / form resubmission problem?",
+   "a": "A form POST returns a whole new page. If the user then hits refresh, the browser offers to resubmit the POST, re-running the write. This is the classic double-charged-payment bug."
+  },
+  {
+   "n": 6,
+   "c": "node-0",
+   "t": "Node 0 · Before client-side fetching",
+   "q": "What workarounds did developers use before <code>XMLHttpRequest</code> was common?",
+   "a": "Hidden <code>&lt;iframe&gt;</code> elements navigated independently so a region could update without touching the main page; <code>&lt;meta http-equiv=\"refresh\"&gt;</code> to reload the whole page on a timer; and Java applets or Flash movies embedded solely because those runtimes could open their own network connections."
+  },
+  {
+   "n": 7,
+   "c": "node-0",
+   "t": "Node 0 · Before client-side fetching",
+   "q": "Why couldn't the pre-Ajax page react to data changing on the server?",
+   "a": "The page had no way to initiate a request. If a row changed thirty seconds after load, nothing in the page could find out &mdash; the only mechanism was the user manually refreshing."
+  },
+  {
+   "n": 8,
+   "c": "node-0",
+   "t": "Node 0 · Before client-side fetching",
+   "q": "What single capability, if added, dissolves most of Node 0's problems at once?",
+   "a": "The ability for <strong>JavaScript already running in a page to make an HTTP request and receive the response as a value</strong>, without the browser navigating."
+  },
+  {
+   "n": 9,
+   "c": "node-0",
+   "t": "Node 0 · Before client-side fetching",
+   "q": "Why does &ldquo;the user waits for the slowest thing&rdquo; follow from full-page rendering?",
+   "a": "The HTML is assembled once, at the end. If the page needs five queries and one takes 800ms, nothing at all can be sent until that one finishes &mdash; there is no way to show the fast parts first."
+  },
+  {
+   "n": 10,
+   "c": "node-0",
+   "t": "Node 0 · Before client-side fetching",
+   "q": "What is the one capability the whole topic is built to provide?",
+   "a": "Changing part of what's on screen using data that arrives later, without discarding the page &mdash; and keeping that data honest as it ages."
+  },
+  {
+   "n": 11,
+   "c": "node-1",
+   "t": "Node 1 · XMLHttpRequest and Ajax",
+   "q": "What is <code>XMLHttpRequest</code> and where did it come from?",
+   "a": "A browser API letting JavaScript issue an HTTP request and receive the response without navigating. Microsoft shipped it first as an ActiveX control named <code>XMLHTTP</code> in Internet Explorer 5 (March 1999), built so web Outlook could update a mail list in place. Mozilla implemented it natively as <code>XMLHttpRequest</code> in 2000; every browser had it by 2005."
+  },
+  {
+   "n": 12,
+   "c": "node-1",
+   "t": "Node 1 · XMLHttpRequest and Ajax",
+   "q": "Why did XHR sit largely unused for four years after it shipped?",
+   "a": "Nobody had demonstrated what it was for. Gmail (2004) and Google Maps (2005) made the case &mdash; Maps fetched tiles as you dragged &mdash; and only then did the technique spread."
+  },
+  {
+   "n": 13,
+   "c": "node-1",
+   "t": "Node 1 · XMLHttpRequest and Ajax",
+   "q": "Where does the term <strong>Ajax</strong> come from and what does it stand for?",
+   "a": "Jesse James Garrett coined it in an essay in February 2005. It stands for <em>Asynchronous JavaScript and XML</em>. Both halves of the name are now historical: almost nobody sends XML, and it was never a technology &mdash; just &ldquo;use XHR&rdquo;."
+  },
+  {
+   "n": 14,
+   "c": "node-1",
+   "t": "Node 1 · XMLHttpRequest and Ajax",
+   "q": "Sketch the mechanical shape of an XHR request.",
+   "a": "Construct the object, call <code>open(method, url)</code>, attach an <code>onload</code> (or <code>onreadystatechange</code>) handler, call <code>send()</code>. When the response arrives your handler runs and <code>xhr.responseText</code> holds the body as a string, which you parse yourself."
+  },
+  {
+   "n": 15,
+   "c": "node-1",
+   "t": "Node 1 · XMLHttpRequest and Ajax",
+   "q": "What does it mean that XHR is <strong>asynchronous</strong>, and why is that the root fact of this entire topic?",
+   "a": "<code>send()</code> returns immediately, before any response exists. The rest of your function keeps running. The only way to use the response is to have registered a function in advance. <strong>The data is not there when the code that asked for it finishes running</strong> &mdash; every race condition, stale render, and empty-state bug in this topic descends from that."
+  },
+  {
+   "n": 16,
+   "c": "node-1",
+   "t": "Node 1 · XMLHttpRequest and Ajax",
+   "q": "What did response handling look like in the pre-framework Ajax era?",
+   "a": "The callback reached into the document imperatively &mdash; find the table body, build row elements, append them. Hand-written DOM mutation per response."
+  },
+  {
+   "n": 17,
+   "c": "node-1",
+   "t": "Node 1 · XMLHttpRequest and Ajax",
+   "q": "Give two reasons the XHR shape doesn't scale.",
+   "a": "It doesn't compose &mdash; sequencing two requests means nesting a callback inside a callback (&ldquo;callback hell&rdquo;). And every handler contains bespoke imperative DOM code, which becomes unmaintainable as the app grows and is impossible in a declarative framework like React."
+  },
+  {
+   "n": 18,
+   "c": "node-1",
+   "t": "Node 1 · XMLHttpRequest and Ajax",
+   "q": "What depth is <code>XMLHttpRequest</code> worth today?",
+   "a": "[AWARE]. You should be able to say what it is, why it existed, and why it was replaced. You will occasionally meet it in old code or in libraries that need upload progress events, which <code>fetch</code> historically lacked."
+  },
+  {
+   "n": 19,
+   "c": "node-1",
+   "t": "Node 1 · XMLHttpRequest and Ajax",
+   "q": "Is there anything XHR can still do that <code>fetch</code> cannot?",
+   "a": "Upload progress events. <code>XMLHttpRequest</code> exposes <code>upload.onprogress</code>; <code>fetch</code> has no equivalent for request bodies in most browsers, which is why some upload libraries still use XHR internally."
+  },
+  {
+   "n": 20,
+   "c": "node-1",
+   "t": "Node 1 · XMLHttpRequest and Ajax",
+   "q": "What is &ldquo;callback hell&rdquo; in the Ajax context?",
+   "a": "Sequencing requests means nesting: fetch the user in a callback, and inside that callback fetch their orders, and inside that fetch each order's items. Indentation grows with dependency depth, and error handling has to be repeated at every level."
+  },
+  {
+   "n": 21,
+   "c": "node-1",
+   "t": "Node 1 · XMLHttpRequest and Ajax",
+   "q": "Why couldn't the Ajax-era DOM-mutation approach survive into React?",
+   "a": "React owns the DOM. Anything you write into it by hand is overwritten on the next render, because render is a function of state. The data has to enter through state, not through the document."
+  },
+  {
+   "n": 22,
+   "c": "node-1",
+   "t": "Node 1 · XMLHttpRequest and Ajax",
+   "q": "What is the <code>readyState</code> sequence on an XHR?",
+   "a": "0 unsent, 1 opened, 2 headers received, 3 loading, 4 done. Pre-<code>onload</code> code checked <code>readyState === 4</code> inside <code>onreadystatechange</code>, which is why old snippets look the way they do. [AWARE]"
+  },
+  {
+   "n": 23,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "What two things changed together to replace XHR?",
+   "a": "JavaScript got <strong>Promises</strong> (standardised in ES2015) &mdash; an object representing a result that doesn't exist yet, which can be passed around, chained, and combined. And browsers got <strong>fetch()</strong> (WHATWG spec; Chrome 42, April 2015), a request API returning a promise instead of taking callbacks."
+  },
+  {
+   "n": 24,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "Write the minimum correct <code>fetch</code> call.",
+   "a": "<code>const res = await fetch(url); if (!res.ok) throw new Error(res.status); const data = await res.json();</code> &mdash; three lines, and each one exists for a reason."
+  },
+  {
+   "n": 25,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "Does <code>fetch</code> reject its promise on a 404 or a 500?",
+   "a": "<strong>No.</strong> From <code>fetch</code>'s perspective a 404 is a completely successful round trip &mdash; you asked, the server answered. The promise only rejects on network-level failure."
+  },
+  {
+   "n": 26,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "What <em>does</em> cause a <code>fetch</code> promise to reject?",
+   "a": "Network-level failures only: DNS failure, connection refused, TLS failure, being offline, a CORS block, or the request being aborted. Never an HTTP status code."
+  },
+  {
+   "n": 27,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "What is <code>res.ok</code>?",
+   "a": "A boolean that is <code>true</code> for statuses 200&ndash;299 and false otherwise. Checking it is <strong>your job on every request</strong> &mdash; forgetting it is the single most common <code>fetch</code> bug, because your error branch simply never runs and you try to render an error payload as data."
+  },
+  {
+   "n": 28,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "How does Axios differ from <code>fetch</code> on error handling, and why do people still reach for it?",
+   "a": "Axios <strong>rejects on 4xx and 5xx</strong>, which matches most people's intuition. It also does JSON parsing automatically, has interceptors, supports upload progress, and works identically in Node and the browser. Those ergonomics are most of why it survives."
+  },
+  {
+   "n": 29,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "Why are there two <code>await</code>s in a typical fetch?",
+   "a": "<code>fetch</code>'s promise resolves as soon as the response <strong>headers</strong> arrive &mdash; status, headers, and a body stream still in flight. <code>res.json()</code> returns a second promise that resolves once the body has fully arrived and parsed."
+  },
+  {
+   "n": 30,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "Why can you only read a response body once?",
+   "a": "The body is a stream, and reading consumes it. Calling <code>res.json()</code> twice throws. If you need the body twice, call <code>res.clone()</code> before reading."
+  },
+  {
+   "n": 31,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "What is <code>AbortController</code> and how do you use it with <code>fetch</code>?",
+   "a": "An object with a <code>signal</code> you pass into <code>fetch</code>'s options and an <code>abort()</code> method you call later. Added to browsers through 2017. Aborting rejects the fetch promise with a <code>DOMException</code> whose <code>name</code> is <code>\"AbortError\"</code>."
+  },
+  {
+   "n": 32,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "Why must you special-case <code>AbortError</code>?",
+   "a": "Cancellation is a normal, expected outcome, not a failure. If you pipe it into your error state you'll render an error box every time the user navigates away mid-request."
+  },
+  {
+   "n": 33,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "What does the <code>credentials</code> option control, and what is its default?",
+   "a": "Whether cookies are attached to the request. The default is <code>\"same-origin\"</code>, so a cross-origin fetch sends <strong>no cookies at all</strong> unless you pass <code>credentials: \"include\"</code>. This is why cookie auth breaks the moment the API moves to a different domain."
+  },
+  {
+   "n": 34,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "Why does a CORS failure give you almost no detail in JavaScript?",
+   "a": "Deliberately. The browser either makes the request or blocks it, but the response is opaque to your code; exposing the reason would itself leak cross-origin information. You get a rejected promise and a console message, and you diagnose it from the network tab and server headers."
+  },
+  {
+   "n": 35,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "How do you send JSON with <code>fetch</code>?",
+   "a": "<code>fetch(url, { method: \"POST\", headers: { \"Content-Type\": \"application/json\" }, body: JSON.stringify(payload) })</code>. Forgetting the <code>Content-Type</code> header is a common cause of a server parsing the body as empty."
+  },
+  {
+   "n": 36,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "What happens if you pass a plain object as <code>body</code>?",
+   "a": "It is stringified with <code>String(obj)</code>, producing the literal text <code>[object Object]</code>. You must call <code>JSON.stringify</code> yourself."
+  },
+  {
+   "n": 37,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "What is <code>Promise.all</code> useful for here, and what is its failure behaviour?",
+   "a": "Firing several independent requests concurrently and waiting for all of them. It rejects as soon as <em>any</em> one rejects, discarding the others' results &mdash; use <code>Promise.allSettled</code> when partial success is acceptable."
+  },
+  {
+   "n": 38,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "Does <code>fetch</code> follow redirects and time out by default?",
+   "a": "It follows redirects by default (<code>redirect: \"follow\"</code>). It has <strong>no timeout</strong> &mdash; a request can hang indefinitely. You add one with <code>AbortSignal.timeout(ms)</code> or a manual <code>setTimeout</code> calling <code>abort()</code>."
+  },
+  {
+   "n": 39,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "How do you read an error body from a failed response?",
+   "a": "Check <code>res.ok</code>, and if it's false <code>await res.json()</code> (or <code>res.text()</code>) <em>before</em> throwing, attaching the parsed body and the status to the error you throw. Throwing on the status alone discards the server's explanation."
+  },
+  {
+   "n": 40,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "What is the difference between <code>res.text()</code>, <code>res.json()</code> and <code>res.blob()</code>?",
+   "a": "Three ways of consuming the same body stream: as a string, as parsed JSON, and as binary. All return promises, and only one of them may be called &mdash; the body is consumed on read."
+  },
+  {
+   "n": 41,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "Why might <code>res.json()</code> throw even on a 200?",
+   "a": "The body wasn't valid JSON &mdash; commonly an HTML error page from a proxy or a load balancer, or an empty body on a 204. Guard 204 explicitly, and consider reading text first when the content type is untrustworthy."
+  },
+  {
+   "n": 42,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "What does <code>mode: \"no-cors\"</code> do, and why is it almost never what you want?",
+   "a": "It makes the request succeed without CORS headers but returns an <strong>opaque response</strong> &mdash; status 0, no headers, unreadable body. It exists for caching in service workers, not for reading data, and people reach for it as a &ldquo;fix&rdquo; for CORS errors, which it isn't."
+  },
+  {
+   "n": 43,
+   "c": "node-2",
+   "t": "Node 2 · fetch and promises",
+   "q": "How does HTTP/1.1's connection limit interact with client fetching?",
+   "a": "Browsers open roughly six concurrent connections per origin on HTTP/1.1, so a burst of parallel requests queues past that. HTTP/2 multiplexes over a single connection and removes the limit, which changes how much parallelism is actually free."
+  },
+  {
+   "n": 44,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "Why can't you fetch during a React component's render?",
+   "a": "Render must be <strong>pure and synchronous</strong> &mdash; it returns a description of the UI and may be called more than once or thrown away. Side effects belong in <code>useEffect</code>, which React runs after commit."
+  },
+  {
+   "n": 45,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "Why does fetched data have to become state in React?",
+   "a": "React renders from state. You cannot reach into the DOM and update a row the Ajax way, because the next render would overwrite it. The value must go through <code>setState</code> so React re-renders from it."
+  },
+  {
+   "n": 46,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "Write the naive React fetching pattern from memory.",
+   "a": "Three pieces of state (<code>data</code>, <code>error</code>, <code>isLoading</code>), a <code>useEffect</code> with a dependency array that fetches and calls the setters, and three render branches for loading, error, and data."
+  },
+  {
+   "n": 47,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "Why does the naive pattern always produce at least two renders?",
+   "a": "The first render happens before any effect runs, so there is genuinely no data &mdash; it renders a spinner. The effect then fires, the response arrives, <code>setData</code> schedules a re-render, and the second render has data."
+  },
+  {
+   "n": 48,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "Is the loading state a flaw or a feature?",
+   "a": "A feature. It is an <strong>accurate description of reality</strong> &mdash; at first render the data genuinely does not exist. Trying to eliminate it in a client-only app is trying to lie about time."
+  },
+  {
+   "n": 49,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "What does the dependency array of <code>useEffect</code> do?",
+   "a": "It tells React when to re-run the effect. <code>[]</code> means after the first render only. <code>[userId]</code> means re-run whenever <code>userId</code> changes &mdash; which is how you refetch when the subject changes."
+  },
+  {
+   "n": 50,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "What goes wrong with too <em>few</em> dependencies?",
+   "a": "The effect captures values from the render in which it was created. With a missing dependency you fetch using a <strong>stale closure</strong> value &mdash; the URL uses an old ID while the UI shows a new one."
+  },
+  {
+   "n": 51,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "What goes wrong with too <em>many</em> dependencies, or an unstable one?",
+   "a": "The effect re-runs constantly. An object or array literal written inline is a <strong>new value every render</strong>, so the effect fires, sets state, re-renders, creates a new object, and fires again &mdash; an infinite fetch loop."
+  },
+  {
+   "n": 52,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "How do you fix an unstable dependency?",
+   "a": "Hoist a constant object out of the component, memoise it with <code>useMemo</code>, memoise a function with <code>useCallback</code>, or &mdash; usually best &mdash; depend on the primitive fields instead of the object."
+  },
+  {
+   "n": 53,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "What is the &ldquo;loading triad&rdquo; and what is wrong with it?",
+   "a": "<code>data</code>, <code>error</code>, <code>isLoading</code> as three separate booleans/values. It encodes a state machine while permitting impossible combinations &mdash; loading <em>and</em> error, data <em>and</em> first-load. Three booleans standing in for one enum is the first hint a library should own this."
+  },
+  {
+   "n": 54,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "Why is <code>useEffect</code> the right place for a fetch at all?",
+   "a": "<code>useEffect</code> exists to hold work that reaches outside React and touches the world &mdash; subscriptions, timers, DOM measurement, network. A fetch is exactly that: an external side effect synchronised with a render."
+  },
+  {
+   "n": 55,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "What order does React run things in on mount?",
+   "a": "Render the component function &rarr; commit the result to the DOM &rarr; run layout effects &rarr; paint &rarr; run <code>useEffect</code> callbacks. So the effect fires <em>after</em> the user has already seen the loading render."
+  },
+  {
+   "n": 56,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "How do you refetch when a parameter changes, in the naive pattern?",
+   "a": "Put the parameter in the dependency array. The effect re-runs on change &mdash; and you must reset <code>isLoading</code> to true at the top of the effect, or the UI shows the old data as if it were current."
+  },
+  {
+   "n": 57,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "Why is this pattern still worth being able to write cold?",
+   "a": "Interviewers ask for exactly this, then ask what's wrong with it. Being able to produce it <em>and</em> enumerate its defects is the whole exercise. [EXPLAIN]"
+  },
+  {
+   "n": 58,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "Why must you reset <code>isLoading</code> at the top of a re-running effect?",
+   "a": "Because the state still holds the previous subject's data. Without the reset the UI renders the old record as if it were the new one until the response lands &mdash; a visible correctness bug even in the absence of a race."
+  },
+  {
+   "n": 59,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "Should you clear <code>error</code> when refetching?",
+   "a": "Yes, or a query that failed once shows an error box forever alongside successful data. This is one of the pieces of bookkeeping a query library removes."
+  },
+  {
+   "n": 60,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "What is a stale closure, in one sentence?",
+   "a": "A function created during one render that captures that render's values, then runs later and uses those captured values even though newer ones exist."
+  },
+  {
+   "n": 61,
+   "c": "node-3",
+   "t": "Node 3 · useState + useEffect",
+   "q": "What's the argument for extracting this into a custom hook?",
+   "a": "You'll write the same triad plus effect in every component. A <code>useFetch(url)</code> hook removes the repetition &mdash; but it still can't share data between components, because each call gets its own <code>useState</code>. That ceiling is the point."
+  },
+  {
+   "n": 62,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "Describe the race condition in effect-based fetching.",
+   "a": "The effect depends on <code>userId</code>. The user clicks user 1 then quickly user 2, so two fetches are in flight. Nothing guarantees response order &mdash; if response 2 lands first and response 1 lands second, the last <code>setData</code> wins and you render <strong>user 1's data on user 2's page</strong>."
+  },
+  {
+   "n": 63,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "Why is the race condition so dangerous?",
+   "a": "It fails silently. Nothing throws, nothing logs, and the screen is simply wrong until something else re-renders. It is also nearly invisible on localhost, where responses are fast and roughly ordered &mdash; it appears in production on slow networks."
+  },
+  {
+   "n": 64,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "How do you fix the race condition inside a raw <code>useEffect</code>?",
+   "a": "Return a cleanup function that either aborts the request via <code>AbortController</code>, or flips an <code>ignore</code> boolean that the <code>.then</code> checks before calling <code>setState</code>. React runs cleanup before re-running the effect."
+  },
+  {
+   "n": 65,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "What is the difference between the <code>ignore</code>-flag fix and the <code>AbortController</code> fix?",
+   "a": "The flag prevents the stale <code>setState</code> but lets the request complete and be discarded. <code>abort()</code> additionally cancels the in-flight request, freeing a connection slot and stopping server work. Abort is strictly better; the flag is a fallback for APIs without signal support."
+  },
+  {
+   "n": 66,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "Why does throttling the network make the race condition reproducible?",
+   "a": "It widens the window between the two responses. Chrome DevTools &rarr; Network &rarr; throttle to Slow 3G, then click quickly between two subjects. This turns a theoretical bug into an observable one."
+  },
+  {
+   "n": 67,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "What is the &ldquo;setState after unmount&rdquo; problem?",
+   "a": "If the component unmounts before the response lands, the <code>.then</code> still calls a setter on a component that no longer exists. React warned about this for years and <strong>removed the warning in React 18</strong> because the warning caused worse code than the problem. The real cost is holding the closure in memory for a response nobody wants."
+  },
+  {
+   "n": 68,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "What does React 18 Strict Mode do to effects, and why?",
+   "a": "In <strong>development only</strong>, it mounts a component, unmounts it, and mounts it again &mdash; running each effect twice with a cleanup in between. It is a deliberate test that your effect cleans up after itself, because future concurrent features may genuinely mount and unmount."
+  },
+  {
+   "n": 69,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "Two wrong reactions to Strict Mode's double fetch, and the right one.",
+   "a": "Wrong: delete <code>&lt;StrictMode&gt;</code>; or add a <code>useRef</code> &ldquo;hasFetched&rdquo; guard. Both hide a real defect. Right: <strong>write the cleanup</strong>. If the effect is correctly cancellable, double-invocation is harmless."
+  },
+  {
+   "n": 70,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "Does Strict Mode double-invoke effects in production?",
+   "a": "No. It is development-only. But shipping code that breaks under it means shipping code with no cleanup, which is a real bug regardless."
+  },
+  {
+   "n": 71,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "Describe the sharing failure.",
+   "a": "Two components that both need the current user each run their own effect, producing two identical requests and <strong>two independent copies</strong> in two <code>useState</code>s. If one refetches and the other doesn't, the same data appears twice on screen with different values."
+  },
+  {
+   "n": 72,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "Why doesn't lifting state up solve the sharing problem properly?",
+   "a": "Hoisting the fetch to a common ancestor makes it run whether or not anything currently needs it, ties data location to tree shape, and forces prop drilling. Putting it in Context means every consumer re-renders when any part of the data changes."
+  },
+  {
+   "n": 73,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "What is a request waterfall?",
+   "a": "A set of requests that run <strong>sequentially when they could have run in parallel</strong>. A parent fetches, renders, and only then does a child mount and start its own fetch. Three levels at 150ms each is 450ms of blank screen for requests with no real dependency."
+  },
+  {
+   "n": 74,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "How do you see a waterfall?",
+   "a": "The browser network tab's waterfall view. A sequential staircase of bars is bad; bars that start at the same x position are good. The <em>initiator</em> column tells you which code fired each request."
+  },
+  {
+   "n": 75,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "After fixing all four failures, what is still wrong?",
+   "a": "The correct version is roughly thirty lines per component &mdash; the same thirty lines every time &mdash; and the sharing problem <strong>cannot be solved inside a component at all</strong>. The verbosity is a symptom; the mental model is the disease."
+  },
+  {
+   "n": 76,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "Why does the race condition not require the user to be fast?",
+   "a": "Any two overlapping requests for the same state variable can race &mdash; a background refetch overlapping a user-triggered one, or a retry overlapping the original. Rapid clicking is just the easiest way to reproduce it."
+  },
+  {
+   "n": 77,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "What does React do with the cleanup function on unmount versus on re-run?",
+   "a": "It calls the previous effect's cleanup before running the effect again with new dependencies, and calls it once more when the component unmounts. Same function, two occasions."
+  },
+  {
+   "n": 78,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "Why is the <code>useRef</code> &ldquo;already fetched&rdquo; guard a bad fix for Strict Mode?",
+   "a": "It suppresses the symptom in development while leaving the effect uncancellable, so the real race condition and the unmount leak both ship. It also breaks legitimate remounts, where a second fetch is correct."
+  },
+  {
+   "n": 79,
+   "c": "node-4",
+   "t": "Node 4 · The four failures of effect fetching",
+   "q": "How does a query library make Strict Mode's double mount harmless?",
+   "a": "Deduplication. The second mount asks for a key that already has a request in flight and attaches to it, so there is one network request regardless of how many times the component mounts."
+  },
+  {
+   "n": 80,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "What are the four properties of true client state?",
+   "a": "(1) Your application is the only thing that can change it. (2) It is correct the instant you set it. (3) It exists only in this browser tab. (4) When the tab closes it is meaningless and should disappear."
+  },
+  {
+   "n": 81,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "Give three examples of genuine client state.",
+   "a": "Is this dropdown open; what the user has typed into a search box; which tab is selected. Nobody else can change them, they are instantly correct, they are local, and they should die with the tab."
+  },
+  {
+   "n": 82,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "Show that server data fails all four client-state properties.",
+   "a": "You don't own it &mdash; a database does, and other users are changing it now. It isn't instantly correct &mdash; it was correct when the server answered, and decays from that moment. It isn't local &mdash; every tab, device and user shares it. It doesn't die with the tab &mdash; it outlives your app entirely."
+  },
+  {
+   "n": 83,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "If server data isn't state, what is it?",
+   "a": "A <strong>cache</strong> &mdash; a local copy of a value whose authoritative version lives somewhere else."
+  },
+  {
+   "n": 84,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "What questions become askable once you call it a cache?",
+   "a": "What is this entry's key? How old may a copy be before I recheck? What do I show while rechecking &mdash; nothing, or the stale value? Do two consumers share one copy? When I write, how does the cache learn it's wrong? What happens on logout?"
+  },
+  {
+   "n": 85,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "Why can none of those questions be asked about <code>useState</code>?",
+   "a": "<code>useState</code> has no key, no age, no sharing, and no invalidation. It isn't a cache and was never meant to be one. Answering cache questions with a state primitive is exactly why Nodes 3 and 4 got ugly."
+  },
+  {
+   "n": 86,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "Give the strong answer to &ldquo;why do you use React Query?&rdquo;",
+   "a": "Server state and client state are different kinds of state with different rules. <code>useState</code> models one; a query cache models the other. Boilerplate reduction is a side effect, not the reason."
+  },
+  {
+   "n": 87,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "Give an example of state that looks like server state but isn't.",
+   "a": "A draft form the user is editing. It originated from the server, but while being edited it is owned by the user, instantly correct, local, and disposable &mdash; so it belongs in client state until submitted."
+  },
+  {
+   "n": 88,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "Is there state that is genuinely both?",
+   "a": "Some, and it is where bugs live &mdash; e.g. a list whose order is server-owned but whose local reorder is optimistic. The discipline is to keep the server copy in the cache and the pending local intent separately, rather than mutating the cached copy in place."
+  },
+  {
+   "n": 89,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "What is the category error this node names?",
+   "a": "Treating a cache of someone else's data as state you own. The bug was never in the code; it was in the category."
+  },
+  {
+   "n": 90,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "How would you classify a shopping cart?",
+   "a": "Depends on where it lives. A cart persisted server-side is server state and belongs in the cache. A cart held only in the browser until checkout is client state. Teams get this wrong by treating a server-persisted cart as local, then wondering why two tabs disagree."
+  },
+  {
+   "n": 91,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "How would you classify data from a websocket?",
+   "a": "Server state. The transport is different but the ownership isn't &mdash; a database still owns it, other clients still change it, and it still outlives the tab. It belongs in the same cache."
+  },
+  {
+   "n": 92,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "What does &ldquo;the data decays from the moment the server answers&rdquo; imply for UI design?",
+   "a": "That every screen showing server data is showing history, and the honest question is how much history is acceptable. That question is what <code>staleTime</code> encodes, and it belongs to the domain, not to the library."
+  },
+  {
+   "n": 93,
+   "c": "node-5",
+   "t": "Node 5 · Server state is not client state",
+   "q": "Why is this node the pivot of the whole chain?",
+   "a": "Because it has almost no API surface and it changes what questions you ask. Every node after it is an answer to a cache question that couldn't even be phrased while the data was being treated as component state."
+  },
+  {
+   "n": 94,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "Name the main libraries in this space and their positioning.",
+   "a": "<strong>TanStack Query</strong> (Tanner Linsley, released as React Query in 2019, renamed for multi-framework support, now v5) &mdash; the default. <strong>SWR</strong> (Vercel) &mdash; smaller, simpler. <strong>RTK Query</strong> &mdash; inside Redux Toolkit, right in a Redux codebase. <strong>Apollo Client</strong> / <strong>urql</strong> &mdash; GraphQL, with normalised caches."
+  },
+  {
+   "n": 95,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "What are the two architectural pieces of TanStack Query?",
+   "a": "A <code>QueryClient</code> holding one cache &mdash; a map from key to entry &mdash; that lives <strong>outside React entirely</strong>; and a <code>QueryClientProvider</code> that puts it into context so hooks can reach it."
+  },
+  {
+   "n": 96,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "Why must the cache live outside the component tree?",
+   "a": "So it survives unmounts and can be shared. A cache inside a component dies with it and cannot be read by a sibling &mdash; which is exactly Node 4's sharing failure."
+  },
+  {
+   "n": 97,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "What is a query key?",
+   "a": "An array, hashed deterministically into a string, that acts as the <strong>address of one cache entry</strong>. Two components using the same key are looking at the same entry: same data, one request, one loading state, always in agreement."
+  },
+  {
+   "n": 98,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "What is the rule for what must go in a query key?",
+   "a": "<strong>Every input the <code>queryFn</code> depends on.</strong> If a filter is in the URL but not the key, you fetch filtered data and store it at the unfiltered address, then serve it to the wrong caller for as long as it stays cached."
+  },
+  {
+   "n": 99,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "Why are query keys conventionally hierarchical?",
+   "a": "Because invalidation matches by <strong>prefix</strong>. <code>[\"todos\"]</code>, <code>[\"todos\", \"list\", filters]</code>, <code>[\"todos\", \"detail\", id]</code> means one <code>invalidateQueries({ queryKey: [\"todos\"] })</code> reaches the list, every filtered list, and every detail."
+  },
+  {
+   "n": 100,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "Are query keys order-sensitive?",
+   "a": "The array is ordered, so <code>[\"todos\", id]</code> and <code>[id, \"todos\"]</code> are different keys. But <strong>objects inside a key are hashed key-order-independently</strong>, so <code>{a:1,b:2}</code> and <code>{b:2,a:1}</code> hash identically."
+  },
+  {
+   "n": 101,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "What is request deduplication?",
+   "a": "If a request for a key is already in flight and another component asks for the same key, it attaches to the existing promise rather than starting a second request. One request, many subscribers."
+  },
+  {
+   "n": 102,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "What is an &ldquo;observer&rdquo; in TanStack Query?",
+   "a": "A mounted component subscribed to a cache entry. The cache counts observers, which is how it knows whether an entry is active (never garbage collected, eligible for background refetch) or inactive."
+  },
+  {
+   "n": 103,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "What is structural sharing?",
+   "a": "When a refetch returns data <strong>deeply equal</strong> to the cached value, the library keeps the <em>old object reference</em> instead of replacing it. So <code>data</code> is referentially identical and memoised consumers don't re-render at all."
+  },
+  {
+   "n": 104,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "What happens under structural sharing when one field changes?",
+   "a": "Only the objects along the path to that field get new references; untouched branches keep their old ones. This is why polling unchanged data every five seconds costs almost nothing in renders."
+  },
+  {
+   "n": 105,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "What is the <code>signal</code> passed into <code>queryFn</code>?",
+   "a": "TanStack Query creates an <code>AbortController</code> per request and hands you its signal. Pass it to <code>fetch</code> and the library cancels the request for you when the query becomes irrelevant &mdash; Node 2's API wired up automatically."
+  },
+  {
+   "n": 106,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "What does a minimal <code>useQuery</code> call look like?",
+   "a": "<code>useQuery({ queryKey: [\"todos\", { status, page }], queryFn: ({ signal }) =&gt; fetch(url, { signal }).then(r =&gt; { if (!r.ok) throw new Error(r.status); return r.json(); }) })</code>."
+  },
+  {
+   "n": 107,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "Why must the <code>queryFn</code> throw on a bad status?",
+   "a": "Because <code>fetch</code> doesn't (Node 2). If you return the parsed error body instead of throwing, the library records it as successful data, caches it, and never enters the error path."
+  },
+  {
+   "n": 108,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "What single Node 4 failure does the query key alone eliminate?",
+   "a": "The sharing failure. Same key means one entry, one request, and one value &mdash; two components can no longer disagree."
+  },
+  {
+   "n": 109,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "What is a <code>QueryClient</code> default option set for?",
+   "a": "Setting policy once &mdash; <code>defaultOptions: { queries: { staleTime, retry, refetchOnWindowFocus } }</code> &mdash; so individual queries only override what genuinely differs."
+  },
+  {
+   "n": 110,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "What does <code>QueryClientProvider</code> actually provide?",
+   "a": "The <code>QueryClient</code> instance, over React context, so hooks can reach the cache. It doesn't hold the data itself &mdash; the client does, outside React &mdash; which is why the cache survives unmounts."
+  },
+  {
+   "n": 111,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "Why should the <code>QueryClient</code> be created with <code>useState</code> or a module constant in a React app?",
+   "a": "Creating it inline in the component body makes a new client on every render, throwing away the cache each time. Either hoist it to module scope (client-only apps) or create it once with <code>useState(() =&gt; new QueryClient())</code>."
+  },
+  {
+   "n": 112,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "How do you read or write the cache outside a component?",
+   "a": "Through the <code>queryClient</code> directly: <code>getQueryData</code>, <code>setQueryData</code>, <code>invalidateQueries</code>, <code>prefetchQuery</code>. Inside components you reach it with <code>useQueryClient()</code>."
+  },
+  {
+   "n": 113,
+   "c": "node-6",
+   "t": "Node 6 · The query cache and query keys",
+   "q": "What is a query key factory and why do teams use one?",
+   "a": "A module exporting functions that build keys &mdash; <code>todoKeys.detail(id)</code>, <code>todoKeys.list(filters)</code>. It stops keys being typed by hand in twelve places, which is how prefix hierarchies silently drift apart and invalidation starts missing."
+  },
+  {
+   "n": 114,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "Where does the idea of stale-while-revalidate come from?",
+   "a": "<strong>RFC 5861</strong>, May 2010 &mdash; a <code>Cache-Control</code> extension for HTTP. When a cached response has expired, serve the stale copy immediately <em>and</em> fetch a fresh one in the background, replacing it when it lands."
+  },
+  {
+   "n": 115,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "Why is stale-while-revalidate the right default for a UI?",
+   "a": "The user sees content instantly and correctness follows a moment later. The alternative &mdash; blank screen until fresh data arrives &mdash; trades a real, felt delay for a correctness margin the user usually doesn't need."
+  },
+  {
+   "n": 116,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "What is <code>staleTime</code>?",
+   "a": "How long fetched data is considered <strong>fresh</strong>. While fresh, mounting another component with that key triggers <strong>no request at all</strong>; the cached value is returned directly."
+  },
+  {
+   "n": 117,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "What is <code>staleTime</code>'s default and why does that surprise people?",
+   "a": "<code>0</code> &mdash; data is stale the instant it arrives. So a fresh install appears to refetch constantly on every mount and focus. It is the knob most worth tuning."
+  },
+  {
+   "n": 118,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "How do you choose a <code>staleTime</code>?",
+   "a": "By asking a domain question: <em>how out of date can this be before a user is harmed?</em> A currency rate, seconds. A user's own profile, minutes. A list of countries, effectively <code>Infinity</code>."
+  },
+  {
+   "n": 119,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "What is <code>gcTime</code>, and what was it called before?",
+   "a": "How long an entry survives in memory <strong>after the last component observing it unmounts</strong>. Default five minutes. It was called <code>cacheTime</code> before v5 (October 2023) and was renamed because everyone misread it as a freshness setting."
+  },
+  {
+   "n": 120,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "State the difference between <code>staleTime</code> and <code>gcTime</code> in one line.",
+   "a": "<strong><code>staleTime</code> decides whether to refetch; <code>gcTime</code> decides whether to forget.</strong>"
+  },
+  {
+   "n": 121,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "Can an actively observed query be garbage collected?",
+   "a": "No. <code>gcTime</code> only counts <em>inactive</em> time &mdash; time with zero observers. An entry a mounted component is watching is never collected, regardless of the setting."
+  },
+  {
+   "n": 122,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "What does <code>refetchOnMount</code> do?",
+   "a": "When a component mounts and finds a <strong>stale</strong> entry, it renders the cached value immediately and refetches behind it. If the entry is fresh, nothing happens."
+  },
+  {
+   "n": 123,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "What is <code>refetchOnWindowFocus</code> and why is it defaulted on?",
+   "a": "The library refetches stale queries when the user returns to the tab. It is defaulted on because the moment a user looks at your tab again is precisely the moment stale data starts to matter. It's also the feature that startles people most, because they see requests they didn't write."
+  },
+  {
+   "n": 124,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "Someone says focus refetching is annoying and wants it off. What's the better fix?",
+   "a": "Usually a <code>staleTime</code> that reflects how fast the data actually changes. <code>staleTime</code> gates focus refetching automatically, so tuning it fixes the noise without giving up the behaviour where it matters."
+  },
+  {
+   "n": 125,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "What is <code>refetchOnReconnect</code>?",
+   "a": "Refetch stale queries when the browser regains network connectivity, because anything held during an outage is suspect."
+  },
+  {
+   "n": 126,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "How do the refetch triggers interact with <code>staleTime</code>?",
+   "a": "<strong><code>staleTime</code> gates all of them.</strong> A query with <code>staleTime: 60_000</code> will not refetch on mount, focus, or reconnect within that minute, because it isn't stale."
+  },
+  {
+   "n": 127,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "What does <code>staleTime: Infinity</code> give you?",
+   "a": "A manual-only cache. It never goes stale, so nothing automatic ever refetches it &mdash; only an explicit <code>invalidateQueries</code> or <code>refetch()</code> will."
+  },
+  {
+   "n": 128,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "Where do you see whether a query is fresh, stale, fetching, or inactive?",
+   "a": "TanStack Query Devtools, which lists every key with its current status and observer count. Watching a key flip to stale on window blur is how this node stops being abstract."
+  },
+  {
+   "n": 129,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "Is a stale query wrong?",
+   "a": "No &mdash; stale means &ldquo;worth rechecking&rdquo;, not &ldquo;incorrect&rdquo;. It is still rendered immediately. Staleness is a scheduling signal, not a correctness verdict."
+  },
+  {
+   "n": 130,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "What does calling <code>refetch()</code> do relative to staleness?",
+   "a": "It refetches unconditionally, ignoring <code>staleTime</code>. It's the manual override for a user-facing refresh button."
+  },
+  {
+   "n": 131,
+   "c": "node-7",
+   "t": "Node 7 · Staleness and refetching",
+   "q": "Why does data sometimes appear instantly with no request at all?",
+   "a": "The entry was fresh &mdash; within <code>staleTime</code> &mdash; so the cached value was returned and no trigger fired. This is the behaviour people mistake for a bug when they've set a long <code>staleTime</code> and expect a request."
+  },
+  {
+   "n": 132,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "What are the two distinct situations that &ldquo;loading&rdquo; conflates?",
+   "a": "(1) This key has <strong>never</strong> been fetched and there is genuinely nothing to render. (2) This key <strong>has</strong> data and a request is in flight to check whether it is still right."
+  },
+  {
+   "n": 133,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "Why is showing a spinner in the second situation bad?",
+   "a": "It throws away a perfectly good screen to re-fetch data you already have, making a fast app feel slow and producing the flicker users hate."
+  },
+  {
+   "n": 134,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "What is <code>isPending</code> in TanStack Query v5?",
+   "a": "There is <strong>no data yet</strong> &mdash; the true first load. This is what a skeleton belongs on."
+  },
+  {
+   "n": 135,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "What is <code>isFetching</code>?",
+   "a": "A request is in flight <strong>for any reason</strong>, including a background revalidation. Under stale-while-revalidate it is often true while <code>isPending</code> is false, and that is the good case."
+  },
+  {
+   "n": 136,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "What happened to <code>isLoading</code> between v4 and v5?",
+   "a": "v4's <code>isLoading</code> meant &ldquo;no data yet&rdquo;; v5 renamed that to <code>isPending</code> and redefined <code>isLoading</code> as <code>isPending &amp;&amp; isFetching</code>. Blog posts written before October 2023 use the old names, which catches people mid-migration."
+  },
+  {
+   "n": 137,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "What is the idiomatic loading UI?",
+   "a": "Skeleton on <code>isPending</code>; a small unobtrusive indicator &mdash; dimmed list, thin progress bar, subtle spinner in a corner &mdash; on <code>isFetching</code>."
+  },
+  {
+   "n": 138,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "What is <code>initialData</code>?",
+   "a": "Data you are claiming is <strong>real and cacheable</strong>. It is written into the cache and ages under <code>staleTime</code> like anything else."
+  },
+  {
+   "n": 139,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "What is <code>placeholderData</code>?",
+   "a": "Data you are admitting is <strong>fake</strong>. It renders, but is never written to the cache, and the query stays effectively pending until real data arrives. <code>isPlaceholderData</code> tells you which you're looking at."
+  },
+  {
+   "n": 140,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "What goes wrong if you confuse the two?",
+   "a": "Using <code>initialData</code> for fake data caches a lie that other components will read as truth. Using <code>placeholderData</code> for genuinely known-good data fails to cache a truth, so you refetch something you already had."
+  },
+  {
+   "n": 141,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "Why does a page change cause the list to disappear?",
+   "a": "Because <code>[\"todos\", { page: 2 }]</code> is a <strong>different cache entry</strong> with no data. The query is pending, so your skeleton branch runs and the list vanishes."
+  },
+  {
+   "n": 142,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "How do you keep the previous page on screen while the next loads?",
+   "a": "<code>placeholderData: keepPreviousData</code> in v5 (the <code>keepPreviousData: true</code> flag in v4). The previous page stays rendered, flagged via <code>isPlaceholderData</code>, and swaps when the new page lands."
+  },
+  {
+   "n": 143,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "What is prefetching, and why is it the cheapest performance win here?",
+   "a": "<code>queryClient.prefetchQuery</code> fills the cache before anything renders &mdash; on link hover, on route intent, at app start. The latency is spent during time the user was going to spend anyway, so the eventual navigation has no loading state at all."
+  },
+  {
+   "n": 144,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "How would you implement hover prefetching?",
+   "a": "<code>onMouseEnter</code> on the link calls <code>queryClient.prefetchQuery({ queryKey, queryFn, staleTime })</code>. Pass a <code>staleTime</code> so a hover that doesn't lead to a click doesn't cause an immediate refetch on arrival."
+  },
+  {
+   "n": 145,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "What is <code>isSuccess</code> and when is it useful?",
+   "a": "It means the query has data from a successful fetch. It's the cleanest condition for the happy path, and pairs with <code>isPending</code> and <code>isError</code> to cover the three render branches without deriving them from <code>data == null</code>."
+  },
+  {
+   "n": 146,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "Why prefer a skeleton to a spinner on first load?",
+   "a": "It reserves the layout, so content doesn't jump when it arrives, and it communicates the shape of what's coming. A spinner communicates only that something is happening."
+  },
+  {
+   "n": 147,
+   "c": "node-8",
+   "t": "Node 8 · Honest loading states",
+   "q": "What is the risk of prefetching aggressively on hover?",
+   "a": "Requests for things the user never opens, which costs bandwidth and server load &mdash; harmless on a link list, wasteful on a dense grid. Prefetch on intent (hover with a small delay, or focus), not on every pointer crossing."
+  },
+  {
+   "n": 148,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "Name the four ways a write differs from a read, justifying a separate hook.",
+   "a": "It isn't idempotent, so it must never fire automatically on render. It's imperative &mdash; triggered by a user action, not by rendering. It shouldn't be retried blindly. And it has no cache entry of its own; its result isn't something you'd later read by key."
+  },
+  {
+   "n": 149,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "What does <code>useMutation</code> give you?",
+   "a": "A <code>mutate</code> (and <code>mutateAsync</code>) function to call from an event handler, plus <code>isPending</code>, <code>error</code>, <code>data</code>, and lifecycle callbacks <code>onMutate</code>, <code>onSuccess</code>, <code>onError</code>, <code>onSettled</code>."
+  },
+  {
+   "n": 150,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "When does each mutation callback run?",
+   "a": "<code>onMutate</code> before the request is sent; <code>onSuccess</code> after it resolves; <code>onError</code> after it rejects; <code>onSettled</code> after either, always."
+  },
+  {
+   "n": 151,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "Why is the cache wrong after a successful write?",
+   "a": "The list entry was fetched before your new row existed, and so were any counts, dashboards, and filtered views containing it. Nothing has told the cache that reality moved."
+  },
+  {
+   "n": 152,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "What are the two ways to make the cache correct after a write?",
+   "a": "<strong>Invalidation</strong> &mdash; mark entries stale and refetch from the server. <strong>Direct cache writing</strong> &mdash; <code>setQueryData</code> the new value in by hand, no refetch."
+  },
+  {
+   "n": 153,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "What does <code>invalidateQueries</code> actually do?",
+   "a": "Marks every matching entry stale <em>and</em> immediately refetches the ones currently being observed. Inactive matching entries are just marked stale and will refetch when next mounted."
+  },
+  {
+   "n": 154,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "How does <code>invalidateQueries</code> match?",
+   "a": "By <strong>prefix</strong>. <code>invalidateQueries({ queryKey: [\"todos\"] })</code> matches <code>[\"todos\", \"list\", {...}]</code> and <code>[\"todos\", \"detail\", 7]</code>. Pass <code>exact: true</code> to match only the literal key."
+  },
+  {
+   "n": 155,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "When is direct cache writing correct?",
+   "a": "Only when your local reconstruction <strong>exactly matches</strong> what the server would say. The moment the server computes anything you don't have &mdash; a derived count, a timestamp, a sort position, a permission flag &mdash; hand-written data drifts and produces bugs that only appear after a hard reload."
+  },
+  {
+   "n": 156,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "What is the sensible default, and why?",
+   "a": "<strong>Invalidate.</strong> It costs a round trip and is almost always correct, because the server is the authority and you just asked it for the truth. Round trips are cheap; silent cache divergence is not."
+  },
+  {
+   "n": 157,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "What is a common hybrid?",
+   "a": "<code>setQueryData</code> the detail entry from the mutation's own response (the server just told you the new row), and <code>invalidateQueries</code> the lists (where server-side ordering, counts, and filters apply)."
+  },
+  {
+   "n": 158,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "Should <code>invalidateQueries</code> go in <code>onSuccess</code> or <code>onSettled</code>?",
+   "a": "<code>onSuccess</code> if you only want to resync on success. <code>onSettled</code> if you want the server's truth regardless &mdash; which is the safer default when the write may have partially applied."
+  },
+  {
+   "n": 159,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "How do you await the refetch caused by an invalidation?",
+   "a": "Return the promise from the callback: <code>onSettled: () =&gt; queryClient.invalidateQueries({ queryKey: [\"todos\"] })</code>. TanStack Query awaits a returned promise, so <code>isPending</code> stays true until the refetch completes &mdash; useful for keeping a button disabled until the list is actually correct."
+  },
+  {
+   "n": 160,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "Why should mutations not be fired from <code>useEffect</code>?",
+   "a": "Because effects run on render and re-run on dependency change, and a write must be caused by an intent. An effect-triggered POST will eventually fire twice &mdash; Strict Mode alone guarantees it in development."
+  },
+  {
+   "n": 161,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "What's the difference between <code>mutate</code> and <code>mutateAsync</code>?",
+   "a": "<code>mutate</code> is fire-and-forget with callbacks and never rejects, so an unhandled failure can't crash you. <code>mutateAsync</code> returns a promise you can <code>await</code> and must catch &mdash; useful when you need to sequence work after the write, dangerous if you forget the <code>try/catch</code>."
+  },
+  {
+   "n": 162,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "Can several components share one mutation's state?",
+   "a": "Not by default &mdash; each <code>useMutation</code> call has its own state. Use a <code>mutationKey</code> plus <code>useMutationState</code> if a different part of the tree needs to observe an in-flight write."
+  },
+  {
+   "n": 163,
+   "c": "node-9",
+   "t": "Node 9 · Mutations and invalidation",
+   "q": "What is the argument for invalidating broadly rather than precisely?",
+   "a": "Precision is where the bugs are. A broad prefix invalidation refetches a little more than strictly necessary and is almost always correct; a precise list of keys drifts as the app grows and starts missing one."
+  },
+  {
+   "n": 164,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "What latency does a naive mutation impose on the user?",
+   "a": "Two round trips for one click: the write goes out and comes back, then the invalidation refetch goes out and comes back. On mobile data that is most of a second before a checkbox moves."
+  },
+  {
+   "n": 165,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "What is an optimistic update?",
+   "a": "Updating the UI <strong>as if the write already succeeded</strong>, sending the request, and rolling back if it fails. The bet is that most writes succeed."
+  },
+  {
+   "n": 166,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "List the four steps of a correct optimistic update.",
+   "a": "(1) <code>cancelQueries</code> for the affected key. (2) Snapshot the current value with <code>getQueryData</code> and return it as context. (3) <code>setQueryData</code> the optimistic value. (4) On error, restore the snapshot; on settled, invalidate."
+  },
+  {
+   "n": 167,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "Why must you call <code>cancelQueries</code> first?",
+   "a": "If a refetch is already in flight it will land <strong>after</strong> your optimistic write and overwrite it with pre-mutation data. That is a Node 4 race condition, now happening inside your own cache."
+  },
+  {
+   "n": 168,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "Why do you return the snapshot from <code>onMutate</code>?",
+   "a": "The returned value becomes the <code>context</code> argument passed to <code>onError</code> and <code>onSettled</code>. It is the only way <code>onError</code> knows what to roll back to."
+  },
+  {
+   "n": 169,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "Why invalidate in <code>onSettled</code> rather than only on success?",
+   "a": "So the server gets the final word either way. On success it replaces your guess with the real row; on failure it confirms the rollback matched reality."
+  },
+  {
+   "n": 170,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "What is the &ldquo;rollback flash&rdquo; and how do you handle it?",
+   "a": "A failure yanks the change back with no explanation, which is more confusing than a spinner would have been. Pair rollback with a toast or inline message stating what failed."
+  },
+  {
+   "n": 171,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "What goes wrong when you optimistically invent an ID?",
+   "a": "You create a row locally with a temporary ID; the server assigns a real one. Until the invalidation lands, clicking the temporary row 404s, and any child query keyed on that ID caches an error."
+  },
+  {
+   "n": 172,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "What is the stacked-mutation problem?",
+   "a": "Three rapid toggles each snapshot a &ldquo;previous&rdquo; that already includes earlier optimistic writes. A failure in the middle rolls back to a state that never existed on the server. Mitigate by cancelling or serialising, or by keying rollback to the specific field rather than the whole entry."
+  },
+  {
+   "n": 173,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "When should you <em>not</em> use optimistic updates?",
+   "a": "Payments, submissions, anything irreversible, and anything where showing a success that didn't happen causes real harm. The rule: small, local, near-certain, cheap to be wrong about."
+  },
+  {
+   "n": 174,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "Give four good candidates for optimistic updates.",
+   "a": "Toggling a checkbox, liking or starring, reordering a list by drag, and marking something read. All are low-stakes, instantly reversible, and almost always succeed."
+  },
+  {
+   "n": 175,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "What is the v5 <code>variables</code>/<code>isPending</code> alternative to full cache-writing optimism?",
+   "a": "For a single-place update you can render straight from the mutation's own <code>variables</code> while <code>isPending</code> is true, without touching the cache at all &mdash; simpler, and it needs no rollback because nothing was written."
+  },
+  {
+   "n": 176,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "What does the user actually perceive with and without an optimistic update?",
+   "a": "Without: click, wait for the write, wait for the refetch, then the UI moves &mdash; often 400&ndash;800ms on mobile. With: the UI moves in the next frame and the network happens invisibly. It is the single biggest perceived-performance lever in this topic."
+  },
+  {
+   "n": 177,
+   "c": "node-10",
+   "t": "Node 10 · Optimistic updates",
+   "q": "How do you show that an optimistic row is not yet confirmed?",
+   "a": "Render it at reduced opacity or with a subtle pending marker while the mutation is in flight, so a failure and rollback isn't a surprise. Honest optimism, rather than pretending the write already happened."
+  },
+  {
+   "n": 178,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "What is offset pagination?",
+   "a": "<code>?limit=20&amp;offset=40</code>, becoming SQL <code>LIMIT 20 OFFSET 40</code>. Simple, allows jumping to any page, and usually comes with a total count so you can render &ldquo;page 3 of 19&rdquo;."
+  },
+  {
+   "n": 179,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "What are offset pagination's two real flaws?",
+   "a": "<strong>Deep pages get slow</strong> &mdash; <code>OFFSET 100000</code> still makes the database walk and discard a hundred thousand rows. And <strong>inserts shift the window</strong>: a row added at the top between page 1 and page 2 makes the last item of page 1 reappear as the first item of page 2."
+  },
+  {
+   "n": 180,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "What is cursor pagination?",
+   "a": "<code>?limit=20&amp;after=&lt;opaque cursor&gt;</code>, where the cursor points at the last row returned. The query becomes <code>WHERE (created_at, id) &lt; (...) ORDER BY ... LIMIT 20</code>."
+  },
+  {
+   "n": 181,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "What are cursor pagination's trade-offs?",
+   "a": "Constant cost at any depth and no duplicates or skips under concurrent inserts &mdash; but <strong>no jumping to page 7</strong> and usually no total count. Cursors feed infinite scroll; offsets feed numbered tables."
+  },
+  {
+   "n": 182,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "Why is a cursor opaque?",
+   "a": "So the client cannot depend on its structure and the server can change the sort key or encoding without breaking clients. Usually a base64-encoded record of the sort values of the last row."
+  },
+  {
+   "n": 183,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "How do discrete pages work in the query cache?",
+   "a": "The page number goes in the key &mdash; <code>[\"todos\", { page }]</code> &mdash; so each page is a separate entry. That is correct, and it is exactly why you need <code>placeholderData: keepPreviousData</code> to avoid the flicker."
+  },
+  {
+   "n": 184,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "Why is infinite scroll structurally different from paging?",
+   "a": "The user's mental model is <strong>one growing list</strong>, not a set of pages, and it must survive as one thing when they scroll away and come back. Separate per-page entries can't represent that."
+  },
+  {
+   "n": 185,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "What shape does <code>useInfiniteQuery</code> store?",
+   "a": "A single cache entry whose data is <code>{ pages: [...], pageParams: [...] }</code> &mdash; an array of responses in load order, plus the parameter used for each."
+  },
+  {
+   "n": 186,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "What two options must you give <code>useInfiniteQuery</code> in v5?",
+   "a": "<code>initialPageParam</code> (the starting cursor or page) and <code>getNextPageParam(lastPage, allPages)</code>, which extracts the next cursor and returns <code>undefined</code> to signal there are no more."
+  },
+  {
+   "n": 187,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "What does <code>useInfiniteQuery</code> hand back beyond <code>data</code>?",
+   "a": "<code>fetchNextPage</code>, <code>hasNextPage</code>, and <code>isFetchingNextPage</code> &mdash; the last being distinct from <code>isFetching</code>, so a footer spinner doesn't also blank the whole list."
+  },
+  {
+   "n": 188,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "How do you render an infinite query's data?",
+   "a": "Flatten it: <code>data.pages.flatMap(p =&gt; p.items)</code>."
+  },
+  {
+   "n": 189,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "What happens when an infinite query is refetched?",
+   "a": "<strong>Every loaded page is refetched</strong>, sequentially, to keep the list internally consistent. After forty pages that is expensive &mdash; <code>maxPages</code> in v5 caps how many are retained."
+  },
+  {
+   "n": 190,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "How do you update a single item inside an infinite query?",
+   "a": "A nested <code>setQueryData</code> that maps over <code>pages</code> and then over each page's items, returning new arrays at both levels. It is fiddly enough that invalidation is often the better call."
+  },
+  {
+   "n": 191,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "How do you trigger loading the next page?",
+   "a": "An <code>IntersectionObserver</code> on a sentinel element at the bottom of the list &mdash; a browser API that reports when an element enters the viewport, far cheaper than listening to scroll events."
+  },
+  {
+   "n": 192,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "What guard must the intersection handler have?",
+   "a": "<code>if (hasNextPage &amp;&amp; !isFetchingNextPage) fetchNextPage()</code> &mdash; without it, the observer fires repeatedly while the request is in flight and you request the same page several times."
+  },
+  {
+   "n": 193,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "Why does an inserted row cause a duplicate under offset pagination?",
+   "a": "Page 1 was <code>OFFSET 0 LIMIT 20</code> at time T. A row is inserted at the top. Page 2 is <code>OFFSET 20</code> at time T+1, but everything has shifted down by one, so the row that was item 20 is now item 21 and appears again."
+  },
+  {
+   "n": 194,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "What does a cursor typically encode?",
+   "a": "The sort values of the last returned row &mdash; usually a timestamp plus a tiebreaker ID &mdash; base64-encoded so clients treat it as opaque. The tiebreaker matters: without it, rows sharing a timestamp get skipped or repeated."
+  },
+  {
+   "n": 195,
+   "c": "node-11",
+   "t": "Node 11 · Pagination and infinite lists",
+   "q": "Why is virtualisation usually needed alongside infinite scroll?",
+   "a": "Because an infinite list eventually holds thousands of rows, and thousands of DOM nodes make every render and every scroll expensive. Virtualisation renders only the visible window."
+  },
+  {
+   "n": 196,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "Restate what a request waterfall is and why it matters.",
+   "a": "Requests running sequentially that could have run in parallel. On a 150ms connection, three nested levels is 450ms of blank screen for data with no real dependency. It is one of the largest and least visible performance costs in React apps."
+  },
+  {
+   "n": 197,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "Why do component trees accidentally become request schedules?",
+   "a": "Because components fetch when they render, and a child cannot render until its parent has data. The hierarchy of your UI becomes the ordering of your network calls, which was never a decision anybody made."
+  },
+  {
+   "n": 198,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "What are the three distinct waterfall cases?",
+   "a": "(1) Genuinely dependent queries. (2) Independent queries that only look dependent because of tree shape. (3) Waterfalls caused by code splitting."
+  },
+  {
+   "n": 199,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "What is a genuinely dependent query?",
+   "a": "One whose input comes from another query's output &mdash; you need the user before you can fetch their projects, because you need their ID. This waterfall is real and unavoidable on the client."
+  },
+  {
+   "n": 200,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "What is the tool for dependent queries?",
+   "a": "The <code>enabled</code> flag: <code>useQuery({ queryKey: [\"projects\", userId], queryFn, enabled: !!userId })</code>. A disabled query does not fetch."
+  },
+  {
+   "n": 201,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "What status does a disabled query report, and what bug does that cause?",
+   "a": "It reports <code>pending</code>, because it has no data &mdash; even though nothing is in flight. Rendering a spinner on <code>isPending</code> without checking <code>enabled</code> gives you an <strong>eternal spinner</strong> when the dependency is permanently <code>undefined</code>."
+  },
+  {
+   "n": 202,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "What is the only real fix for a dependent waterfall?",
+   "a": "A server endpoint that returns both pieces in one response. The client cannot remove a genuine data dependency; it can only stop pretending it isn't there."
+  },
+  {
+   "n": 203,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "How do you fix independent queries that are running in series?",
+   "a": "Call all the <code>useQuery</code> hooks <strong>in the same component</strong>. Hooks run in order within one render and each kicks off its request immediately, so they fire together."
+  },
+  {
+   "n": 204,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "When do you need <code>useQueries</code>?",
+   "a": "When the number of queries is dynamic &mdash; one per item in a list. It takes an array of query option objects and returns an array of results, letting you run a variable number of queries without violating the rules of hooks."
+  },
+  {
+   "n": 205,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "How does code splitting create a waterfall?",
+   "a": "A lazily-loaded component cannot start fetching until its JavaScript chunk has downloaded and executed, so you get download-then-fetch instead of both at once. Hoist or prefetch the query above the lazy boundary."
+  },
+  {
+   "n": 206,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "What is the general-purpose anti-waterfall tool?",
+   "a": "<strong>Prefetching.</strong> <code>queryClient.prefetchQuery</code> on link hover, on route transition, or at app start fills the cache before render, so the latency is spent during time the user was spending anyway."
+  },
+  {
+   "n": 207,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "How do you tell a waterfall from parallel requests in DevTools?",
+   "a": "In the network waterfall view, a descending staircase of bars means sequential; bars starting at the same x position mean parallel. The <em>initiator</em> column names the code that fired each one."
+  },
+  {
+   "n": 208,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "What's the difference between a waterfall and a genuine dependency?",
+   "a": "A dependency means one request's input comes from another's output &mdash; it must be sequential. A waterfall is sequential execution where no such dependency exists. Only the second one is a bug."
+  },
+  {
+   "n": 209,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "Why do independent <code>useQuery</code> calls in one component fire in parallel?",
+   "a": "Because hooks run in order during a single render, and each <code>useQuery</code> starts its request immediately when it finds no fresh cache entry. Nothing waits for the previous one to resolve, because nothing awaits it."
+  },
+  {
+   "n": 210,
+   "c": "node-12",
+   "t": "Node 12 · Waterfalls, dependent and parallel queries",
+   "q": "How do you prefetch on a route transition?",
+   "a": "Kick off <code>prefetchQuery</code> in the router's navigation handler or the link's intent event, before the target component mounts, so the request and the code-loading overlap instead of queueing."
+  },
+  {
+   "n": 211,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "Trace the timeline of a cold load in a client-only fetching app.",
+   "a": "HTML shell arrives &rarr; JS bundle downloads &rarr; parses and executes &rarr; React mounts &rarr; effects run &rarr; request goes out &rarr; response arrives &rarr; render. Each arrow is real time, and the request doesn't even start until the last one."
+  },
+  {
+   "n": 212,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "Why is that timeline bad beyond feeling slow?",
+   "a": "It hurts Core Web Vitals (LCP in particular), it gives crawlers a page with no content, and the fastest possible first paint of the app is <strong>blank</strong> no matter how good your client code is."
+  },
+  {
+   "n": 213,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "What is the general fix?",
+   "a": "Move the first fetch onto the server, which is closer to the database and doesn't have to wait for a bundle to download."
+  },
+  {
+   "n": 214,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "What are the three shapes of server-side data fetching worth distinguishing?",
+   "a": "<strong>Prefetch-and-hydrate</strong> (TanStack Query on the server), <strong>route loaders</strong> (Remix / React Router 6.4+), and <strong>React Server Components</strong>."
+  },
+  {
+   "n": 215,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "How does prefetch-and-hydrate work?",
+   "a": "On the server: create a <code>QueryClient</code>, <code>await queryClient.prefetchQuery(...)</code>, serialise with <code>dehydrate()</code>, and ship that JSON with the HTML. On the client: wrap the tree in <code>&lt;HydrationBoundary state={dehydratedState}&gt;</code> so the cache starts populated."
+  },
+  {
+   "n": 216,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "What does hydration buy you concretely?",
+   "a": "<code>useQuery</code> on the very first client render finds data already in the cache &mdash; no request, no spinner &mdash; and everything from Node 7 onward (staleness, focus refetch, invalidation) still applies afterwards."
+  },
+  {
+   "n": 217,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "Why must you create a new <code>QueryClient</code> per request on the server?",
+   "a": "A module-level client would be shared across every user's request, so one user's data would be served from another's cache &mdash; Node 17's leak, at server scale."
+  },
+  {
+   "n": 218,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "What is a route loader?",
+   "a": "Data fetching attached to the <strong>route</strong> rather than the component. Remix, and React Router 6.4+ (September 2022). The router knows every data requirement of a URL before rendering anything, so it can fire them all in parallel."
+  },
+  {
+   "n": 219,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "What waterfall does the loader model structurally eliminate?",
+   "a": "The component-tree waterfall from Node 12. Because requirements are declared per route rather than discovered by rendering, no request has to wait for a parent to render first."
+  },
+  {
+   "n": 220,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "What are React Server Components?",
+   "a": "Components that render only on the server and never ship to the browser, and which may be <code>async</code> &mdash; so a component can <code>await</code> a database call directly during render. Stable in Next.js 13.4 (May 2023) and part of React 19."
+  },
+  {
+   "n": 221,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "What does RSC remove, and what does it not remove?",
+   "a": "It removes the need for client fetching on <strong>initial, mostly-static reads</strong>. It does not remove anything interactive &mdash; a filter typed into a box, an optimistic toggle, an infinite list, polling, or a websocket push all still need a client cache."
+  },
+  {
+   "n": 222,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "What is the settled 2023&ndash;2025 architecture?",
+   "a": "A split: server components fetch the initial page; client components with TanStack Query own everything interactive; and the server's fetch is handed to the client cache via hydration so both agree rather than duplicating the request."
+  },
+  {
+   "n": 223,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "How do you answer &ldquo;doesn't RSC make React Query obsolete?&rdquo;",
+   "a": "Only for read-only pages. The moment data must change without a navigation, you need a keyed cache with a staleness policy and invalidation, and RSC provides none of those."
+  },
+  {
+   "n": 224,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "What is <code>getServerSideProps</code> and where does it fit?",
+   "a": "The Next.js Pages Router mechanism for running code on the server per request and passing the result as props. It is the classic home of prefetch-and-hydrate, and still perfectly valid in Pages Router codebases."
+  },
+  {
+   "n": 225,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "Why is a server fetch faster than the same fetch from the client?",
+   "a": "It runs in the same data centre as the API or database, so the round trip is a millisecond or two rather than tens of milliseconds, and it doesn't wait for a bundle to download and execute first."
+  },
+  {
+   "n": 226,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "What breaks if you hydrate a cache with data serialised at a different time?",
+   "a": "Freshness accounting. Entries carry their fetch time, and if that isn't preserved the client either thinks stale data is fresh or immediately refetches everything you just paid to prefetch."
+  },
+  {
+   "n": 227,
+   "c": "node-13",
+   "t": "Node 13 · The server boundary: hydration, RSC, loaders",
+   "q": "Which parts of this topic are unchanged by RSC?",
+   "a": "Everything from Node 7 onward for interactive data: staleness policy, loading distinctions, mutations and invalidation, optimistic updates, pagination, retries, real-time, and cache safety. RSC changes where the <em>first</em> read happens, not how the cache behaves after."
+  },
+  {
+   "n": 228,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "Why should failed requests be retried at all?",
+   "a": "A large share of client request failures are <strong>transient</strong> &mdash; a flaky connection, a rolling deploy, a momentary rate limit. Failing permanently on the first drop makes the app look broken when it isn't."
+  },
+  {
+   "n": 229,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "What is TanStack Query's default retry behaviour?",
+   "a": "Failed <em>queries</em> are retried <strong>three times</strong> with exponential backoff &mdash; roughly 1s, 2s, 4s, capped at 30s."
+  },
+  {
+   "n": 230,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "What is exponential backoff and why does the doubling matter?",
+   "a": "Each retry delay doubles. It matters because a fixed short retry interval multiplied by every client of a struggling server is a self-inflicted denial of service &mdash; a <strong>thundering herd</strong>. Backoff gives the server room to recover."
+  },
+  {
+   "n": 231,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "What is jitter and why add it?",
+   "a": "A small random offset added to each backoff delay, so clients that failed at the same moment don't retry in lockstep and re-create the herd on a slower cadence."
+  },
+  {
+   "n": 232,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "Are mutations retried by default? Why?",
+   "a": "<strong>No.</strong> A GET is idempotent &mdash; asking twice is harmless. A POST is not, and retrying one that actually succeeded but whose response was lost creates a duplicate order or a double charge."
+  },
+  {
+   "n": 233,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "If you do want to retry writes safely, what does that require?",
+   "a": "An <strong>idempotency key</strong> &mdash; a client-generated unique ID sent with the write, which the server records so a repeat of the same key returns the original result instead of doing the work again. This is how Stripe's API handles retries."
+  },
+  {
+   "n": 234,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "Which statuses are worth retrying?",
+   "a": "5xx, 429 (respecting <code>Retry-After</code> if present), and network-level failures. Not 404 (still 404 in four seconds), not 401 (needs a token refresh, not a retry), not 422 (your payload is wrong)."
+  },
+  {
+   "n": 235,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "How do you express a conditional retry policy?",
+   "a": "<code>retry: (failureCount, error) =&gt; failureCount &lt; 3 &amp;&amp; isRetryable(error)</code>, where <code>isRetryable</code> inspects the status you attached when throwing in the <code>queryFn</code>."
+  },
+  {
+   "n": 236,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "Why should your <code>queryFn</code> throw a custom error carrying the status?",
+   "a": "Because retry policy, error boundaries, and UI messaging all need the status, and <code>new Error(\"Request failed\")</code> throws it away. Throw an error object with <code>status</code> and, ideally, the parsed error body."
+  },
+  {
+   "n": 237,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "What is <code>throwOnError</code> and what was it called before?",
+   "a": "It rethrows a query's error during render so a React <strong>error boundary</strong> catches it, letting you handle failure once per region instead of once per query. It was <code>useErrorBoundary</code> before v5."
+  },
+  {
+   "n": 238,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "What is a React error boundary?",
+   "a": "A class component implementing <code>getDerivedStateFromError</code> and/or <code>componentDidCatch</code> that catches errors thrown by its descendants during render and renders a fallback instead. In practice most people use the <code>react-error-boundary</code> package rather than writing the class."
+  },
+  {
+   "n": 239,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "What do error boundaries <em>not</em> catch?",
+   "a": "Errors in event handlers, in <code>setTimeout</code> callbacks, in async code that isn't rethrown during render, and errors during server rendering. This is exactly why <code>throwOnError</code> exists &mdash; it converts an async failure into a render-time throw."
+  },
+  {
+   "n": 240,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "What is <code>QueryErrorResetBoundary</code> for?",
+   "a": "It lets a &ldquo;try again&rdquo; button in an error fallback actually <strong>reset the failed queries</strong>, rather than just re-rendering a component that immediately throws the cached error again."
+  },
+  {
+   "n": 241,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "What does <code>useSuspenseQuery</code> change?",
+   "a": "It moves the pending state up to a <code>&lt;Suspense fallback&gt;</code> boundary instead of returning <code>isPending</code>, so the component can assume <code>data</code> is always defined."
+  },
+  {
+   "n": 242,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "What is the hidden cost of Suspense-based fetching?",
+   "a": "A suspending component <strong>blocks its siblings from rendering</strong>, which quietly reintroduces a waterfall if several sibling components each suspend on their own query. Hoist the queries or wrap siblings in separate boundaries."
+  },
+  {
+   "n": 243,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "What should the UI do while retries are happening?",
+   "a": "Usually nothing visible on the first retry &mdash; the whole point is to survive a blip invisibly. If retries exhaust, show a real error with a manual retry. Flashing an error and then recovering is worse than either outcome alone."
+  },
+  {
+   "n": 244,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "Why should a 401 not be retried by the query layer?",
+   "a": "Because retrying the same expired credential produces the same 401. It needs a token refresh followed by a replay, which belongs in the request client, not in the retry policy."
+  },
+  {
+   "n": 245,
+   "c": "node-14",
+   "t": "Node 14 · Failure, retries, and error boundaries",
+   "q": "What is <code>Retry-After</code> and how should a client honour it?",
+   "a": "A response header on 429 and some 503s giving the number of seconds (or a date) to wait. A well-behaved client uses it in place of its own backoff calculation for that attempt."
+  },
+  {
+   "n": 246,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "What is the cheap answer to real-time data?",
+   "a": "Polling &mdash; <code>refetchInterval: 5000</code>. It costs nothing to build, works through every proxy and firewall, and is genuinely correct for slowly-changing data."
+  },
+  {
+   "n": 247,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "What are polling's two costs?",
+   "a": "At scale it is a request per client per interval <strong>regardless of whether anything changed</strong>; and its latency is on average half the interval, so a 30s poll means changes appear ~15s late."
+  },
+  {
+   "n": 248,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "How do you stop polling once a job finishes?",
+   "a": "Pass a <em>function</em> to <code>refetchInterval</code>: <code>refetchInterval: (query) =&gt; query.state.data?.status === \"done\" ? false : 2000</code>. Returning <code>false</code> stops the timer."
+  },
+  {
+   "n": 249,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "Does polling continue in a hidden tab?",
+   "a": "No &mdash; <code>refetchIntervalInBackground</code> defaults to <code>false</code>, so a backgrounded tab stops polling on its own. Set it to true only when you genuinely need updates the user isn't looking at."
+  },
+  {
+   "n": 250,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "What are Server-Sent Events?",
+   "a": "A one-way stream of text events over a plain HTTP response, consumed with the browser's <code>EventSource</code>. Automatic reconnection is built in. The right default for &ldquo;the server tells the client things&rdquo;."
+  },
+  {
+   "n": 251,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "What are WebSockets and when do you need them instead?",
+   "a": "A full-duplex connection established by an HTTP upgrade handshake. You need them for genuine two-way traffic &mdash; chat, presence, collaborative editing &mdash; not for one-directional server pushes."
+  },
+  {
+   "n": 252,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "Once a pushed message arrives, what are your two options?",
+   "a": "<strong>Invalidate</strong> the affected key so the cache refetches from the authority; or <strong>write directly</strong> with <code>setQueryData</code> using the payload the message carried."
+  },
+  {
+   "n": 253,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "Which push-handling option is the safer default?",
+   "a": "Invalidation. Slightly more traffic, always correct. Direct writing is correct only if the message payload is complete and you can guarantee ordering."
+  },
+  {
+   "n": 254,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "What goes wrong with direct writes from out-of-order messages?",
+   "a": "An older message arriving after a newer one happily writes stale data over fresh data. Guard it: every payload carries a version or updated-at, and the updater refuses to write a value older than what's cached."
+  },
+  {
+   "n": 255,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "What is the architectural point of funnelling everything into the cache?",
+   "a": "<strong>The query cache is the single place all data lands, whatever the transport.</strong> Polling, push, mutations and prefetches all write to the same keyed store, and components subscribe to the store, not the transport. Switching from polling to websockets changes no component."
+  },
+  {
+   "n": 256,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "What is the debounce concern with push-driven invalidation?",
+   "a": "A busy stream can invalidate the same key dozens of times a second, producing a refetch storm. Batch or debounce the invalidations over a short window."
+  },
+  {
+   "n": 257,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "How would you choose a polling interval?",
+   "a": "From how quickly a change must be visible and how many clients are polling. Ten clients polling a cheap endpoint every two seconds is fine; ten thousand clients doing it is a load problem. When the maths gets uncomfortable, that's the signal to move to push."
+  },
+  {
+   "n": 258,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "How do you write a websocket message into the cache safely?",
+   "a": "<code>setQueryData(key, old =&gt; ...)</code> with an updater that compares versions or timestamps and returns <code>old</code> unchanged when the message is older than what's cached. Blind writes make out-of-order delivery a correctness bug."
+  },
+  {
+   "n": 259,
+   "c": "node-15",
+   "t": "Node 15 · Real time: polling and push",
+   "q": "Why does the transport-independence of the cache matter architecturally?",
+   "a": "Because it means the decision between polling, SSE and websockets is an infrastructure decision you can revisit later without touching a single component. Very few architectural choices in a frontend are that cheaply reversible."
+  },
+  {
+   "n": 260,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "What two performance wins does the query cache give you for free?",
+   "a": "<strong>Structural sharing</strong> &mdash; an unchanged refetch produces identical references and therefore no re-render. And <strong>deduplication</strong> &mdash; N components asking for one key make one request."
+  },
+  {
+   "n": 261,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "What performance problem remains after those?",
+   "a": "A component that subscribes to a whole cache entry but needs one field of it. A header showing an unread count re-renders on every change to any notification."
+  },
+  {
+   "n": 262,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "What does <code>select</code> do?",
+   "a": "Transforms a query's data before it reaches the component, and &mdash; crucially &mdash; compares <strong>the selected value</strong>, so the component only re-renders when that derived value actually changes."
+  },
+  {
+   "n": 263,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "What is the trap with <code>select</code>?",
+   "a": "An inline <code>select</code> returning a <strong>new object or array on every call</strong> defeats the comparison entirely, because the result is never equal to the previous one. It must be a stable function returning a primitive or a memoised value."
+  },
+  {
+   "n": 264,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "Which recurring pattern does the <code>select</code> trap belong to?",
+   "a": "Referential identity. It is the same problem as an inline object in a <code>useEffect</code> dependency array (Node 3) and an unstable query key object (Node 6), in its third costume."
+  },
+  {
+   "n": 265,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "What is <code>notifyOnChangeProps</code>?",
+   "a": "A blunter subscription control: <code>notifyOnChangeProps: [\"data\"]</code> tells the query to only re-render the component when <code>data</code> changes, ignoring <code>isFetching</code> transitions entirely."
+  },
+  {
+   "n": 266,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "What is a document cache?",
+   "a": "A cache where each key holds whatever the server returned, <strong>opaquely</strong>. TanStack Query and SWR work this way. If todo 42 appears in a list response and a detail response, those are two independent copies in two entries."
+  },
+  {
+   "n": 267,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "What is a normalised cache?",
+   "a": "Responses are broken apart by type and ID into a <strong>flat store</strong>, so an entity exists exactly once and every query referencing it updates automatically when it changes. Apollo Client and urql work this way."
+  },
+  {
+   "n": 268,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "Why does GraphQL make normalisation practical?",
+   "a": "Because the schema guarantees stable type and ID information on every object &mdash; that is what <code>__typename</code> and <code>id</code> conventions are for. Without reliable identity you cannot normalise."
+  },
+  {
+   "n": 269,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "What is normalisation's cost?",
+   "a": "Complexity. It needs stable IDs on everything, explicit configuration for pagination and merge behaviour, and its failure modes (missing fields, cache misses, merge conflicts) are harder to reason about than a stale document."
+  },
+  {
+   "n": 270,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "State TanStack Query's deliberate position on this.",
+   "a": "Invalidation is a simpler tool that reaches the same result at the cost of a round trip &mdash; and <strong>round trips are cheap while cache-consistency bugs are not</strong>. Being able to state that trade-off is a senior-sounding answer."
+  },
+  {
+   "n": 271,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "What non-cache performance levers matter here?",
+   "a": "Have the server return only what the screen needs; virtualise long lists (TanStack Virtual, react-window) so ten thousand rows aren't ten thousand DOM nodes; and remember a well-indexed backend query beats any amount of client optimisation."
+  },
+  {
+   "n": 272,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "How do you diagnose a re-render storm?",
+   "a": "React DevTools Profiler with &ldquo;highlight updates&rdquo; on, or the profiler's ranked view, to find which component re-renders and why. Then check whether it subscribes to more of a cache entry than it needs."
+  },
+  {
+   "n": 273,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "What's the first thing to check when a page re-renders constantly?",
+   "a": "Whether components are subscribing to whole cache entries they only read a field of, and whether any query key or <code>select</code> produces a new reference each render. Referential instability is the cause far more often than the volume of data."
+  },
+  {
+   "n": 274,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "How does normalisation handle pagination, and why is that its hard part?",
+   "a": "Paginated results are lists of references that must be merged into an existing list, and the cache can't know whether a new page appends, replaces or interleaves. That's why normalised clients need explicit merge functions per field &mdash; and why misconfiguring them produces duplicated or vanishing items."
+  },
+  {
+   "n": 275,
+   "c": "node-16",
+   "t": "Node 16 · Performance and the normalisation question",
+   "q": "Is there a middle ground between document and normalised caches?",
+   "a": "Yes, in practice: a document cache plus disciplined key hierarchies and broad invalidation. You accept an extra round trip in exchange for never having to reason about merge semantics. That is TanStack Query's explicit bet."
+  },
+  {
+   "n": 276,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "Describe the logout cache leak concretely.",
+   "a": "A user logs in on a shared machine, browses, and logs out. In an SPA <strong>the page never reloads</strong>, so the <code>QueryClient</code> is still in memory holding their data. The next user logs in, and their first render finds a warm cache showing someone else's information."
+  },
+  {
+   "n": 277,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "What is the one-line fix?",
+   "a": "<code>queryClient.clear()</code> on logout &mdash; and defensively whenever a 401 forces a session to end."
+  },
+  {
+   "n": 278,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "What is the second half of the fix?",
+   "a": "Put the identity in the key. <code>[\"profile\"]</code> is a bug; <code>[\"profile\", userId]</code> is not. The same applies to a tenant or organisation ID in a multi-tenant app."
+  },
+  {
+   "n": 279,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "How does this follow from Node 6's rule?",
+   "a": "&ldquo;Every input to the <code>queryFn</code> must be in the key&rdquo; includes inputs that arrive <strong>implicitly</strong> &mdash; the user identity carried by a token or cookie is an input even though it never appears in your code."
+  },
+  {
+   "n": 280,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "Compare bearer tokens and HttpOnly cookies for auth.",
+   "a": "A <strong>bearer token</strong> in an <code>Authorization</code> header is simple and immune to CSRF, but a token in JS-readable storage is readable by any XSS. An <strong>HttpOnly cookie</strong> can't be read by JavaScript at all, which is stronger against XSS, but it's sent automatically and therefore needs <code>SameSite</code> and CSRF protection."
+  },
+  {
+   "n": 281,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "What does cookie auth require on the fetch and CORS side?",
+   "a": "<code>credentials: \"include\"</code> on the request, plus a server sending <code>Access-Control-Allow-Credentials: true</code> and a <strong>specific origin</strong> &mdash; the wildcard <code>*</code> is rejected with credentials, deliberately."
+  },
+  {
+   "n": 282,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "What is the common production auth shape?",
+   "a": "A short-lived access token held in memory plus a long-lived refresh token in an HttpOnly cookie. The access token isn't persisted, so XSS can't steal a durable credential; the refresh token isn't readable by JavaScript at all."
+  },
+  {
+   "n": 283,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "Describe the token refresh stampede.",
+   "a": "Five queries fire on page load and all five 401 at once, so all five kick off a token refresh. Four of them use a refresh token that rotation has already invalidated, and the user is logged out."
+  },
+  {
+   "n": 284,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "What is the fix for the refresh stampede?",
+   "a": "A <strong>single shared in-flight refresh promise</strong> that every failing request awaits. Implement it once, in an Axios interceptor or a wrapped <code>fetch</code> &mdash; never inside individual <code>queryFn</code>s."
+  },
+  {
+   "n": 285,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "Where should auth headers be attached?",
+   "a": "In one wrapped fetch client or interceptor, not per query. Otherwise every new query is a chance to forget, and the refresh logic has nowhere to live."
+  },
+  {
+   "n": 286,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "Why is this node a security topic, not a performance one?",
+   "a": "Because a shared process-wide cache with no notion of <em>whose</em> data it holds is a data leak. The failure mode isn't a slow page; it's showing one user another user's records."
+  },
+  {
+   "n": 287,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "Why isn't &ldquo;the user is redirected on logout&rdquo; enough?",
+   "a": "In an SPA a redirect is a client-side route change, not a page load. The JavaScript context, and therefore the cache, is untouched. Only a full reload or an explicit <code>clear()</code> disposes of it."
+  },
+  {
+   "n": 288,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "What should happen to the cache on a 401 mid-session?",
+   "a": "Treat it as a session end: clear the cache, stop in-flight refetches, and route to login. Leaving cached data on screen behind a login prompt is both confusing and a small disclosure risk on a shared device."
+  },
+  {
+   "n": 289,
+   "c": "node-17",
+   "t": "Node 17 · Auth, tenancy, and cache safety",
+   "q": "Why does the wildcard CORS origin not work with credentials?",
+   "a": "Because <code>Access-Control-Allow-Origin: *</code> plus cookies would let any site on the internet make authenticated requests to your API and read the results. The spec rejects the combination, forcing the server to name the origin explicitly."
+  },
+  {
+   "n": 290,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "What does cache persistence do?",
+   "a": "Writes the dehydrated cache to disk &mdash; via <code>@tanstack/query-persist-client</code> with a <code>localStorage</code> or IndexedDB persister &mdash; and restores it on boot, so a reload shows the last known data instantly and revalidates behind it."
+  },
+  {
+   "n": 291,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "What are the three obligations of persisting a cache?",
+   "a": "(1) Never persist per-user data without clearing it on logout &mdash; that's Node 17's leak written to disk, surviving a browser restart. (2) Version it with a build-tied buster string, or a deploy that changes a data shape hydrates old objects into new code. (3) Respect <code>maxAge</code>, or you show three-week-old data as current."
+  },
+  {
+   "n": 292,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "<code>localStorage</code> or IndexedDB for a persisted cache?",
+   "a": "<code>localStorage</code> is synchronous and roughly 5MB &mdash; fine for a small cache, but it blocks the main thread. IndexedDB is asynchronous and far larger, and is the right choice for anything substantial."
+  },
+  {
+   "n": 293,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "What does <code>networkMode</code> control?",
+   "a": "How queries and mutations behave without a connection. The default <code>\"online\"</code> pauses queries rather than failing them, and <strong>queues mutations</strong> to fire when connectivity returns."
+  },
+  {
+   "n": 294,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "What are the genuine hard problems of offline writes?",
+   "a": "Ordering (queued mutations must apply in a sensible sequence) and conflicts (the server's version has moved on while you were offline). Neither has a generic answer; both need domain decisions."
+  },
+  {
+   "n": 295,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "Name the local-first ecosystem and what to know about it.",
+   "a": "Replicache, ElectricSQL, Yjs and CRDTs. [AWARE] &mdash; know they exist and know that &ldquo;offline support&rdquo; is a far larger commitment than adding a persister."
+  },
+  {
+   "n": 296,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "When would you choose SWR over TanStack Query?",
+   "a": "A read-heavy app where you want a very small dependency and few knobs. Same core stale-while-revalidate model, but a much thinner mutation story and fewer features (no first-class infinite-query ergonomics of the same depth, lighter devtools)."
+  },
+  {
+   "n": 297,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "When is RTK Query the right answer?",
+   "a": "When the codebase already uses Redux. It shares the store and devtools, and its endpoint-definition style with <strong>tag-based invalidation</strong> is a genuinely different and quite pleasant ergonomic &mdash; you declare which tags an endpoint provides and which a mutation invalidates."
+  },
+  {
+   "n": 298,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "Apollo Client versus urql?",
+   "a": "Both GraphQL with normalised caches. Apollo is heavier, more featured, and more opinionated; urql is lighter and more composable, with normalisation as an opt-in exchange rather than the default."
+  },
+  {
+   "n": 299,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "What is Relay and why is it rarely the right call?",
+   "a": "Facebook's GraphQL client &mdash; extremely powerful, with compile-time query optimisation and fragment colocation, but it requires a build compiler and strict schema conventions. The payoff needs a large org and a mature schema."
+  },
+  {
+   "n": 300,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "Is <code>fetch</code> in a <code>useEffect</code> ever still the right answer?",
+   "a": "Yes &mdash; for a genuine one-off in a small app with no sharing, no staleness policy, and no writes. Being willing to say so is better than reflexively adding a data layer to a page with one request."
+  },
+  {
+   "n": 301,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "What should decide your choice of data layer?",
+   "a": "Whether you're on GraphQL (normalised cache pays off), whether you already have Redux (RTK Query), how much interactivity there is (more interactivity &rarr; more value from a full cache), and bundle budget. Not fashion."
+  },
+  {
+   "n": 302,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "What exactly gets persisted?",
+   "a": "The dehydrated query cache &mdash; keys, data, and metadata such as fetch times. Not the mutation cache by default, and not component state."
+  },
+  {
+   "n": 303,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "What is a cache buster string, concretely?",
+   "a": "A version identifier &mdash; usually the build hash or app version &mdash; stored with the persisted cache and compared on restore. If it doesn't match, the persisted cache is discarded rather than hydrated into incompatible code."
+  },
+  {
+   "n": 304,
+   "c": "node-18",
+   "t": "Node 18 · Persistence, offline, and the ecosystem",
+   "q": "Why is &ldquo;offline support&rdquo; a bigger commitment than it sounds?",
+   "a": "Reads are easy: persist and revalidate. Writes force you to answer ordering and conflict resolution, and to decide what the user sees when their queued change is finally rejected by the server. That's product design, not configuration."
+  },
+  {
+   "n": 305,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "What does TanStack Query Devtools show you?",
+   "a": "Every cache key, its status (fresh, stale, fetching, inactive), its data, its observer count, and buttons to invalidate, refetch, or reset any entry. Half the confusion in this topic dissolves the first time you watch a key go stale on window blur."
+  },
+  {
+   "n": 306,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "What does the browser network tab give you that devtools doesn't?",
+   "a": "The waterfall view (diagnoses Node 12), the initiator column (which code fired this), the actual request and response headers (diagnoses CORS and credentials), and throttling &mdash; which is how you make Node 4's race condition reproducible."
+  },
+  {
+   "n": 307,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "Why is mocking <code>fetch</code> or stubbing your API module a weak testing strategy?",
+   "a": "It tests your mock. The request URL, method, headers, status handling, and error parsing all go untested, so the code most likely to be wrong is the code the test never exercises."
+  },
+  {
+   "n": 308,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "What is Mock Service Worker (MSW) and why is it better?",
+   "a": "It intercepts at the <strong>network layer</strong> &mdash; a service worker in the browser, a request interceptor in Node &mdash; so your application makes a genuine <code>fetch</code> and MSW answers it. The URL, headers and status handling are all under test."
+  },
+  {
+   "n": 309,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "What else does MSW unlock beyond unit tests?",
+   "a": "The same handlers serve component tests, integration tests, and <strong>local development against a backend that doesn't exist yet</strong>; and you can return a 500, a 429, or a two-second delay to exercise paths you'd otherwise never hit."
+  },
+  {
+   "n": 310,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "Why must each test get its own <code>QueryClient</code>?",
+   "a": "Otherwise cached data and mutation state leak between tests, making them order-dependent and producing failures that vanish when run in isolation."
+  },
+  {
+   "n": 311,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "Why set <code>retry: false</code> in tests?",
+   "a": "Because the default three retries with exponential backoff means a failure case takes several seconds of real waiting before your assertion can run &mdash; and often exceeds the test timeout."
+  },
+  {
+   "n": 312,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "Why use <code>findBy*</code> rather than <code>getBy*</code> plus a sleep?",
+   "a": "<code>findBy*</code> returns a promise that retries until the element appears or times out, which is exactly right for async UI. A fixed sleep is either flaky (too short) or slow (too long) and is never correct."
+  },
+  {
+   "n": 313,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "Which states do people forget to test?",
+   "a": "The error state, the empty state, and the <strong>second load</strong> &mdash; refetch-with-existing-data, where the isPending/isFetching distinction and keepPreviousData actually matter. Almost everyone tests only the happy first render."
+  },
+  {
+   "n": 314,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "How do you test an optimistic update properly?",
+   "a": "Make MSW delay or fail the write. Assert that the UI changes <em>before</em> the response, then assert that it rolls back and shows an error on failure. Without a controllable delay, the optimistic window is too short to observe."
+  },
+  {
+   "n": 315,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "What is left after this node?",
+   "a": "Nothing structural &mdash; this is the end of the chain. What remains is judgement, which comes from building the thing."
+  },
+  {
+   "n": 316,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "How do you deliberately reproduce a race condition for testing?",
+   "a": "MSW with a per-request delay keyed on the parameter &mdash; make the first request slow and the second fast &mdash; then assert the UI shows the second subject's data. Without controllable timing, the bug is untestable."
+  },
+  {
+   "n": 317,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "What does the devtools observer count tell you?",
+   "a": "How many mounted components are watching a key. A count of zero on data still on screen means you're rendering from a different key than you think; an unexpectedly high count often reveals accidental duplicate subscriptions."
+  },
+  {
+   "n": 318,
+   "c": "node-19",
+   "t": "Node 19 · Seeing it and testing it",
+   "q": "What's the fastest way to confirm two components share one request?",
+   "a": "Devtools shows one entry with two observers, and the network tab shows one request. If you see two requests, the keys differ &mdash; usually an inline object, a <code>Date</code>, or a missing parameter."
+  }
+ ]
+}

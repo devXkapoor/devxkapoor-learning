@@ -1,0 +1,536 @@
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "How do you fetch data in React?",
+   "a": "I separate two things. Client state &mdash; what the user is doing in this tab &mdash; goes in <code>useState</code>. Server data isn't state, it's a cache of something a database owns, so it goes in a query cache: TanStack Query in practice. <code>useQuery</code> with a key, a fetch function, and a <code>staleTime</code> chosen from how fast that data actually changes. I can write the raw <code>useEffect</code> version too, but I'd only ship it for a genuine one-off."
+  },
+  {
+   "n": 2,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "What's wrong with fetching in <code>useEffect</code>?",
+   "a": "Four things. Race conditions &mdash; two in-flight requests can resolve out of order and render the wrong subject's data with no error. No cancellation unless you write cleanup, so unmounted components still set state. Strict Mode double-invokes effects in dev, which exposes missing cleanup. And nothing is shared, so two components asking the same question fetch twice and can end up showing different values."
+  },
+  {
+   "n": 3,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "Explain the race condition and how you'd fix it.",
+   "a": "You click user 1 then user 2. Both fetches are in flight, and nothing orders responses &mdash; if user 1's is slower it lands last and overwrites the screen with the wrong data. Silently. The fix is a cleanup function that aborts the previous request with <code>AbortController</code>, or at minimum an <code>ignore</code> flag the <code>.then</code> checks before calling <code>setState</code>. A query library does this for you per key."
+  },
+  {
+   "n": 4,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "What's the difference between client state and server state?",
+   "a": "Client state you own, it's correct the moment you set it, it's local to the tab, and it dies with the tab. Server state fails all four &mdash; a database owns it, it starts decaying the second the server answers, it's shared across every device and user, and it outlives your app. So it's not state, it's a cache, and once you say &ldquo;cache&rdquo; the right questions appear: what's the key, how stale can it be, who else reads it, how does it learn it's wrong."
+  },
+  {
+   "n": 5,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "Why use React Query instead of just writing the fetch yourself?",
+   "a": "Not to save lines. It's that <code>useState</code> has no key, no age, no sharing and no invalidation, so it cannot answer cache questions at any length of code. React Query gives me deduplication, one shared entry per key, a staleness policy, background revalidation, and prefix invalidation after writes. Those aren't conveniences, they're the actual requirements."
+  },
+  {
+   "n": 6,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "What is <code>staleTime</code> versus <code>gcTime</code>?",
+   "a": "<code>staleTime</code> decides whether to refetch &mdash; how long data counts as fresh, during which a mount or a window focus triggers nothing. <code>gcTime</code> decides whether to forget &mdash; how long an entry survives in memory after the last component watching it unmounts. Default <code>staleTime</code> is 0, default <code>gcTime</code> is five minutes. They're independent and mixing them up is the most common misconfiguration."
+  },
+  {
+   "n": 7,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "Does <code>fetch</code> throw on a 404?",
+   "a": "No. A 404 is a successful round trip as far as <code>fetch</code> is concerned &mdash; you asked, the server answered. It only rejects on network-level failures: DNS, connection refused, CORS block, offline, abort. You have to check <code>res.ok</code> yourself, and forgetting that means your error branch never runs. Axios chose the opposite and rejects on 4xx and 5xx, which is a lot of why people still use it."
+  },
+  {
+   "n": 8,
+   "c": "near_universal",
+   "t": "Near-universal question",
+   "q": "How do you invalidate the cache after a mutation?",
+   "a": "<code>queryClient.invalidateQueries({ queryKey: [\"todos\"] })</code> in <code>onSuccess</code> or <code>onSettled</code>. It matches by prefix, so hierarchical keys mean one call fixes the list, every filtered list, and every detail view. That's why I keep keys structured as <code>[\"todos\", \"list\", filters]</code> and <code>[\"todos\", \"detail\", id]</code>."
+  },
+  {
+   "n": 9,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "Why is my API being called twice in development?",
+   "a": "React 18 Strict Mode mounts, unmounts and remounts each component in dev only, running effects twice with a cleanup in between. It's a deliberate test that the effect cleans up. The wrong fixes are deleting Strict Mode or adding a <code>useRef</code> guard &mdash; both hide a real defect. The right fix is writing the cleanup, and if you're on a query library it's already handled by deduplication."
+  },
+  {
+   "n": 10,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "What's the difference between <code>isPending</code> and <code>isFetching</code>?",
+   "a": "<code>isPending</code> means there's no data at all &mdash; the true first load, which deserves a skeleton. <code>isFetching</code> means a request is in flight for any reason, including a background revalidation of data already on screen &mdash; that deserves a subtle indicator at most. Blanking a good screen to refetch the same data is the flicker users complain about."
+  },
+  {
+   "n": 11,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "What is a query key and what has to go in it?",
+   "a": "It's the address of a cache entry, an array hashed into a string. Every input the fetch function depends on must be in it &mdash; filters, page, sort, and the user or tenant ID. Miss one and you store filtered data at the unfiltered address and serve it to the wrong caller. Same key in two components means one entry, one request, one loading state."
+  },
+  {
+   "n": 12,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "Why does the list flicker when I change pages?",
+   "a": "Because page 2 is a different cache key with no data, so the query is pending and your skeleton branch runs. <code>placeholderData: keepPreviousData</code> keeps the previous page rendered, marks it via <code>isPlaceholderData</code>, and swaps when the new page lands."
+  },
+  {
+   "n": 13,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "Explain optimistic updates.",
+   "a": "Update the UI as if the write succeeded, then reconcile. Four steps: <code>cancelQueries</code> so an in-flight refetch can't overwrite your write; snapshot the current value and return it as context; <code>setQueryData</code> the optimistic value; on error restore the snapshot, on settled invalidate. Skip the cancel and you've built a race condition inside your own cache."
+  },
+  {
+   "n": 14,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "When would you not use an optimistic update?",
+   "a": "Payments, submissions, anything irreversible, anything where showing a success that didn't happen causes real harm. The rule I use is: small, local, near-certain to succeed, cheap to be wrong about. Toggles, likes, reorderings, mark-as-read &mdash; yes. Checkout &mdash; no."
+  },
+  {
+   "n": 15,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "How do you handle dependent queries?",
+   "a": "The <code>enabled</code> flag: <code>enabled: !!userId</code>, so the projects query doesn't fire until the user query resolves. The catch is a disabled query reports <code>pending</code>, so if you render a spinner on <code>isPending</code> without checking <code>enabled</code> you get an eternal spinner when the dependency is permanently undefined. And the honest answer is that a genuine dependency is a waterfall &mdash; the real fix is a server endpoint returning both."
+  },
+  {
+   "n": 16,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "What's a request waterfall and how do you kill it?",
+   "a": "Requests running sequentially that could have run in parallel, usually because a child can't render until its parent has data, so the component tree becomes the request schedule. Three levels at 150ms is 450ms of blank screen. Fixes: call the independent queries in the same component so they fire together, use <code>useQueries</code> when the count is dynamic, prefetch on hover or route transition, and move the first fetch to the server."
+  },
+  {
+   "n": 17,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "What's the difference between offset and cursor pagination?",
+   "a": "Offset is <code>LIMIT/OFFSET</code> &mdash; simple, jumpable, gives you a total, but deep offsets make the database walk and discard rows, and an insert at the top shifts everything so page 1's last item reappears on page 2. Cursor sends an opaque pointer to the last row, giving constant cost at any depth and no duplicates under inserts, but no jumping to page 7 and usually no total. Cursors for feeds, offsets for numbered tables."
+  },
+  {
+   "n": 18,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "How do you cancel a request?",
+   "a": "<code>AbortController</code> &mdash; pass its <code>signal</code> into <code>fetch</code>, call <code>abort()</code> later, and handle the rejection whose <code>name</code> is <code>\"AbortError\"</code> as a normal outcome rather than an error. TanStack Query creates one per request and hands the signal to your <code>queryFn</code>, so cancellation is automatic if you pass it through."
+  },
+  {
+   "n": 19,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "Why does refetch-on-window-focus exist?",
+   "a": "Because the moment a user comes back to your tab is exactly when stale data starts mattering. It surprises people because they see requests they didn't write, but the fix for the noise is usually a sensible <code>staleTime</code>, not turning the behaviour off &mdash; <code>staleTime</code> gates focus refetching automatically."
+  },
+  {
+   "n": 20,
+   "c": "frequent",
+   "t": "Frequent question",
+   "q": "How does React Query avoid re-rendering on every refetch?",
+   "a": "Structural sharing. If the refetched data is deeply equal, it keeps the old object reference, so <code>data</code> is referentially identical and memoised consumers don't re-render at all. If one field changed, only the objects on the path to it get new references. That's why polling unchanged data is nearly free."
+  },
+  {
+   "n": 21,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A user reports seeing another user's data after logging out and back in on a shared machine. What happened?",
+   "a": "The <code>QueryClient</code> lives outside React and the SPA never reloaded, so the previous user's cache is still in memory and the new session's first render reads it. Two fixes, both needed: call <code>queryClient.clear()</code> on logout and on any 401 that ends a session, and put the user ID in every key that varies by user &mdash; <code>[\"profile\", userId]</code>, not <code>[\"profile\"]</code>. If the cache is persisted to disk, it's worse: it survives a browser restart."
+  },
+  {
+   "n": 22,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Users on mobile occasionally see the wrong record's details. It never reproduces on your laptop. Diagnose.",
+   "a": "Almost certainly the out-of-order response race. Two fetches in flight for different IDs, the slower one lands last and wins. It doesn't reproduce locally because responses are fast and roughly ordered. Reproduce it by throttling to Slow 3G and clicking quickly between records. Fix with abort-on-cleanup, or with a query library where the key changes and the stale response is discarded."
+  },
+  {
+   "n": 23,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A component is stuck on a spinner forever, no network request in flight. What do you check?",
+   "a": "Whether the query is disabled. <code>enabled: !!userId</code> with a <code>userId</code> that never becomes defined leaves the query in <code>pending</code> with nothing in flight, and a spinner rendered on <code>isPending</code> spins forever. Check the dependency's source, and render a distinct state for &ldquo;waiting on a prerequisite&rdquo; rather than reusing the loading branch."
+  },
+  {
+   "n": 24,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your app is making hundreds of requests a minute. Where do you look?",
+   "a": "First the network tab to see which keys and how often. Usual causes, in order: <code>staleTime: 0</code> combined with focus and mount refetching; an unstable query key &mdash; an inline object or a value that's a new reference each render &mdash; so every render is a cache miss; an effect with an unstable dependency looping; and polling intervals nobody tuned. Devtools showing dozens of near-identical keys points straight at the key problem."
+  },
+  {
+   "n": 25,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A deploy went out and users report the app showing data from weeks ago.",
+   "a": "A persisted cache with no version buster and no <code>maxAge</code>. The old dehydrated cache was restored into new code. Fix: a buster string tied to the build so a deploy discards incompatible caches, and a <code>maxAge</code> so nothing ancient is served as current. Short term, ship a build with a new buster to force everyone's persisted cache to be dropped."
+  },
+  {
+   "n": 26,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "After a successful mutation, one part of the UI updates and another doesn't.",
+   "a": "The stale part is under a key your invalidation didn't match. Either the keys aren't hierarchical &mdash; so the prefix match misses &mdash; or you used <code>setQueryData</code> on one entry and forgot the others that contain the same row. Check the devtools for which keys went stale. Default to invalidating the whole prefix rather than hand-patching multiple entries."
+  },
+  {
+   "n": 27,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Users get logged out at random on page load. Auth works fine when clicking around.",
+   "a": "The refresh stampede. Several queries fire on load, all 401 together, and each kicks off its own token refresh. With refresh-token rotation, the first succeeds and the rest present an already-used token, which the server treats as reuse and invalidates the session. Fix: one shared in-flight refresh promise that all failing requests await, implemented once in the interceptor."
+  },
+  {
+   "n": 28,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A user's optimistic toggle sticks in the wrong state after a failed request.",
+   "a": "Either the snapshot wasn't returned from <code>onMutate</code>, so <code>onError</code> had no context to roll back to; or a refetch that was already in flight landed after your optimistic write because <code>cancelQueries</code> was missing; or stacked rapid mutations snapshotted each other's optimistic values so the rollback restores a state that never existed. Add <code>onSettled</code> invalidation as the backstop &mdash; the server gets the last word either way."
+  },
+  {
+   "n": 29,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "The infinite list re-fetches everything and janks badly when a mutation completes.",
+   "a": "Refetching an infinite query refetches <em>every</em> loaded page sequentially to keep it consistent. After thirty pages that's expensive. Options: cap retention with <code>maxPages</code>, patch the single item with a nested <code>setQueryData</code> instead of invalidating, or invalidate only when the user is near the top."
+  },
+  {
+   "n": 30,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Requests to your API work from Postman but fail in the browser with no useful error.",
+   "a": "CORS. The browser blocks the response and deliberately gives JavaScript almost no detail, because the reason would itself leak information. Diagnose from the network tab and the console message, and from the server's response headers. If cookies are involved you also need <code>credentials: \"include\"</code>, <code>Access-Control-Allow-Credentials: true</code>, and a specific origin &mdash; the wildcard is rejected with credentials."
+  },
+  {
+   "n": 31,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A customer was charged twice. Your mutation had retries enabled. Explain.",
+   "a": "The write succeeded but the response was lost, so the retry fired the same non-idempotent POST again. That's why mutations aren't retried by default. If retries on writes are required, the fix is server-side: an idempotency key generated by the client and recorded by the server, so a repeat of the same key returns the original result instead of doing the work twice."
+  },
+  {
+   "n": 32,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Invalidate or write the cache directly after a mutation?",
+   "a": "Invalidate by default. It costs a round trip and is almost always correct, because the server is the authority. Write directly only when your local reconstruction exactly matches what the server would say &mdash; the moment there's a derived count, a timestamp, a sort position or a permission the server computes, hand-written data drifts and the bug only shows up after a hard reload. A common hybrid: <code>setQueryData</code> the detail from the mutation's own response, invalidate the lists."
+  },
+  {
+   "n": 33,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Document cache or normalised cache?",
+   "a": "TanStack Query and SWR use a document cache &mdash; each key holds whatever the server returned, opaquely, so the same row can exist in two entries. Apollo and urql normalise by type and ID, so an entity exists once and updates everywhere automatically. Normalisation is strictly more powerful and strictly more complex: it needs stable IDs, explicit merge and pagination config, and its failures are harder to reason about. The counter-argument is that invalidation gets the same result for a round trip, and round trips are cheap while cache-consistency bugs aren't."
+  },
+  {
+   "n": 34,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "TanStack Query, SWR, or RTK Query?",
+   "a": "TanStack Query if it's REST and I want the full toolkit &mdash; mutations, infinite queries, devtools, the largest ecosystem. SWR if the app is read-heavy and I want a very small dependency with few knobs. RTK Query if the codebase already uses Redux, because it shares the store and devtools and its tag-based invalidation is genuinely pleasant. I wouldn't add Redux just to get RTK Query."
+  },
+  {
+   "n": 35,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Polling or websockets?",
+   "a": "Polling for slowly-changing data &mdash; it costs nothing to build, works through every proxy, and I can stop it with a function returning <code>false</code> when the job finishes. Push when the latency matters or the fan-out is large, because polling costs a request per client per interval whether or not anything changed. SSE for one-directional server pushes, websockets for genuine two-way. Either way the message lands in the same cache, so components never know the transport."
+  },
+  {
+   "n": 36,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Bearer token or HttpOnly cookie?",
+   "a": "Cookie for a first-party web app: HttpOnly means XSS can't read the credential, at the cost of needing <code>SameSite</code> and CSRF protection. Bearer token when the API is consumed by mobile or third-party clients, or when you're cross-origin and don't want the CORS-with-credentials setup &mdash; but accept that a token in JS-readable storage is readable by any XSS. The common production shape is a short-lived access token in memory plus a refresh token in an HttpOnly cookie."
+  },
+  {
+   "n": 37,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Server Components or client-side fetching?",
+   "a": "Server components for the initial, mostly-static read &mdash; they're closer to the database and don't wait for a bundle, so the first paint has content. Client cache for everything interactive: filters, optimistic writes, infinite lists, polling, push. And hand the server's fetch to the client cache via hydration so both agree instead of fetching twice. Anyone saying RSC removes the need for a client cache is describing a read-only page."
+  },
+  {
+   "n": 38,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Error boundary or per-component error state?",
+   "a": "Per-component when the failure is local and the rest of the page is still useful &mdash; a widget that can show &ldquo;couldn't load, retry&rdquo; in place. Error boundary with <code>throwOnError</code> when a whole region is meaningless without the data, so you handle failure once instead of branching in every component. Pair the boundary with <code>QueryErrorResetBoundary</code> or the retry button doesn't actually retry."
+  },
+  {
+   "n": 39,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "Persist the cache or start cold on every load?",
+   "a": "Persist when the data is expensive to fetch and tolerably stale on first paint &mdash; it makes a reload feel instant. Don't persist per-user data without clearing on logout, don't persist without a version buster tied to the build, and don't persist without a <code>maxAge</code>. If any of those three are inconvenient to get right, starting cold is the safer default."
+  },
+  {
+   "n": 40,
+   "c": "tradeoff",
+   "t": "Trade-off question",
+   "q": "A short <code>staleTime</code> or a long one?",
+   "a": "It's a domain question, not a preference: how out of date can this be before a user is harmed? Seconds for a price or a live status, minutes for a profile, effectively infinite for a country list. A short <code>staleTime</code> costs requests; a long one costs correctness. Zero &mdash; the default &mdash; is almost never what you actually want in production."
+  },
+  {
+   "n": 41,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Walk me through how data gets from your API to the screen in your app.",
+   "a": "A component calls <code>useQuery</code> with a key built from every input the request depends on. The client checks the cache for that key: fresh data renders immediately with no request; stale data renders immediately and a background refetch goes out; no data means <code>isPending</code> and a skeleton. The <code>queryFn</code> does the fetch, checks <code>res.ok</code>, throws a typed error on failure, and passes the abort signal through. When the response lands, structural sharing decides whether anything actually re-renders."
+  },
+  {
+   "n": 42,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How did you decide what belongs in the query key?",
+   "a": "Everything the fetch function reads &mdash; filters, page or cursor, sort, and the user or tenant identity, even though that arrives implicitly through a token. I keep them hierarchical: <code>[\"todos\"]</code>, <code>[\"todos\", \"list\", filters]</code>, <code>[\"todos\", \"detail\", id]</code>, because invalidation matches by prefix and that lets one call after a write fix everything downstream."
+  },
+  {
+   "n": 43,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Show me a place where you deliberately did <em>not</em> use a query library.",
+   "a": "A one-off request with no sharing, no writes, and no staleness policy &mdash; something like fetching a static config once at boot. Adding a cache there buys nothing and costs a dependency and a mental model. The moment a second consumer or a write appears, that changes."
+  },
+  {
+   "n": 44,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "What's the hardest bug you've hit in data fetching?",
+   "a": "The out-of-order response race is the one worth describing, because it fails silently and doesn't reproduce locally. Two requests in flight for different subjects, the slower one lands last and paints the wrong data with no error anywhere. I reproduce it by throttling the network, and the fix is aborting on cleanup so a superseded request can never write."
+  },
+  {
+   "n": 45,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How do you test your data fetching?",
+   "a": "MSW, so the app makes a real <code>fetch</code> and the interception happens at the network layer &mdash; that keeps the URL, headers and status handling under test rather than testing a mock. A fresh <code>QueryClient</code> per test, <code>retry: false</code> so failure cases don't spend seconds in backoff, and <code>findBy*</code> assertions rather than sleeps. And I test the error state, the empty state and the second load, not just the happy first render."
+  },
+  {
+   "n": 46,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How would you explain your caching strategy to a backend engineer?",
+   "a": "It's stale-while-revalidate, the same policy as RFC 5861, applied per query key. Each key has a freshness window; inside it we don't hit you at all. Outside it we serve the stale copy and revalidate in the background. Writes mark a key prefix stale and refetch, so you're always the authority &mdash; we never treat our local copy as the source of truth."
+  },
+  {
+   "n": 47,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Where does your app fetch on the server versus the client, and why?",
+   "a": "The initial read for a page runs on the server, where it's closer to the database and doesn't wait for a bundle, and the result is dehydrated and handed to the client cache so it doesn't refetch. Everything interactive after that &mdash; filters, writes, pagination, polling &mdash; runs client-side against the same cache. The point is one cache, populated from two places, rather than two separate data paths."
+  },
+  {
+   "n": 48,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does <code>fetch</code> exist when <code>XMLHttpRequest</code> already worked?",
+   "a": "XHR is a callback-and-event API from 1999 that doesn't compose &mdash; sequencing two requests means nesting callbacks. <code>fetch</code> returns a promise, which is a value you can pass around, chain, combine with <code>Promise.all</code>, and <code>await</code>. It also gave a proper streaming body model and a spec shared with service workers."
+  },
+  {
+   "n": 49,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does <code>useEffect</code> exist rather than just fetching in the component body?",
+   "a": "Render has to be pure and synchronous &mdash; React may call it more than once or throw the result away. Anything that reaches outside React and touches the world, including a network request, has to be deferred until after commit, which is what an effect is."
+  },
+  {
+   "n": 50,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does a query key need to be an array rather than a string?",
+   "a": "So it can be structured and hierarchical, which is what makes prefix matching work for invalidation. It also lets objects be embedded and hashed key-order-independently, so <code>{a:1,b:2}</code> and <code>{b:2,a:1}</code> address the same entry."
+  },
+  {
+   "n": 51,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why is <code>staleTime</code> defaulted to zero?",
+   "a": "Because a library can't know your domain, and being wrong in the direction of &ldquo;too fresh&rdquo; produces extra requests, while being wrong in the direction of &ldquo;too stale&rdquo; produces incorrect screens. It's the safe default that forces the decision onto you."
+  },
+  {
+   "n": 52,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does exponential backoff double rather than use a fixed delay?",
+   "a": "Because a fixed short interval multiplied by every client of a struggling server is a self-inflicted denial of service. Doubling gives the server room to recover, and adding jitter stops clients that failed together from retrying in lockstep."
+  },
+  {
+   "n": 53,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why aren't mutations retried by default?",
+   "a": "Because they're not idempotent. Retrying a write whose response was lost but which actually succeeded creates a duplicate. Safe retries on writes require idempotency keys on the server, which is a backend decision, not a client default."
+  },
+  {
+   "n": 54,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does the cache live outside React?",
+   "a": "So it survives unmounts and can be shared across the tree. A cache inside a component dies with it and can't be read by a sibling &mdash; which is precisely the failure that makes two components fetch the same thing twice and then disagree."
+  },
+  {
+   "n": 55,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why do error boundaries exist when you can just check <code>error</code>?",
+   "a": "Because handling failure per component means branching in every component, and some regions are meaningless without their data. Boundaries let you handle it once per region. They only catch errors thrown during render, which is exactly why <code>throwOnError</code> exists &mdash; it converts an async failure into a render-time throw."
+  },
+  {
+   "n": 56,
+   "c": "plumbing",
+   "t": "Plumbing / internals",
+   "q": "How does structural sharing actually work?",
+   "a": "After a fetch, the library walks the new data against the cached data. Where a subtree is deeply equal it keeps the <strong>old reference</strong> rather than the new one; where it differs it produces new objects only along the path to the change. The result is that <code>Object.is</code> comparisons in memoised consumers keep passing for untouched branches."
+  },
+  {
+   "n": 57,
+   "c": "plumbing",
+   "t": "Plumbing / internals",
+   "q": "How does a query know when to garbage collect an entry?",
+   "a": "The cache counts observers &mdash; mounted components subscribed to a key. When the count drops to zero the entry becomes inactive and a <code>gcTime</code> timer starts. If a component remounts before it fires, the timer is cancelled. Active entries are never collected."
+  },
+  {
+   "n": 58,
+   "c": "plumbing",
+   "t": "Plumbing / internals",
+   "q": "What does deduplication do to a second caller that arrives mid-flight?",
+   "a": "It doesn't start a request. The new observer subscribes to the existing entry and, when the in-flight promise resolves, both observers are notified from the same result. That's why two components with the same key can never disagree."
+  },
+  {
+   "n": 59,
+   "c": "plumbing",
+   "t": "Plumbing / internals",
+   "q": "How does <code>select</code> avoid re-renders?",
+   "a": "The observer stores the selected value, not the raw data, and compares the <em>selected</em> result on each cache update. If the derived value is unchanged the component isn't notified. This is why an inline <code>select</code> returning a fresh array defeats it entirely &mdash; the comparison never passes."
+  },
+  {
+   "n": 60,
+   "c": "plumbing",
+   "t": "Plumbing / internals",
+   "q": "What is dehydration, mechanically?",
+   "a": "Serialising the cache's entries &mdash; keys, data, and timestamps &mdash; into plain JSON that can be embedded in the HTML response, then rebuilding entries from it on the client with their original fetch times preserved, so freshness accounting continues rather than restarting."
+  },
+  {
+   "n": 61,
+   "c": "plumbing",
+   "t": "Plumbing / internals",
+   "q": "Why must a server-side <code>QueryClient</code> be created per request?",
+   "a": "A module-level client is shared across all concurrent requests in the same Node process, so one user's fetched data would be dehydrated into another user's HTML. It's the logout leak, at server scale and affecting strangers."
+  },
+  {
+   "n": 62,
+   "c": "plumbing",
+   "t": "Plumbing / internals",
+   "q": "What does <code>cancelQueries</code> actually do during an optimistic update?",
+   "a": "It aborts in-flight fetches for the matching keys and marks them cancelled, so their responses will not be written to the cache. Without it, a refetch that started before your <code>setQueryData</code> can resolve afterwards and overwrite the optimistic value with pre-mutation data."
+  },
+  {
+   "n": 63,
+   "c": "plumbing",
+   "t": "Plumbing / internals",
+   "q": "How does an infinite query keep pages consistent on refetch?",
+   "a": "It refetches page one, uses <code>getNextPageParam</code> on the result to derive page two's parameter, refetches that, and so on &mdash; sequentially, because each page's cursor depends on the previous response. That's why refetching a deep infinite list is expensive and why <code>maxPages</code> exists."
+  },
+  {
+   "n": 64,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What defaults would you set on a new <code>QueryClient</code>?",
+   "a": "A non-zero <code>staleTime</code> &mdash; often 30&ndash;60 seconds &mdash; so mounts and focus events don't hammer the API; a <code>retry</code> function that only retries 5xx, 429 and network errors; and <code>refetchOnWindowFocus</code> left on. Then override per query where the domain differs. Setting policy once beats repeating it on every hook."
+  },
+  {
+   "n": 65,
+   "c": "config",
+   "t": "Configuration",
+   "q": "How do you configure a query to never refetch automatically?",
+   "a": "<code>staleTime: Infinity</code>. It never goes stale, so mount, focus and reconnect triggers all no-op, and only an explicit <code>invalidateQueries</code> or <code>refetch()</code> updates it."
+  },
+  {
+   "n": 66,
+   "c": "config",
+   "t": "Configuration",
+   "q": "How do you add a timeout to <code>fetch</code>?",
+   "a": "<code>AbortSignal.timeout(ms)</code> as the signal, or a manual <code>setTimeout</code> that calls <code>controller.abort()</code>. <code>fetch</code> has no built-in timeout, so a request can hang indefinitely without one."
+  },
+  {
+   "n": 67,
+   "c": "config",
+   "t": "Configuration",
+   "q": "How do you combine your own abort signal with the one the library gives you?",
+   "a": "<code>AbortSignal.any([signal, AbortSignal.timeout(10000)])</code> &mdash; so the request aborts either when the library cancels it or when your timeout fires."
+  },
+  {
+   "n": 68,
+   "c": "config",
+   "t": "Configuration",
+   "q": "How do you make polling stop when a job completes?",
+   "a": "Pass a function: <code>refetchInterval: (query) =&gt; query.state.data?.status === \"done\" ? false : 2000</code>. Returning <code>false</code> clears the timer."
+  },
+  {
+   "n": 69,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What do you configure differently in tests?",
+   "a": "A fresh <code>QueryClient</code> per test so nothing leaks between them, and <code>retry: false</code> so a failure assertion doesn't wait through several seconds of exponential backoff."
+  },
+  {
+   "n": 70,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Two components use the same key but different <code>select</code> functions. What happens?",
+   "a": "One cache entry and one request. Each observer stores its own selected value and re-renders only when <em>its</em> derived value changes. This is the intended way to have several components read different slices of one entry cheaply."
+  },
+  {
+   "n": 71,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What if two components use the same key but different <code>staleTime</code>?",
+   "a": "They share the entry, but each observer evaluates staleness with its own setting, so one may trigger a refetch on mount while the other wouldn't have. It works, but it makes behaviour hard to predict &mdash; put shared policy in defaults instead."
+  },
+  {
+   "n": 72,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What happens if the <code>queryFn</code> returns <code>undefined</code>?",
+   "a": "TanStack Query treats it as an error, because it cannot distinguish &ldquo;no data&rdquo; from &ldquo;forgot to return&rdquo;. Return <code>null</code> for a legitimate empty result."
+  },
+  {
+   "n": 73,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What happens to a paused offline mutation if the user closes the tab?",
+   "a": "It's gone, unless the mutation cache is persisted along with the query cache. Offline write queues that must survive a restart need explicit persistence plus resumption logic, which is a bigger commitment than adding a persister for reads."
+  },
+  {
+   "n": 74,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "A response is a 200 with an error payload in the body. How should the <code>queryFn</code> behave?",
+   "a": "Throw. The transport succeeded but the operation failed, and if you return the payload the library caches it as successful data and never enters the error path. Inspect the body and throw a typed error carrying whatever the server said."
+  },
+  {
+   "n": 75,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "You need the same data under two different keys. Is that ever right?",
+   "a": "Occasionally &mdash; e.g. a list entry and a detail entry genuinely returning different shapes for the same row. But if the shapes are identical you've created two copies that can disagree, which is the document-cache weakness; prefer one key plus <code>select</code>, or invalidate both together."
+  },
+  {
+   "n": 76,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "A query key contains a <code>Date</code> object. What breaks?",
+   "a": "Key hashing needs deterministic serialisation. A <code>Date</code> that's constructed fresh each render produces a new key each render, so every render is a cache miss and you refetch forever. Put a stable ISO string or timestamp in the key instead."
+  }
+ ]
+}

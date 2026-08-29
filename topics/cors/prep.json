@@ -1,0 +1,578 @@
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is CORS?",
+   "a": "A protocol that lets a server grant permission for a page on another origin to read its responses. Browsers block cross-origin reads by default under the same-origin policy; CORS is how a server opts out of that block, using response headers that the browser checks."
+  },
+  {
+   "n": 2,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is an origin?",
+   "a": "Scheme plus host plus port. All three must match for two URLs to be same-origin. Path and query are irrelevant, and subdomains count as different hosts."
+  },
+  {
+   "n": 3,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Why does CORS exist?",
+   "a": "Because the browser attaches the user's cookies to requests based on the destination, not on who asked. Without a rule, any website could read your bank or email data as you. The same-origin policy blocks that, and CORS is the controlled exception."
+  },
+  {
+   "n": 4,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Who enforces CORS — the browser or the server?",
+   "a": "The browser. The server only publishes a permission in response headers. That is why curl, Postman and server-to-server calls are unaffected, and why a CORS error means the browser refused to hand you a response, not that the server refused to answer."
+  },
+  {
+   "n": 5,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a preflight request?",
+   "a": "An automatic <code>OPTIONS</code> request the browser sends before a request that the pre-CORS web could not make — anything other than GET/HEAD/POST, any custom header, or a content type a form could not produce. It asks permission first so the real request's side effects never happen without it."
+  },
+  {
+   "n": 6,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Why does a JSON POST trigger a preflight but a form POST does not?",
+   "a": "The safelisted content types are exactly the three a form can produce — <code>application/x-www-form-urlencoded</code>, <code>multipart/form-data</code>, <code>text/plain</code>. <code>application/json</code> is not among them, because no HTML element could ever have sent it."
+  },
+  {
+   "n": 7,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "How do you fix a CORS error?",
+   "a": "On the server, not the client. Send <code>Access-Control-Allow-Origin</code> with the calling origin (from an allowlist), handle <code>OPTIONS</code> with <code>Allow-Methods</code> and <code>Allow-Headers</code>, add <code>Allow-Credentials: true</code> and <code>Vary: Origin</code> if cookies are involved. Nothing in the frontend can fix it."
+  },
+  {
+   "n": 8,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Why can't you fix CORS from the frontend?",
+   "a": "The check is on the response, performed by the browser, using headers only the server can set. The one client-side option, <code>mode: \"no-cors\"</code>, gives you an unreadable opaque response — it silences the error rather than fixing anything."
+  },
+  {
+   "n": 9,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Does CORS prevent CSRF?",
+   "a": "No. CSRF only needs the request to be sent, and simple requests are sent without any permission. CSRF is prevented by <code>SameSite</code> cookies, CSRF tokens, and server-side <code>Origin</code> checks."
+  },
+  {
+   "n": 10,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Why can't you use <code>Access-Control-Allow-Origin: *</code> with credentials?",
+   "a": "It would mean any site on the internet may read the response as the logged-in user, which is precisely the attack the same-origin policy exists to stop. Browsers reject the combination outright, so you must name a single origin."
+  },
+  {
+   "n": 11,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Your API works in Postman but the browser shows a CORS error. What is happening?",
+   "a": "Postman has no origin and does not implement the same-origin policy, so it never checks. The server is responding fine; it just is not granting browser read permission. Reproduce it with <code>curl -i -H \"Origin: https://your.app\"</code> to see the actual headers."
+  },
+  {
+   "n": 12,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Walk me through what happens, request by request, when a React app on port 5173 calls an API on port 3000 with a JSON POST.",
+   "a": "They are different origins, and the content type is not safelisted, so the browser sends an <code>OPTIONS</code> preflight with <code>Origin</code>, <code>Access-Control-Request-Method: POST</code> and <code>Access-Control-Request-Headers: content-type</code>. If the server replies 2xx with matching <code>Allow-Origin</code>, <code>Allow-Methods</code> and <code>Allow-Headers</code>, the browser then sends the real POST, and checks <code>Allow-Origin</code> again on that response before handing it to my code."
+  },
+  {
+   "n": 13,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Which response headers can JavaScript read cross-origin by default?",
+   "a": "Seven: <code>Cache-Control</code>, <code>Content-Language</code>, <code>Content-Length</code>, <code>Content-Type</code>, <code>Expires</code>, <code>Last-Modified</code>, <code>Pragma</code>. Anything else needs <code>Access-Control-Expose-Headers</code>."
+  },
+  {
+   "n": 14,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is <code>Access-Control-Max-Age</code> for and what value would you set?",
+   "a": "It caches the preflight so repeated calls skip the extra round trip. I'd set 86400 and know that Chrome caps it at 7200 seconds and Firefox at 86400, so the number I send is an upper bound rather than a promise."
+  },
+  {
+   "n": 15,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why do you need <code>Vary: Origin</code>?",
+   "a": "Because once you reflect the origin, the response differs per caller. Without <code>Vary</code>, a CDN or browser cache keyed only on URL will serve one origin's <code>Allow-Origin</code> header to a different origin, producing an intermittent CORS failure that disappears when you bypass the cache."
+  },
+  {
+   "n": 16,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Is <code>Authorization</code> a credential in CORS terms?",
+   "a": "No. Credentials means cookies, HTTP auth and TLS client certs — things the browser attaches by itself. An <code>Authorization</code> header you set is just a header, so it triggers a preflight and must be listed in <code>Access-Control-Allow-Headers</code>, but it does not need <code>Allow-Credentials</code>."
+  },
+  {
+   "n": 17,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is the difference between same-origin and same-site?",
+   "a": "Same-origin is scheme, host and port. Same-site is the registrable domain, so <code>app.example.com</code> and <code>api.example.com</code> are different origins but the same site. CORS uses origin; <code>SameSite</code> cookies use site."
+  },
+  {
+   "n": 18,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you allow multiple origins?",
+   "a": "You cannot list them in the header — it holds one origin. You keep an allowlist server-side, compare the incoming <code>Origin</code> by exact string match, echo it back if it matches, and add <code>Vary: Origin</code>."
+  },
+  {
+   "n": 19,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What does <code>credentials: \"include\"</code> do, and what must the server do in return?",
+   "a": "It tells the browser to send cookies on a cross-origin request and to honour <code>Set-Cookie</code> on the response. The server must answer with a specific origin — not <code>*</code> — plus <code>Access-Control-Allow-Credentials: true</code> on both the preflight and the real response."
+  },
+  {
+   "n": 20,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Does CORS apply to WebSockets?",
+   "a": "No. The handshake carries an <code>Origin</code> header but there is no preflight and no allow header, so the server must validate <code>Origin</code> itself. Otherwise any site can open an authenticated socket with the user's cookies."
+  },
+  {
+   "n": 21,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Where in your middleware chain does CORS go, and why?",
+   "a": "First, before authentication. The preflight is anonymous by design, so if auth runs first it returns 401 on the <code>OPTIONS</code> and the real request is never sent. The symptom looks like an auth bug and is an ordering bug."
+  },
+  {
+   "n": 22,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is a simple request?",
+   "a": "A cross-origin request needing no preflight: method GET, HEAD or POST; no author-set headers beyond the safelist; content type one of the three a form can produce; no stream body; no XHR upload listener. It is defined as \"what the web could already do before CORS\"."
+  },
+  {
+   "n": 23,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How would you configure CORS for a public read-only API?",
+   "a": "<code>Access-Control-Allow-Origin: *</code>, no credentials, and expose whatever metadata headers consumers need. No allowlist and no <code>Vary</code> needed, because the response genuinely does not vary by origin."
+  },
+  {
+   "n": 24,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is JSONP and why is it obsolete?",
+   "a": "A pre-CORS trick: the server wraps JSON in a function call and the page loads it via <code>&lt;script&gt;</code>, since scripts may cross origins and are executed. It is GET-only, has no real error handling, and executes arbitrary code from the remote server in your page. CORS made it unnecessary in 2014."
+  },
+  {
+   "n": 25,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is canvas tainting?",
+   "a": "Drawing a cross-origin image into a canvas makes <code>getImageData</code> and <code>toDataURL</code> throw a <code>SecurityError</code>, because reading pixels would leak private images. Fixed with <code>crossOrigin=\"anonymous\"</code> plus <code>Access-Control-Allow-Origin</code> on the image host."
+  },
+  {
+   "n": 26,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "Why does <code>window.onerror</code> sometimes report only \"Script error.\"?",
+   "a": "The error came from a cross-origin script and the details are withheld. You get them back by adding <code>crossorigin=\"anonymous\"</code> to the script tag and <code>Access-Control-Allow-Origin</code> on the CDN — which is exactly what error monitoring setups require."
+  },
+  {
+   "n": 27,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What are COOP, COEP and CORP?",
+   "a": "Post-Spectre process-isolation headers. CORP says who may embed a resource; COOP severs the window-opener link with cross-origin documents; COEP requires every cross-origin subresource to opt in. COOP plus COEP make a document cross-origin isolated, which re-enables <code>SharedArrayBuffer</code>."
+  },
+  {
+   "n": 28,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is <code>Origin: null</code> and should you ever allow it?",
+   "a": "It comes from sandboxed iframes, <code>file://</code> pages and some redirects. Never allow it — an attacker can produce it at will by sandboxing your page, so allowing it is equivalent to allowing everyone."
+  },
+  {
+   "n": 29,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is Private Network Access?",
+   "a": "A Chrome mechanism adding a preflight when a public page requests a private IP or localhost, with <code>Access-Control-Request-Private-Network</code> and a matching allow header. It exists because public pages attacking home routers and local dev servers is a real attack class."
+  },
+  {
+   "n": 30,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "Does CORS apply to Server-Sent Events?",
+   "a": "Yes, normally — <code>EventSource</code> makes an ordinary HTTP request. The catch is that <code>EventSource</code> cannot set headers, so cross-origin auth must use cookies with <code>withCredentials: true</code> or a query parameter."
+  },
+  {
+   "n": 31,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What was <code>document.domain</code>?",
+   "a": "A legacy way for two subdomains to declare themselves same-origin. It was unsafe because it opened you to any subdomain, and Chrome disabled it by default in version 115 in July 2023."
+  },
+  {
+   "n": 32,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Production frontend suddenly gets CORS errors on about one request in five. Same code, same config. What do you suspect?",
+   "a": "A cache serving one origin's <code>Access-Control-Allow-Origin</code> to another, because the server reflects the origin but does not send <code>Vary: Origin</code>. The intermittency is the tell — it tracks cache hits. Confirm by comparing responses through the CDN versus direct to origin."
+  },
+  {
+   "n": 33,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A DELETE endpoint returns 401 in the browser but works in curl with the same token. Where do you look?",
+   "a": "The preflight. It carries no cookies or headers, so auth middleware running before the CORS handler rejects the <code>OPTIONS</code> with 401 and the real DELETE never goes out. Move CORS ahead of auth."
+  },
+  {
+   "n": 34,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "You fixed the server config but the browser still fails. What non-obvious cause?",
+   "a": "A cached preflight — Chrome can hold the old grant for up to two hours. Hard reload with cache disabled, or test in a fresh profile, before assuming the fix did not work."
+  },
+  {
+   "n": 35,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "The console says the response contains multiple <code>Access-Control-Allow-Origin</code> values. What happened?",
+   "a": "Two layers are both adding the header — typically a reverse proxy and the application. Two individually correct configs combining into a broken response. Pick one owner for CORS and delete the other."
+  },
+  {
+   "n": 36,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "CORS headers look perfect but every authenticated call returns 401. Diagnose.",
+   "a": "The cookie never travelled. Cross-site cookies need <code>SameSite=None; Secure</code>, and the client needs <code>credentials: \"include\"</code>. CORS and <code>SameSite</code> are independent gates; a CORS failure is a console error, a cookie failure is a clean 401."
+  },
+  {
+   "n": 37,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "CORS errors appear only on 500 responses. What is the real bug?",
+   "a": "The 500 is the bug. The error path returns a response outside the CORS middleware, so it lacks the headers, and the browser reports the missing header instead of showing you the status. Check the network tab for the real status first."
+  },
+  {
+   "n": 38,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Adding a request ID header broke every call. Why?",
+   "a": "The custom header took the requests off the safelist, so they now preflight, and the server does not list the header in <code>Access-Control-Allow-Headers</code>. One header turned zero preflights into one per call plus a new failure mode."
+  },
+  {
+   "n": 39,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "The preflight fails with a 301. Why, and how do you fix it?",
+   "a": "Browsers do not follow redirects on a preflight. Something is redirecting — usually a trailing-slash or http-to-https rule. Fix the URL the client calls, or stop redirecting that path; no CORS header will help."
+  },
+  {
+   "n": 40,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A chart export button throws SecurityError in production only. Cause?",
+   "a": "Canvas tainting — in production a logo or tile comes from a CDN on another origin. Set <code>crossOrigin=\"anonymous\"</code> on the image and make the CDN send <code>Access-Control-Allow-Origin</code>."
+  },
+  {
+   "n": 41,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your frontend cannot read the <code>X-Total-Count</code> header it needs for pagination, though it is visible in DevTools. Fix?",
+   "a": "Add <code>Access-Control-Expose-Headers: X-Total-Count</code> on the server. Only seven safelisted response headers are readable cross-origin by default."
+  },
+  {
+   "n": 42,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A teammate suggests installing a browser extension to disable CORS. Response?",
+   "a": "It hides the symptom on one machine while the product stays broken for every user, and it makes that browser unsafe for normal browsing. Use a dev-server proxy instead, which reproduces the production shape rather than removing the check."
+  },
+  {
+   "n": 43,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Preview deployments on Vercel each get a new URL and all fail CORS. How do you handle it?",
+   "a": "An exact-match allowlist cannot cover generated hostnames. Either add an anchored pattern for the preview domain — carefully anchored, so <code>evil-vercel.app</code> does not match — or proxy the API through the same deployment so previews are same-origin."
+  },
+  {
+   "n": 44,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Same-origin deployment versus separate API origin — how do you decide?",
+   "a": "Same-origin when there is one frontend and one backend: no CORS, no preflight latency, cookies stay <code>Lax</code> and <code>HttpOnly</code>. Separate origins when many independent clients consume the API, when the frontend is static on a CDN, when teams deploy independently, or when it is a public API."
+  },
+  {
+   "n": 45,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Cookies versus bearer tokens for a cross-origin SPA — CORS implications?",
+   "a": "Cookies need <code>Allow-Credentials</code>, ban the wildcard, force origin reflection, and depend on <code>SameSite=None; Secure</code> and third-party cookie policy. A bearer token is just a header — simpler CORS, no cookie policy risk — but it lives in the browser where script can reach it, so XSS becomes more costly."
+  },
+  {
+   "n": 46,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Wildcard versus allowlist — when is each right?",
+   "a": "Wildcard for public, unauthenticated, non-secret resources; it is genuinely correct there and lets caches work with no <code>Vary</code>. Allowlist for anything user-specific or credentialed, where the wildcard is either rejected by the browser or a real vulnerability if reflected."
+  },
+  {
+   "n": 47,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Dev-server proxy versus permissive CORS in development?",
+   "a": "Proxy. Permissive dev CORS means the real config is never written until staging, and it trains people to reach for <code>*</code>. A proxy makes dev match the shape of a same-origin production, or at least defers the real config to one deliberate place."
+  },
+  {
+   "n": 48,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "High <code>Max-Age</code> versus low — what is the trade?",
+   "a": "High reduces round trips; low means config changes take effect quickly. Since browsers cap it at two hours (Chrome) or a day (Firefox), the real cost of a high value is a stale grant during a config rollout, which is worth planning around during deploys."
+  },
+  {
+   "n": 49,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Exposing a header versus putting the value in the body?",
+   "a": "The body works identically same-origin and cross-origin, survives proxies that strip headers, and types cleanly. Headers are right when the value is genuinely metadata about the response, like rate-limit budget, that a generic client should read without parsing the body."
+  },
+  {
+   "n": 50,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Should an internal API rely on CORS to restrict access?",
+   "a": "No — it restricts nothing outside a browser. Use network controls, authentication and authorization. CORS on an internal API is worth configuring only to protect users' browser sessions, never as the access boundary."
+  },
+  {
+   "n": 51,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How does CORS apply to qbank?",
+   "a": "qbank is a Fastify API. Any browser frontend on a different origin — a local dev server on another port, or a deployed app on another domain — needs <code>@fastify/cors</code> registered before routes, with an explicit origin allowlist rather than a wildcard, credentials enabled if sessions are cookie-based, and <code>Authorization</code> named in the allowed headers since bearer tokens always force a preflight. I have not yet written that config deliberately, which is exactly what this topic's project is for."
+  },
+  {
+   "n": 52,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Your API streams LLM responses. What does that mean for CORS?",
+   "a": "If it streams over SSE, <code>EventSource</code> is a normal CORS request but cannot set an <code>Authorization</code> header, so auth has to be a cookie with <code>withCredentials</code> or a query parameter. If it streams over <code>fetch</code> with a body reader, headers work normally, but the JSON content type means every call preflights."
+  },
+  {
+   "n": 53,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "What would you change about a project that had CORS wide open?",
+   "a": "Replace the wildcard with an environment-configured allowlist checked by exact match, add <code>Vary: Origin</code>, enumerate allowed and exposed headers instead of using <code>*</code>, verify CORS middleware runs before auth so preflights are not rejected, and confirm exactly one layer sets the headers."
+  },
+  {
+   "n": 54,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Have you ever debugged a CORS problem? Walk me through it.",
+   "a": "The honest structure of the answer: state the symptom, then show the method — check for an <code>OPTIONS</code> row in the network tab, read the exact console message since it names the failing check, reproduce with <code>curl -i -H \"Origin: ...\"</code> to separate server behaviour from browser enforcement, and only then change config. The method is what is being assessed."
+  },
+  {
+   "n": 55,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why doesn't the browser just block cross-origin requests entirely?",
+   "a": "Because the web is built on them — every image, script, stylesheet, font and form crosses origins. Blocking sends would break everything ever written. Blocking reads costs nothing, because reading was never possible before JavaScript existed."
+  },
+  {
+   "n": 56,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why is the safelist shaped the way it is?",
+   "a": "It enumerates what the pre-JavaScript web could already do — three methods, a few headers, three form encodings. Nothing on it is new capability, so nothing on it needs new permission. Everything off it is genuinely new and must be asked about first."
+  },
+  {
+   "n": 57,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why is the preflight anonymous?",
+   "a": "It is a question about permission, not a request for data, so sending the user's credentials would leak them to a server that has not yet been granted anything. The cost is that auth middleware must not sit in front of it."
+  },
+  {
+   "n": 58,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why is a CORS error so uninformative to JavaScript?",
+   "a": "Because a detailed error is itself an information leak: a script could distinguish \"blocked\" from \"host does not exist\" and map internal networks by error type and timing. The vagueness is deliberate; the detail goes to the console, where only a human sees it."
+  },
+  {
+   "n": 59,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why are most response headers hidden cross-origin?",
+   "a": "Same default-deny principle one level in. Headers carry application data — totals, IDs, rate limits, tokens — that a server author never considered exposing. Denying by default means nothing leaks unless someone opts in with <code>Expose-Headers</code>."
+  },
+  {
+   "n": 60,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why did SameSite have to be added when CORS already existed?",
+   "a": "CORS governs reading; CSRF only needs sending, which CORS never restricted. Fixing the send side required changing cookies themselves, which is what <code>SameSite</code> does — and Chrome made <code>Lax</code> the default in February 2020."
+  },
+  {
+   "n": 61,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "Trace exactly what the browser checks on a credentialed preflighted request.",
+   "a": "On the <code>OPTIONS</code>: 2xx status, <code>Allow-Origin</code> equal to the origin (not <code>*</code>), <code>Allow-Credentials: true</code>, requested method present in <code>Allow-Methods</code>, every requested header present in <code>Allow-Headers</code>. On the real response: <code>Allow-Origin</code> equal to the origin again, and <code>Allow-Credentials: true</code> again. Then it applies <code>Expose-Headers</code> before handing the response to script."
+  },
+  {
+   "n": 62,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "Why does <code>Access-Control-Allow-Headers: *</code> not cover <code>Authorization</code>?",
+   "a": "The Fetch spec special-cases it, because <code>Authorization</code> is high-value enough that a blanket wildcard should not silently permit it. You must name it explicitly, and under credentials <code>*</code> means the literal asterisk anyway."
+  },
+  {
+   "n": 63,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "How is the preflight cache keyed?",
+   "a": "By origin, URL, method and header set, with the browser's own cap on the lifetime. A grant for <code>POST /orders</code> does not cover <code>DELETE /orders/42</code>, which is why a chatty REST API can pay many preflights despite a high <code>Max-Age</code>."
+  },
+  {
+   "n": 64,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "How would you review a CORS implementation for vulnerabilities?",
+   "a": "Look for reflection without an allowlist, substring or unanchored regex matching, <code>Origin: null</code> in the allowlist, wildcard combined with credentials via reflection, missing <code>Vary: Origin</code>, and whether the endpoints behind it return user-specific data at all — that last one determines the severity."
+  },
+  {
+   "n": 65,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "Why is <code>endsWith(\"example.com\")</code> a vulnerability?",
+   "a": "It matches <code>https://evil-example.com</code> and <code>https://notexample.com</code>. Anchored full-string comparison is the only safe form; if a subdomain wildcard is needed, the pattern must be anchored at both ends with the scheme fixed and no dots allowed in the label."
+  },
+  {
+   "n": 66,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "What performance cost does CORS add and how do you measure it?",
+   "a": "One extra round trip per uncached preflight. Measure it in the network waterfall as the <code>OPTIONS</code> row's duration, count how many appear per page load, and reduce it with <code>Access-Control-Max-Age</code>, fewer distinct URL/method combinations, or by eliminating the cross-origin split."
+  },
+  {
+   "n": 67,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "Is <code>Origin</code> ever trustworthy for authorization?",
+   "a": "Only as evidence about a browser, since browsers forbid script from setting it. Any other client forges it freely. It is useful to <em>reject</em> state-changing requests from unexpected origins as defence in depth, never to grant access."
+  },
+  {
+   "n": 68,
+   "c": "config",
+   "t": "Config",
+   "q": "Write a production-grade Express CORS config for a cookie-authenticated API.",
+   "a": "<code>app.use(cors({ origin: (o, cb) =&gt; cb(null, !o || ALLOWED.has(o)), credentials: true, methods: [\"GET\",\"POST\",\"PUT\",\"PATCH\",\"DELETE\"], allowedHeaders: [\"Content-Type\",\"Authorization\"], exposedHeaders: [\"X-Total-Count\"], maxAge: 86400 }))</code> mounted before auth, with <code>ALLOWED</code> built from an environment variable."
+  },
+  {
+   "n": 69,
+   "c": "config",
+   "t": "Config",
+   "q": "Same thing in Fastify.",
+   "a": "<code>await app.register(import(\"@fastify/cors\"), { origin: (origin, cb) =&gt; (!origin || ALLOWED.has(origin)) ? cb(null, true) : cb(new Error(\"Not allowed\"), false), credentials: true, allowedHeaders: [\"Content-Type\",\"Authorization\"], exposedHeaders: [\"X-Total-Count\"], maxAge: 86400 })</code>, registered before routes."
+  },
+  {
+   "n": 70,
+   "c": "config",
+   "t": "Config",
+   "q": "Why allow requests with no <code>Origin</code> header in that callback?",
+   "a": "Same-origin browser requests for GET, health checks, server-to-server calls and curl all send none. Rejecting them breaks your own infrastructure while providing no security, since a real attacker's page always sends an origin."
+  },
+  {
+   "n": 71,
+   "c": "config",
+   "t": "Config",
+   "q": "What is the nginx <code>add_header</code> pitfall?",
+   "a": "Headers in a nested block replace inherited ones rather than adding, and without the <code>always</code> flag they apply only to 2xx and 3xx — so error responses lose their CORS headers, and a 500 surfaces as a confusing CORS message."
+  },
+  {
+   "n": 72,
+   "c": "config",
+   "t": "Config",
+   "q": "How do you handle preflights in a hand-written nginx config?",
+   "a": "Intercept <code>if ($request_method = OPTIONS)</code>, add <code>Allow-Origin</code>, <code>Allow-Methods</code>, <code>Allow-Headers</code> and <code>Max-Age</code> with <code>always</code>, and <code>return 204</code> before proxying — otherwise the OPTIONS reaches a backend that may 404 or 405 it."
+  },
+  {
+   "n": 73,
+   "c": "config",
+   "t": "Config",
+   "q": "Where should the allowlist live?",
+   "a": "In configuration, as an environment variable of comma-separated origins, so staging, preview and production differ without a code change and nobody is tempted to widen it in code."
+  },
+  {
+   "n": 74,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What does <code>mode: \"no-cors\"</code> actually give you?",
+   "a": "An opaque response: <code>type: \"opaque\"</code>, <code>status: 0</code>, no headers, unreadable body, no preflight sent. It is useful for fire-and-forget beacons or filling a cache, and it is never a fix for a CORS error."
+  },
+  {
+   "n": 75,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "A POST with <code>Content-Type: text/plain</code> carrying JSON — what are the consequences?",
+   "a": "It is a simple request, so no preflight — which some people use to save a round trip. But it also means an API parsing <code>text/plain</code> as JSON has re-opened itself to CSRF, since an attacker's form can produce that content type."
+  },
+  {
+   "n": 76,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Does a cross-origin redirect affect CORS?",
+   "a": "Yes. The CORS check applies at each hop, and after a cross-origin redirect the <code>Origin</code> may become <code>null</code>. Preflights do not follow redirects at all."
+  },
+  {
+   "n": 77,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Can you read a cross-origin stylesheet's rules?",
+   "a": "No — <code>document.styleSheets[i].cssRules</code> throws a <code>SecurityError</code> for a cross-origin sheet without CORS. The styles apply; the text is not readable. Same display-without-read rule as images."
+  },
+  {
+   "n": 78,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why do cross-origin fonts require CORS when images do not?",
+   "a": "Firefox has always enforced it for <code>@font-face</code>, historically to respect font licensing and hotlinking concerns. It is why every font CDN sends <code>Access-Control-Allow-Origin: *</code>, and why a missing header shows up as a silent fallback to a system font."
+  },
+  {
+   "n": 79,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Do ES modules behave differently from classic scripts?",
+   "a": "Yes. <code>&lt;script type=\"module\"&gt;</code> is always a CORS fetch, so a cross-origin module without the header does not load. Classic scripts are not, which is exactly why JSONP was ever possible."
+  },
+  {
+   "n": 80,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Cookies ignore ports but origins do not. What breaks because of that?",
+   "a": "On <code>localhost</code>, two dev servers on different ports are different origins for CORS but share cookies. You can end up authenticated on a port you never logged into, and confused about which gate is failing."
+  },
+  {
+   "n": 81,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why does <code>navigator.sendBeacon</code> work where fetch is blocked?",
+   "a": "It sends in no-cors mode where it can and never needs to read a response — the send side of the asymmetry, which the web has always permitted."
+  },
+  {
+   "n": 82,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What is Subresource Integrity's relationship to CORS?",
+   "a": "An <code>integrity</code> attribute on a cross-origin resource requires CORS, because the browser must read the bytes to hash them. So SRI on a CDN asset needs <code>crossorigin</code> plus the allow header."
+  }
+ ]
+}

@@ -1,0 +1,2279 @@
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "node-0",
+   "t": "Node 0 · Before React",
+   "q": "What is the DOM, in one sentence, and what is React's relationship to it?",
+   "a": "The <strong>DOM</strong> is the tree of objects the browser builds from your HTML, which JavaScript can read and mutate. React is not an alternative to it — every React update ends as ordinary DOM operations. React only decides <em>which</em> operations to run."
+  },
+  {
+   "n": 2,
+   "c": "node-0",
+   "t": "Node 0 · Before React",
+   "q": "Before frameworks, why did the amount of update code grow faster than the app?",
+   "a": "Because you hand-write a path for every <em>pair</em> of (thing that can change, part of the screen that depends on it). Ten pieces of data and fifteen pieces of screen is a web of transitions, each of which you must remember to write."
+  },
+  {
+   "n": 3,
+   "c": "node-0",
+   "t": "Node 0 · Before React",
+   "q": "What does it mean to say 'application truth leaked into the DOM', and why is it dangerous?",
+   "a": "Facts like &quot;is the modal open&quot; or &quot;is the empty-state showing&quot; end up discoverable only by inspecting DOM classes or styles. The DOM becomes an undesigned second database with no schema that any code, extension, or CSS transition can mutate behind your back."
+  },
+  {
+   "n": 4,
+   "c": "node-0",
+   "t": "Node 0 · Before React",
+   "q": "What is the characteristic bug shape of hand-written DOM syncing?",
+   "a": "Two parts of the screen disagree, because one update path fired and its sibling did not. The counter says 3 of 7 while the list shows 4 completed."
+  },
+  {
+   "n": 5,
+   "c": "node-0",
+   "t": "Node 0 · Before React",
+   "q": "Did jQuery solve this problem?",
+   "a": "No. It made each individual DOM operation shorter and cross-browser safe, but it did not reduce the <em>number</em> of transitions you had to write. The failure was never verbosity — it was that the developer owned every transition between every two screen states."
+  },
+  {
+   "n": 6,
+   "c": "node-0",
+   "t": "Node 0 · Before React",
+   "q": "State the gap Node 0 leaves in one sentence.",
+   "a": "You are forced to write <strong>transitions</strong> (&quot;when this changes, go edit that&quot;) when what you actually know is <strong>destinations</strong> (&quot;given this data, the screen should look like this&quot;)."
+  },
+  {
+   "n": 7,
+   "c": "node-0",
+   "t": "Node 0 · Before React",
+   "q": "Why does the number of components in an app not predict its complexity in the pre-React model?",
+   "a": "Complexity comes from the number of data-to-screen dependencies, not the number of screen pieces. Adding one filter multiplies the conditions inside every existing update path."
+  },
+  {
+   "n": 8,
+   "c": "node-0",
+   "t": "Node 0 · Before React",
+   "q": "Why is 'the DOM is slow' an incomplete explanation of why React exists?",
+   "a": "Because React does not avoid DOM work — it performs the same operations. The problem React solves is <em>authoring</em>: who is responsible for deciding which operations run. Speed is a secondary, sometimes negative, effect."
+  },
+  {
+   "n": 9,
+   "c": "node-0",
+   "t": "Node 0 · Before React",
+   "q": "What is the one-sentence contract every framework in this space offers?",
+   "a": "Describe the screen as a function of data, and we will keep the DOM in agreement with it."
+  },
+  {
+   "n": 10,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "When and by whom was React open-sourced?",
+   "a": "<strong>29 May 2013</strong>, by Jordan Walke at Facebook, announced at JSConf US. It was already running in production in Facebook Ads and Instagram."
+  },
+  {
+   "n": 11,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "What is a React element? Be precise.",
+   "a": "An ordinary, <strong>immutable plain JavaScript object</strong> that <em>describes</em> what should be on screen — roughly <code>{ type: 'li', props: { className: 'task', children: 'Buy milk' } }</code>. It is not a DOM node, it is not on the page, and creating one is nearly free."
+  },
+  {
+   "n": 12,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "What is the difference between a React element and a DOM node?",
+   "a": "An element is a plan; a DOM node is the building. Elements are cheap immutable descriptions React throws away and rebuilds every update; DOM nodes are expensive live objects React keeps and mutates minimally."
+  },
+  {
+   "n": 13,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "What does <code>React.createElement(type, props, ...children)</code> return?",
+   "a": "A React element object. It does not touch the DOM and does not render anything — it only builds the description."
+  },
+  {
+   "n": 14,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "What is JSX, mechanically?",
+   "a": "A syntax extension compiled <em>before</em> the browser sees it into <code>createElement</code> (or <code>_jsx</code>) function calls. It is not HTML and not a template language — it is sugar over function calls."
+  },
+  {
+   "n": 15,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "Why is it <code>className</code> and not <code>class</code> in JSX?",
+   "a": "Because JSX compiles to a JavaScript object of props, and <code>class</code> is a reserved word in JavaScript. The same reasoning gives camelCase <code>onClick</code>, <code>tabIndex</code>, <code>htmlFor</code>."
+  },
+  {
+   "n": 16,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "What do curly braces mean inside JSX?",
+   "a": "&quot;Stop parsing markup, evaluate this JavaScript <strong>expression</strong>, use its value.&quot; Not string interpolation."
+  },
+  {
+   "n": 17,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "Why can't you write <code>{if (x) ... }</code> inside JSX?",
+   "a": "<code>if</code> is a statement, not an expression, and braces accept only expressions. Hence the idioms <code>cond ? a : b</code> and <code>cond &amp;&amp; a</code>."
+  },
+  {
+   "n": 18,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "Why must a component return a single root element?",
+   "a": "Because a JSX tree compiles to a single function call, and a function returns one value. Fragments exist to satisfy this without extra DOM."
+  },
+  {
+   "n": 19,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "What is a fragment and when do you need the long form?",
+   "a": "<code>&lt;&gt;...&lt;/&gt;</code> groups children without producing a DOM node. You need the long form <code>&lt;React.Fragment key={id}&gt;</code> when the fragment is a list item and needs a key — the short syntax accepts no props."
+  },
+  {
+   "n": 20,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "What changed about JSX compilation in React 17?",
+   "a": "The <strong>new JSX transform</strong> (October 2020) compiles JSX to <code>_jsx()</code> auto-imported from <code>react/jsx-runtime</code>, so files no longer need <code>import React from 'react'</code> just to use JSX. A missing React import is a quick tell that a file is post-17."
+  },
+  {
+   "n": 21,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "Why are <code>react</code> and <code>react-dom</code> separate packages?",
+   "a": "<code>react</code> owns elements, components, and hooks — renderer-agnostic. <code>react-dom</code> knows about the browser. The same core drives React Native and other renderers, so the description layer must not depend on the DOM."
+  },
+  {
+   "n": 22,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "What is the modern entry point for a React app, and what did it replace?",
+   "a": "<code>createRoot(document.getElementById('root')).render(&lt;App /&gt;)</code>, introduced in React 18 (March 2022). It replaced <code>ReactDOM.render(...)</code>. Which one a codebase uses tells you instantly whether it has been migrated."
+  },
+  {
+   "n": 23,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "What is the 'virtual DOM' and why is the name misleading?",
+   "a": "The in-memory tree of element descriptions React diffs against the previous one. The name invites the belief that it is a speed technique — it is not. It is a correctness technique: the screen is re-derived from data every time, so it cannot drift."
+  },
+  {
+   "n": 24,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "Is the virtual DOM faster than hand-written DOM manipulation?",
+   "a": "No. A single well-chosen <code>el.textContent = 'x'</code> by a careful human beats building and diffing objects. You trade peak performance for a guarantee that the screen cannot disagree with the data."
+  },
+  {
+   "n": 25,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "What values render as nothing in JSX?",
+   "a": "<code>null</code>, <code>undefined</code>, <code>false</code>, and <code>true</code>. Strings and numbers render as text — which is why <code>0</code> shows up on screen."
+  },
+  {
+   "n": 26,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "State React's core inversion in one sentence.",
+   "a": "You produce a description of the screen; React produces the DOM operations that make reality match it."
+  },
+  {
+   "n": 27,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "Why does React re-create the entire element description on every update rather than patching it?",
+   "a": "Because elements are cheap immutable objects. Rebuilding is simpler to reason about than incrementally maintaining a description, and the expensive part — the DOM — is still only touched where the descriptions differ."
+  },
+  {
+   "n": 28,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "What does <code>dangerouslySetInnerHTML</code> do and why the name?",
+   "a": "Sets raw HTML on a node, bypassing React's escaping. The name is deliberately alarming because it reopens cross-site scripting: any user-supplied string in it can inject script."
+  },
+  {
+   "n": 29,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "How does React protect against XSS by default?",
+   "a": "Values interpolated into JSX are escaped as text, so <code>{'&lt;script&gt;'}</code> renders as visible characters, not markup. The escape hatch is <code>dangerouslySetInnerHTML</code>."
+  },
+  {
+   "n": 30,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "What is <code>StrictMode</code> in one line, and does it ship to users?",
+   "a": "A development-only wrapper that double-invokes renders and effects to surface impurity and missing cleanups. It has no effect in a production build."
+  },
+  {
+   "n": 31,
+   "c": "node-1",
+   "t": "Node 1 · Describing the UI",
+   "q": "How do you write an inline style in JSX and why the double braces?",
+   "a": "<code>style={{ color: 'red' }}</code> — the outer braces are JSX's 'expression follows' and the inner ones are an object literal. Keys are camelCase because they are JavaScript properties."
+  },
+  {
+   "n": 32,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "What is a component, by definition?",
+   "a": "A function that takes one object argument (props) and returns a React element. Nothing more — there is no class, registration, or base type required."
+  },
+  {
+   "n": 33,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "Why must component names be capitalised?",
+   "a": "<code>&lt;TaskRow /&gt;</code> compiles to <code>createElement(TaskRow, ...)</code> passing the function; <code>&lt;taskRow /&gt;</code> compiles to <code>createElement('taskRow', ...)</code> passing a string. React branches on string-vs-function to decide DOM tag or your component, and the compiler branches on the first letter's case."
+  },
+  {
+   "n": 34,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "What are props and how do they arrive?",
+   "a": "A single object holding everything the parent passed. Destructuring in the parameter list — <code>function Row({ title, done })</code> — is the universal style."
+  },
+  {
+   "n": 35,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "Is <code>children</code> special?",
+   "a": "No. It is an ordinary prop that React fills with whatever you nested between the opening and closing tags. That is what makes wrapper components like <code>&lt;Card&gt;</code> possible."
+  },
+  {
+   "n": 36,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "What can be passed as a prop?",
+   "a": "Anything a JavaScript object property can hold: strings, numbers, booleans, arrays, objects, functions, and React elements themselves."
+  },
+  {
+   "n": 37,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "Why must props be treated as read-only?",
+   "a": "React's entire update strategy assumes rendering is pure — same inputs, same output, nothing mutated. React does not deeply freeze props in production, so mutation appears to work and then produces haunted behaviour later."
+  },
+  {
+   "n": 38,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "State the purity rule for rendering.",
+   "a": "Given the same props and state, a component returns the same elements and changes nothing outside itself: no mutating arguments, no writing to outer variables, no DOM edits, no network calls during render."
+  },
+  {
+   "n": 39,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "Why does React insist data flows one way?",
+   "a": "Because when a value on screen is wrong, it came from exactly one place — the component directly above — so you can walk up the chain to find the lie. In the pre-React model, any of forty places could have written it."
+  },
+  {
+   "n": 40,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "How does a child communicate upward if data only flows down?",
+   "a": "The parent passes a <em>function</em> down as a prop; the child calls it. Data down, events up. The child announces that something happened and never knows what it means."
+  },
+  {
+   "n": 41,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "Why does 'data down, events up' make components reusable?",
+   "a": "Because the child holds no knowledge of consequences. <code>TaskRow</code> does not know whether delete removes from an array, sends a request, or opens a confirmation — so it drops into any of those contexts unchanged."
+  },
+  {
+   "n": 42,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "What is the difference between a component and an element?",
+   "a": "A component is the function; an element is the object produced by calling it in JSX. <code>TaskRow</code> is a component, <code>&lt;TaskRow /&gt;</code> evaluates to an element describing it."
+  },
+  {
+   "n": 43,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "Why does <code>{items.length &amp;&amp; &lt;List/&gt;}</code> print a stray 0?",
+   "a": "When the array is empty, <code>0 &amp;&amp; ...</code> evaluates to <code>0</code>, and React renders the number 0 as text — unlike <code>false</code>/<code>null</code>, which render nothing. Write <code>items.length &gt; 0 &amp;&amp; ...</code>."
+  },
+  {
+   "n": 44,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "What are the two idiomatic conditional rendering forms and why only these?",
+   "a": "<code>cond ? &lt;A/&gt; : &lt;B/&gt;</code> and <code>cond &amp;&amp; &lt;A/&gt;</code>, because JSX braces accept only expressions, and both are expressions."
+  },
+  {
+   "n": 45,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "How do you render a list in JSX?",
+   "a": "Map the array to elements: <code>{tasks.map(t =&gt; &lt;Row key={t.id} task={t} /&gt;)}</code>. Arrays of elements are valid children."
+  },
+  {
+   "n": 46,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "What is the gap Node 2 leaves?",
+   "a": "The app is a photograph. Nothing inside it can cause an update — components have no memory, since local variables die when the function returns."
+  },
+  {
+   "n": 47,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "What is the difference between composition and inheritance in React, and which does React recommend?",
+   "a": "Composition — passing components and elements as props/children. React explicitly recommends it over inheritance; there is no idiomatic case for extending one component from another."
+  },
+  {
+   "n": 48,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "What are default prop values in a function component?",
+   "a": "Default parameters in the destructure: <code>function Btn({ size = 'md' })</code>. The old <code>Component.defaultProps</code> is removed for function components in React 19."
+  },
+  {
+   "n": 49,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "What is prop drilling?",
+   "a": "Passing a value through many intermediate components that do not use it, purely to reach a deep descendant. It works, but makes refactoring painful — which is the motivation for context."
+  },
+  {
+   "n": 50,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "How do you type props in TypeScript, minimally?",
+   "a": "An interface or type for the props object: <code>function Row({ id, title }: { id: string; title: string })</code>, or a named <code>type RowProps</code>. No <code>React.FC</code> needed and it is generally discouraged."
+  },
+  {
+   "n": 51,
+   "c": "node-2",
+   "t": "Node 2 · Components and props",
+   "q": "Why is spreading props (<code>&lt;Btn {...rest} /&gt;</code>) both useful and risky?",
+   "a": "Useful for pass-through wrappers around DOM elements. Risky because it makes the component's real contract invisible and can forward unexpected attributes to the DOM, producing React warnings about unknown props."
+  },
+  {
+   "n": 52,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "What does <code>const [count, setCount] = useState(0)</code> actually do?",
+   "a": "Asks React — the thing calling your function — to hold a value keyed to this component instance and hand it back on every later call. The value lives in React's internal record, not in your function."
+  },
+  {
+   "n": 53,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "Why can't you just use a normal <code>let</code> for state?",
+   "a": "A local variable is recreated on every call of the function, so it resets on every render. And assigning to it would not tell React that anything changed."
+  },
+  {
+   "n": 54,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "Why does calling <code>setCount(count + 1)</code> twice only increment by one?",
+   "a": "<code>count</code> is a <code>const</code> holding a snapshot of state <em>at the start of this render</em>. Both calls compute the same number. Use the updater form <code>setCount(c =&gt; c + 1)</code> when the new value depends on the old."
+  },
+  {
+   "n": 55,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "Why does <code>console.log(count)</code> right after <code>setCount</code> print the old value?",
+   "a": "Because <code>count</code> is a constant in the current render's scope and setters do not assign to it. The new value appears in the <em>next</em> render, where <code>useState</code> returns it."
+  },
+  {
+   "n": 56,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "When should you use the updater form of a setter?",
+   "a": "Whenever the next value depends on the previous one, or when the update may be queued alongside others. React applies queued updater functions in order against the latest value."
+  },
+  {
+   "n": 57,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "What does calling a state setter actually do?",
+   "a": "Schedules a re-render. It is a request, not an assignment, and it does not synchronously re-run your component."
+  },
+  {
+   "n": 58,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "How does React decide whether a state update is worth re-rendering?",
+   "a": "It compares the new value to the current one with <code>Object.is</code>. If they match it may bail out entirely — which is exactly why mutating an object and setting the same reference back renders nothing."
+  },
+  {
+   "n": 59,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "Why does <code>todos.push(x); setTodos(todos)</code> not update the screen?",
+   "a": "You handed back the same array reference, so <code>Object.is</code> says nothing changed. Create a new value: <code>setTodos([...todos, x])</code>."
+  },
+  {
+   "n": 60,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "How do you update one field of an object in state?",
+   "a": "Spread into a new object: <code>setUser({ ...user, name })</code>. Never assign into the existing object."
+  },
+  {
+   "n": 61,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "What library exists to make immutable updates look mutable, and why?",
+   "a": "<strong>immer</strong>. Deeply nested spread updates get unreadable fast; immer lets you write mutating-looking code against a draft and produces a new object underneath. Redux Toolkit uses it internally."
+  },
+  {
+   "n": 62,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "What is batching?",
+   "a": "Multiple setter calls in one handler produce exactly one re-render, not one each. React collects them and processes them together before painting."
+  },
+  {
+   "n": 63,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "What changed about batching in React 18?",
+   "a": "<strong>Automatic batching everywhere.</strong> In React 17 and earlier, batching only happened inside React's own event handlers — updates in <code>setTimeout</code>, promise callbacks, or native listeners each caused their own render."
+  },
+  {
+   "n": 64,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "Name and define the three phases of a React update.",
+   "a": "<strong>Render</strong> — React calls your components to build the new description; pure, may run more than once or be discarded. <strong>Commit</strong> — React applies the computed DOM operations. <strong>Paint</strong> — the browser draws pixels, in a later frame."
+  },
+  {
+   "n": 65,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "What is the browser's frame budget and why does the number matter?",
+   "a": "About <strong>16.7 milliseconds</strong>, which is one frame at 60 frames per second. Everything React does in a single blocking pass eats into it, which is what concurrent rendering later fights for."
+  },
+  {
+   "n": 66,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "If you render <code>&lt;Counter /&gt;</code> twice, do they share state?",
+   "a": "No. State is keyed to the component's <em>instance</em> — its position in the tree — not to the function. Two positions, two independent states."
+  },
+  {
+   "n": 67,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "Can you call a state setter during render?",
+   "a": "Not in general — it makes render impure and usually loops. The one sanctioned exception is the rare 'adjust state during render' pattern where you set state on the same component before returning, and React re-renders immediately without painting."
+  },
+  {
+   "n": 68,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "What is the lazy initialiser form of useState and why does it exist?",
+   "a": "<code>useState(() =&gt; expensiveInit())</code>. The plain form <code>useState(expensiveInit())</code> evaluates the argument on <em>every</em> render even though the value is only used on the first — passing a function defers it to the first render only."
+  },
+  {
+   "n": 69,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "Is state synchronous or asynchronous?",
+   "a": "Neither word is quite right. The setter returns immediately without changing the current render's value; React processes queued updates and re-renders afterwards. Say &quot;the setter queues an update and the new value is visible in the next render.&quot;"
+  },
+  {
+   "n": 70,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "Predict: a component calls <code>setState</code> with the same primitive value it already has. What happens?",
+   "a": "React compares with <code>Object.is</code>, sees no change, and may skip re-rendering entirely. It may still render once more before bailing out, but the DOM is untouched."
+  },
+  {
+   "n": 71,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "You call three setters in a promise callback in React 17 versus React 18. Difference?",
+   "a": "React 17: three separate renders, because batching only covered React's own event handlers. React 18: one render, because batching is automatic everywhere."
+  },
+  {
+   "n": 72,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "Why does an infinite render loop usually happen?",
+   "a": "Setting state during render, or an effect with no dependency array (or an unstable dependency) that sets state — each render triggers the effect, which triggers a render."
+  },
+  {
+   "n": 73,
+   "c": "node-3",
+   "t": "Node 3 · State and re-rendering",
+   "q": "Is it safe to store a function in useState?",
+   "a": "Only via the updater form, since <code>useState(fn)</code> treats <code>fn</code> as a lazy initialiser and <code>setState(fn)</code> treats it as an updater. Use <code>useState(() =&gt; fn)</code> and <code>setState(() =&gt; fn)</code>."
+  },
+  {
+   "n": 74,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "Why doesn't React use a general tree-diffing algorithm?",
+   "a": "Optimal tree diffing is too slow to run sixty times a second. React trades optimality for two heuristics that hold almost always in UIs, and gets a fast, predictable algorithm."
+  },
+  {
+   "n": 75,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "State React's two reconciliation assumptions.",
+   "a": "1) Elements of <strong>different types</strong> produce different trees. 2) The developer can supply <strong>stable identity</strong> for list children via <code>key</code>."
+  },
+  {
+   "n": 76,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "What happens when the element type at a position changes?",
+   "a": "React destroys the entire old subtree — DOM nodes and all component state inside it — and builds the new one from scratch. No reuse is attempted."
+  },
+  {
+   "n": 77,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "What happens when the element type at a position stays the same?",
+   "a": "React keeps the existing DOM node, updates only the attributes that actually differ, and recurses into children."
+  },
+  {
+   "n": 78,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "State is tied to what, exactly?",
+   "a": "The component's <strong>position in the tree</strong>, not its name and not its props. Same type at the same position means the same instance and the same state."
+  },
+  {
+   "n": 79,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "Why does wrapping a form in a conditional wrapper wipe what the user typed?",
+   "a": "<code>{editing ? &lt;Panel&gt;&lt;Form/&gt;&lt;/Panel&gt; : &lt;div&gt;&lt;Form/&gt;&lt;/div&gt;}</code> changes the type at that position, so React destroys the subtree and the Form's state with it. Keep the shape identical and state survives."
+  },
+  {
+   "n": 80,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "You switch <code>&lt;Message user={a}/&gt;</code> to <code>&lt;Message user={b}/&gt;</code> and the half-typed reply carries over. Why, and what is the fix?",
+   "a": "Same type, same position, so React reuses the instance and its state. Fix: <code>key={user.id}</code>, which deliberately forces a fresh instance."
+  },
+  {
+   "n": 81,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "How does React match children without keys?",
+   "a": "By index — first old child to first new child, and so on. Insert at the front of a thousand rows and every index shifts, so React treats every row as changed."
+  },
+  {
+   "n": 82,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "What are the rules for a good key?",
+   "a": "Stable across renders for the same item, unique <strong>among siblings</strong> (not globally), and derived from the data — normally a database id."
+  },
+  {
+   "n": 83,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "When is <code>key={index}</code> actually correct?",
+   "a": "Only when the list is never reordered, never filtered, and items are only ever appended at the end. Otherwise it is worse than no key."
+  },
+  {
+   "n": 84,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "Why is <code>key={index}</code> worse than no key at all when items are deleted?",
+   "a": "It actively lies. After deleting the first item, the item now at index 0 claims to be the same thing that was there before, so React keeps the old DOM node and its state and only swaps the text — leaving checkboxes, focus, and input values attached to the wrong row."
+  },
+  {
+   "n": 85,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "Why is <code>key={Math.random()}</code> wrong?",
+   "a": "A new key every render means every row is a different item, so React destroys and recreates the whole list each time — losing focus and DOM state and running slower than having no key."
+  },
+  {
+   "n": 86,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "Can a component read its own <code>key</code>?",
+   "a": "No. React consumes it and it is not passed as a prop. If the child needs the id, pass it twice: <code>&lt;Row key={t.id} id={t.id} /&gt;</code>."
+  },
+  {
+   "n": 87,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "What is fiber and what did it replace?",
+   "a": "The internal linked structure of work units introduced in React 16 (26 September 2017), replacing React 15's plain recursive reconciliation. Because React walks it itself rather than using the JavaScript call stack, rendering can be paused and resumed."
+  },
+  {
+   "n": 88,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "Did fiber change how you write React?",
+   "a": "No — it was invisible at the API level. It made concurrent rendering (transitions, deferred values, Suspense for data) <em>possible</em>, which arrived years later in React 18."
+  },
+  {
+   "n": 89,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "Give the two-line rule for diagnosing 'my component state reset unexpectedly'.",
+   "a": "Ask whether the element <strong>type at that position</strong> changed, or whether its <strong>key</strong> changed. One of the two is nearly always the answer."
+  },
+  {
+   "n": 90,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "Does changing a key on a component remount it?",
+   "a": "Yes — a different key means a different item, so React unmounts the old instance (running effect cleanups) and mounts a fresh one with initial state. This is the sanctioned way to reset a component."
+  },
+  {
+   "n": 91,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "You reorder a list and the wrong row shows a spinner. Diagnose.",
+   "a": "Index keys. The spinner is DOM/component state attached to a position rather than to an item, so it stayed behind while the data moved. Switch to stable ids."
+  },
+  {
+   "n": 92,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "Do keys need to be globally unique?",
+   "a": "No — only unique among <strong>siblings</strong> in the same array. Two different lists may both use key <code>1</code>."
+  },
+  {
+   "n": 93,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "What happens to effects when React destroys a subtree during reconciliation?",
+   "a": "All cleanup functions in that subtree run, in the same pass, before the new subtree mounts and its effects run."
+  },
+  {
+   "n": 94,
+   "c": "node-4",
+   "t": "Node 4 · Reconciliation and keys",
+   "q": "Why does React warn about missing keys instead of just using index silently?",
+   "a": "Because index matching is only safe under conditions React cannot verify. The warning asks you to assert identity, since only you know whether the list reorders."
+  },
+  {
+   "n": 95,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "What is wrong with <code>onClick={handleClick()}</code>?",
+   "a": "It <em>calls</em> the function during render and passes the return value as the handler. The effect is a handler that fires once on render and never again."
+  },
+  {
+   "n": 96,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "How do you pass an argument to an event handler?",
+   "a": "Wrap it: <code>onClick={() =&gt; remove(task.id)}</code>. The arrow function is the handler; it calls yours with the argument."
+  },
+  {
+   "n": 97,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "What is a SyntheticEvent and why does it exist?",
+   "a": "React's own object wrapping the browser's native event. It originally existed to normalise genuine cross-browser differences in 2013, and remains because React needs one consistent event system across renderers. The native event is at <code>e.nativeEvent</code>."
+  },
+  {
+   "n": 98,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "What was event pooling and what happened to it?",
+   "a": "Before React 17, React reused one synthetic event object and nulled its fields after the handler returned, so reading <code>e.target</code> in an async callback gave <code>null</code> and people called <code>e.persist()</code>. <strong>React 17 removed pooling entirely</strong> — that advice is obsolete."
+  },
+  {
+   "n": 99,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "Does React attach a listener to every element with an <code>onClick</code>?",
+   "a": "No. It attaches a small number of listeners at the root and uses <strong>event delegation</strong>, relying on native bubbling, then simulates capture and bubble phases along the component path itself."
+  },
+  {
+   "n": 100,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "Where were React's delegated listeners attached before and after React 17?",
+   "a": "Before 17: on <code>document</code>. From 17: on the <strong>root container element</strong> — so two React versions, or React embedded in a non-React page, can coexist without stealing each other's events."
+  },
+  {
+   "n": 101,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "Why might <code>e.stopPropagation()</code> in React not stop a listener you added on <code>document</code>?",
+   "a": "Because they are two stacked systems. React's synthetic propagation is simulated inside React's own root listener; a native listener higher up still receives the real bubbled event."
+  },
+  {
+   "n": 102,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "What is a controlled component?",
+   "a": "An input whose value comes from React state and whose changes write back to state: <code>&lt;input value={q} onChange={e =&gt; setQ(e.target.value)} /&gt;</code>. The DOM never owns the truth."
+  },
+  {
+   "n": 103,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "Why is a controlled input worth one render per keystroke?",
+   "a": "Because the value becomes ordinary data available to the whole app for free — character counts, disabled submit buttons, live validation, debounced search, a clear button — instead of being locked inside a DOM node."
+  },
+  {
+   "n": 104,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "What is an uncontrolled component and when is it the right choice?",
+   "a": "The DOM keeps the value; you supply <code>defaultValue</code> and read it on submit, usually via a ref. Right for large forms you only read once — less code, far fewer renders. React Hook Form is built on this."
+  },
+  {
+   "n": 105,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "What happens if you pass <code>value</code> without <code>onChange</code>?",
+   "a": "The field is frozen — React resets it to the state value on every render — and React logs a warning telling you to supply <code>onChange</code> or use <code>defaultValue</code>/<code>readOnly</code>."
+  },
+  {
+   "n": 106,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "What causes the 'changing an uncontrolled input to be controlled' warning?",
+   "a": "<code>value</code> was <code>undefined</code> on the first render and a string later, usually from state initialised to <code>undefined</code> or data arriving async. Initialise to <code>''</code>."
+  },
+  {
+   "n": 107,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "How does React's <code>onChange</code> differ from the DOM's <code>change</code> event?",
+   "a": "React's fires on <em>every keystroke</em> (it is closer to the native <code>input</code> event). The native <code>change</code> event fires on blur. React deliberately renamed the semantics."
+  },
+  {
+   "n": 108,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "How do you stop a form from navigating the page away?",
+   "a": "<code>&lt;form onSubmit={e =&gt; { e.preventDefault(); ... }}&gt;</code>. React does not change default browser behaviour here."
+  },
+  {
+   "n": 109,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "Why should the submit handler live on the form and not the button?",
+   "a": "So keyboard submission (Enter in a text field) and implicit submission also work, and so validation runs once regardless of how the user submitted."
+  },
+  {
+   "n": 110,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "How do you handle many inputs with one handler?",
+   "a": "Give each a <code>name</code> and use it as a key: <code>setForm(f =&gt; ({ ...f, [e.target.name]: e.target.value }))</code>."
+  },
+  {
+   "n": 111,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "How do checkboxes differ from text inputs in React?",
+   "a": "They use <code>checked</code> instead of <code>value</code>, and you read <code>e.target.checked</code>. Same controlled/uncontrolled distinction otherwise."
+  },
+  {
+   "n": 112,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "What is the gap Node 5 leaves?",
+   "a": "State declared inside one component is invisible to its siblings. A header filter and a body list both need the query, and duplicating it makes them disagree — the Node 0 bug rebuilt at a higher level."
+  },
+  {
+   "n": 113,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "How do you read a file input's value in React?",
+   "a": "With a ref or <code>e.target.files</code> — file inputs cannot be controlled, because their value is read-only for security reasons."
+  },
+  {
+   "n": 114,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "Why does typing feel slow in a large controlled form, and what are the two fixes?",
+   "a": "Every keystroke re-renders the whole form. Fix by isolating the input into its own small component that owns its state, or by going uncontrolled — which is exactly React Hook Form's design."
+  },
+  {
+   "n": 115,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "How do you handle a <code>&lt;select multiple&gt;</code> in React?",
+   "a": "Pass an array to <code>value</code>, and read the selected options from the event target to build the new array. React special-cases <code>select</code> so you never set <code>selected</code> on options."
+  },
+  {
+   "n": 116,
+   "c": "node-5",
+   "t": "Node 5 · Events and controlled inputs",
+   "q": "Why is <code>onChange</code> not firing for a controlled input you set from outside React?",
+   "a": "Because programmatically setting <code>input.value</code> on the DOM node does not dispatch React's synthetic event. React only knows about changes it originated or real user input."
+  },
+  {
+   "n": 117,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "What does 'lifting state up' mean?",
+   "a": "Moving state to the nearest common ancestor of everything that needs it, then passing the value down as a prop and the setter down as a prop. Neither child owns it, so they cannot disagree."
+  },
+  {
+   "n": 118,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "What is the single most useful test for whether something should be state?",
+   "a": "Can I compute it from other state or props? If yes, compute it during render. <code>visibleTasks</code>, <code>total</code>, <code>isEmpty</code>, <code>fullName</code>, <code>hasErrors</code> are all derived, not state."
+  },
+  {
+   "n": 119,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "Why is storing derived values in state a bug and not just waste?",
+   "a": "Because you must then write an update path to keep it in sync with every input — the Node 0 disease. Recomputing is cheap and always correct; a cached copy is fast and eventually wrong."
+  },
+  {
+   "n": 120,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "What is duplicated state? Give the classic example.",
+   "a": "Storing the same fact twice. Keeping <code>selectedTask</code> (the whole object) alongside <code>tasks</code> — edit the task in the array and the selection shows stale data. Store <code>selectedId</code> and look it up."
+  },
+  {
+   "n": 121,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "What is contradictory state and how do you eliminate it?",
+   "a": "Booleans that can be true together but shouldn't be — <code>isLoading</code>, <code>isSuccess</code>, <code>isError</code>. Replace with one variable: <code>status: 'idle' | 'loading' | 'success' | 'error'</code>. This is the seed of the reducer node."
+  },
+  {
+   "n": 122,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "Props versus state, in one line each.",
+   "a": "Props are what a component is <strong>told</strong>. State is what a component <strong>remembers</strong>."
+  },
+  {
+   "n": 123,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "Why is <code>useState(props.value)</code> usually a bug?",
+   "a": "It captures the prop on the first render only and ignores every later change, producing &quot;the parent updated but the child didn't.&quot; If you genuinely need a reset, change the child's <code>key</code>."
+  },
+  {
+   "n": 124,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "How do you deliberately reset a child's state when a prop changes?",
+   "a": "Give the child a <code>key</code> derived from that prop. Changing the key remounts it with initial state — declarative, and no effect required."
+  },
+  {
+   "n": 125,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "What structural pattern falls out of good state placement?",
+   "a": "State gets pushed <em>up</em>; components get pushed <em>down</em>. Stateless components that are pure functions of props are trivially testable and reusable."
+  },
+  {
+   "n": 126,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "What were 'container' and 'presentational' components?",
+   "a": "An older naming for the split between components that hold state and fetch data and components that only render props. The terminology has faded; the instinct behind it has not."
+  },
+  {
+   "n": 127,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "Where should state live — the general rule?",
+   "a": "As low in the tree as possible, but no lower than the closest common ancestor of everyone who reads it. Lower means fewer components re-render."
+  },
+  {
+   "n": 128,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "What is the gap Node 6 leaves?",
+   "a": "The app is a closed world. It can only compute screens from data it already has — no fetching, no storage, no timers, no subscriptions, no measurement — because rendering was defined as pure."
+  },
+  {
+   "n": 129,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "You have <code>tasks</code>, <code>filter</code>, and <code>visibleTasks</code> in state. What is the fix and why?",
+   "a": "Delete <code>visibleTasks</code> and compute it during render from the other two. Storing it requires an update path for every change to either input, which will eventually be missed."
+  },
+  {
+   "n": 130,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "When is it acceptable to keep derived data in state?",
+   "a": "Essentially never for correctness reasons. If the derivation is genuinely expensive, keep it derived but wrap it in <code>useMemo</code> — that caches without creating a second source of truth."
+  },
+  {
+   "n": 131,
+   "c": "node-6",
+   "t": "Node 6 · Where state lives",
+   "q": "How do you decide the common ancestor for lifted state?",
+   "a": "Find every component that reads or writes the value, then take the lowest node in the tree that is an ancestor of all of them. Going higher than that costs unnecessary re-renders."
+  },
+  {
+   "n": 132,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "When does <code>useEffect</code>'s function run?",
+   "a": "After React has committed the DOM <em>and</em> the browser has painted. Your render stayed pure, the screen is already correct, and only then do you touch the outside world."
+  },
+  {
+   "n": 133,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "What are the three parts of a useEffect call?",
+   "a": "The effect function; an optional returned <strong>cleanup</strong> function; and the <strong>dependency array</strong> that decides when it re-runs."
+  },
+  {
+   "n": 134,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "What do the three dependency-array forms mean?",
+   "a": "No array — after every render. <code>[]</code> — after the first render only. <code>[a, b]</code> — after the first render and whenever <code>a</code> or <code>b</code> changed, compared with <code>Object.is</code>."
+  },
+  {
+   "n": 135,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "Why does an effect with an object or function in its deps re-run every render?",
+   "a": "Because those are recreated fresh on every render, so <code>Object.is</code> says they changed. The fix is to stabilise them (<code>useMemo</code>/<code>useCallback</code>) or to depend on primitive fields instead."
+  },
+  {
+   "n": 136,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "State the correct mental model for effects.",
+   "a": "<strong>Synchronisation</strong>, not lifecycle. An effect declares an ongoing relationship: &quot;while roomId is X, this component should be connected to room X.&quot; Cleanup is the second half of that sentence, not an afterthought."
+  },
+  {
+   "n": 137,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "Why is 'useEffect with [] means componentDidMount' a harmful framing?",
+   "a": "It makes you think about <em>when</em> the effect runs instead of <em>what it depends on</em>. That merges unrelated concerns into one effect and produces wrong dependency arrays — most notably forgetting the case where a dependency changes while the component stays mounted."
+  },
+  {
+   "n": 138,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "What does StrictMode do to effects in development?",
+   "a": "Mounts the component, runs effects, immediately runs the cleanups, then runs the effects again. Development only — it never happens in a production build."
+  },
+  {
+   "n": 139,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "You see two network requests in development. Is React broken?",
+   "a": "No. StrictMode's double-invoke is showing you an effect that is not a correct synchronisation — it fires once with no cleanup. The same bug would appear later on a real remount. Fix the effect; do not add a ref guard."
+  },
+  {
+   "n": 140,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "Name four cases where you should <em>not</em> write an effect.",
+   "a": "Transforming data for display (do it during render). Responding to a user action (put it in the handler). Resetting state when a prop changes (use <code>key</code>). Computing something expensive from props (use <code>useMemo</code>)."
+  },
+  {
+   "n": 141,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "Why is 'effect watches state A and sets state B' a bad pattern?",
+   "a": "It causes a second render every time, is always wrong on the first render, and can cascade. Compute B during render instead."
+  },
+  {
+   "n": 142,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "What are effects legitimately for?",
+   "a": "External systems: network, timers, browser APIs, subscriptions, the DOM outside React's tree, third-party widgets, analytics. Nothing else."
+  },
+  {
+   "n": 143,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "What is <code>useLayoutEffect</code> and when do you need it?",
+   "a": "It runs after DOM mutation but <em>before</em> the browser paints. Use it when you must measure and adjust in the same frame to avoid a visible flicker — a tooltip deciding whether it fits above the button. Avoid otherwise: it blocks painting."
+  },
+  {
+   "n": 144,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "What is <code>useSyncExternalStore</code> for?",
+   "a": "Subscribing to a store outside React (added in React 18). It exists because with concurrent rendering a naive subscription can let two parts of one screen read two different versions of the same store — a failure called <strong>tearing</strong>."
+  },
+  {
+   "n": 145,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "What is <code>useEffectEvent</code> and what problem does it solve?",
+   "a": "Added in React 19.2 (October 2025). It lets an effect <em>read</em> the latest value of something without <em>re-running</em> when it changes. Before it, the workaround was storing the value in a ref, which you will see all over existing code."
+  },
+  {
+   "n": 146,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "How do you cancel a subscription or timer correctly?",
+   "a": "Return a cleanup from the effect that undoes exactly what the effect did: <code>clearInterval</code>, <code>removeEventListener</code>, <code>socket.close()</code>, <code>controller.abort()</code>. React runs it before the next run and on unmount."
+  },
+  {
+   "n": 147,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "What does the exhaustive-deps lint rule enforce and should you suppress it?",
+   "a": "That every reactive value used inside the effect appears in the deps. Suppressing it is almost always hiding a stale-closure bug — restructure the effect instead."
+  },
+  {
+   "n": 148,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "What is a stale closure in the context of effects?",
+   "a": "An effect (or handler) captured a value from an old render and keeps using it after state has moved on — classic with <code>setInterval</code> and an empty dep array reading a counter that never updates."
+  },
+  {
+   "n": 149,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "Predict: an effect with <code>[]</code> reads <code>count</code> inside a <code>setInterval</code>. What goes wrong?",
+   "a": "The interval callback closes over <code>count</code> from the first render forever, so it always sees the initial value. Fix with the updater form, or by listing the dependency and recreating the interval."
+  },
+  {
+   "n": 150,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "Why does the order of multiple effects in a component matter?",
+   "a": "They run in declaration order after commit, and their cleanups run in the same order before the next run. If one effect depends on another's side effect having happened, that ordering is the only guarantee you have — and relying on it is a smell."
+  },
+  {
+   "n": 151,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "When do effects run relative to a parent's and child's commit?",
+   "a": "Child effects run before parent effects — React commits the whole tree, then runs effects bottom-up, so a parent can rely on its children having synchronised."
+  },
+  {
+   "n": 152,
+   "c": "node-7",
+   "t": "Node 7 · Effects",
+   "q": "How do you run an effect only on updates and not the first render?",
+   "a": "Guard it with a ref initialised to <code>true</code> and flipped after the first run. It is a legitimate but rare pattern, and usually a sign the logic belongs in an event handler instead."
+  },
+  {
+   "n": 153,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "List the four things wrong with a naive fetch-in-useEffect.",
+   "a": "Race conditions on rapid dependency changes; no error handling; contradictory loading/error/data state; and network waterfalls. Plus no caching, deduplication, or revalidation."
+  },
+  {
+   "n": 154,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "Explain the race condition precisely.",
+   "a": "Change <code>id</code> from 1 to 2 quickly and two requests are in flight. If request 1 resolves after request 2 — normal, since network ordering is not guaranteed — you render user 1's data on a page labelled user 2."
+  },
+  {
+   "n": 155,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "How do you fix the fetch race condition?",
+   "a": "Cleanup. Either set an <code>ignore</code> flag captured in the effect and check it before setting state, or call <code>controller.abort()</code> on an <code>AbortController</code> in the returned cleanup, so responses belonging to a stale render are discarded."
+  },
+  {
+   "n": 156,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "What does the fetch race condition prove about cleanup functions?",
+   "a": "That cleanup is not bookkeeping or leak-prevention — omitting it is a <strong>correctness</strong> bug that renders the wrong data."
+  },
+  {
+   "n": 157,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "What is a network waterfall and why is it invisible in code review?",
+   "a": "A parent fetches, then renders a child that fetches, so the child's request cannot start until the parent's returns. Three levels means three sequential round trips instead of one parallel batch. You only see it on a network timeline."
+  },
+  {
+   "n": 158,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "Why do separate <code>loading</code>, <code>error</code>, and <code>data</code> states cause bugs?",
+   "a": "There is always a render where two of them disagree — the Node 6 contradictory-state problem. Every serious data library models one status value instead."
+  },
+  {
+   "n": 159,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "What is the framing that justifies TanStack Query or SWR?",
+   "a": "Server data is not your state — it is a <strong>cache of someone else's state</strong>, so it needs different rules: keys, deduplication, background revalidation, staleness, retries."
+  },
+  {
+   "n": 160,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "Name five things a data library gives you that hand-rolled fetching does not.",
+   "a": "Deduplication of identical in-flight requests; caching by key; background revalidation; retries with backoff; and shared results across components with one request."
+  },
+  {
+   "n": 161,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "What is the <code>use()</code> API?",
+   "a": "A React 19 API that accepts a promise (or a context) and suspends the component until it resolves, integrating data loading with Suspense boundaries instead of with boolean flags. Unlike hooks, it may be called conditionally."
+  },
+  {
+   "n": 162,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "What are Actions in React 19?",
+   "a": "A packaging of the pending/error/optimistic pattern for submissions and mutations, exposed through <code>useActionState</code>, <code>useFormStatus</code>, and <code>useOptimistic</code>, with form <code>action</code> props accepting async functions."
+  },
+  {
+   "n": 163,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "What does <code>useOptimistic</code> do?",
+   "a": "Shows the expected result of a mutation immediately, then reconciles with the real result — or reverts automatically if it fails."
+  },
+  {
+   "n": 164,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "How do you avoid a waterfall when a parent and child both need data?",
+   "a": "Hoist the requests so they start together — fetch both at the parent, or use a router/framework that declares data requirements per route ahead of rendering. Server components remove many waterfalls by doing the work in one place on the server."
+  },
+  {
+   "n": 165,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "How do you cancel an in-flight fetch properly?",
+   "a": "Create an <code>AbortController</code> in the effect, pass <code>controller.signal</code> to <code>fetch</code>, and call <code>controller.abort()</code> in the cleanup. Catch and ignore the resulting <code>AbortError</code>."
+  },
+  {
+   "n": 166,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "What is stale-while-revalidate?",
+   "a": "Show the cached value immediately, fetch fresh data in the background, then update. It is the default strategy of SWR and TanStack Query and is why navigating back feels instant."
+  },
+  {
+   "n": 167,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "What is a query key and why does it matter?",
+   "a": "The identity of a cached request — usually an array like <code>['user', id]</code>. It controls deduplication, cache hits, and invalidation; getting it wrong is the usual cause of 'the data didn't refresh'."
+  },
+  {
+   "n": 168,
+   "c": "node-8",
+   "t": "Node 8 · Fetching data",
+   "q": "Where should a mutation's cache invalidation happen?",
+   "a": "In the mutation's success handler, invalidating the query keys whose data the mutation could have changed — so the affected screens refetch rather than every component guessing."
+  },
+  {
+   "n": 169,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "What does <code>useRef(initial)</code> return, and what are its two defining properties?",
+   "a": "A plain mutable object <code>{ current: initial }</code> that React preserves across renders. Mutating <code>ref.current</code> does <strong>not</strong> trigger a re-render, and reading it during render is <strong>not</strong> safe because React does not track it."
+  },
+  {
+   "n": 170,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "State the difference between state and a ref in one line.",
+   "a": "State is remembered and rendered; a ref is remembered and ignored."
+  },
+  {
+   "n": 171,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "What are the two distinct uses of refs?",
+   "a": "Holding a value between renders that the screen does not depend on (an interval id, a previous value, a 'has run' flag), and holding a real DOM node."
+  },
+  {
+   "n": 172,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "How do you get a DOM node, and when is it set?",
+   "a": "<code>&lt;input ref={inputRef} /&gt;</code>. React sets <code>inputRef.current</code> to the element after commit and back to <code>null</code> on unmount — so read it in effects and handlers, never during render."
+  },
+  {
+   "n": 173,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "Name the legitimate reasons to reach for a DOM ref.",
+   "a": "Focus management, scrolling, measurement (<code>getBoundingClientRect</code>), media control (<code>play</code>/<code>pause</code>), text selection, and handing a node to a third-party library."
+  },
+  {
+   "n": 174,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "What must you never do with a DOM node React owns?",
+   "a": "Add or remove its children yourself. React's picture of the tree becomes wrong and it will eventually clobber you or crash. If you need to hand a subtree to a library, give it a node React renders empty and never touches."
+  },
+  {
+   "n": 175,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "Why was <code>forwardRef</code> needed, and what changed in React 19?",
+   "a": "<code>ref</code> was consumed by React rather than passed as a prop, so a ref on your component never reached the DOM node inside; <code>forwardRef</code> delivered it as a second argument. In React 19 <code>ref</code> is an ordinary prop you can destructure, and <code>forwardRef</code> is being retired. Both forms are common in real code."
+  },
+  {
+   "n": 176,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "What is <code>useImperativeHandle</code> for?",
+   "a": "Exposing a deliberately narrow API to a parent — <code>{ focus, scrollToTop }</code> — instead of the raw DOM node, so a component library does not leak its internal structure."
+  },
+  {
+   "n": 177,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "What is a ref callback, and what did React 19 add to it?",
+   "a": "Passing a function to <code>ref</code> instead of a ref object; React calls it with the node on attach and <code>null</code> on detach. React 19 lets it <strong>return a cleanup function</strong>, called on detach instead of the null call."
+  },
+  {
+   "n": 178,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "How do you store a list of refs for a dynamic list?",
+   "a": "One ref holding a <code>Map</code> keyed by item id, populated by ref callbacks — not an array indexed by position, which breaks on reorder for the same reasons index keys do."
+  },
+  {
+   "n": 179,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "Why is 'refs are a hack, avoid them' wrong?",
+   "a": "They are the intended escape hatch. Focus, scroll, measurement, and imperative library integration have no declarative form; avoiding refs there produces worse code, usually an effect that fights the DOM."
+  },
+  {
+   "n": 180,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "What is the gap Node 9 leaves?",
+   "a": "You now have several hooks that all break if placed inside an <code>if</code>, with no explanation why, and you are copy-pasting the same hook combinations between components with no way to extract them."
+  },
+  {
+   "n": 181,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "When is <code>ref.current</code> guaranteed to be set?",
+   "a": "After commit — so in effects and in event handlers. During render it may be <code>null</code> or stale, which is why reading it there is unsafe."
+  },
+  {
+   "n": 182,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "How do you get the previous value of a prop?",
+   "a": "Store it in a ref and update the ref in an effect after each render. The ref lags by one render by construction, which is exactly what you want."
+  },
+  {
+   "n": 183,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "Why prefer a ref over state for a timer id?",
+   "a": "Because the UI does not display it. Putting it in state would cause a re-render for a value nothing renders."
+  },
+  {
+   "n": 184,
+   "c": "node-9",
+   "t": "Node 9 · Refs and the escape hatch",
+   "q": "How do you focus an input as soon as a modal opens?",
+   "a": "A ref on the input plus an effect that calls <code>.focus()</code> when the modal mounts. Use <code>useLayoutEffect</code> only if the focus jump is visible."
+  },
+  {
+   "n": 185,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "When did hooks ship?",
+   "a": "<strong>React 16.8, on 6 February 2019.</strong> They became the default way to write React and made class components legacy without deprecating them."
+  },
+  {
+   "n": 186,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "What problem did hooks actually solve? (Not verbosity.)",
+   "a": "Class components could not <strong>extract and reuse stateful logic</strong>. Lifecycle methods split one concern across three places and mixed three concerns into one method."
+  },
+  {
+   "n": 187,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "What were the pre-hooks reuse patterns and what was wrong with them?",
+   "a": "<strong>Higher-order components</strong> and <strong>render props</strong>. They worked, but each layer added a component to the tree, producing deeply nested 'wrapper hell' that was miserable to read in DevTools."
+  },
+  {
+   "n": 188,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "Explain the mechanism behind hooks.",
+   "a": "React keeps, per component instance, an <strong>ordered list of hook records</strong>. When your function runs, React points at that component and at position 0; each hook call reads the record at the current position and advances the pointer. Records are created on the first render and read back in the same order after."
+  },
+  {
+   "n": 189,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "Hooks are matched by what?",
+   "a": "<strong>Call order</strong>, not by name. <code>useState</code> has no idea the variable is called <code>count</code>."
+  },
+  {
+   "n": 190,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "Derive the rules of hooks from the mechanism.",
+   "a": "Only call hooks at the top level, because a hook inside an <code>if</code>, loop, or after an early return changes the call order, so position 2 now holds a different hook's record. And only call them from components or other hooks, because outside a render there is no component whose list to point at."
+  },
+  {
+   "n": 191,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "What error does React throw when hook order changes, and what is the real failure?",
+   "a": "&quot;Rendered fewer hooks than expected.&quot; React detects the count mismatch, but the underlying failure is silent misalignment — one hook reading another's stored value."
+  },
+  {
+   "n": 192,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "What enforces the hook rules in practice?",
+   "a": "<code>eslint-plugin-react-hooks</code>, which checks the rules of hooks plus exhaustive dependencies. Not optional tooling in a real codebase."
+  },
+  {
+   "n": 193,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "What is a custom hook?",
+   "a": "Just a function whose name starts with <code>use</code> that calls other hooks. No API, no registration — the prefix exists so the linter applies the rules."
+  },
+  {
+   "n": 194,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "What do custom hooks share, and what do they not share?",
+   "a": "They share <strong>logic</strong>, never <strong>state</strong>. Two components calling <code>useCounter()</code> get two independent counters, because each call site gets its own hook records."
+  },
+  {
+   "n": 195,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "How do you actually share state between components?",
+   "a": "Lift it to a common ancestor, put it in context, or put it in a store outside React. A custom hook cannot do it by itself."
+  },
+  {
+   "n": 196,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "Why are custom hooks better than HOCs for reuse?",
+   "a": "They reuse logic without adding a single level to the component tree — exactly the thing HOCs and render props could not avoid."
+  },
+  {
+   "n": 197,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "Are class components deprecated?",
+   "a": "No. They still work and appear in every codebase older than 2019. You should be able to read <code>this.state</code>, <code>this.setState</code>, <code>render()</code>, and the main lifecycle methods, and map them onto hooks — but write new code with hooks."
+  },
+  {
+   "n": 198,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "What is the one thing classes can still do that hooks cannot?",
+   "a": "Be an <strong>error boundary</strong>, via <code>static getDerivedStateFromError</code> and <code>componentDidCatch</code>. There is no hook equivalent, which is why <code>react-error-boundary</code> exists."
+  },
+  {
+   "n": 199,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "Map the three main class lifecycle methods onto hooks.",
+   "a": "<code>componentDidMount</code> and <code>componentDidUpdate</code> both map onto <code>useEffect</code> with the right dependencies; <code>componentWillUnmount</code> maps onto the effect's cleanup return. The mapping is imperfect on purpose — the framings differ."
+  },
+  {
+   "n": 200,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "What does <code>useId</code> do and why does it exist?",
+   "a": "Generates a stable unique id string for accessibility attributes that is consistent between server and client rendering — hand-rolled counters or random ids cause hydration mismatches."
+  },
+  {
+   "n": 201,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "What is <code>useDebugValue</code>?",
+   "a": "A hook that labels a custom hook's value in React DevTools. Useful in shared libraries, rarely in app code."
+  },
+  {
+   "n": 202,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "Why is the <code>use</code> naming convention load-bearing?",
+   "a": "It is how the linter knows to enforce the rules of hooks on a function. Naming a hook without the prefix means the rules go unchecked; prefixing a non-hook makes the linter complain incorrectly."
+  },
+  {
+   "n": 203,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "Can a custom hook call another custom hook?",
+   "a": "Yes, arbitrarily deep. Each one contributes its hook records to the calling component's single ordered list, which is why order still matters across the whole chain."
+  },
+  {
+   "n": 204,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "What is the smallest useful custom hook and why extract it?",
+   "a": "Something like <code>useToggle</code> or <code>useLocalStorage</code> — extracted not for line count but because the logic has a name, so call sites become readable and the logic becomes testable on its own."
+  },
+  {
+   "n": 205,
+   "c": "node-10",
+   "t": "Node 10 · Hooks mechanism and custom hooks",
+   "q": "Why can <code>use()</code> be called conditionally when hooks cannot?",
+   "a": "Because it is not implemented as a positional hook record — it is a first-class React API integrated with Suspense. It is deliberately exempt from the rules of hooks."
+  },
+  {
+   "n": 206,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "What are the three parts of using context?",
+   "a": "<code>createContext(default)</code> creates the channel; a provider makes a value available to its subtree; <code>useContext(TheContext)</code> reads the nearest provided value above the reader."
+  },
+  {
+   "n": 207,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "What changed about providers in React 19?",
+   "a": "You can render the context itself: <code>&lt;ThemeContext value={t}&gt;</code> instead of <code>&lt;ThemeContext.Provider value={t}&gt;</code>. Both forms are in the wild."
+  },
+  {
+   "n": 208,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "What does the <code>createContext</code> default value do?",
+   "a": "It is used when a consumer has no matching provider above it. Usually set to something that makes a missing provider loud — or the context is wrapped in a custom hook that throws."
+  },
+  {
+   "n": 209,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "Does context let data flow upward or sideways?",
+   "a": "No. It is still strictly one-way flow — it just skips the intermediate components. A component can only read what an ancestor provided."
+  },
+  {
+   "n": 210,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "When does a context consumer re-render?",
+   "a": "Whenever the provided value changes by <code>Object.is</code> — regardless of which part of the value the consumer actually uses."
+  },
+  {
+   "n": 211,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "Why does <code>&lt;AuthContext value={{ user, login, logout }}&gt;</code> destroy performance?",
+   "a": "The object literal is new on every render of the provider, so every consumer in the app re-renders on every parent render even when nothing meaningful changed."
+  },
+  {
+   "n": 212,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "Name two fixes for context over-rendering.",
+   "a": "<code>useMemo</code> the provided value so its identity is stable; or split one context into two — a rarely-changing one for dispatch functions and a frequently-changing one for data — so action-only consumers don't re-render."
+  },
+  {
+   "n": 213,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "Why is context not a state manager?",
+   "a": "It solves <strong>transport</strong> only. It has no update model, no batching, and no way for a consumer to subscribe to one field. That gap is what Zustand, Redux Toolkit, and Jotai fill."
+  },
+  {
+   "n": 214,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "Answer 'why use Redux instead of context?' properly.",
+   "a": "Selective subscription (components re-render only for the slice they read), a predictable single update model, devtools with time-travel, and middleware. Not because 'context is slow' — that is usually an unstable provider value."
+  },
+  {
+   "n": 215,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "What is context genuinely good for?",
+   "a": "Values that are global and change rarely: theme, current user, locale, feature flags, router state — and well-scoped shared state for one subtree."
+  },
+  {
+   "n": 216,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "What is the common wrapper pattern for a context?",
+   "a": "Export a provider component plus a <code>useAuth()</code> hook that calls <code>useContext</code> and throws if the value is missing, so misuse fails loudly instead of returning the default."
+  },
+  {
+   "n": 217,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "What is the gap Node 11 leaves?",
+   "a": "Everything so far is about <em>where</em> state lives, never <em>how</em> it changes. Eight setters scattered across a dozen handlers means there is no single place to read the rules, and invalid combinations creep back in."
+  },
+  {
+   "n": 218,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "What does React do if there is no provider above a consumer?",
+   "a": "It uses the default value passed to <code>createContext</code>. If that default is <code>null</code>, downstream code usually crashes further away from the real cause — which is why a throwing custom hook is the standard guard."
+  },
+  {
+   "n": 219,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "Does a context provider re-render its children when the value changes?",
+   "a": "It re-renders <em>consumers</em>. Children that don't call <code>useContext</code> re-render only for the usual reason — their parent rendered. Passing subtrees as <code>children</code> keeps them out of it."
+  },
+  {
+   "n": 220,
+   "c": "node-11",
+   "t": "Node 11 · Context",
+   "q": "Can you have two providers for the same context in one tree?",
+   "a": "Yes, and nesting is a feature: the nearest provider above the consumer wins, which is how per-subtree overrides (a dark section inside a light page) work."
+  },
+  {
+   "n": 221,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "What is a reducer, precisely?",
+   "a": "A <strong>pure function</strong> <code>(state, action) =&gt; newState</code>. Given the same state and action it always returns the same next state and touches nothing else."
+  },
+  {
+   "n": 222,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "What are the pieces of <code>useReducer</code>?",
+   "a": "<code>const [state, dispatch] = useReducer(reducer, initialState)</code>. An <strong>action</strong> is a plain object describing what happened, conventionally <code>{ type: 'added', payload }</code>. <code>dispatch(action)</code> hands it to React, which calls your reducer and re-renders."
+  },
+  {
+   "n": 223,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "What is the framing shift from setters to a reducer?",
+   "a": "Components stop <em>setting values</em> and start <em>reporting events</em>. One function decides what each event means."
+  },
+  {
+   "n": 224,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "Name four concrete benefits of a reducer over scattered setters.",
+   "a": "All transition logic in one readable place; it's a pure function so it is testable with no rendering; impossible states become unrepresentable since the reducer is the only writer; and the action list reads as a log of everything the feature can do."
+  },
+  {
+   "n": 225,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "What is guaranteed about <code>dispatch</code>'s identity?",
+   "a": "It is <strong>stable across renders</strong>. So passing it through props or context never causes identity-based re-render problems, and it can be safely omitted from dependency arrays."
+  },
+  {
+   "n": 226,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "When do you move from useState to useReducer?",
+   "a": "When several state values change together, when the next state depends non-trivially on the previous, when the same update logic is triggered from many places, or when you keep writing the same three setters in a row. The signal is the number of related <em>transitions</em>, not the number of variables."
+  },
+  {
+   "n": 227,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "What is the useReducer + context pattern?",
+   "a": "Hold the state at the top with a reducer, put <code>state</code> in one context and <code>dispatch</code> in another, and any depth of component can read or dispatch without prop drilling and without a library. It covers a large share of what people install Redux for."
+  },
+  {
+   "n": 228,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "How does Redux relate to useReducer?",
+   "a": "Same shape, made global: one store for the app, plus middleware and devtools. Modern Redux means <strong>Redux Toolkit</strong>, which uses immer so reducers look mutating while producing new state."
+  },
+  {
+   "n": 229,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "Can a reducer perform a side effect?",
+   "a": "No — it must stay pure. Fetching, logging, and timers belong in handlers, effects, or middleware. An impure reducer breaks under StrictMode double-invocation and under concurrent rendering."
+  },
+  {
+   "n": 230,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "What is the third argument of useReducer for?",
+   "a": "A lazy init function: <code>useReducer(reducer, initialArg, init)</code> calls <code>init(initialArg)</code> once to build initial state, which keeps expensive setup out of every render and gives you a reusable 'reset' function."
+  },
+  {
+   "n": 231,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "How does a reducer close Node 6's contradictory-state hole?",
+   "a": "By making the transitions explicit: there is no action that produces <code>loading &amp;&amp; error</code>, because each action returns one complete, valid next state rather than mutating one flag at a time."
+  },
+  {
+   "n": 232,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "What is the gap Node 12 leaves?",
+   "a": "Correctness is handled; cost is not. Every state change re-renders a subtree, controlled inputs render per keystroke, context re-renders every consumer — and you have no framework for reasoning about why the app feels slow."
+  },
+  {
+   "n": 233,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "Where should the reducer function live?",
+   "a": "Outside the component, at module scope. It has no dependency on props or state, so defining it inside means recreating it on every render for no reason and inviting accidental closure over stale values."
+  },
+  {
+   "n": 234,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "How do you test a reducer?",
+   "a": "Call it directly with a state and an action and assert on the returned state. No rendering, no DOM, no React — which is a large part of the point."
+  },
+  {
+   "n": 235,
+   "c": "node-12",
+   "t": "Node 12 · useReducer",
+   "q": "What does an action's <code>type</code> field buy you over calling a method?",
+   "a": "A serialisable record of what happened, which is what makes logging, devtools, time-travel, and replay possible."
+  },
+  {
+   "n": 236,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "State the default re-render rule exactly.",
+   "a": "When a component re-renders, <strong>all of its descendants re-render</strong> — not because their props changed, but because their parent rendered. React does not check props unless you asked it to."
+  },
+  {
+   "n": 237,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "Why is that usually fine?",
+   "a": "Running a function that returns objects is cheap, and React only touches the DOM where the description actually differs. Rendering is not painting."
+  },
+  {
+   "n": 238,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "When does the default rule stop being fine?",
+   "a": "When a component does real work per render (large lists, heavy formatting, charts), when the subtree is very large, or when the state changes very often — a keystroke, scroll, drag, or mousemove."
+  },
+  {
+   "n": 239,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "What does <code>React.memo</code> do?",
+   "a": "Wraps a component so React skips re-rendering it when its props are <strong>shallowly</strong> equal to last time — each prop compared with <code>Object.is</code>, one level deep."
+  },
+  {
+   "n": 240,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "What does <code>useMemo</code> do?",
+   "a": "Caches the <em>result</em> of a computation between renders, recomputing only when a dependency changes. Used for genuinely expensive computation and for keeping an object or array's identity stable."
+  },
+  {
+   "n": 241,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "What does <code>useCallback</code> do, and what is it equivalent to?",
+   "a": "Caches a <em>function</em> so the same identity is handed down across renders. It is exactly <code>useMemo(() =&gt; fn, deps)</code> with nicer syntax."
+  },
+  {
+   "n": 242,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "What is referential identity and why does it govern all three tools?",
+   "a": "Every object literal, array literal, and arrow function inside a component is created anew on each render, and <code>{a:1} === {a:1}</code> is false. So memoisation only works if the values being compared keep the same identity."
+  },
+  {
+   "n": 243,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "Why does <code>&lt;MemoList items={tasks.filter(f)} onSelect={() =&gt; ...} /&gt;</code> gain nothing from memo?",
+   "a": "Both props are new values every render, so the shallow comparison always fails. You added comparison cost for zero benefit — one of the most common wasted optimisations in real code."
+  },
+  {
+   "n": 244,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "Which three separate symptoms all trace back to referential identity?",
+   "a": "<code>React.memo</code> never bailing out; an effect re-running every render; and a context provider re-rendering all consumers. Same mechanism, three faces."
+  },
+  {
+   "n": 245,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "Why should you not memoise by default?",
+   "a": "<code>useMemo</code> and <code>useCallback</code> allocate, store, and compare dependencies, and they make code harder to read. Optimising a component that takes 0.2 ms is worse than doing nothing."
+  },
+  {
+   "n": 246,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "What tool tells you what to optimise?",
+   "a": "The <strong>React DevTools Profiler</strong>, which shows which components rendered, why they rendered, and how long each took. Measure before memoising."
+  },
+  {
+   "n": 247,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "What is the React Compiler and what does it change?",
+   "a": "A build-time compiler (announced 2024, 1.0 in late 2025) that analyses components and inserts memoisation automatically wherever it is safe, provided your code follows the Rules of React. Where adopted, most hand-written <code>useMemo</code>/<code>useCallback</code> becomes unnecessary."
+  },
+  {
+   "n": 248,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "Why do you still need to understand manual memoisation?",
+   "a": "Because most existing codebases have not adopted the compiler, and because reading and reviewing them requires knowing when a memo is load-bearing and when it is noise."
+  },
+  {
+   "n": 249,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "Name three structural optimisations that beat memoisation.",
+   "a": "Move state <em>down</em> into the smallest component that needs it; pass expensive subtrees as <code>children</code> so they are created by a parent that isn't re-rendering; and virtualise long lists so only visible rows exist in the DOM."
+  },
+  {
+   "n": 250,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "What is list virtualisation and when do you need it?",
+   "a": "Rendering only the rows currently in the viewport (plus a small overscan), via <code>react-window</code> or TanStack Virtual. Needed once a list is long enough that the DOM node count itself is the cost — typically hundreds to thousands of rows."
+  },
+  {
+   "n": 251,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "Does <code>React.memo</code> do a deep comparison?",
+   "a": "No — shallow, one level, with <code>Object.is</code> per prop. You can pass a custom comparison function as the second argument, but a deep compare is usually more expensive than the render you're avoiding."
+  },
+  {
+   "n": 252,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "Why does passing children as a prop avoid re-renders?",
+   "a": "The children elements were created by the <em>parent</em>, so if the parent doesn't re-render, those element objects keep their identity and React can skip that subtree even though the intermediate component re-rendered."
+  },
+  {
+   "n": 253,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "What is the gap Node 13 leaves?",
+   "a": "Memoisation cannot help when the work genuinely must happen — filtering fifty thousand rows. Once React starts rendering it will not stop, so the keystroke that triggered it cannot be shown until it finishes, and the input freezes."
+  },
+  {
+   "n": 254,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "Predict: you wrap a child in <code>memo</code> and pass it <code>onClick={handleClick}</code> where <code>handleClick</code> is declared in the parent body. Does memo work?",
+   "a": "No. The function is recreated every render, so the shallow prop comparison fails. Wrap it in <code>useCallback</code> — or adopt the React Compiler and stop hand-writing this."
+  },
+  {
+   "n": 255,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "Why does <code>useMemo</code> not guarantee the value is cached?",
+   "a": "React reserves the right to discard memoised values — for example under memory pressure or in future features. It is a performance hint, not a semantic guarantee, so never rely on it for correctness."
+  },
+  {
+   "n": 256,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "What is the difference between a component re-rendering and the DOM updating?",
+   "a": "Re-rendering runs your function and produces new element objects. The DOM only changes where the new description differs from the old. Most re-renders produce zero DOM operations."
+  },
+  {
+   "n": 257,
+   "c": "node-13",
+   "t": "Node 13 · Re-renders and memoisation",
+   "q": "How do you read 'why did this render' in the Profiler?",
+   "a": "Enable 'Record why each component rendered' in DevTools settings; the profiler then labels each render with the cause — props changed (and which), state changed, context changed, or parent rendered."
+  },
+  {
+   "n": 258,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "What is concurrent rendering, in one sentence?",
+   "a": "React's ability to begin rendering, pause partway, handle something more urgent, and then resume or discard the partial work — made possible by fiber and exposed in React 18."
+  },
+  {
+   "n": 259,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "Why can partial rendering work be discarded safely?",
+   "a": "Because React renders into an in-progress tree and only commits when a render <em>completes</em>. Nothing half-updated ever reaches the screen."
+  },
+  {
+   "n": 260,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "What is the actual point of concurrency? (Not 'speed'.)",
+   "a": "<strong>Not all updates are equally urgent.</strong> A keystroke must appear immediately; a filtered list of fifty thousand results can lag. Before React 18 there was no way to express that difference, so the cheap update queued behind the expensive one."
+  },
+  {
+   "n": 261,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "What does <code>useTransition</code> give you?",
+   "a": "<code>const [isPending, startTransition] = useTransition()</code>. Updates inside <code>startTransition</code> are marked non-urgent; React renders urgent updates first and does transition work in interruptible chunks, abandoning it if a newer update arrives. <code>isPending</code> lets you dim stale results."
+  },
+  {
+   "n": 262,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "How does React keep the browser responsive during a transition?",
+   "a": "It yields control back to the browser between chunks — roughly every <strong>5 milliseconds</strong> — so input and painting can happen inside the ~16.7 ms frame budget."
+  },
+  {
+   "n": 263,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "What is <code>useDeferredValue</code> and when do you use it instead of useTransition?",
+   "a": "<code>const deferred = useDeferredValue(value)</code> gives a copy that lags behind during heavy work. Use it when you do <em>not</em> control the state update — for example the value arrives as a prop. Render the input from the live value and the expensive list from the deferred one."
+  },
+  {
+   "n": 264,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "What is required for concurrent features to work at all?",
+   "a": "The React 18 <code>createRoot</code> entry point. An app still on legacy <code>ReactDOM.render</code> runs in a compatibility mode with concurrency disabled."
+  },
+  {
+   "n": 265,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "What is the lane model?",
+   "a": "React's internal priority system: updates are tagged with a lane, lanes are processed in priority order, with starvation protection so a low-priority update cannot be postponed forever. You never touch it directly."
+  },
+  {
+   "n": 266,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "Name the honest limits of concurrent rendering.",
+   "a": "It only helps when the bottleneck is <em>rendering</em>. It does nothing for a slow network request or a slow API, and it does not make any single render faster."
+  },
+  {
+   "n": 267,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "Why did purity become non-negotiable with concurrency?",
+   "a": "Because a render may now run twice, be interrupted, or be thrown away entirely. An impure component that got away with it under React 17's uninterrupted rendering can genuinely break under React 18."
+  },
+  {
+   "n": 268,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "What does StrictMode's double-<em>render</em> in development detect?",
+   "a": "Impure render functions — mutating props or state, writing to outer variables, or producing different output from the same inputs. It surfaces exactly the class of bug concurrency would otherwise expose in production."
+  },
+  {
+   "n": 269,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "Is a transition the same as a debounce?",
+   "a": "No. A debounce delays <em>starting</em> the work by a fixed time. A transition starts immediately at low priority and is interrupted by newer urgent work, so it is both faster in the quiet case and responsive in the busy case."
+  },
+  {
+   "n": 270,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "Which state updates are urgent by default?",
+   "a": "All of them. Everything is urgent unless you explicitly mark it with <code>startTransition</code> or consume it through <code>useDeferredValue</code>."
+  },
+  {
+   "n": 271,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "Can you mark a controlled input's own state update as a transition?",
+   "a": "No — that is the one thing you must keep urgent, or typing lags. Keep the input's state urgent and defer only the expensive downstream work."
+  },
+  {
+   "n": 272,
+   "c": "node-14",
+   "t": "Node 14 · Concurrent rendering",
+   "q": "What is tearing and which hook exists to prevent it?",
+   "a": "Two parts of one screen rendering different versions of the same external store, possible because a render can be interrupted while the store changes underneath. <code>useSyncExternalStore</code> exists to prevent it."
+  },
+  {
+   "n": 273,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "What does <code>React.lazy(() =&gt; import('./Chart'))</code> do?",
+   "a": "Produces a component whose code is only downloaded the first time it renders. The dynamic <code>import()</code> is a signal the bundler recognises: it splits that module and its imports into a separate file."
+  },
+  {
+   "n": 274,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "What is code splitting and where do you split first?",
+   "a": "Breaking the bundle into chunks fetched on demand. Split <strong>by route</strong> first — a user on the login page does not need the admin dashboard's charting library."
+  },
+  {
+   "n": 275,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "What does <code>&lt;Suspense fallback={...}&gt;</code> do?",
+   "a": "Declares a boundary. If anything inside it suspends — waiting for code or data — React shows the fallback for that region only, leaving the rest of the page alone, and swaps in real content when ready."
+  },
+  {
+   "n": 276,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "What is the conceptual shift Suspense introduces?",
+   "a": "The <em>parent</em> declares the loading UI for a region, instead of every leaf managing its own spinner. That makes coordinated loading states possible — one fallback for a group arriving together, rather than six spinners popping in at different moments."
+  },
+  {
+   "n": 277,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "How has Suspense's scope grown?",
+   "a": "It started as code-splitting only, gained server-side data support in React 18, and with React 19's <code>use()</code> API works with promises on the client — which is why data libraries increasingly express loading through Suspense rather than booleans."
+  },
+  {
+   "n": 278,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "What does React do with an uncaught render error, and why?",
+   "a": "It unmounts the whole tree, producing a blank page. The deliberate reasoning since React 16 is that a visibly broken app is safer than a silently corrupted one."
+  },
+  {
+   "n": 279,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "What is an error boundary and how is it implemented?",
+   "a": "A component that catches errors from its subtree and renders a fallback, containing damage to one region. Implemented with the class methods <code>static getDerivedStateFromError</code> (render the fallback) and <code>componentDidCatch</code> (log it)."
+  },
+  {
+   "n": 280,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "Why does almost nobody write an error boundary class by hand?",
+   "a": "Because it is the one thing hooks cannot do, so the ecosystem standardised on <code>react-error-boundary</code>, which wraps it with a hook-friendly API and a reset mechanism."
+  },
+  {
+   "n": 281,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "What do error boundaries <em>not</em> catch?",
+   "a": "Errors inside event handlers (not during render — use <code>try/catch</code>), errors in async code, errors thrown by the boundary itself, and errors during server rendering."
+  },
+  {
+   "n": 282,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "What did React 19 add around error handling?",
+   "a": "Root options <code>onCaughtError</code> and <code>onUncaughtError</code>, and much better hydration mismatch messages that show an actual diff instead of a generic warning."
+  },
+  {
+   "n": 283,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "What is <code>&lt;Activity&gt;</code>?",
+   "a": "Added in React 19.2 (October 2025). It keeps part of the tree mounted but hidden, preserving its state while deprioritising its rendering — the long-requested 'keep the previous tab alive' capability."
+  },
+  {
+   "n": 284,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "Where should Suspense and error boundaries sit in a tree?",
+   "a": "Around meaningful regions, usually one layer above the thing that can fail or wait — per route, per panel, per widget — so one failure or delay degrades a section rather than the page."
+  },
+  {
+   "n": 285,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "What is the gap Node 15 leaves?",
+   "a": "The shape is still an empty HTML file plus a large JavaScript bundle. The user sees nothing until it downloads and runs, crawlers and link previews see nothing, and every byte of data still needs a round trip after the app has loaded."
+  },
+  {
+   "n": 286,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "What happens if a component suspends with no Suspense boundary above it?",
+   "a": "React walks up looking for one; with none, it errors. In practice every framework provides a root boundary, but an unwrapped <code>lazy</code> component in a plain app throws."
+  },
+  {
+   "n": 287,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "Why does a Suspense fallback sometimes flash for a few milliseconds?",
+   "a": "The content resolved almost immediately but the boundary still switched to the fallback. Transitions avoid this: an update inside <code>startTransition</code> keeps showing the old UI instead of falling back."
+  },
+  {
+   "n": 288,
+   "c": "node-15",
+   "t": "Node 15 · Suspense, lazy, error boundaries",
+   "q": "How do error boundaries and Suspense boundaries compose?",
+   "a": "An error boundary wrapping a Suspense boundary handles both waiting and failing for the same region — the standard pairing in route-level layouts."
+  },
+  {
+   "n": 289,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "What is server-side rendering?",
+   "a": "Running your components on the server to produce an HTML string that is sent in the first response, so the user sees real content before any JavaScript has run."
+  },
+  {
+   "n": 290,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "What is hydration?",
+   "a": "The browser loads the same JavaScript, React renders the tree, and instead of creating DOM nodes it walks the existing server HTML and attaches event handlers and state to the nodes already there. Entry point: <code>hydrateRoot</code>, not <code>createRoot</code>."
+  },
+  {
+   "n": 291,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "What does SSR actually buy you?",
+   "a": "Faster first <strong>paint</strong> and content that crawlers and link previews can read. It does not make the app faster overall."
+  },
+  {
+   "n": 292,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "What is a hydration mismatch and what causes it?",
+   "a": "The server HTML and the client's first render disagree. Caused by <code>new Date()</code>, <code>Math.random()</code>, <code>window.innerWidth</code>, locale-dependent formatting, and anything read from <code>localStorage</code>."
+  },
+  {
+   "n": 293,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "How do you fix a hydration mismatch?",
+   "a": "Render the varying part only after mount (state flipped in an effect), or use <code>suppressHydrationWarning</code> for a genuinely unavoidable case like a rendered timestamp."
+  },
+  {
+   "n": 294,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "Why does module-level <code>window</code> access crash SSR?",
+   "a": "There is no <code>window</code> or <code>document</code> on the server. Access must be inside effects or guarded, since effects never run during server rendering."
+  },
+  {
+   "n": 295,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "Why can SSR feel worse than client rendering to a user?",
+   "a": "Time-to-interactive lags first paint: the page <em>looks</em> ready and does not respond until hydration finishes, so the user clicks and nothing happens."
+  },
+  {
+   "n": 296,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "What does SSR <em>not</em> fix?",
+   "a": "Bundle size. You still ship every component's JavaScript to the client, including purely static ones. That is the gap server components close."
+  },
+  {
+   "n": 297,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "What is a React Server Component?",
+   "a": "A component that runs only on the server, once, and never ships its JavaScript to the browser. It can <code>await</code> directly in the body — query a database, read a file, use secrets — and what reaches the client is a serialised description of its output, not HTML and not a bundle."
+  },
+  {
+   "n": 298,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "Name three consequences of RSC.",
+   "a": "No client JavaScript for static parts; no API layer needed for a component's own data, which kills a large class of waterfalls; and a genuinely smaller bundle."
+  },
+  {
+   "n": 299,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "What can a server component not do?",
+   "a": "Use state, effects, refs, context, or event handlers — none of which mean anything without a browser."
+  },
+  {
+   "n": 300,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "What does <code>'use client'</code> do?",
+   "a": "Marks the boundary where server rendering stops and client code begins. That file and everything it imports ship to the browser."
+  },
+  {
+   "n": 301,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "What does <code>'use server'</code> do, and why is it confused with 'use client'?",
+   "a": "It marks a <strong>server function</strong> (previously 'server action') — code that runs on the server but is callable from client code, with React wiring up the request. It is not the opposite of <code>'use client'</code>; they describe different things."
+  },
+  {
+   "n": 302,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "Can you adopt RSC by installing React?",
+   "a": "No. It became stable in React 19 but needs a framework with bundler integration — in practice Next.js App Router or React Router v7 / Remix. That is the honest reason 'learn React, then Next.js' is the standard path."
+  },
+  {
+   "n": 303,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "Name the rendering strategies on the spectrum.",
+   "a": "Client-side rendering; server-side rendering per request; static generation at build time; incremental/on-demand regeneration; streaming SSR; and server components. Being able to say what each costs and buys is high-value in an interview."
+  },
+  {
+   "n": 304,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "What is streaming SSR?",
+   "a": "The server sends HTML in chunks as it becomes ready rather than waiting for the whole page, using Suspense boundaries as the flush points — so slow data does not hold up the fast parts of the page."
+  },
+  {
+   "n": 305,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "What is the difference between SSR and static generation?",
+   "a": "SSR renders per request, so it can use request-specific data and is always fresh. Static generation renders once at build time and serves a file, which is fastest and cheapest but stale until rebuilt."
+  },
+  {
+   "n": 306,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "Why do server components reduce waterfalls?",
+   "a": "Because a server component fetches its own data on the server, close to the database, and nested components' fetches happen in the same render pass on the same machine rather than as sequential browser round trips."
+  },
+  {
+   "n": 307,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "Can a server component render a client component and vice versa?",
+   "a": "A server component can render client components. A client component cannot import a server component, but it can render one passed to it as <code>children</code> or a prop — which is the standard way to keep server content inside a client shell."
+  },
+  {
+   "n": 308,
+   "c": "node-16",
+   "t": "Node 16 · SSR, hydration, RSC",
+   "q": "What actually crosses the network from a server component to the client?",
+   "a": "A serialised stream describing the rendered output and the client component references and props. Props must therefore be serialisable — you cannot pass a function or a class instance across that boundary."
+  },
+  {
+   "n": 309,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "What is React's actual scope?",
+   "a": "A library for building user interfaces out of components. It renders a tree. Routing, data, forms, styling, and testing are deliberately not included."
+  },
+  {
+   "n": 310,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "What are the routing options and what is the underlying mechanism?",
+   "a": "React Router (the default; from v7 it absorbed Remix and can be a full framework), TanStack Router (type-safe), or a framework's own router. Mechanically: intercept navigation, update the URL with the History API without a page load, render a different tree."
+  },
+  {
+   "n": 311,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "Why do deep links 404 in a client-routed SPA, and how do you fix it?",
+   "a": "The browser asks the server for <code>/settings</code>, which has no such file. Configure the server (or host) to serve <code>index.html</code> for every unmatched path so the client router can take over."
+  },
+  {
+   "n": 312,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "What is the mature answer to 'which state manager do you use'?",
+   "a": "Separate <strong>server cache</strong> from <strong>client state</strong>. Most apps that reached for Redux only ever needed the former — TanStack Query. For real client state: context plus reducer, Zustand, Redux Toolkit, or an atomic library like Jotai."
+  },
+  {
+   "n": 313,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "How do Zustand and Redux Toolkit differ in practice?",
+   "a": "Zustand is small, hook-based, and needs no provider — you create a store and select from it. Redux Toolkit brings one global store, strong conventions, middleware, and time-travel devtools, which pays off in large teams and large apps."
+  },
+  {
+   "n": 314,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "Why is React Hook Form fast?",
+   "a": "It keeps inputs <strong>uncontrolled</strong> and subscribes via refs, so typing does not re-render the form — directly attacking the per-keystroke render cost of controlled inputs."
+  },
+  {
+   "n": 315,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "What pairs with React Hook Form for validation?",
+   "a": "<strong>Zod</strong> schemas via a resolver — the same validation library you can use on the server, so one schema defines the contract on both ends."
+  },
+  {
+   "n": 316,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "What is the current styling landscape?",
+   "a": "Tailwind is the default; CSS Modules and vanilla-extract are solid alternatives; runtime CSS-in-JS is declining specifically because it works badly with server components."
+  },
+  {
+   "n": 317,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "What is shadcn/ui and why is it unusual?",
+   "a": "Not a dependency — a generator that copies accessible Radix-based components into your own repo, so you own and edit the code. It is the current mainstream for building a design system quickly."
+  },
+  {
+   "n": 318,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "What replaced Create React App and when?",
+   "a": "<strong>Vite</strong>. CRA was formally deprecated in February 2025. Scaffolding a React app in 2026 means Vite or a framework; knowing CRA is dead is a currency signal."
+  },
+  {
+   "n": 319,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "State React Testing Library's philosophy.",
+   "a": "Test what the user experiences. Query by accessible role and visible text, never by class name or component internals, so a refactor that changes structure but not behaviour does not break the suite."
+  },
+  {
+   "n": 320,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "What is the standard React testing stack?",
+   "a": "React Testing Library with Vitest (or Jest) for component tests, <code>user-event</code> for realistic interaction, MSW for mocking network at the request level, and Playwright for end-to-end."
+  },
+  {
+   "n": 321,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "Why is TypeScript effectively mandatory for React in 2026?",
+   "a": "Typed props are the single largest quality win available to a React codebase — they make component contracts explicit and catch the entire class of 'wrong prop shape' bugs that props' dynamism otherwise allows."
+  },
+  {
+   "n": 322,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "How do you answer 'how would you structure a React app'?",
+   "a": "Name the choices and defend each: build tool, router, server-state library, client-state approach, form library, styling, component layer, testing. The answer is the reasoning, not the list."
+  },
+  {
+   "n": 323,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "What does 'React is a library, not a framework' mean for an interview answer?",
+   "a": "That every architectural decision — routing, data, state, forms, styling, testing — is yours to make and defend. Frameworks like Next.js exist precisely to make those choices for you."
+  },
+  {
+   "n": 324,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "How do you decide between a framework (Next.js) and Vite plus libraries?",
+   "a": "Framework if you want SSR/RSC, file-based routing, and deployment conventions handed to you. Vite plus libraries if the app is a client-side dashboard behind a login, where SEO and first-paint are irrelevant and you want fewer constraints."
+  },
+  {
+   "n": 325,
+   "c": "node-17",
+   "t": "Node 17 · The ecosystem",
+   "q": "What is the minimum accessible-React knowledge worth having?",
+   "a": "Use semantic elements so roles come for free, label every input, keep focus managed in modals and after navigation, and never remove focus outlines without a replacement. Testing Library's role-based queries push you toward this by default."
+  }
+ ]
+}

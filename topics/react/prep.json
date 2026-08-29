@@ -1,0 +1,886 @@
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is React?",
+   "a": "A JavaScript library for building user interfaces out of components. You describe what the screen should look like for the current data, and React works out the minimal DOM operations to make the page match. It is a library, not a framework — routing, data fetching, and styling are your choices."
+  },
+  {
+   "n": 2,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the virtual DOM and why does React use it?",
+   "a": "It's an in-memory tree of plain objects describing what the UI should be. React builds a new one on each update, compares it to the previous one, and applies only the differences. I'd be careful about the usual claim that it's for speed — it isn't faster than perfect hand-written DOM code. What it buys you is that the screen is always derived from the data, so the two can't drift apart."
+  },
+  {
+   "n": 3,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is JSX?",
+   "a": "A syntax extension that gets compiled into <code>React.createElement</code> calls — or <code>_jsx</code> since the React 17 transform. It isn't HTML and it isn't a template language, which is why it's <code>className</code>, camelCase props, and only expressions inside braces."
+  },
+  {
+   "n": 4,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the difference between props and state?",
+   "a": "Props are what a component is told by its parent, and they're read-only. State is what a component remembers for itself, and changing it schedules a re-render. If a value comes from outside and the component only displays it, it's a prop."
+  },
+  {
+   "n": 5,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is <code>useState</code> and what does the setter actually do?",
+   "a": "It gives a component memory across renders. The setter doesn't assign to a variable — it queues an update and schedules a re-render, and the value you're holding is a snapshot from the current render. That's why calling it twice with <code>count + 1</code> only increments once, and why you use the updater form when the new value depends on the old."
+  },
+  {
+   "n": 6,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is <code>useEffect</code> for?",
+   "a": "Synchronising with something outside React — network, subscriptions, timers, browser APIs, non-React libraries. It runs after commit and paint. I'd stress that it isn't a lifecycle hook: it declares an ongoing relationship, and the cleanup function is half the statement, not an afterthought."
+  },
+  {
+   "n": 7,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the dependency array?",
+   "a": "It tells React when to re-run the effect: no array means every render, an empty array means once after mount, and a list means re-run whenever one of those values changed by <code>Object.is</code>. Objects and functions change identity every render, which is why they cause effects to re-run constantly."
+  },
+  {
+   "n": 8,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Why do lists need keys?",
+   "a": "So React can match children between renders by identity instead of by position. Without them it pairs them up by index, so inserting at the front makes it think every row changed, and any DOM state — focus, input values, scroll — ends up attached to the wrong item."
+  },
+  {
+   "n": 9,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Why is using the array index as a key bad?",
+   "a": "It's fine if the list is append-only, but the moment you reorder, filter, or delete, it actively lies to React: the item now at index 0 claims to be the same thing that was there before, so React keeps the old DOM node and just swaps the text. You get checkboxes and typed values stuck on the wrong row."
+  },
+  {
+   "n": 10,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What are the rules of hooks and why do they exist?",
+   "a": "Only call them at the top level, and only from components or other hooks. The reason is the mechanism: React stores hook state in an ordered list per component and matches calls by position, not by name. A hook inside an <code>if</code> shifts the order, so on the render where the condition flips, one hook reads another's stored value."
+  },
+  {
+   "n": 11,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a controlled component?",
+   "a": "An input whose value comes from state and whose changes write back to state, so the DOM never owns the truth. It costs a render per keystroke, but the value becomes ordinary data the rest of the app can use — for validation, a character count, a disabled submit."
+  },
+  {
+   "n": 12,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "How do you share state between two sibling components?",
+   "a": "Lift it to their nearest common ancestor and pass the value down plus a setter down. If the tree between them is deep, use context so you don't drill the prop through components that don't care about it."
+  },
+  {
+   "n": 13,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is prop drilling and how do you avoid it?",
+   "a": "Passing a value through many intermediate components that don't use it, just to reach a deep one. Context fixes the transport problem; a store like Zustand or Redux fixes it when the state also changes frequently and needs selective subscription."
+  },
+  {
+   "n": 14,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the Context API?",
+   "a": "A way to provide a value to an entire subtree so descendants can read it without it being passed through every level. It's dependency injection, not state management — every consumer re-renders when the provided value changes, and there's no way to subscribe to just one field."
+  },
+  {
+   "n": 15,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is <code>useMemo</code> versus <code>useCallback</code>?",
+   "a": "<code>useMemo</code> caches a computed value; <code>useCallback</code> caches a function. <code>useCallback(fn, deps)</code> is literally <code>useMemo(() =&gt; fn, deps)</code>. Both exist mostly to keep an identity stable so that a memoised child or a dependency array doesn't see a new value every render."
+  },
+  {
+   "n": 16,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is <code>React.memo</code>?",
+   "a": "A wrapper that skips re-rendering a component when its props are shallowly equal to last time. It only helps if the props are actually stable — passing a fresh object or inline arrow function defeats it completely, which is the most common way people waste it."
+  },
+  {
+   "n": 17,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What causes a component to re-render?",
+   "a": "Its own state changed, a context it consumes changed, or — the one people miss — its parent re-rendered. React doesn't check whether props changed unless you wrapped the component in <code>memo</code>."
+  },
+  {
+   "n": 18,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What are the phases of a React update?",
+   "a": "Render, where React calls your components to build the new description; commit, where it applies the DOM changes; and then the browser paints. Effects run after paint, layout effects run between commit and paint."
+  },
+  {
+   "n": 19,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Class components versus function components?",
+   "a": "Function components with hooks are the default since React 16.8 in February 2019. Classes still work and are all over older codebases, and there's exactly one thing they can still do that hooks can't — be an error boundary."
+  },
+  {
+   "n": 20,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "How do you fetch data in React?",
+   "a": "In a real app, with a library like TanStack Query, because server data is a cache of someone else's state and needs keys, deduplication, revalidation, and retries. If I'm doing it by hand in an effect, the non-negotiable part is cleanup — an abort or an ignore flag — otherwise a slow first response overwrites a newer one."
+  },
+  {
+   "n": 21,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is reconciliation?",
+   "a": "React's algorithm for turning a new element tree into DOM operations. It compares position by position: same element type means keep the DOM node and update changed attributes; different type means destroy the whole subtree, including all state inside it. For lists, keys give it identity instead of index matching."
+  },
+  {
+   "n": 22,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why does my component's state reset unexpectedly?",
+   "a": "Almost always one of two things: the element <em>type</em> at that position changed, so React threw the subtree away, or the <code>key</code> changed. State is tied to the position in the tree, not to the component's name."
+  },
+  {
+   "n": 23,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why does my component's state NOT reset when I want it to?",
+   "a": "Same type at the same position means React reuses the instance, so switching which user a panel shows keeps the old typed text. The deliberate fix is to give it a <code>key</code> that changes with the identity."
+  },
+  {
+   "n": 24,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is batching and what changed in React 18?",
+   "a": "Multiple state updates in one handler produce a single re-render. Before React 18 that only applied inside React's own event handlers, so updates in a <code>setTimeout</code> or a promise callback each caused their own render. React 18 made batching automatic everywhere."
+  },
+  {
+   "n": 25,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is <code>useRef</code> used for?",
+   "a": "Two things: holding a mutable value across renders that the UI doesn't display — a timer id, a previous value — and getting a handle on a real DOM node for focus, scrolling, measurement, or media control. Mutating it never triggers a re-render."
+  },
+  {
+   "n": 26,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "When would you use <code>useReducer</code> instead of <code>useState</code>?",
+   "a": "When several values change together, when transitions depend on the previous state in non-trivial ways, or when the same update logic fires from many places. It puts all the transitions in one pure, testable function and makes invalid combinations impossible to construct."
+  },
+  {
+   "n": 27,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is a custom hook?",
+   "a": "A function starting with <code>use</code> that calls other hooks. It's how you reuse stateful logic without adding layers to the component tree, which is exactly what HOCs and render props couldn't do. Important detail: custom hooks share logic, never state — two components calling it get two separate copies."
+  },
+  {
+   "n": 28,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is <code>StrictMode</code> and why does my effect run twice?",
+   "a": "A development-only wrapper that double-invokes renders and mounts-unmounts-remounts effects, to surface impure renders and effects with no cleanup. It doesn't happen in production. If the double run breaks something, the effect is wrong — don't guard it with a ref."
+  },
+  {
+   "n": 29,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you optimise a slow React app?",
+   "a": "Profile first with the DevTools Profiler to find what actually renders and how long it takes. Then usually structural fixes: move state down, virtualise long lists, split the bundle by route. Memoisation last, and only where the props are stable enough for it to work."
+  },
+  {
+   "n": 30,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is code splitting in React?",
+   "a": "Using <code>React.lazy</code> with a dynamic <code>import()</code> so a component's code is only downloaded when first rendered, wrapped in a <code>Suspense</code> boundary for the loading state. Split by route first."
+  },
+  {
+   "n": 31,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is an error boundary?",
+   "a": "A component that catches errors thrown during rendering in its subtree and shows a fallback instead of the app going blank. It's implemented with class lifecycle methods, so in practice everyone uses <code>react-error-boundary</code>. It doesn't catch errors in event handlers or async code."
+  },
+  {
+   "n": 32,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is <code>useLayoutEffect</code> and when do you need it?",
+   "a": "It runs after DOM mutation but before paint, so you can measure and adjust in the same frame without a visible flicker — positioning a tooltip that might not fit. It blocks painting, so it's the exception, not the default."
+  },
+  {
+   "n": 33,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you handle forms in React?",
+   "a": "Small forms with controlled inputs and state. Anything real, React Hook Form with a Zod schema — it keeps inputs uncontrolled and subscribes with refs, so typing doesn't re-render the whole form, and the same Zod schema can validate on the server."
+  },
+  {
+   "n": 34,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is server-side rendering and what's hydration?",
+   "a": "SSR runs your components on the server and sends HTML, so the user sees content before JavaScript loads. Hydration is React then running in the browser and attaching state and handlers to the existing DOM rather than recreating it. The catch is that the two renders must match, so anything time- or browser-dependent causes a mismatch."
+  },
+  {
+   "n": 35,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What are React Server Components?",
+   "a": "Components that run only on the server and never ship their JavaScript to the browser. They can await data directly — hit a database, use secrets — and what crosses the network is a serialised description of the output. They can't use state, effects, refs, or event handlers; anything interactive is marked <code>'use client'</code>."
+  },
+  {
+   "n": 36,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is <code>useTransition</code>?",
+   "a": "It marks a state update as non-urgent, so React can render it in interruptible chunks and keep urgent updates like typing responsive. You get an <code>isPending</code> flag to dim the stale UI. The point isn't speed — it's that some updates matter more than others."
+  },
+  {
+   "n": 37,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is <code>useDeferredValue</code>?",
+   "a": "Same idea as a transition, but from the consuming end: it gives you a copy of a value that lags behind during heavy work. You use it when you don't own the state update, for example when the value arrives as a prop."
+  },
+  {
+   "n": 38,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How does React handle events?",
+   "a": "It attaches a small number of delegated listeners at the root container and dispatches synthetic events along the component path, simulating capture and bubble itself. That's why <code>stopPropagation</code> in React doesn't stop a native listener you attached on <code>document</code>."
+  },
+  {
+   "n": 39,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you type a React component in TypeScript?",
+   "a": "Type the props object directly in the parameter — <code>function Row({ id }: RowProps)</code>. I'd avoid <code>React.FC</code>; it adds an implicit children type and buys nothing."
+  },
+  {
+   "n": 40,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What's the difference between <code>useEffect</code> and <code>useLayoutEffect</code> in terms of timing?",
+   "a": "<code>useLayoutEffect</code> runs synchronously after DOM mutations and before the browser paints; <code>useEffect</code> runs after paint. So layout effects can cause jank, and normal effects can cause a visible flash if they change layout."
+  },
+  {
+   "n": 41,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is <code>useSyncExternalStore</code>?",
+   "a": "The correct way to subscribe to a store outside React. It exists because with concurrent rendering a naive subscription can let two parts of one screen read two different versions of the store — that's called tearing."
+  },
+  {
+   "n": 42,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is <code>useId</code> for?",
+   "a": "Generating a stable unique id for accessibility attributes that's consistent between server and client render, so hand-rolled counters don't cause hydration mismatches."
+  },
+  {
+   "n": 43,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is <code>useImperativeHandle</code>?",
+   "a": "It lets a component expose a narrow API to its parent through a ref — <code>{ focus, reset }</code> — instead of the raw DOM node, so a component library doesn't leak its internal structure."
+  },
+  {
+   "n": 44,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is the React Compiler?",
+   "a": "A build-time compiler that inserts memoisation automatically wherever it's safe, based on the Rules of React. Where it's adopted, most hand-written <code>useMemo</code> and <code>useCallback</code> stop being necessary. It reached 1.0 in late 2025 and adoption is still partial."
+  },
+  {
+   "n": 45,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What's new in React 19?",
+   "a": "Server Components stable, Actions with <code>useActionState</code>, <code>useFormStatus</code> and <code>useOptimistic</code>, the <code>use()</code> API for promises and context, <code>ref</code> as a plain prop so <code>forwardRef</code> is retiring, context usable directly as a provider, ref cleanup functions, and much better hydration error messages. It shipped on 5 December 2024."
+  },
+  {
+   "n": 46,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is <code>&lt;Activity&gt;</code>?",
+   "a": "A React 19.2 component that keeps part of the tree mounted but hidden, preserving its state while deprioritising its rendering — so a tab you switch away from keeps its scroll position and form contents."
+  },
+  {
+   "n": 47,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is fiber?",
+   "a": "The internal data structure React 16 introduced in September 2017 to replace recursive reconciliation. Because React walks its own linked structure instead of the JavaScript call stack, rendering can be paused and resumed — which is what made concurrent rendering possible years later."
+  },
+  {
+   "n": 48,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is list virtualisation?",
+   "a": "Rendering only the rows in the viewport plus a small buffer, so the DOM stays small no matter how long the list is. <code>react-window</code> or TanStack Virtual. You need it once the node count itself is the cost, typically in the hundreds to thousands."
+  },
+  {
+   "n": 49,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What are portals and when do you need one?",
+   "a": "<code>createPortal</code> renders children into a different DOM node while keeping them in the React tree, so context and event bubbling still work as if they were nested. Used for modals and tooltips that would otherwise be clipped by a parent's <code>overflow</code>."
+  },
+  {
+   "n": 50,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What replaced Create React App?",
+   "a": "Vite, or a framework like Next.js. CRA was formally deprecated in February 2025 — knowing that is a quick currency check in an interview."
+  },
+  {
+   "n": 51,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is <code>flushSync</code>?",
+   "a": "An escape hatch that forces React to process a state update and commit synchronously, so you can read the updated DOM immediately after. It defeats batching and hurts performance, so it's for rare cases like measuring right after an update."
+  },
+  {
+   "n": 52,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What are higher-order components and render props?",
+   "a": "The pre-hooks patterns for reusing stateful logic — a function returning a wrapped component, and a component taking a function as a child. They both worked but added a layer to the tree each time. Hooks replaced them."
+  },
+  {
+   "n": 53,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is streaming SSR?",
+   "a": "Sending HTML in chunks as it becomes ready instead of waiting for the whole page, using Suspense boundaries as flush points, so slow data doesn't hold up the fast parts of the page."
+  },
+  {
+   "n": 54,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is React DevTools good for beyond inspecting props?",
+   "a": "The Profiler, especially with 'record why each component rendered' turned on — it turns performance work from guessing into reading a flame chart with causes attached."
+  },
+  {
+   "n": 55,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Users report a checkbox staying ticked on the wrong row after deleting an item. Diagnose.",
+   "a": "Index keys. The checkbox state is attached to a position rather than an item, so when the array shifted, React kept the DOM node and just changed the text around it. Switch to a stable id key."
+  },
+  {
+   "n": 56,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A component enters an infinite render loop. What are the likely causes?",
+   "a": "Setting state during render, or an effect that sets state with either no dependency array or a dependency that's a fresh object or function each render. I'd check the effect's deps first — that's the usual one."
+  },
+  {
+   "n": 57,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your app is making duplicate API calls on load in development but not production. What's happening?",
+   "a": "StrictMode's double effect invocation. It's showing that the effect fires once with no cleanup instead of being a proper synchronisation. The fix is an abort in the cleanup, not disabling StrictMode."
+  },
+  {
+   "n": 58,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Switching between two users quickly shows the wrong user's data. Explain and fix.",
+   "a": "A fetch race — two requests in flight, and the older one resolved last, so it overwrote the newer data. Fix with cleanup: an <code>AbortController</code> aborted in the effect's return, or an <code>ignore</code> flag checked before setting state."
+  },
+  {
+   "n": 59,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "You get 'Rendered fewer hooks than expected'. What did you do?",
+   "a": "Called a hook conditionally, or returned early before some hooks ran, so the number and order of hook calls changed between renders. Move every hook above any conditional or early return."
+  },
+  {
+   "n": 60,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "'Cannot update a component while rendering a different component' — what causes it?",
+   "a": "Calling a setter from another component's render, usually inside a render-phase callback. Move the update into an event handler or an effect."
+  },
+  {
+   "n": 61,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A form field suddenly stops accepting input. What's the most likely cause?",
+   "a": "<code>value</code> passed with no <code>onChange</code>, so React resets it to the state value on every render. React logs a warning for exactly this."
+  },
+  {
+   "n": 62,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "You get a hydration mismatch warning in production SSR. How do you track it down?",
+   "a": "Look for anything that differs between server and client — dates, random values, <code>window</code> or <code>localStorage</code> reads, locale formatting. React 19 shows a diff, which usually points straight at it. The fix is to render the varying part after mount, or suppress the warning if it's genuinely unavoidable."
+  },
+  {
+   "n": 63,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "The whole page went blank after a bad deploy. What happened and how do you prevent it next time?",
+   "a": "An uncaught error during render, so React unmounted the entire tree by design. Prevent it with error boundaries around routes and major panels so one broken widget degrades a section instead of the page."
+  },
+  {
+   "n": 64,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Typing in a search box lags badly on a large list. Walk through your fixes in order.",
+   "a": "First check whether the list is doing real work per keystroke — profile it. Then: keep the input's state urgent and defer the filtered list with <code>useDeferredValue</code> or a transition; virtualise the list; memoise the row component with stable props. Debouncing is the crude version of the same idea."
+  },
+  {
+   "n": 65,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A memoised child still re-renders every time. Why?",
+   "a": "At least one prop is a new value each render — an inline arrow function, an object literal, or an array from <code>.filter()</code> or <code>.map()</code>. Stabilise them with <code>useCallback</code>/<code>useMemo</code>, or restructure so the child takes primitives."
+  },
+  {
+   "n": 66,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "An effect that should run once keeps firing. What do you check?",
+   "a": "The dependency array, for a value whose identity changes every render — a function, object, or array literal. Either stabilise it, depend on a primitive field instead, or move the definition outside the component."
+  },
+  {
+   "n": 67,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A <code>setInterval</code> in an effect always logs the initial count. Explain.",
+   "a": "Stale closure. With an empty dependency array, the callback captured <code>count</code> from the first render and never sees later values. Use the updater form, or list the dependency and recreate the interval."
+  },
+  {
+   "n": 68,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "After adding a route-level lazy import, the app crashes with a suspension error. What's missing?",
+   "a": "A <code>Suspense</code> boundary above the lazy component. React walks up looking for one, and errors if there is none."
+  },
+  {
+   "n": 69,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Context consumers re-render on every parent render even though the data didn't change. Fix?",
+   "a": "The provider value is an object literal recreated each render. Wrap it in <code>useMemo</code>, or split state and dispatch into two contexts so action-only consumers don't re-render at all."
+  },
+  {
+   "n": 70,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your bundle is 4 MB and first load takes seven seconds. First three moves?",
+   "a": "Look at the bundle analyser to find what's big — usually one chart or date library. Then route-level code splitting with <code>lazy</code> plus Suspense, and replacing or lazily importing the heavy dependency. SSR helps perceived load but doesn't shrink the bundle; server components do."
+  },
+  {
+   "n": 71,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Context or Redux — how do you choose?",
+   "a": "Context for values that are global and change rarely: theme, user, locale, feature flags. A store when the state changes often and many components read different slices, because context has no selective subscription — every consumer re-renders on every change. Devtools and middleware are the other reason to reach for Redux Toolkit."
+  },
+  {
+   "n": 72,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Controlled or uncontrolled inputs?",
+   "a": "Controlled when the app needs the value while the user types — live validation, dependent fields, a character count. Uncontrolled when you only read it on submit; it's less code and far fewer renders, which is why React Hook Form is built on it."
+  },
+  {
+   "n": 73,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "<code>useState</code> or <code>useReducer</code>?",
+   "a": "<code>useState</code> for independent simple values. <code>useReducer</code> once the transitions matter more than the values — several fields changing together, or the same logic dispatched from many places. The signal is the number of related transitions, not the number of variables."
+  },
+  {
+   "n": 74,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "TanStack Query or writing your own fetch hooks?",
+   "a": "Own hooks are fine for one or two endpoints. Past that you're reimplementing caching, deduplication, revalidation, retries, and race-condition handling — badly. The framing I'd give is that server data isn't your state, it's a cache of someone else's, so it needs different rules."
+  },
+  {
+   "n": 75,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Next.js or Vite plus React Router?",
+   "a": "Next.js when SEO, first paint, or server components matter, or when you want routing and deployment conventions decided for you. Vite plus a router when it's an authenticated dashboard where SEO is irrelevant and you'd rather keep full control of the stack."
+  },
+  {
+   "n": 76,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "CSS-in-JS, CSS Modules, or Tailwind?",
+   "a": "Tailwind is the current default and works well with server components. CSS Modules are a safe, boring, zero-runtime choice. Runtime CSS-in-JS is declining specifically because it needs a client runtime, which fights RSC."
+  },
+  {
+   "n": 77,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Memoise everything or nothing?",
+   "a": "Neither. Memoisation costs allocation and comparison and it does nothing when the props are new objects — which is the common case. Profile, memoise the few components that actually cost something, and if the codebase adopts the React Compiler most of this stops being a manual decision."
+  },
+  {
+   "n": 78,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "SSR versus a client-only SPA?",
+   "a": "SSR buys first paint and crawlability, and costs you a server, hydration mismatches as a new bug class, and a gap where the page looks ready but isn't interactive. For a public marketing or content site it's clearly worth it; for an internal tool behind a login it usually isn't."
+  },
+  {
+   "n": 79,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "One big context or several small ones?",
+   "a": "Several. A single context holding everything means every consumer re-renders when any part changes. Splitting by change frequency — rarely-changing dispatch functions in one, frequently-changing data in another — is the standard fix."
+  },
+  {
+   "n": 80,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Lift state up or use a store?",
+   "a": "Lift when the sharing is local to one subtree. Reach for a store when the same state is needed by unrelated parts of the tree, or when lifting it forces the state so high that half the app re-renders on every change."
+  },
+  {
+   "n": 81,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Debounce or transition for an expensive filter?",
+   "a": "A debounce delays starting the work by a fixed time, so it's still slow in the quiet case. A transition starts immediately at low priority and gets interrupted by newer input, so it's faster when the user pauses and still responsive when they don't. Transitions are strictly better where the cost is rendering."
+  },
+  {
+   "n": 82,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "When is React the wrong choice?",
+   "a": "A mostly-static content site, where a static generator ships less. A page with a handful of interactions, where the bundle costs more than it saves. And anywhere the team has no appetite for owning the routing, data, and build decisions React deliberately leaves open."
+  },
+  {
+   "n": 83,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Walk me through a component you built and why it's structured that way.",
+   "a": "Name the state it owns, name what's derived rather than stored, and say why the state sits at that level rather than higher or lower. Then the effects: what external system each one synchronises with and what its cleanup undoes. That structure — state placement, derivations, effects with cleanups — is the actual design of a React component."
+  },
+  {
+   "n": 84,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How did you decide what goes in state?",
+   "a": "Anything I can't compute from something else. Filtered lists, totals, counts, and flags like <code>isEmpty</code> are derived during render. Storing them means writing an update path for every input, which is the bug I'd be using React to avoid in the first place."
+  },
+  {
+   "n": 85,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How is state organised in your app?",
+   "a": "Server data in a query cache keyed by resource, so it's deduplicated and revalidated rather than duplicated in component state. Genuinely global client state — theme, session — in context. Everything else local to the component that owns it, lifted only as far as the nearest common ancestor that needs it."
+  },
+  {
+   "n": 86,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "What was the hardest bug you hit in React and how did you find it?",
+   "a": "Pick a real one and tell it as a mechanism story: the symptom, the wrong hypothesis, the tool that corrected it (the Profiler, the network tab, a StrictMode double-run), and the underlying cause — usually identity, keys, or a missing cleanup. The mechanism is what they're listening for."
+  },
+  {
+   "n": 87,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How do you decide when to split a component?",
+   "a": "When it starts owning two unrelated pieces of state, or when part of it re-renders far more often than the rest. Splitting on render frequency is a performance decision; splitting on responsibility is a readability one, and I'd say which I was doing."
+  },
+  {
+   "n": 88,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How do you test your React components?",
+   "a": "React Testing Library, querying by role and visible text rather than class names or internals, so refactors don't break the suite. Network mocked at the request level with MSW so the component is exercised as it really runs, and Playwright for the couple of end-to-end flows that matter."
+  },
+  {
+   "n": 89,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How did you handle loading and error states?",
+   "a": "One status value rather than three booleans, so there's no render where they contradict each other. Loading UI declared at the boundary — a Suspense fallback or a skeleton for a whole region — rather than a spinner per leaf, so the page doesn't pop in six pieces."
+  },
+  {
+   "n": 90,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "What would you do differently if you rebuilt it?",
+   "a": "A concrete, technical answer: move data fetching out of effects into a query library, add error boundaries per route, or replace three booleans with a status machine. Name the specific cost the old approach had."
+  },
+  {
+   "n": 91,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How do you keep a large React codebase from rotting?",
+   "a": "TypeScript on props so component contracts are explicit; the hooks ESLint rules on and not suppressed; a clear line between server cache and client state; and colocation — a feature's components, hooks, and tests in one folder rather than split by file type."
+  },
+  {
+   "n": 92,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does React exist at all?",
+   "a": "Because keeping the screen in sync with data by hand means writing a code path for every dependency between them, and some of the app's truth ends up living only in the DOM, where anything can change it. React makes the screen a derivation of the data, so they can't disagree."
+  },
+  {
+   "n": 93,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why are hooks better than classes?",
+   "a": "Not because they're shorter. Because classes couldn't extract and reuse stateful logic — lifecycle methods split one concern across three places and mixed unrelated concerns into one method. Custom hooks reuse the logic without adding a layer to the tree, which HOCs and render props couldn't manage."
+  },
+  {
+   "n": 94,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why must rendering be pure?",
+   "a": "Because React may call your component more than once, discard the result, or interrupt it partway. Any side effect in render happens an unpredictable number of times. Concurrency made that non-negotiable, and StrictMode's double render exists to surface violations in development."
+  },
+  {
+   "n": 95,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does React have an immutability rule for state?",
+   "a": "Because it decides whether to re-render by comparing the new value to the old with <code>Object.is</code>. Mutating an object and handing the same reference back looks like nothing changed. Immutability is what makes cheap identity comparison a valid signal."
+  },
+  {
+   "n": 96,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does React re-render all descendants by default?",
+   "a": "Because checking every component's props would cost more than the render usually does, and it can't know which props matter. Rendering is cheap; the DOM is what's expensive, and React only touches that where the descriptions differ."
+  },
+  {
+   "n": 97,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why did concurrent rendering need a rewrite of React's internals?",
+   "a": "Because React 15 reconciled with plain recursion, and you can't pause a JavaScript call stack halfway. Fiber replaced the stack with a structure React walks itself, so it can stop, do something urgent, and resume."
+  },
+  {
+   "n": 98,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why do Server Components exist when we already had SSR?",
+   "a": "SSR still ships every component's JavaScript to the browser and still needs an API layer for the client to fetch data. Server components run only on the server, never ship their code, and can query the database directly — which removes both the bundle weight and a whole class of waterfalls."
+  },
+  {
+   "n": 99,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why isn't React a framework?",
+   "a": "Deliberate scope. It renders a tree, and it stays useful across web, native, and other renderers by not deciding routing, data, or styling. The cost is that assembling an app is a set of decisions you have to defend, which is why Next.js exists."
+  },
+  {
+   "n": 100,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why is context not enough to replace Redux?",
+   "a": "Because it only solves transport. It has no update model, no batching, no middleware, no devtools, and no way for a consumer to subscribe to one field of the value — so every consumer re-renders on every change."
+  },
+  {
+   "n": 101,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does React store hook state internally?",
+   "a": "As an ordered linked list of hook records attached to the component's fiber. On each render React points at that fiber and walks the list positionally as your hook calls execute. That's why order matters and why hooks have no names as far as React is concerned."
+  },
+  {
+   "n": 102,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What is the lane model?",
+   "a": "React's internal priority system. Updates are tagged with a lane, lanes are processed by priority, and there's starvation protection so a low-priority update can't be deferred forever. It's what implements transitions underneath."
+  },
+  {
+   "n": 103,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does React avoid showing a half-finished render?",
+   "a": "It builds an in-progress tree separately and only commits when a render completes. Partial work can be discarded with no visible effect, which is what makes interruption safe."
+  },
+  {
+   "n": 104,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What actually happens during the commit phase?",
+   "a": "React applies the computed insertions, deletions, and attribute updates to the DOM, runs layout effects and ref attachments synchronously, and then lets the browser paint, after which passive effects run."
+  },
+  {
+   "n": 105,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "Why is a key not passed to the component as a prop?",
+   "a": "Because it's consumed by the reconciler before the component exists — it's an instruction to React about identity, not data for your component. If you need the id inside, pass it as a separate prop."
+  },
+  {
+   "n": 106,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What does the React 19 <code>use()</code> API do differently from a hook?",
+   "a": "It isn't a positional hook record, so it can be called conditionally. It accepts a promise and suspends the component until it resolves, or accepts a context and reads it — integrating async work with Suspense rather than with booleans."
+  },
+  {
+   "n": 107,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does event delegation actually work in React?",
+   "a": "React attaches listeners at the root container for each event type, and when one fires it walks up from the target's fiber collecting handlers, then invokes them in simulated capture and bubble order. Before React 17 those root listeners were on <code>document</code>, which broke embedding two React versions on one page."
+  },
+  {
+   "n": 108,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does a server component's output reach the client?",
+   "a": "As a serialised stream describing the rendered output plus references to client components and their props, which React merges into the tree. That's why props crossing the boundary must be serialisable — no functions, no class instances."
+  },
+  {
+   "n": 109,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What is tearing and why did concurrency create it?",
+   "a": "Two parts of one screen rendering different values from the same external store, because a render can be interrupted while the store changes underneath. React's own state is immune; external stores need <code>useSyncExternalStore</code>."
+  },
+  {
+   "n": 110,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does React decide to bail out of a state update?",
+   "a": "If the new state is <code>Object.is</code>-equal to the current one, it can skip re-rendering that component and its children — though it may still render once before it can tell."
+  },
+  {
+   "n": 111,
+   "c": "config",
+   "t": "Setup & config",
+   "q": "How do you start a React project in 2026?",
+   "a": "<code>npm create vite@latest</code> with the React TypeScript template, or a framework like Next.js if you want SSR and routing decided for you. Not Create React App — it was deprecated in February 2025."
+  },
+  {
+   "n": 112,
+   "c": "config",
+   "t": "Setup & config",
+   "q": "What ESLint setup should a React project have?",
+   "a": "<code>eslint-plugin-react-hooks</code> at minimum, with the rules-of-hooks and exhaustive-deps rules on and not suppressed. Its recent versions also carry the React Compiler's rules, which catch impure render code."
+  },
+  {
+   "n": 113,
+   "c": "config",
+   "t": "Setup & config",
+   "q": "Where does StrictMode go and should it stay on?",
+   "a": "Wrapped around the root in development. Yes, keep it on — it costs nothing in production and catches impure renders and effects with no cleanup before users do."
+  },
+  {
+   "n": 114,
+   "c": "config",
+   "t": "Setup & config",
+   "q": "What does the React DevTools extension give you?",
+   "a": "A component tree with props, state, and hooks inspectable; the ability to see which component owns a DOM node; and the Profiler, which with 'why did this render' enabled turns performance work from guesswork into reading causes."
+  },
+  {
+   "n": 115,
+   "c": "config",
+   "t": "Setup & config",
+   "q": "How do you configure a client-routed SPA for deep links?",
+   "a": "Serve <code>index.html</code> for every unmatched path, so the client router can take over. Otherwise the server 404s on any URL that isn't a real file."
+  },
+  {
+   "n": 116,
+   "c": "config",
+   "t": "Setup & config",
+   "q": "What's the minimum sensible TypeScript config for React?",
+   "a": "<code>strict: true</code>, <code>jsx: 'react-jsx'</code> for the modern transform, and <code>@types/react</code>/<code>@types/react-dom</code> matching your React major version — a version mismatch there produces some of the most confusing type errors in the ecosystem."
+  },
+  {
+   "n": 117,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What renders when you put <code>0</code> in JSX?",
+   "a": "The character 0. Only <code>null</code>, <code>undefined</code>, <code>false</code> and <code>true</code> render nothing — which is why <code>items.length &amp;&amp; &lt;List/&gt;</code> puts a stray zero on the page for an empty array."
+  },
+  {
+   "n": 118,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Can you call hooks inside a try/catch?",
+   "a": "Not safely — a throw would skip the remaining hook calls and shift the order on the next render. Keep hooks at the top level and handle errors around the work they do, not around the calls."
+  },
+  {
+   "n": 119,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What happens if you pass a new function to <code>useEffect</code> deps every render?",
+   "a": "The effect re-runs every render, because functions are compared by identity. It's the same mechanism that breaks <code>React.memo</code> and floods context consumers."
+  },
+  {
+   "n": 120,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Can two components share the same key?",
+   "a": "Yes, as long as they aren't siblings in the same array. Keys only need to be unique among siblings."
+  },
+  {
+   "n": 121,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What happens if a ref is attached to a component rather than a DOM element?",
+   "a": "Before React 19 nothing reached it unless the component used <code>forwardRef</code>. From React 19, <code>ref</code> is an ordinary prop, so the component receives it and must attach it to something itself."
+  },
+  {
+   "n": 122,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Do effects run during server rendering?",
+   "a": "No. Neither <code>useEffect</code> nor <code>useLayoutEffect</code> runs on the server, which is why browser-only work belongs in effects, and why a component that only works after an effect renders empty in the server HTML."
+  },
+  {
+   "n": 123,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Can a component return an array or a string?",
+   "a": "Yes — since React 16, a component may return arrays, strings, numbers, <code>null</code>, or a fragment. The 'must return one root element' rule is really about JSX compiling to one expression."
+  },
+  {
+   "n": 124,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What happens when you update state in an unmounted component?",
+   "a": "Nothing harmful since React 18 — the old 'can't perform a state update on an unmounted component' warning was removed because it produced more false positives than real leaks. The underlying advice, aborting stale async work, still stands."
+  },
+  {
+   "n": 125,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Is it safe to mutate a ref during render?",
+   "a": "No. It makes render impure and behaves unpredictably when React discards or repeats a render. Mutate refs in effects and event handlers."
+  },
+  {
+   "n": 126,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What happens if two Suspense boundaries are nested and the inner one suspends?",
+   "a": "The nearest boundary above the suspending component wins, so the inner fallback shows and the outer tree stays put. That's how you scope loading UI to a region."
+  }
+ ]
+}

@@ -1,0 +1,2188 @@
+{
+  "cards": [
+    {
+      "n": 1,
+      "c": "node-0",
+      "t": "Node 0 · The page that cannot change",
+      "q": "Before any scripting existed, what was the only way to change what a user saw on a web page?",
+      "a": "Ask the server for an entirely new document. The browser discarded the current page and drew the replacement. The <strong>round trip was the unit of interaction</strong>."
+    },
+    {
+      "n": 2,
+      "c": "node-0",
+      "t": "Node 0 · The page that cannot change",
+      "q": "Why did the round-trip model feel unbearable in 1994 specifically, rather than merely inelegant?",
+      "a": "Modems ran at 14.4 or 28.8 kilobits per second. Discovering a mistyped email address took several seconds and usually arrived on a fresh page with the rest of your input cleared."
+    },
+    {
+      "n": 3,
+      "c": "node-0",
+      "t": "Node 0 · The page that cannot change",
+      "q": "The browser had already parsed the page and worked out where every piece of text went. Why did that not help?",
+      "a": "That structure existed only inside the browser and was not exposed to anything. There was no program to address it and no API through which to address it."
+    },
+    {
+      "n": 4,
+      "c": "node-0",
+      "t": "Node 0 · The page that cannot change",
+      "q": "When did JavaScript first ship in a browser, and in which product?",
+      "a": "Netscape Navigator 2.0, in <strong>March 1996</strong>."
+    },
+    {
+      "n": 5,
+      "c": "node-0",
+      "t": "Node 0 · The page that cannot change",
+      "q": "What is retroactively called “DOM Level 0”?",
+      "a": "The handful of collections Netscape exposed with the first JavaScript — <code>document.forms</code>, <code>document.images</code>, <code>document.links</code> and similar. It was accreted rather than designed."
+    },
+    {
+      "n": 6,
+      "c": "node-0",
+      "t": "Node 0 · The page that cannot change",
+      "q": "What could DOM Level 0 realistically accomplish?",
+      "a": "Checking whether a form field was empty before submitting. It was enough for validation and nowhere near enough to build an interface."
+    },
+    {
+      "n": 7,
+      "c": "node-0",
+      "t": "Node 0 · The page that cannot change",
+      "q": "How did Internet Explorer 4 and Netscape Navigator 4 expose the page, and why was that a disaster?",
+      "a": "IE4 used <code>document.all</code>, Navigator 4 used <code>document.layers</code>. They were incompatible, so any page doing real work contained two implementations of itself."
+    },
+    {
+      "n": 8,
+      "c": "node-0",
+      "t": "Node 0 · The page that cannot change",
+      "q": "What specific problem did the W3C DOM standardisation effort exist to solve?",
+      "a": "The absence of a single, complete, agreed model of the page that a program could address the same way in every browser."
+    },
+    {
+      "n": 9,
+      "c": "node-0",
+      "t": "Node 0 · The page that cannot change",
+      "q": "State the limitation at the end of Node 0 in one sentence.",
+      "a": "You can reach a few named collections someone thought to expose, in two mutually incompatible dialects, and nothing else."
+    },
+    {
+      "n": 10,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "When was DOM Level 1 published, and by whom?",
+      "a": "The <strong>W3C</strong>, as a Recommendation, in <strong>October 1998</strong>."
+    },
+    {
+      "n": 11,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "State DOM Level 1's central idea.",
+      "a": "When the browser parses HTML it builds an <strong>object graph in memory</strong> mirroring the markup's structure, and exposes that graph to JavaScript. That graph is the Document Object Model."
+    },
+    {
+      "n": 12,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "Give the one-sentence definition of the DOM that resolves most later confusion.",
+      "a": "The DOM is <strong>not the HTML and not the pixels</strong> — it is a live object graph sitting between them."
+    },
+    {
+      "n": 13,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "What happens to the HTML string once the page has loaded?",
+      "a": "It is parsed exactly once and is then irrelevant to the running page. Only the tree of objects remains."
+    },
+    {
+      "n": 14,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "Are DOM nodes real JavaScript objects?",
+      "a": "Yes. Every node is a genuine JavaScript-reachable object with properties and methods, backed by the browser's internal representation."
+    },
+    {
+      "n": 15,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "Name the main kinds of node in the tree.",
+      "a": "<strong>Element</strong> nodes (a tag), <strong>text</strong> nodes (a run of characters), <strong>comment</strong> nodes, and the <strong>document</strong> node at the top."
+    },
+    {
+      "n": 16,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "Is the document node an element?",
+      "a": "No. It has no tag and is not an element. It sits above the root element and is reached through the global <code>document</code>."
+    },
+    {
+      "n": 17,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "What is <code>document.documentElement</code>?",
+      "a": "The single root element node of the tree — the <code>&lt;html&gt;</code> element. <code>document.head</code> and <code>document.body</code> sit beneath it."
+    },
+    {
+      "n": 18,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "What does each node know about its neighbours?",
+      "a": "Its parent, its children in document order, and its siblings. The tree is navigable in every direction from any node."
+    },
+    {
+      "n": 19,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "Why might the tree the browser built differ from the markup you wrote?",
+      "a": "The HTML parser is specified to <strong>repair broken markup</strong> — closing unclosed tags, relocating a stray element out of a table, dropping a <code>&lt;p&gt;</code> nested inside a <code>&lt;p&gt;</code>. You get the repaired result."
+    },
+    {
+      "n": 20,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "What happens to the whitespace between tags in your source?",
+      "a": "It becomes <strong>real text nodes</strong>. A <code>&lt;ul&gt;</code> with each <code>&lt;li&gt;</code> on its own line has text nodes containing newlines and spaces between the items."
+    },
+    {
+      "n": 21,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "Why does the whitespace-text-node fact matter beyond trivia?",
+      "a": "It makes <code>firstChild</code>, <code>childNodes</code> and <code>nextSibling</code> return whitespace rather than the element you expected, which is a permanent source of bugs."
+    },
+    {
+      "n": 22,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "What is the difference between viewing source and the Elements panel in DevTools?",
+      "a": "View source shows the original HTML string as sent. The Elements panel shows the current DOM tree — after parser repair and after every change your scripts have made."
+    },
+    {
+      "n": 23,
+      "c": "node-1",
+      "t": "Node 1 · The page as a tree of live objects",
+      "q": "State what is still broken at the end of Node 1.",
+      "a": "You have a tree and a handle on its root, but reaching a specific node deep inside means walking down child by child, which is unusable."
+    },
+    {
+      "n": 24,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "What does <code>document.getElementById(id)</code> return when nothing matches?",
+      "a": "<code>null</code>. Not <code>undefined</code>, not an empty collection — <code>null</code>."
+    },
+    {
+      "n": 25,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "Why is <code>getElementById</code> the fastest lookup in the DOM?",
+      "a": "Browsers maintain an internal map from id to element, so it is a hash lookup rather than a tree search."
+    },
+    {
+      "n": 26,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "What do <code>getElementsByTagName</code> and <code>getElementsByClassName</code> return?",
+      "a": "A <strong>live <code>HTMLCollection</code></strong> — not an array and not a snapshot."
+    },
+    {
+      "n": 27,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "What does it mean for an <code>HTMLCollection</code> to be live?",
+      "a": "It is a <strong>standing query</strong>, not a snapshot. Append a matching element to the document and the collection you are already holding grows, with no action from you."
+    },
+    {
+      "n": 28,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "Describe the classic infinite loop caused by a live collection.",
+      "a": "Iterating the collection by index while appending a matching element inside the loop. The collection grows exactly as fast as the index advances, so the loop never terminates."
+    },
+    {
+      "n": 29,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "When did browsers begin shipping the Selectors API, and when was it a W3C Recommendation?",
+      "a": "Shipped in <strong>Safari 3.1 (2008)</strong> and <strong>Internet Explorer 8 (2009)</strong>; W3C Recommendation in <strong>February 2013</strong>."
+    },
+    {
+      "n": 30,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "What do <code>querySelector</code> and <code>querySelectorAll</code> return?",
+      "a": "<code>querySelector</code> returns the first matching element or <code>null</code>. <code>querySelectorAll</code> returns a <strong>static <code>NodeList</code></strong> of all matches."
+    },
+    {
+      "n": 31,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "What is the real significance of the Selectors API, beyond convenience?",
+      "a": "The same language that describes which elements a <em>style</em> applies to now describes which elements a <em>script</em> operates on. No new vocabulary is required of anyone who has written CSS."
+    },
+    {
+      "n": 32,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "What did the Selectors API do to jQuery's value proposition?",
+      "a": "It made jQuery's core selling point — cross-browser CSS-selector querying — redundant, roughly a decade after jQuery 1.0 shipped in August 2006."
+    },
+    {
+      "n": 33,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "Is the <code>NodeList</code> from <code>querySelectorAll</code> live or static?",
+      "a": "<strong>Static.</strong> It is a snapshot at the moment of the call and does not change when the document does."
+    },
+    {
+      "n": 34,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "Is a <code>NodeList</code> an array?",
+      "a": "No. It has <code>forEach</code>, <code>length</code> and indexing, but no <code>map</code>, <code>filter</code> or <code>reduce</code>. Use <code>Array.from(list)</code> or <code>[...list]</code>."
+    },
+    {
+      "n": 35,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "Does <code>element.children</code> have <code>forEach</code>?",
+      "a": "No. It is a live <code>HTMLCollection</code>, which has neither <code>forEach</code> nor the array methods. This asymmetry with <code>NodeList</code> is a routine source of confusion."
+    },
+    {
+      "n": 36,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "Which selection methods are available on elements and not only on <code>document</code>?",
+      "a": "All of them except <code>getElementById</code>, which exists only on <code>document</code> (and on document fragments). <code>querySelector</code>, <code>querySelectorAll</code>, <code>getElementsByTagName</code> and <code>getElementsByClassName</code> all work from any element."
+    },
+    {
+      "n": 37,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "Why scope a query to a subtree rather than searching from <code>document</code>?",
+      "a": "It is faster and far less fragile — a selector scoped to a container cannot accidentally match an identically-classed element elsewhere on the page."
+    },
+    {
+      "n": 38,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "Does <code>querySelectorAll</code> use the browser's real CSS selector engine?",
+      "a": "Yes — the same engine used for style matching, so any selector valid in a stylesheet works, including pseudo-classes like <code>:last-child</code> and attribute selectors like <code>[href^=\"/docs\"]</code>."
+    },
+    {
+      "n": 39,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "What does <code>container.querySelector(':scope > .row')</code> do that <code>container.querySelector('.row')</code> does not?",
+      "a": "<code>:scope</code> anchors the selector at the container itself, so <code>:scope &gt; .row</code> matches only direct children. Without it, a descendant combinator matches at any depth."
+    },
+    {
+      "n": 40,
+      "c": "node-2",
+      "t": "Node 2 · Finding a node",
+      "q": "State the limitation at the end of Node 2.",
+      "a": "Selectors describe <em>patterns of elements</em>. They cannot express relative position, cannot reach text or comment nodes, and cannot answer questions about a node's neighbours."
+    },
+    {
+      "n": 41,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "Name the DOM Level 1 traversal properties that walk all nodes.",
+      "a": "<code>parentNode</code>, <code>childNodes</code>, <code>firstChild</code>, <code>lastChild</code>, <code>nextSibling</code>, <code>previousSibling</code>."
+    },
+    {
+      "n": 42,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "Name the element-only traversal properties.",
+      "a": "<code>parentElement</code>, <code>children</code>, <code>firstElementChild</code>, <code>lastElementChild</code>, <code>nextElementSibling</code>, <code>previousElementSibling</code>."
+    },
+    {
+      "n": 43,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "Why do both vocabularies exist?",
+      "a": "The DOM must describe documents in general, where text nodes are the actual content rather than an artefact of formatting. Application code almost always wants the element-only set."
+    },
+    {
+      "n": 44,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "When do <code>parentNode</code> and <code>parentElement</code> differ?",
+      "a": "Only for the root <code>&lt;html&gt;</code> element. Its <code>parentNode</code> is the document node; its <code>parentElement</code> is <code>null</code>, because the document is not an element."
+    },
+    {
+      "n": 45,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "What are <code>nodeType</code> values 1, 3, 8 and 9?",
+      "a": "<strong>1</strong> element, <strong>3</strong> text, <strong>8</strong> comment, <strong>9</strong> document. The numbers are arbitrary — just the enumeration order in the 1998 spec."
+    },
+    {
+      "n": 46,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "How does modern code usually test node kind instead of <code>nodeType</code>?",
+      "a": "<code>instanceof Element</code>, <code>instanceof Text</code>, or checking <code>tagName</code>. <code>nodeType</code> integers survive in older code and library internals."
+    },
+    {
+      "n": 47,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "What does <code>element.closest(selector)</code> do?",
+      "a": "Walks <strong>upward</strong> from the element through its ancestors, <strong>including the element itself</strong>, and returns the first match, or <code>null</code>."
+    },
+    {
+      "n": 48,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "When did <code>closest()</code> ship?",
+      "a": "<strong>Chrome 41, in 2015.</strong>"
+    },
+    {
+      "n": 49,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "What is <code>element.matches(selector)</code>?",
+      "a": "A boolean test: does this element itself match this CSS selector? Useful in delegated handlers and filters."
+    },
+    {
+      "n": 50,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "What does <code>a.contains(b)</code> return when <code>a === b</code>?",
+      "a": "<code>true</code>. <code>contains</code> treats a node as containing itself."
+    },
+    {
+      "n": 51,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "What are <code>TreeWalker</code> and <code>NodeIterator</code> for?",
+      "a": "Visiting every node of a chosen kind in document order, created with <code>document.createTreeWalker(root, whatToShow, filter)</code>. They exist mainly for text processing — find-and-highlight, text extraction, spellchecking."
+    },
+    {
+      "n": 52,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "How common is <code>TreeWalker</code> in application code?",
+      "a": "Rare. Most application developers never write one. It is genuinely useful in editors and tooling."
+    },
+    {
+      "n": 53,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "Why is <code>closest()</code> structurally important rather than merely handy?",
+      "a": "It is what makes event delegation robust — given the deepest element a click landed on, it finds the meaningful ancestor you actually care about."
+    },
+    {
+      "n": 54,
+      "c": "node-3",
+      "t": "Node 3 · Walking the tree",
+      "q": "State the limitation at the end of Node 3.",
+      "a": "You can reach any node from any other node, and you still cannot change a single character of what any of them says."
+    },
+    {
+      "n": 55,
+      "c": "node-4",
+      "t": "Node 4 · Changing what a node says",
+      "q": "What does setting <code>textContent</code> do to the element's existing children?",
+      "a": "Discards all of them and replaces them with a single text node."
+    },
+    {
+      "n": 56,
+      "c": "node-4",
+      "t": "Node 4 · Changing what a node says",
+      "q": "If you assign a string containing <code>&lt;script&gt;</code> to <code>textContent</code>, what appears on screen?",
+      "a": "The literal characters <code>&lt;script&gt;</code>. Nothing is parsed and nothing executes."
+    },
+    {
+      "n": 57,
+      "c": "node-4",
+      "t": "Node 4 · Changing what a node says",
+      "q": "What is the correct default for displaying a value from a user, a database, or an API?",
+      "a": "<code>textContent</code>. It treats everything as literal characters, which removes the injection question entirely."
+    },
+    {
+      "n": 58,
+      "c": "node-4",
+      "t": "Node 4 · Changing what a node says",
+      "q": "What does assigning to <code>innerHTML</code> actually invoke?",
+      "a": "The HTML parser. Your string is parsed, a subtree is built from the result, and the element's existing children are replaced by it."
+    },
+    {
+      "n": 59,
+      "c": "node-4",
+      "t": "Node 4 · Changing what a node says",
+      "q": "Where did <code>innerHTML</code> come from?",
+      "a": "Microsoft invented it for <strong>Internet Explorer 4, in 1997</strong>. It was so convenient that everyone copied it, and it was standardised long afterwards."
+    },
+    {
+      "n": 60,
+      "c": "node-4",
+      "t": "Node 4 · Changing what a node says",
+      "q": "Does a <code>&lt;script&gt;</code> tag inserted via <code>innerHTML</code> execute?",
+      "a": "No — the HTML spec explicitly disables it. This provides almost no protection, because <code>&lt;img src=x onerror=\"...\"&gt;</code> and dozens of equivalents work perfectly."
+    },
+    {
+      "n": 61,
+      "c": "node-4",
+      "t": "Node 4 · Changing what a node says",
+      "q": "What is the difference between <code>textContent</code> and <code>innerText</code>?",
+      "a": "<code>textContent</code> returns what is <em>in the tree</em>, including text inside <code>display: none</code>, with source whitespace intact. <code>innerText</code> returns what is <em>rendered</em> — roughly what you would get by selecting with a mouse and copying."
+    },
+    {
+      "n": 62,
+      "c": "node-4",
+      "t": "Node 4 · Changing what a node says",
+      "q": "Why can reading <code>innerText</code> be expensive when reading <code>textContent</code> never is?",
+      "a": "To report what is rendered, the browser may have to compute layout. <code>textContent</code> is answerable from the tree alone."
+    },
+    {
+      "n": 63,
+      "c": "node-4",
+      "t": "Node 4 · Changing what a node says",
+      "q": "Does <code>innerText</code> respect <code>display: none</code>?",
+      "a": "Yes — hidden text is excluded. <code>textContent</code> includes it."
+    },
+    {
+      "n": 64,
+      "c": "node-4",
+      "t": "Node 4 · Changing what a node says",
+      "q": "What does <code>outerHTML</code> include that <code>innerHTML</code> does not?",
+      "a": "The element's own opening and closing tags, not just its contents. Assigning to it replaces the element itself."
+    },
+    {
+      "n": 65,
+      "c": "node-4",
+      "t": "Node 4 · Changing what a node says",
+      "q": "What do <code>nodeValue</code> and <code>data</code> do on a text node?",
+      "a": "Both get or set the characters the text node holds. Text nodes also support <code>appendData</code>, <code>insertData</code> and <code>splitText</code>."
+    },
+    {
+      "n": 66,
+      "c": "node-4",
+      "t": "Node 4 · Changing what a node says",
+      "q": "How common is direct text-node surgery?",
+      "a": "Rare in application code, central in rich-text editors, which need to split and merge text nodes constantly."
+    },
+    {
+      "n": 67,
+      "c": "node-4",
+      "t": "Node 4 · Changing what a node says",
+      "q": "State the limitation at the end of Node 4.",
+      "a": "Content is only part of what an element is. A checkbox's checkedness, a link's destination, a button's disabledness, and an element's classes and styling are not content and none are reachable yet."
+    },
+    {
+      "n": 68,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "State the attribute-versus-property distinction in one sentence.",
+      "a": "<strong>Attributes are what was written in the HTML; properties are fields on the JavaScript object.</strong> Two storage locations, loosely synchronised by non-uniform rules."
+    },
+    {
+      "n": 69,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "What type are attribute values, always?",
+      "a": "<strong>Strings.</strong> There are no other types on the attribute side."
+    },
+    {
+      "n": 70,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "What does <code>el.setAttribute('disabled', false)</code> do?",
+      "a": "<strong>Disables the element.</strong> The attribute is set to the string <code>\"false\"</code>, and HTML boolean attributes are true when present regardless of value. Use <code>el.disabled = false</code> or <code>removeAttribute</code>."
+    },
+    {
+      "n": 71,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "What type is <code>el.disabled</code> on the property side?",
+      "a": "A genuine boolean. Likewise <code>el.hidden</code> is a boolean and <code>el.tabIndex</code> is a number — properties have real types, attributes do not."
+    },
+    {
+      "n": 72,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "What does “reflection” mean between attributes and properties?",
+      "a": "Change one side and the other follows. Most attributes reflect; some reflect with transformation; a few deliberately do not stay in sync at all."
+    },
+    {
+      "n": 73,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "Why does <code>el.href</code> not equal the string you wrote in the markup?",
+      "a": "The <code>href</code> attribute reflects into the property as the <strong>fully resolved absolute URL</strong>. <code>href=\"/docs\"</code> reads back as <code>https://example.com/docs</code>. Use <code>getAttribute('href')</code> for the literal."
+    },
+    {
+      "n": 74,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "What is the relationship between <code>input.value</code> and the <code>value</code> attribute?",
+      "a": "The attribute is the <strong>initial</strong> value only. Once a user types, <code>input.value</code> reflects what they typed and <code>getAttribute('value')</code> still returns the original."
+    },
+    {
+      "n": 75,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "Why do <code>defaultValue</code> and <code>defaultChecked</code> exist?",
+      "a": "To give a property-side name for the attribute-side value, since <code>value</code> and <code>checked</code> properties track live state instead."
+    },
+    {
+      "n": 76,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "Which React concept does the value/attribute split directly explain?",
+      "a": "Controlled versus uncontrolled inputs. React's <code>value</code> prop drives the live property; <code>defaultValue</code> sets the attribute and lets the DOM own the state."
+    },
+    {
+      "n": 77,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "What is the sanctioned way to attach your own data to an element?",
+      "a": "<code>data-*</code> attributes, read through the <code>dataset</code> property. <code>data-user-id=\"42\"</code> becomes <code>el.dataset.userId</code>."
+    },
+    {
+      "n": 78,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "What type is everything in <code>dataset</code>?",
+      "a": "String. <code>data-count=\"3\"</code> gives <code>\"3\"</code>, not <code>3</code>."
+    },
+    {
+      "n": 79,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "How does <code>dataset</code> convert names?",
+      "a": "Kebab-case to camelCase: <code>data-user-id</code> becomes <code>dataset.userId</code>."
+    },
+    {
+      "n": 80,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "What does <code>classList</code> give you over <code>className</code>?",
+      "a": "<code>add</code>, <code>remove</code>, <code>toggle</code>, <code>contains</code> and <code>replace</code>, each accepting multiple arguments — instead of error-prone string manipulation."
+    },
+    {
+      "n": 81,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "What does the second argument to <code>classList.toggle</code> do?",
+      "a": "It <strong>sets</strong> rather than flips. <code>classList.toggle('open', isOpen)</code> adds when <code>isOpen</code> is true and removes when false."
+    },
+    {
+      "n": 82,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "When did <code>classList</code> become widely available?",
+      "a": "Around <strong>2010–2011</strong> — Firefox 3.6 and Chrome 8 era — standardised with HTML5 and DOM4."
+    },
+    {
+      "n": 83,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "What exactly does <code>element.style.color</code> read?",
+      "a": "The <strong>inline style only</strong>, i.e. the element's <code>style</code> attribute. If the colour came from a stylesheet, this is the empty string."
+    },
+    {
+      "n": 84,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "What does <code>getComputedStyle(element)</code> return?",
+      "a": "The fully resolved value in effect after every stylesheet, cascade rule and inheritance has been applied. It may require layout to be up to date, so it is not free."
+    },
+    {
+      "n": 85,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "How are CSS property names spelled on <code>element.style</code>?",
+      "a": "camelCased — <code>backgroundColor</code>, <code>borderTopWidth</code>."
+    },
+    {
+      "n": 86,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "How do you set a CSS custom property from JavaScript?",
+      "a": "<code>el.style.setProperty('--accent', 'tomato')</code>, and read it with <code>getComputedStyle(el).getPropertyValue('--accent')</code>. Custom properties keep their literal names and are not camelCased."
+    },
+    {
+      "n": 87,
+      "c": "node-5",
+      "t": "Node 5 · Attributes, properties, classes, style",
+      "q": "State the limitation at the end of Node 5.",
+      "a": "Everything so far modifies elements that already exist. An interface that grows — a list gaining rows, a dialog appearing, a table rendered from fetched data — needs nodes that were never in the original HTML."
+    },
+    {
+      "n": 88,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "What does <code>document.createElement('div')</code> return, and where is it?",
+      "a": "A real element node that is <strong>not in the document</strong>. It has no parent, occupies no space, and is invisible."
+    },
+    {
+      "n": 89,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "Why is construction separated from insertion?",
+      "a": "So you can build a subtree completely before the user ever sees a partial version of it, and so a single insertion carries the whole thing."
+    },
+    {
+      "n": 90,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "Name the DOM Level 1 insertion and removal methods.",
+      "a": "<code>appendChild</code>, <code>insertBefore</code>, <code>removeChild</code>, <code>replaceChild</code> — all called on the parent."
+    },
+    {
+      "n": 91,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "What is awkward about <code>insertBefore</code>?",
+      "a": "It requires a reference to the node you want to precede, so inserting after something means computing <code>nextSibling</code> first — and passing <code>null</code> as the reference appends."
+    },
+    {
+      "n": 92,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "Name the modern insertion methods and when they shipped.",
+      "a": "<code>append</code>, <code>prepend</code>, <code>before</code>, <code>after</code>, <code>replaceWith</code>, <code>remove</code> — <strong>Chrome 54 (October 2016)</strong> and <strong>Firefox 49 (September 2016)</strong>."
+    },
+    {
+      "n": 93,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "Give two advantages of <code>append</code> over <code>appendChild</code>.",
+      "a": "It accepts <strong>multiple arguments</strong>, and it accepts <strong>plain strings</strong>, which become text nodes safely — no parsing, no injection risk."
+    },
+    {
+      "n": 94,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "What does <code>el.remove()</code> improve on?",
+      "a": "It needs no reference to the parent, unlike <code>parent.removeChild(el)</code>."
+    },
+    {
+      "n": 95,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "What happens if you insert a node that is already in the document?",
+      "a": "It <strong>moves</strong>. A node has exactly one parent, so there is no insertion operation that duplicates."
+    },
+    {
+      "n": 96,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "How do you actually duplicate a node?",
+      "a": "<code>node.cloneNode(deep)</code>, where <code>deep</code> controls whether descendants come along."
+    },
+    {
+      "n": 97,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "Does <code>cloneNode</code> copy event listeners?",
+      "a": "<strong>No.</strong> Listeners are not part of the node's data, so the clone has none."
+    },
+    {
+      "n": 98,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "What is a <code>DocumentFragment</code> and what is it for?",
+      "a": "A lightweight, parentless container from <code>document.createDocumentFragment()</code>. Append many nodes into it, then append the fragment once — it dissolves, delivering its children in a single document mutation."
+    },
+    {
+      "n": 99,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "What is the <code>&lt;template&gt;</code> element?",
+      "a": "An HTML element whose contents are parsed but <strong>inert</strong> — not rendered, not executed, images not fetched. You clone <code>template.content</code> into place when needed."
+    },
+    {
+      "n": 100,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "What does <code>insertAdjacentHTML</code> do, and what are its four positions?",
+      "a": "Parses a markup string and inserts it without rebuilding the element's existing children. Positions: <code>'beforebegin'</code>, <code>'afterbegin'</code>, <code>'beforeend'</code>, <code>'afterend'</code>."
+    },
+    {
+      "n": 101,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "Why is <code>el.innerHTML += '...'</code> a trap?",
+      "a": "It serialises the entire existing subtree to a string, concatenates, and reparses the whole thing — <strong>destroying every existing node</strong>, and with them every event listener, form state and node reference."
+    },
+    {
+      "n": 102,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "What is <code>insertAdjacentElement</code> and <code>insertAdjacentText</code>?",
+      "a": "The same four-position insertion for an existing element node and for literal text respectively, without invoking the HTML parser."
+    },
+    {
+      "n": 103,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "What is <code>document.importNode(node, deep)</code> for?",
+      "a": "Copying a node from another document (from <code>DOMParser</code>, an iframe, or a template's document) so it can be inserted into this one."
+    },
+    {
+      "n": 104,
+      "c": "node-6",
+      "t": "Node 6 · Creating, inserting, moving, removing",
+      "q": "State the limitation at the end of Node 6.",
+      "a": "All of this is one-directional. Your script decides when things happen; the page still cannot respond to a click, a keystroke, a scroll, or a form submission."
+    },
+    {
+      "n": 105,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "What is a DOM event, precisely?",
+      "a": "An object the browser creates when something notable happens, and delivers to code that registered interest in it."
+    },
+    {
+      "n": 106,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "What is the fatal structural limit of <code>el.onclick = fn</code>?",
+      "a": "There is <strong>one slot</strong>. Assigning a second time silently replaces the first handler, so two independent pieces of code cannot both listen."
+    },
+    {
+      "n": 107,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "What is the additional problem with inline <code>onclick=\"...\"</code> attributes?",
+      "a": "The attribute value is a string evaluated as code in the global scope — exactly what a Content Security Policy exists to forbid."
+    },
+    {
+      "n": 108,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "When was <code>addEventListener</code> standardised?",
+      "a": "<strong>DOM Level 2 Events</strong>, a W3C Recommendation in <strong>November 2000</strong>."
+    },
+    {
+      "n": 109,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "What does <code>addEventListener</code> fix?",
+      "a": "Any number of listeners can coexist on one element for one event type, and each is removable independently."
+    },
+    {
+      "n": 110,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "What must <code>removeEventListener</code> be given?",
+      "a": "The <strong>same function reference</strong> that was added, plus a matching <code>capture</code> setting. Two identical-looking arrow functions are two different objects and will not match."
+    },
+    {
+      "n": 111,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "Why does passing an inline arrow to both add and remove silently fail?",
+      "a": "Each arrow expression creates a new function object. <code>removeEventListener</code> compares by identity, finds no match, and removes nothing — with no error."
+    },
+    {
+      "n": 112,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "Name the options in <code>addEventListener</code>'s third argument.",
+      "a": "<code>capture</code>, <code>once</code>, <code>passive</code>, and <code>signal</code>. Historically the third argument was a bare boolean meaning <code>capture</code>."
+    },
+    {
+      "n": 113,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "What does <code>once: true</code> do?",
+      "a": "Removes the listener automatically after it fires once."
+    },
+    {
+      "n": 114,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "What does <code>passive: true</code> promise, and why does the browser care?",
+      "a": "It promises the handler will not call <code>preventDefault</code>. Without that promise the browser must wait for your <code>touchstart</code> or <code>wheel</code> handler to finish before it knows whether it may scroll, so a slow handler stalls scrolling itself."
+    },
+    {
+      "n": 115,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "What did Chrome 56 change in January 2017?",
+      "a": "It made <code>touchstart</code> and <code>touchmove</code> listeners on <code>document</code> <strong>passive by default</strong>, changing behaviour on the live web to protect scroll performance."
+    },
+    {
+      "n": 116,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "What does the <code>signal</code> option accept, and when did it ship?",
+      "a": "An <code>AbortSignal</code> from an <code>AbortController</code>. Added to <code>addEventListener</code> in <strong>Chrome 90, April 2021</strong>."
+    },
+    {
+      "n": 117,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "What properties does every event carry?",
+      "a": "<code>type</code>, <code>target</code>, <code>currentTarget</code>, <code>timeStamp</code>, <code>bubbles</code>, <code>cancelable</code>, <code>defaultPrevented</code>, and <code>eventPhase</code>."
+    },
+    {
+      "n": 118,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "What does a <code>MouseEvent</code> carry beyond the base event?",
+      "a": "<code>clientX</code>/<code>clientY</code> (viewport coordinates), <code>pageX</code>/<code>pageY</code> (document coordinates), <code>button</code>, and the modifier flags <code>shiftKey</code>, <code>ctrlKey</code>, <code>altKey</code>, <code>metaKey</code>."
+    },
+    {
+      "n": 119,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "How do you create and fire your own event?",
+      "a": "<code>const e = new CustomEvent('cart:updated', { detail: {...}, bubbles: true })</code> then <code>el.dispatchEvent(e)</code>."
+    },
+    {
+      "n": 120,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "Why is a custom event useful architecturally?",
+      "a": "It lets one part of a page tell another that something happened without either holding a reference to the other."
+    },
+    {
+      "n": 121,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "Where does the payload of a <code>CustomEvent</code> live?",
+      "a": "In <code>event.detail</code>, set via the <code>detail</code> option at construction."
+    },
+    {
+      "n": 122,
+      "c": "node-7",
+      "t": "Node 7 · Events",
+      "q": "State the limitation at the end of Node 7.",
+      "a": "A listener is attached to one specific element. Five hundred rows means five hundred listeners, and rows created after the listeners were attached have none."
+    },
+    {
+      "n": 123,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "Name the three phases of event propagation, in order.",
+      "a": "<strong>Capture</strong> (root downward), <strong>target</strong> (the deepest element), <strong>bubble</strong> (back up to the root)."
+    },
+    {
+      "n": 124,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "Which phase does <code>addEventListener</code> register for by default?",
+      "a": "The <strong>bubble</strong> phase. Passing <code>capture: true</code> registers for the downward pass instead."
+    },
+    {
+      "n": 125,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "Why do both capture and bubble exist at all?",
+      "a": "Netscape and Microsoft implemented opposite models during the browser wars. DOM Level 2 resolved the argument by specifying both and letting the developer choose."
+    },
+    {
+      "n": 126,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "Define event delegation.",
+      "a": "Attaching one listener to a common ancestor instead of one per child, then inspecting the event to decide which descendant it concerns."
+    },
+    {
+      "n": 127,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "Give the two reasons delegation matters.",
+      "a": "It replaces N listeners with one, and it <strong>covers elements that do not exist yet</strong>, because the listener was never attached to them in the first place."
+    },
+    {
+      "n": 128,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "Why is matching on <code>e.target</code> alone fragile in a delegated handler?",
+      "a": "<code>e.target</code> is the deepest element hit, which may be an icon or text span inside the button rather than the button. <code>e.target.closest('button.delete')</code> walks up to the element you meant."
+    },
+    {
+      "n": 129,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "Distinguish <code>e.target</code> from <code>e.currentTarget</code>.",
+      "a": "<code>e.target</code> is where the event originated and never changes as it travels. <code>e.currentTarget</code> is the element whose listener is running right now, and changes at each step."
+    },
+    {
+      "n": 130,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "What is <code>this</code> inside a non-arrow event handler?",
+      "a": "<code>e.currentTarget</code> — the element the listener was attached to."
+    },
+    {
+      "n": 131,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "What does <code>stopPropagation()</code> do?",
+      "a": "Stops the event travelling further along the path, so ancestors (or descendants, in capture) never receive it."
+    },
+    {
+      "n": 132,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "How does <code>stopImmediatePropagation()</code> differ?",
+      "a": "It additionally prevents any <em>other listeners on the same element</em> from running."
+    },
+    {
+      "n": 133,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "Does <code>stopPropagation</code> prevent the browser's default behaviour?",
+      "a": "<strong>No.</strong> That is <code>preventDefault</code>. The two are entirely independent."
+    },
+    {
+      "n": 134,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "Why is calling <code>stopPropagation</code> reflexively a real bug?",
+      "a": "It breaks every delegated listener above it — analytics, dropdown-close handlers, framework internals — for reasons invisible at the call site."
+    },
+    {
+      "n": 135,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "Name events that do not bubble.",
+      "a": "<code>focus</code>, <code>blur</code>, <code>load</code>, <code>error</code>, <code>scroll</code> on an element, and <code>mouseenter</code>/<code>mouseleave</code>."
+    },
+    {
+      "n": 136,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "What are <code>focusin</code> and <code>focusout</code> for?",
+      "a": "They are the bubbling equivalents of <code>focus</code> and <code>blur</code>, and exist specifically so focus can be delegated."
+    },
+    {
+      "n": 137,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "How do you check at runtime whether an event bubbles?",
+      "a": "<code>e.bubbles</code>."
+    },
+    {
+      "n": 138,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "What is the difference between <code>mouseover</code> and <code>mouseenter</code>?",
+      "a": "<code>mouseover</code> bubbles and fires again when the pointer moves onto a child. <code>mouseenter</code> does not bubble and fires only when entering the element's boundary — usually what you want for hover UI."
+    },
+    {
+      "n": 139,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "Write the canonical delegated click handler.",
+      "a": "<code>table.addEventListener('click', e =&gt; { const b = e.target.closest('button.delete'); if (!b || !table.contains(b)) return; removeRow(b.closest('tr')); })</code>"
+    },
+    {
+      "n": 140,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "Why include the <code>table.contains(btn)</code> check?",
+      "a": "<code>closest</code> can walk past the delegating container if the event came from a nested detached or shadow context; the check confirms the match is genuinely inside the region you are handling."
+    },
+    {
+      "n": 141,
+      "c": "node-8",
+      "t": "Node 8 · Propagation and delegation",
+      "q": "State the limitation at the end of Node 8.",
+      "a": "Stopping an event from travelling does nothing about what the <em>browser itself</em> does. A form still submits and reloads, a link still navigates, and everything your script did is discarded."
+    },
+    {
+      "n": 142,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "What is a default action?",
+      "a": "The browser's own built-in reaction to certain events, which runs after listeners unless cancelled — navigating on a link click, submitting on a form submit, moving focus on Tab."
+    },
+    {
+      "n": 143,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "What exactly does <code>preventDefault()</code> cancel?",
+      "a": "The native behaviour, and only that. It does not affect propagation."
+    },
+    {
+      "n": 144,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "Which events cannot be cancelled, and how do you know?",
+      "a": "Those with <code>e.cancelable === false</code>. <code>scroll</code> is the notable one — it must be prevented at its source on <code>wheel</code> or <code>touchmove</code>, or with CSS."
+    },
+    {
+      "n": 145,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "How do you check whether some earlier listener already cancelled an event?",
+      "a": "<code>e.defaultPrevented</code>."
+    },
+    {
+      "n": 146,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "Which single line of code is the origin of the single-page application?",
+      "a": "<code>e.preventDefault()</code> in a <code>submit</code> handler — cancel the navigation, read the values, send them with <code>fetch</code>, update the DOM. The page never reloads."
+    },
+    {
+      "n": 147,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "What does <code>new FormData(formElement)</code> collect?",
+      "a": "Every <strong>named</strong> control's current value, handling file inputs and multi-selects correctly. It can be passed straight to <code>fetch</code> as a body."
+    },
+    {
+      "n": 148,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "Why must form controls have a <code>name</code> attribute?",
+      "a": "<code>FormData</code> and native submission both key on <code>name</code>. A control without one is simply not included."
+    },
+    {
+      "n": 149,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "What is <code>input.validity</code>?",
+      "a": "A <code>ValidityState</code> object with boolean flags: <code>valueMissing</code>, <code>typeMismatch</code>, <code>patternMismatch</code>, <code>tooShort</code>, <code>tooLong</code>, <code>rangeOverflow</code>, <code>rangeUnderflow</code>, <code>stepMismatch</code>, <code>customError</code>, and <code>valid</code>."
+    },
+    {
+      "n": 150,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "Distinguish <code>checkValidity()</code> from <code>reportValidity()</code>.",
+      "a": "<code>checkValidity()</code> tests silently and returns a boolean. <code>reportValidity()</code> tests and displays the browser's own validation message."
+    },
+    {
+      "n": 151,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "What does <code>setCustomValidity(message)</code> achieve?",
+      "a": "It makes your own rule participate in native validation rather than sitting beside it. A non-empty message marks the field invalid; an empty string clears it."
+    },
+    {
+      "n": 152,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "Distinguish the <code>input</code> event from the <code>change</code> event.",
+      "a": "<code>input</code> fires on every change to the value as it happens. <code>change</code> fires when the value is <strong>committed</strong> — on blur for text fields, immediately for checkboxes, radios and selects."
+    },
+    {
+      "n": 153,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "Why are <code>keydown</code>/<code>keyup</code> unreliable for tracking a field's value?",
+      "a": "A key press may produce no character, an IME may produce one character from several presses, and a paste or drag produces text with no key press at all."
+    },
+    {
+      "n": 154,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "State the rule for choosing between <code>input</code> and <code>keydown</code>.",
+      "a": "If you care about the <strong>value</strong>, listen to <code>input</code>. If you care about the <strong>key</strong>, listen to <code>keydown</code>."
+    },
+    {
+      "n": 155,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "What is the status of <code>keypress</code>?",
+      "a": "Deprecated. It should not appear in new code."
+    },
+    {
+      "n": 156,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "Distinguish <code>e.key</code> from <code>e.code</code>.",
+      "a": "<code>e.key</code> is the character or named key produced — <code>\"a\"</code>, <code>\"Enter\"</code>, <code>\"ArrowLeft\"</code>. <code>e.code</code> is the physical key position regardless of layout — <code>\"KeyA\"</code>."
+    },
+    {
+      "n": 157,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "Which of <code>key</code> and <code>code</code> do keyboard shortcuts usually want?",
+      "a": "<code>key</code>, because it reflects what the user actually typed on their layout. <code>code</code> suits games and layout-independent bindings."
+    },
+    {
+      "n": 158,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "What is the status of <code>e.keyCode</code>?",
+      "a": "Deprecated and inconsistent across browsers and layouts. Use <code>key</code> or <code>code</code>."
+    },
+    {
+      "n": 159,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "Name the clipboard events and where their data lives.",
+      "a": "<code>copy</code>, <code>cut</code>, <code>paste</code> — data is on <code>e.clipboardData</code>."
+    },
+    {
+      "n": 160,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "What is the notorious gotcha in HTML drag and drop?",
+      "a": "<code>dragover</code> must have its default prevented, or <code>drop</code> never fires at all."
+    },
+    {
+      "n": 161,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "What do pointer events unify?",
+      "a": "Mouse, touch and stylus into one model — <code>pointerdown</code>, <code>pointermove</code>, <code>pointerup</code>, with <code>e.pointerType</code> telling you which. New code should prefer them over separate mouse and touch handling."
+    },
+    {
+      "n": 162,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "What does <code>setPointerCapture</code> solve?",
+      "a": "It routes all subsequent pointer events for that pointer to one element, so a drag continues correctly even when the pointer leaves the element's bounds."
+    },
+    {
+      "n": 163,
+      "c": "node-9",
+      "t": "Node 9 · Default actions, forms and input",
+      "q": "State the limitation at the end of Node 9.",
+      "a": "Form controls are a fixed vocabulary. Anything richer, where a user selects a span of text across elements and formats it, is outside all of this."
+    },
+    {
+      "n": 164,
+      "c": "node-10",
+      "t": "Node 10 · Selection, ranges and editable content",
+      "q": "What is a <code>Range</code>?",
+      "a": "A pair of boundary points in the tree — a start node with an offset and an end node with an offset — describing a contiguous stretch of content that may cross element boundaries."
+    },
+    {
+      "n": 165,
+      "c": "node-10",
+      "t": "Node 10 · Selection, ranges and editable content",
+      "q": "Can a Range's endpoints sit inside different elements?",
+      "a": "Yes. That is the whole point — a range can start halfway through a text node inside a <code>&lt;strong&gt;</code> and end inside a different paragraph."
+    },
+    {
+      "n": 166,
+      "c": "node-10",
+      "t": "Node 10 · Selection, ranges and editable content",
+      "q": "How do you create a Range programmatically?",
+      "a": "<code>document.createRange()</code>, then <code>setStart(node, offset)</code> and <code>setEnd(node, offset)</code>."
+    },
+    {
+      "n": 167,
+      "c": "node-10",
+      "t": "Node 10 · Selection, ranges and editable content",
+      "q": "Name operations a Range supports.",
+      "a": "<code>extractContents</code>, <code>cloneContents</code>, <code>deleteContents</code>, <code>surroundContents</code>, <code>insertNode</code>, and <code>getBoundingClientRect</code>."
+    },
+    {
+      "n": 168,
+      "c": "node-10",
+      "t": "Node 10 · Selection, ranges and editable content",
+      "q": "What does <code>window.getSelection()</code> return?",
+      "a": "A <code>Selection</code> object describing what the user has highlighted, expressed as one or more ranges."
+    },
+    {
+      "n": 169,
+      "c": "node-10",
+      "t": "Node 10 · Selection, ranges and editable content",
+      "q": "How do you get the highlighted text and the underlying range?",
+      "a": "<code>selection.toString()</code> for the text; <code>selection.getRangeAt(0)</code> for the range."
+    },
+    {
+      "n": 170,
+      "c": "node-10",
+      "t": "Node 10 · Selection, ranges and editable content",
+      "q": "How do you set the selection programmatically?",
+      "a": "<code>selection.removeAllRanges()</code> followed by <code>selection.addRange(range)</code>."
+    },
+    {
+      "n": 171,
+      "c": "node-10",
+      "t": "Node 10 · Selection, ranges and editable content",
+      "q": "Which event fires as the selection changes?",
+      "a": "<code>selectionchange</code>, on the document."
+    },
+    {
+      "n": 172,
+      "c": "node-10",
+      "t": "Node 10 · Selection, ranges and editable content",
+      "q": "What does the <code>contenteditable</code> attribute do?",
+      "a": "Turns any element into an editable region, giving you caret handling, selection, and native editing behaviour for free."
+    },
+    {
+      "n": 173,
+      "c": "node-10",
+      "t": "Node 10 · Selection, ranges and editable content",
+      "q": "Why do serious editors like ProseMirror, Slate and Lexical not rely on <code>contenteditable</code>'s own behaviour?",
+      "a": "Browsers historically produced different markup for the same operation. Those editors maintain their own document model and treat <code>contenteditable</code> purely as an input surface, reconciling what the browser did back into the model on every change."
+    },
+    {
+      "n": 174,
+      "c": "node-10",
+      "t": "Node 10 · Selection, ranges and editable content",
+      "q": "What is the status of <code>document.execCommand</code>?",
+      "a": "Long deprecated. It was the original formatting API for <code>contenteditable</code> and produced inconsistent markup across browsers."
+    },
+    {
+      "n": 175,
+      "c": "node-10",
+      "t": "Node 10 · Selection, ranges and editable content",
+      "q": "What is the honest depth target for this node?",
+      "a": "Know that ranges and selection exist, know why rich-text editing is hard, and reach for an existing editor. Do not build one from scratch."
+    },
+    {
+      "n": 176,
+      "c": "node-10",
+      "t": "Node 10 · Selection, ranges and editable content",
+      "q": "State the limitation at the end of Node 10.",
+      "a": "An editor needs a formatting toolbar positioned next to the selection, and nothing so far can answer where anything is on screen."
+    },
+    {
+      "n": 177,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "What does <code>getBoundingClientRect()</code> return?",
+      "a": "The element's rectangle — <code>top</code>, <code>right</code>, <code>bottom</code>, <code>left</code>, <code>width</code>, <code>height</code>, <code>x</code>, <code>y</code> — in <strong>viewport coordinates</strong>, accounting for CSS transforms."
+    },
+    {
+      "n": 178,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "Why does <code>getBoundingClientRect()</code> change as the user scrolls?",
+      "a": "Because it is relative to the visible window, not the document."
+    },
+    {
+      "n": 179,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "How do you convert a client rect to document coordinates?",
+      "a": "Add <code>window.scrollX</code> to the horizontal values and <code>window.scrollY</code> to the vertical ones."
+    },
+    {
+      "n": 180,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "What does <code>offsetWidth</code> include?",
+      "a": "Content, padding, border, and the scrollbar if present. It is an integer."
+    },
+    {
+      "n": 181,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "What does <code>clientWidth</code> include?",
+      "a": "Content and padding. It <strong>excludes</strong> border and scrollbar."
+    },
+    {
+      "n": 182,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "What does <code>scrollHeight</code> measure?",
+      "a": "The full height of the content including the part scrolled out of view, plus padding."
+    },
+    {
+      "n": 183,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "What is <code>offsetTop</code> relative to?",
+      "a": "<code>offsetParent</code> — the nearest positioned ancestor. This makes it layout-dependent and awkward, which is why <code>getBoundingClientRect</code> is generally preferred."
+    },
+    {
+      "n": 184,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "Is <code>scrollTop</code> writable?",
+      "a": "Yes. Assigning to it scrolls the element, which is the low-level way to scroll something programmatically."
+    },
+    {
+      "n": 185,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "Give the expression for “how far from the bottom is this scrolling element”.",
+      "a": "<code>el.scrollHeight - el.scrollTop - el.clientHeight</code>. When it approaches zero the user has scrolled to the bottom — the basis of infinite scroll."
+    },
+    {
+      "n": 186,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "Name the viewport-scrolling methods.",
+      "a": "<code>window.scrollTo({ top, behavior: 'smooth' })</code> and <code>window.scrollBy</code>."
+    },
+    {
+      "n": 187,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "Why prefer <code>element.scrollIntoView()</code> over manual arithmetic?",
+      "a": "It does the arithmetic for you and correctly handles nested scroll containers. Its options are <code>behavior</code>, <code>block</code> and <code>inline</code>."
+    },
+    {
+      "n": 188,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "What is <code>window.devicePixelRatio</code>?",
+      "a": "How many physical screen pixels one CSS pixel occupies — 1 on an older monitor, 2 or 3 on a modern phone or Retina display. It exists because a CSS pixel is a unit of apparent size, not of hardware."
+    },
+    {
+      "n": 189,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "What does <code>visualViewport</code> describe that the window dimensions do not?",
+      "a": "The actually visible region on mobile when the on-screen keyboard is up or the user has pinch-zoomed."
+    },
+    {
+      "n": 190,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "Distinguish <code>clientX</code> from <code>pageX</code> on a mouse event.",
+      "a": "<code>clientX</code> is relative to the viewport; <code>pageX</code> is relative to the document and therefore includes scroll offset."
+    },
+    {
+      "n": 191,
+      "c": "node-11",
+      "t": "Node 11 · Geometry and scrolling",
+      "q": "State the limitation at the end of Node 11.",
+      "a": "Every one of these reads is expensive in a way nothing so far has explained, and mixing them with writes can make a correct interface unusably slow."
+    },
+    {
+      "n": 192,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "Name the four stages of the browser's rendering pipeline.",
+      "a": "<strong>Style</strong> (which rules apply), <strong>layout</strong>/reflow (position and size of every box), <strong>paint</strong> (filling pixels per layer), <strong>composite</strong> (assembling layers into a frame)."
+    },
+    {
+      "n": 193,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "Does the browser run the pipeline on every DOM write?",
+      "a": "<strong>No.</strong> It batches. A hundred appends and fifty style changes in one function are queued and processed once, before the next paint."
+    },
+    {
+      "n": 194,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "So why is “DOM writes are slow” misleading advice?",
+      "a": "The writes are cheap and already batched. What costs is <em>forcing the pipeline to run</em>, which is a different and avoidable mistake."
+    },
+    {
+      "n": 195,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "What is a forced synchronous layout?",
+      "a": "Reading a property whose answer requires up-to-date layout while changes are still queued, so the browser must run layout immediately to answer truthfully."
+    },
+    {
+      "n": 196,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "Name properties whose reads can force layout.",
+      "a": "<code>getBoundingClientRect()</code>, <code>offsetTop</code>/<code>offsetHeight</code>, <code>clientWidth</code>/<code>clientHeight</code>, <code>scrollTop</code>/<code>scrollHeight</code>, <code>getComputedStyle(...)</code>, and <code>innerText</code>."
+    },
+    {
+      "n": 197,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "Define layout thrashing.",
+      "a": "Interleaving reads and writes in a loop, so each write invalidates layout and each read forces it to be recomputed. N items produce N full layouts instead of one."
+    },
+    {
+      "n": 198,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "What is the fix for layout thrashing?",
+      "a": "<strong>Read everything first, then write everything.</strong> Separating the phases turns N layouts into one."
+    },
+    {
+      "n": 199,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "Where does the 16.7 millisecond figure come from?",
+      "a": "One second divided by a 60Hz refresh rate. Everything for a frame — your JavaScript, style, layout, paint, composite — must fit inside it or a frame is dropped and the interface visibly stutters."
+    },
+    {
+      "n": 200,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "What does <code>requestAnimationFrame(callback)</code> do?",
+      "a": "Schedules a callback to run just before the next paint, aligning your visual work with the browser's own rhythm."
+    },
+    {
+      "n": 201,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "Give two advantages of <code>requestAnimationFrame</code> over <code>setInterval</code> for animation.",
+      "a": "It runs at the display's actual cadence rather than a guessed interval, and it <strong>stops entirely when the tab is hidden</strong>, which <code>setInterval</code> does not."
+    },
+    {
+      "n": 202,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "When did <code>requestAnimationFrame</code> become available?",
+      "a": "Around <strong>2011</strong> — Chrome 10 and Firefox 4."
+    },
+    {
+      "n": 203,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "What is <code>requestIdleCallback</code> for?",
+      "a": "Scheduling non-urgent work for whatever time is left over in a frame. Shipped in Chrome 47."
+    },
+    {
+      "n": 204,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "Why prefer animating <code>transform</code> and <code>opacity</code>?",
+      "a": "They can usually be handled entirely by the compositor, skipping layout and paint. Animating <code>left</code> or <code>width</code> re-runs layout on every frame."
+    },
+    {
+      "n": 205,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "What does <code>will-change</code> tell the browser?",
+      "a": "That a property is about to be animated, so it can promote the element to its own layer in advance. Overusing it wastes memory — it is a hint, not a fix."
+    },
+    {
+      "n": 206,
+      "c": "node-12",
+      "t": "Node 12 · What a mutation actually costs",
+      "q": "State the limitation at the end of Node 12.",
+      "a": "You know when <em>you</em> change the DOM. You do not know when the browser or the user changes something you care about, and polling for it is exactly the frame-budget disaster just described."
+    },
+    {
+      "n": 207,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "What is the shared shape of every DOM observer?",
+      "a": "<code>new XObserver(callback)</code>, then <code>.observe(target, options)</code>, and <code>.disconnect()</code> to stop."
+    },
+    {
+      "n": 208,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "What is the point of an observer over a polling event handler?",
+      "a": "The work of detecting the condition happens <em>inside the browser</em> rather than in your code on every scroll or resize event, and notifications are batched and asynchronous."
+    },
+    {
+      "n": 209,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "What does <code>IntersectionObserver</code> tell you, and when did it ship?",
+      "a": "When an element enters or leaves a viewport or another element, at thresholds you specify. <strong>Chrome 51, May 2016.</strong>"
+    },
+    {
+      "n": 210,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "Name four things <code>IntersectionObserver</code> replaces.",
+      "a": "Lazy-loading images, infinite scroll, scroll-spy navigation highlighting, and impression tracking — all of which were previously scroll handlers measuring every element."
+    },
+    {
+      "n": 211,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "What does <code>rootMargin</code> do?",
+      "a": "Expands or shrinks the root's bounding box for intersection purposes, so you can fire early — loading an image 200 pixels before it becomes visible."
+    },
+    {
+      "n": 212,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "What does the <code>threshold</code> option mean?",
+      "a": "The ratio or ratios of visibility at which the callback fires. <code>0</code> means any pixel, <code>1</code> means fully visible, and an array gives you several trigger points."
+    },
+    {
+      "n": 213,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "What does <code>ResizeObserver</code> solve, and when did it ship?",
+      "a": "It reports when a specific <em>element</em> changes size for any reason — window resize, a sibling growing, content changing, a CSS change. <strong>Chrome 64, January 2018.</strong>"
+    },
+    {
+      "n": 214,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "What was impossible before <code>ResizeObserver</code>?",
+      "a": "Component-level responsive behaviour. There was no way to know an element had resized unless the window did."
+    },
+    {
+      "n": 215,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "What causes “ResizeObserver loop limit exceeded”?",
+      "a": "A callback that resizes the element it observes, creating a cycle. The browser detects it and reports the error rather than hanging."
+    },
+    {
+      "n": 216,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "What does <code>MutationObserver</code> report, and when did it ship?",
+      "a": "Changes to the DOM tree itself — children added or removed, attributes changed, text modified — under a subtree you specify. <strong>Chrome 18, 2012.</strong>"
+    },
+    {
+      "n": 217,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "What did <code>MutationObserver</code> replace, and why?",
+      "a": "<strong>Mutation Events</strong>, a DOM Level 2 feature deprecated in 2011 because they fired <em>synchronously</em> on every single change and could make a page an order of magnitude slower."
+    },
+    {
+      "n": 218,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "When is <code>MutationObserver</code> the right tool in application code?",
+      "a": "As a last resort — usually when you must react to a third-party script's changes to the DOM. In browser extensions and tooling it is everywhere."
+    },
+    {
+      "n": 219,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "What does <code>PerformanceObserver</code> deliver?",
+      "a": "Timing entries, including the Largest Contentful Paint, Cumulative Layout Shift and Interaction to Next Paint measurements that make up Core Web Vitals."
+    },
+    {
+      "n": 220,
+      "c": "node-13",
+      "t": "Node 13 · Observers",
+      "q": "State the limitation at the end of Node 13.",
+      "a": "Every technique so far assumes your code runs at a moment when the nodes it needs already exist, and nothing has said when that is."
+    },
+    {
+      "n": 221,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "What is the most common beginner failure in the whole topic, and what kind of problem is it?",
+      "a": "<code>document.querySelector('#thing')</code> returning <code>null</code>. It is a <strong>timing</strong> problem, not a selector problem."
+    },
+    {
+      "n": 222,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "What does a classic <code>&lt;script&gt;</code> tag do to the HTML parser?",
+      "a": "It <strong>blocks</strong> it. Parsing halts, the script is fetched if external and executed, and only then does parsing resume."
+    },
+    {
+      "n": 223,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "Why does a script in <code>&lt;head&gt;</code> find every element <code>null</code>?",
+      "a": "Because parser blocking means it runs before the <code>&lt;body&gt;</code> has been parsed, so none of those nodes exist yet."
+    },
+    {
+      "n": 224,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "Why is parser blocking the specified behaviour rather than an oversight?",
+      "a": "Because of <code>document.write</code> — a script was historically allowed to inject markup at its own position in the stream, so the parser could not safely run ahead."
+    },
+    {
+      "n": 225,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "Name the three modern ways to make a script run after the tree exists.",
+      "a": "Place it at the <strong>end of <code>&lt;body&gt;</code></strong>; use <strong><code>defer</code></strong>; or use <strong><code>type=\"module\"</code></strong>, which is deferred by default."
+    },
+    {
+      "n": 226,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "What does <code>&lt;script defer&gt;</code> do?",
+      "a": "Downloads in parallel with parsing and executes after parsing completes. Multiple deferred scripts run in <strong>document order</strong>."
+    },
+    {
+      "n": 227,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "What does <code>&lt;script async&gt;</code> do?",
+      "a": "Downloads in parallel and executes the moment it arrives — at an unpredictable time and in unpredictable order relative to other scripts."
+    },
+    {
+      "n": 228,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "Which loading strategy suits a script that touches the DOM, and which suits analytics?",
+      "a": "<code>defer</code> (or a module) for anything touching the DOM; <code>async</code> only for genuinely independent scripts such as analytics."
+    },
+    {
+      "n": 229,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "When does <code>DOMContentLoaded</code> fire?",
+      "a": "When the HTML has been fully parsed and all deferred scripts have run — the tree is complete. Stylesheets, images and subresources may still be loading."
+    },
+    {
+      "n": 230,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "When does <code>load</code> fire?",
+      "a": "Later — when every subresource, including images, stylesheets and iframes, has finished."
+    },
+    {
+      "n": 231,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "Why is waiting for <code>load</code> to initialise an interface a mistake?",
+      "a": "It is an unnecessary delay, sometimes of seconds, waiting for images that have nothing to do with whether your code can run."
+    },
+    {
+      "n": 232,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "What are the three values of <code>document.readyState</code>?",
+      "a": "<code>'loading'</code>, <code>'interactive'</code> (parsing done, equivalent to DOMContentLoaded), and <code>'complete'</code> (equivalent to load)."
+    },
+    {
+      "n": 233,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "Why does checking <code>readyState</code> matter?",
+      "a": "A listener added for <code>DOMContentLoaded</code> <strong>after it has already fired will never run</strong>. Check <code>readyState</code> first and call your init directly if parsing is already done."
+    },
+    {
+      "n": 234,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "Write the safe initialisation guard.",
+      "a": "<code>if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();</code>"
+    },
+    {
+      "n": 235,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "What is the status of <code>document.write</code>?",
+      "a": "Effectively forbidden in new code. Called after parsing completes it wipes the entire document, and browsers block it for parser-inserted external scripts on slow connections."
+    },
+    {
+      "n": 236,
+      "c": "node-14",
+      "t": "Node 14 · When your script runs",
+      "q": "State the limitation at the end of Node 14.",
+      "a": "Everything attached, observed and created now stays attached forever, and in a page that navigates without reloading, that accumulates."
+    },
+    {
+      "n": 237,
+      "c": "node-15",
+      "t": "Node 15 · Detachment, leaks and teardown",
+      "q": "When does JavaScript reclaim an object?",
+      "a": "When nothing can reach it any more. Reachability, not removal, is the criterion."
+    },
+    {
+      "n": 238,
+      "c": "node-15",
+      "t": "Node 15 · Detachment, leaks and teardown",
+      "q": "What is a detached node?",
+      "a": "A DOM node removed from the document but still referenced by something, so it cannot be reclaimed. A growing set of them is the classic leaking-SPA memory profile."
+    },
+    {
+      "n": 239,
+      "c": "node-15",
+      "t": "Node 15 · Detachment, leaks and teardown",
+      "q": "How does a listener on <code>window</code> leak a whole component?",
+      "a": "The handler closes over the component's nodes, and the listener is reachable from a global object, so the entire subtree stays alive after the component is gone."
+    },
+    {
+      "n": 240,
+      "c": "node-15",
+      "t": "Node 15 · Detachment, leaks and teardown",
+      "q": "How does an observer leak?",
+      "a": "An observer that was never <code>disconnect()</code>ed keeps its targets alive, exactly as a global listener does."
+    },
+    {
+      "n": 241,
+      "c": "node-15",
+      "t": "Node 15 · Detachment, leaks and teardown",
+      "q": "Why is an uncleared <code>setInterval</code> worse than a stray <code>requestAnimationFrame</code>?",
+      "a": "The interval keeps its callback — and everything it closes over — alive indefinitely, <strong>and keeps running in a hidden tab</strong>. <code>requestAnimationFrame</code> stops when the tab is hidden."
+    },
+    {
+      "n": 242,
+      "c": "node-15",
+      "t": "Node 15 · Detachment, leaks and teardown",
+      "q": "Name the four reference chains that cause detached-node leaks.",
+      "a": "A global event listener; an un-disconnected observer; an uncleared timer or interval; and a cache — an array or map holding node references."
+    },
+    {
+      "n": 243,
+      "c": "node-15",
+      "t": "Node 15 · Detachment, leaks and teardown",
+      "q": "Why is cleanup a correctness requirement rather than tidiness?",
+      "a": "Without it, a long-lived single-page application grows its memory footprint on every view change until it degrades or crashes. The document outlives every view rendered into it."
+    },
+    {
+      "n": 244,
+      "c": "node-15",
+      "t": "Node 15 · Detachment, leaks and teardown",
+      "q": "What is the modern mechanism that makes listener teardown tractable?",
+      "a": "<strong><code>AbortController</code></strong>. Pass <code>{ signal: controller.signal }</code> to every <code>addEventListener</code>, and one <code>controller.abort()</code> removes all of them."
+    },
+    {
+      "n": 245,
+      "c": "node-15",
+      "t": "Node 15 · Detachment, leaks and teardown",
+      "q": "What does <code>AbortController</code> free you from having to keep?",
+      "a": "Named function references for every handler purely so <code>removeEventListener</code> can match them."
+    },
+    {
+      "n": 246,
+      "c": "node-15",
+      "t": "Node 15 · Detachment, leaks and teardown",
+      "q": "Which framework concept is Node 15's teardown, exactly?",
+      "a": "A React <code>useEffect</code> cleanup function, or a framework's <code>onDestroy</code>/<code>disconnectedCallback</code> hook."
+    },
+    {
+      "n": 247,
+      "c": "node-15",
+      "t": "Node 15 · Detachment, leaks and teardown",
+      "q": "How do you actually find these leaks?",
+      "a": "Chrome DevTools → <strong>Memory → Heap snapshot</strong>, with the <strong>Detached</strong> filter, comparing snapshots across repeated mount/unmount cycles."
+    },
+    {
+      "n": 248,
+      "c": "node-15",
+      "t": "Node 15 · Detachment, leaks and teardown",
+      "q": "Does removing an element from the DOM free its memory?",
+      "a": "Only if nothing still references it. Removal is not deallocation."
+    },
+    {
+      "n": 249,
+      "c": "node-15",
+      "t": "Node 15 · Detachment, leaks and teardown",
+      "q": "State the limitation at the end of Node 15.",
+      "a": "Even with perfect teardown, everything shares one namespace. Ids collide, any stylesheet can restyle anything, and a component cannot be dropped into an unknown page with confidence."
+    },
+    {
+      "n": 250,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "What does <code>el.attachShadow({ mode: 'open' })</code> return?",
+      "a": "A <strong>shadow root</strong> — the top of a second, separate tree attached to that element."
+    },
+    {
+      "n": 251,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "How does a shadow tree relate to ordinary selectors from outside?",
+      "a": "It is invisible to them. <code>document.querySelectorAll('.title')</code> does not reach into a shadow tree."
+    },
+    {
+      "n": 252,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "What happens to CSS at a shadow boundary?",
+      "a": "Styles defined inside do not leak out, and page styles do not leak in."
+    },
+    {
+      "n": 253,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "Name the deliberate exceptions to shadow style encapsulation.",
+      "a": "<strong>Inherited properties</strong> such as <code>color</code> and <code>font-family</code>, and <strong>CSS custom properties</strong>, which pass through and are therefore the sanctioned theming mechanism."
+    },
+    {
+      "n": 254,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "What does <code>mode: 'closed'</code> change, and is it a security boundary?",
+      "a": "It makes <code>el.shadowRoot</code> inaccessible from outside. It is <strong>not</strong> a security boundary and is rarely worth the cost."
+    },
+    {
+      "n": 255,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "What is a <code>&lt;slot&gt;</code>?",
+      "a": "A placeholder inside a shadow tree marking where the host element's own children — its <strong>light DOM</strong> — should appear."
+    },
+    {
+      "n": 256,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "Name the APIs that navigate between light and shadow trees.",
+      "a": "<code>element.assignedSlot</code> and <code>slot.assignedNodes()</code>."
+    },
+    {
+      "n": 257,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "How do you register a custom element?",
+      "a": "<code>customElements.define('user-card', class extends HTMLElement { ... })</code>. The tag name must contain a hyphen."
+    },
+    {
+      "n": 258,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "Why must a custom element's tag name contain a hyphen?",
+      "a": "To guarantee it can never collide with a future standard HTML element name."
+    },
+    {
+      "n": 259,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "Name the four custom element lifecycle callbacks.",
+      "a": "<code>connectedCallback</code> (inserted into the document), <code>disconnectedCallback</code> (removed), <code>attributeChangedCallback</code> (an observed attribute changed), <code>adoptedCallback</code> (moved between documents)."
+    },
+    {
+      "n": 260,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "Which callback is the natural home for Node 15's teardown?",
+      "a": "<code>disconnectedCallback</code>."
+    },
+    {
+      "n": 261,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "How does a custom element declare which attributes it watches?",
+      "a": "A static <code>observedAttributes</code> getter returning an array of names. Only those trigger <code>attributeChangedCallback</code>."
+    },
+    {
+      "n": 262,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "When did Custom Elements v1 and Shadow DOM v1 ship?",
+      "a": "<strong>Chrome 54 (2016)</strong>, <strong>Safari 10.1 (2017)</strong>, <strong>Firefox 63 (2018)</strong>. The earlier v0 designs were abandoned."
+    },
+    {
+      "n": 263,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "Give the honest assessment of Web Components' adoption.",
+      "a": "Genuinely right for a design system consumed by teams on different frameworks, and for widgets embedded in pages you do not control. Used far less than promised, because most teams already have a framework with a more ergonomic component model, and shadow boundaries complicate global styling, form participation and server rendering."
+    },
+    {
+      "n": 264,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "What is event retargeting?",
+      "a": "An event crossing out of a shadow tree has its <code>target</code> rewritten to the <strong>host element</strong> rather than the internal node, preserving encapsulation."
+    },
+    {
+      "n": 265,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "How do you see the full path an event took, including through shadow trees?",
+      "a": "<code>e.composedPath()</code>."
+    },
+    {
+      "n": 266,
+      "c": "node-16",
+      "t": "Node 16 · Shadow DOM and custom elements",
+      "q": "State the limitation at the end of Node 16.",
+      "a": "A <code>&lt;div&gt;</code> styled to look and behave like a button is still a <code>&lt;div&gt;</code> to a screen reader or keyboard user. Encapsulation guaranteed appearance and guaranteed nothing about usability."
+    },
+    {
+      "n": 267,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "What is the accessibility tree?",
+      "a": "A parallel structure the browser derives from the DOM, exposing each node's <strong>role, name, value and state</strong> to assistive technology through the operating system."
+    },
+    {
+      "n": 268,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "What does a screen reader actually read?",
+      "a": "The accessibility tree. It does not read your CSS."
+    },
+    {
+      "n": 269,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "What does a native <code>&lt;button&gt;</code> provide for free?",
+      "a": "The button role, focusability, activation by both Enter and Space, and a name taken from its text content."
+    },
+    {
+      "n": 270,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "What does a <code>&lt;div onclick&gt;</code> provide?",
+      "a": "None of that. It has a generic role, is not focusable, and cannot be activated from the keyboard."
+    },
+    {
+      "n": 271,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "What is <code>document.activeElement</code>?",
+      "a": "The element that currently has focus."
+    },
+    {
+      "n": 272,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "Which elements are focusable by default?",
+      "a": "Links with an <code>href</code>, form controls, buttons, and anything given a <code>tabindex</code>."
+    },
+    {
+      "n": 273,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "What does <code>tabindex=\"0\"</code> do?",
+      "a": "Puts the element into the natural tab order, at its document position."
+    },
+    {
+      "n": 274,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "What does <code>tabindex=\"-1\"</code> do, and when do you want it?",
+      "a": "Makes an element focusable programmatically but skipped by Tab. Used for a dialog container you want to move focus into."
+    },
+    {
+      "n": 275,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "Why are positive <code>tabindex</code> values almost always a mistake?",
+      "a": "They override document order globally and produce a tab sequence nobody can predict or maintain."
+    },
+    {
+      "n": 276,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "How are ARIA attributes set from JavaScript?",
+      "a": "As ordinary DOM attributes — <code>el.setAttribute('aria-expanded', 'true')</code>. Keeping them synchronised with visual state is normal DOM work, not a separate discipline."
+    },
+    {
+      "n": 277,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "Name commonly used ARIA attributes.",
+      "a": "<code>role</code>, <code>aria-expanded</code>, <code>aria-selected</code>, <code>aria-label</code>, <code>aria-labelledby</code>, <code>aria-describedby</code>, <code>aria-live</code>, <code>aria-hidden</code>, <code>aria-current</code>."
+    },
+    {
+      "n": 278,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "State the most-quoted rule of ARIA and why it is true.",
+      "a": "<strong>No ARIA is better than bad ARIA.</strong> An incorrect role actively misleads a screen reader user, where a plain <code>&lt;div&gt;</code> merely says nothing."
+    },
+    {
+      "n": 279,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "State the first rule of ARIA.",
+      "a": "Do not use it — use the native element that already has the semantics you want."
+    },
+    {
+      "n": 280,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "What must happen to focus when a modal dialog opens and closes?",
+      "a": "It must move <strong>into</strong> the dialog on open, be <strong>trapped</strong> inside while open, and <strong>return to the trigger</strong> on close."
+    },
+    {
+      "n": 281,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "What does the <code>inert</code> attribute do, and when did it ship?",
+      "a": "Makes an entire subtree unfocusable and invisible to assistive technology. <strong>Chrome 102 (2022)</strong>, Safari 15.5, <strong>Firefox 112 (2023)</strong>."
+    },
+    {
+      "n": 282,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "Why is <code>&lt;dialog&gt;</code> with <code>showModal()</code> the correct default?",
+      "a": "It handles focus movement, inerting the rest of the page, the top layer, and the Escape key natively."
+    },
+    {
+      "n": 283,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "What does <code>aria-live</code> solve?",
+      "a": "Announcing content that changes without user action — a toast, a validation summary, a live result count — which a screen reader would otherwise never mention."
+    },
+    {
+      "n": 284,
+      "c": "node-17",
+      "t": "Node 17 · Accessibility, focus and semantics",
+      "q": "State the limitation at the end of Node 17.",
+      "a": "All of this assumed the markup came from you. The moment a string arrives from a user, an API or a CMS and becomes nodes, every guarantee is only as good as that string."
+    },
+    {
+      "n": 285,
+      "c": "node-18",
+      "t": "Node 18 · Parsing, serialising and injection",
+      "q": "Define cross-site scripting.",
+      "a": "The vulnerability class where attacker-controlled text becomes executing code inside another user's page, in your origin."
+    },
+    {
+      "n": 286,
+      "c": "node-18",
+      "t": "Node 18 · Parsing, serialising and injection",
+      "q": "What makes the DOM-based variant of XSS distinctive?",
+      "a": "It needs no server involvement at all. A value read from <code>location.hash</code> or a query parameter and passed to <code>innerHTML</code> is enough."
+    },
+    {
+      "n": 287,
+      "c": "node-18",
+      "t": "Node 18 · Parsing, serialising and injection",
+      "q": "What can injected code do once it runs in your origin?",
+      "a": "Read cookies not marked <code>HttpOnly</code>, read <code>localStorage</code>, issue authenticated requests as the user, and rewrite the page."
+    },
+    {
+      "n": 288,
+      "c": "node-18",
+      "t": "Node 18 · Parsing, serialising and injection",
+      "q": "List the XSS defences in the order you should reach for them.",
+      "a": "1) <code>textContent</code> for anything that is text. 2) Build nodes with <code>createElement</code> and set properties. 3) If HTML must be accepted, sanitise with a maintained library such as DOMPurify."
+    },
+    {
+      "n": 289,
+      "c": "node-18",
+      "t": "Node 18 · Parsing, serialising and injection",
+      "q": "Why must you never sanitise HTML with a regular expression?",
+      "a": "The space of encodings, nesting and parser quirks is far larger than it looks, and the HTML parser's repair behaviour can turn a string your regex approved into markup it did not anticipate."
+    },
+    {
+      "n": 290,
+      "c": "node-18",
+      "t": "Node 18 · Parsing, serialising and injection",
+      "q": "How does a Content Security Policy help?",
+      "a": "It restricts what a page may execute. A policy without <code>'unsafe-inline'</code> neutralises whole categories of injection even when a bug exists."
+    },
+    {
+      "n": 291,
+      "c": "node-18",
+      "t": "Node 18 · Parsing, serialising and injection",
+      "q": "What do Trusted Types do, and what is their availability?",
+      "a": "They make assigning a plain string to <code>innerHTML</code> throw, so dangerous sinks accept only values that passed through a policy function you wrote. <strong>Chrome 83 (2020)</strong>, still Chromium-only."
+    },
+    {
+      "n": 292,
+      "c": "node-18",
+      "t": "Node 18 · Parsing, serialising and injection",
+      "q": "What does <code>new DOMParser().parseFromString(str, 'text/html')</code> produce?",
+      "a": "A complete, <strong>inert</strong> <code>Document</code> — nothing renders, no scripts run, no images are fetched — which you can query with everything from Nodes 2 and 3 before deciding what to adopt."
+    },
+    {
+      "n": 293,
+      "c": "node-18",
+      "t": "Node 18 · Parsing, serialising and injection",
+      "q": "How do you move a node from a parsed document into the live one?",
+      "a": "<code>document.importNode(node, true)</code> for a copy, or <code>document.adoptNode(node)</code> to move it."
+    },
+    {
+      "n": 294,
+      "c": "node-18",
+      "t": "Node 18 · Parsing, serialising and injection",
+      "q": "What does <code>XMLSerializer</code> or <code>outerHTML</code> give you?",
+      "a": "A string serialisation of the nodes — but of the <strong>repaired tree</strong>, not the markup you originally wrote."
+    },
+    {
+      "n": 295,
+      "c": "node-18",
+      "t": "Node 18 · Parsing, serialising and injection",
+      "q": "Why does <code>innerHTML</code> parsing depend on the element you assign it to?",
+      "a": "The HTML parser has context-sensitive rules. A <code>&lt;tr&gt;</code> string assigned to a <code>&lt;div&gt;</code> has its tags discarded, because rows are only valid inside table sections."
+    },
+    {
+      "n": 296,
+      "c": "node-18",
+      "t": "Node 18 · Parsing, serialising and injection",
+      "q": "State the limitation at the end of Node 18.",
+      "a": "Nothing in this chain is wrong, and doing all of it by hand at application scale means manually keeping a tree of nodes in agreement with a set of application state, forever."
+    },
+    {
+      "n": 297,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "What question does every DOM operation answer, and what question does an application want answered?",
+      "a": "Every DOM operation answers <em>how do I change this</em>. An application wants to answer <em>given this state, what should be on screen</em>."
+    },
+    {
+      "n": 298,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "Why does hand-writing that bridge scale badly?",
+      "a": "For every state change you must write the specific sequence of mutations transforming the current DOM into the correct one, and the number of transitions grows far faster than the number of states."
+    },
+    {
+      "n": 299,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "When was React released?",
+      "a": "<strong>May 2013.</strong>"
+    },
+    {
+      "n": 300,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "State the trade React makes.",
+      "a": "You write a function from state to a <em>description</em> of the desired tree, and the framework computes and applies the mutations."
+    },
+    {
+      "n": 301,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "What is a virtual DOM, precisely?",
+      "a": "A plain-object description of the desired tree, cheap to build and discard, diffed against the previous description to derive a minimal set of real DOM operations."
+    },
+    {
+      "n": 302,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "How do Svelte and Solid reach the same goal differently?",
+      "a": "Svelte compiles the mutations at build time. Solid and Vue's reactivity track dependencies at the value level and update precisely the nodes affected. The trade is identical: you write a description, not mutations."
+    },
+    {
+      "n": 303,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "Which node of the chain does a framework actually replace?",
+      "a": "<strong>Node 6</strong> — the manual construction and mutation of nodes. Every other node remains in force."
+    },
+    {
+      "n": 304,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "What is React's synthetic event system, in terms of this chain?",
+      "a": "A delegation layer — Nodes 7 through 9 unchanged. Handlers receive an object with the same <code>target</code>, <code>currentTarget</code>, <code>stopPropagation</code> and <code>preventDefault</code>."
+    },
+    {
+      "n": 305,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "Why does React use <code>className</code> rather than <code>class</code>?",
+      "a": "It sets the DOM <em>property</em>, and the property name is <code>className</code> because <code>class</code> is a reserved word in JavaScript. This is the Node 5 attribute/property split surfacing in the API."
+    },
+    {
+      "n": 306,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "Which node explains React's controlled inputs?",
+      "a": "Node 5 — the <code>value</code> attribute is the initial value while <code>input.value</code> is live state, so React must drive the property to own the value."
+    },
+    {
+      "n": 307,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "What is <code>useEffect</code>'s cleanup function, in terms of this chain?",
+      "a": "Node 15's teardown, unchanged — remove listeners, disconnect observers, clear timers."
+    },
+    {
+      "n": 308,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "Why does <code>useRef</code> exist?",
+      "a": "Because measurement (Node 11), focus management (Node 17), and third-party integration all need a <strong>real node</strong>, which a description of a tree does not give you."
+    },
+    {
+      "n": 309,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "Does React prevent layout thrashing?",
+      "a": "No. Node 12 applies unchanged — reading geometry in a component still forces layout exactly as it does in plain DOM code."
+    },
+    {
+      "n": 310,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "What is the <code>key</code> prop asking for, in DOM terms?",
+      "a": "Identity information the diffing algorithm needs, made necessary by Node 6's rule that a node has one parent and insertion moves rather than copies."
+    },
+    {
+      "n": 311,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "Why are “I know React” and “I know the DOM” different claims?",
+      "a": "React replaces node construction only. Events, propagation, geometry, focus, accessibility, layout cost and teardown are all still yours — and they are what you will be debugging."
+    },
+    {
+      "n": 312,
+      "c": "node-19",
+      "t": "Node 19 · What frameworks took, and what they did not",
+      "q": "Sum up the chain's closing argument in one sentence.",
+      "a": "Frameworks replaced the node-building layer and left every other link in the chain exactly where it was, which is why the DOM is what makes a framework debuggable."
+    }
+  ]
+}

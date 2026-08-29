@@ -208,6 +208,11 @@
       "state": "in-progress",
       "started": "2026-08-29",
       "updated": "2026-08-29"
+    },
+    "dom-apis": {
+      "state": "in-progress",
+      "started": "2026-08-29",
+      "updated": "2026-08-29"
     }
   },
   "lastUpdated": "2026-08-29"

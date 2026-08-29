@@ -1,0 +1,655 @@
+{
+  "cards": [
+    {
+      "n": 1,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What is the DOM?",
+      "a": "It is the live object tree the browser builds when it parses your HTML, and exposes to JavaScript. It is not the HTML — that's a string, parsed once and then irrelevant — and it is not the pixels. It sits between them. Every node is a real JavaScript object you can read and mutate, and mutating it is what eventually causes a redraw."
+    },
+    {
+      "n": 2,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What's the difference between <code>innerHTML</code> and <code>textContent</code>?",
+      "a": "<code>innerHTML</code> runs your string through the HTML parser and builds real nodes from it. <code>textContent</code> treats the string as literal characters. So <code>innerHTML</code> with untrusted input is an XSS vulnerability, and <code>textContent</code> cannot be. I default to <code>textContent</code> and only reach for <code>innerHTML</code> for markup I authored."
+    },
+    {
+      "n": 3,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What is event bubbling?",
+      "a": "An event doesn't fire on one element — it travels a path. First capture, from the document down to the target; then the target itself; then bubbling, back up to the root. Listeners are registered for the bubble phase by default. Bubbling is what makes event delegation possible."
+    },
+    {
+      "n": 4,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What is event delegation and why would you use it?",
+      "a": "Instead of a listener per child, you put one listener on a common ancestor and inspect the event to work out which descendant it concerns. Two reasons: it replaces hundreds of listeners with one, and it automatically covers elements added later, because the listener was never attached to the children in the first place."
+    },
+    {
+      "n": 5,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What's the difference between <code>e.target</code> and <code>e.currentTarget</code>?",
+      "a": "<code>e.target</code> is where the event originated — the deepest element that was actually hit — and it never changes as the event travels. <code>e.currentTarget</code> is the element whose listener is running right now. In a delegated handler, <code>currentTarget</code> is the container and <code>target</code> might be an icon inside a button, which is why you use <code>e.target.closest(...)</code>."
+    },
+    {
+      "n": 6,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What's the difference between <code>preventDefault</code> and <code>stopPropagation</code>?",
+      "a": "They're completely independent. <code>preventDefault</code> cancels the browser's built-in behaviour — navigating, submitting, moving focus. <code>stopPropagation</code> stops the event travelling to other elements. Cancelling a form submit needs <code>preventDefault</code>; <code>stopPropagation</code> would do nothing and would break any delegated listener above you."
+    },
+    {
+      "n": 7,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What's the difference between <code>DOMContentLoaded</code> and <code>load</code>?",
+      "a": "<code>DOMContentLoaded</code> fires when the HTML is parsed and deferred scripts have run — the tree is complete. <code>load</code> waits for every subresource, including images and iframes, which can be seconds later. Interface code wants <code>DOMContentLoaded</code>; waiting for <code>load</code> is a common and pointless delay."
+    },
+    {
+      "n": 8,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What's the difference between <code>querySelectorAll</code> and <code>getElementsByClassName</code>?",
+      "a": "<code>querySelectorAll</code> takes any CSS selector and returns a static <code>NodeList</code> — a snapshot. <code>getElementsByClassName</code> takes one class name and returns a live <code>HTMLCollection</code>, which changes underneath you as the document changes. The live one is the source of the classic infinite loop where you append inside an index-based loop over the collection."
+    },
+    {
+      "n": 9,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "How do you create an element and add it to the page?",
+      "a": "<code>document.createElement('div')</code> gives you a real node that isn't in the document — no parent, no space, invisible. You configure it, then insert it with <code>parent.append(el)</code> or one of <code>prepend</code>/<code>before</code>/<code>after</code>. Splitting construction from insertion is deliberate: you build the whole subtree before anything is visible."
+    },
+    {
+      "n": 10,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "Why does <code>document.getElementById</code> return <code>null</code> in my script?",
+      "a": "Almost always timing, not the selector. A classic <code>&lt;script&gt;</code> blocks the parser, so a script in <code>&lt;head&gt;</code> runs before <code>&lt;body&gt;</code> exists. Fix it with <code>defer</code>, <code>type=\"module\"</code>, or by putting the script at the end of <code>&lt;body&gt;</code>."
+    },
+    {
+      "n": 11,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What is the difference between an attribute and a property?",
+      "a": "The attribute is what was written in the HTML; the property is a field on the JavaScript object. They're two storage locations the browser keeps loosely in sync, with non-uniform rules. Attributes are always strings; properties have real types. And some deliberately diverge — <code>input.value</code> is the live value, while the <code>value</code> attribute is only the initial one."
+    },
+    {
+      "n": 12,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "Why does <code>input.value</code> disagree with <code>input.getAttribute('value')</code>?",
+      "a": "Because the attribute is defined as the <em>initial</em> value, not the current one. Once the user types, the property tracks what they typed and the attribute still says what the HTML said. That's also why <code>defaultValue</code> exists — it's the property-side name for the attribute — and it's exactly the mechanism behind React's controlled vs uncontrolled inputs."
+    },
+    {
+      "n": 13,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "What is layout thrashing?",
+      "a": "Interleaving DOM reads and writes in a loop. The browser normally batches writes and runs style/layout/paint once. But reading geometry — <code>getBoundingClientRect</code>, <code>offsetHeight</code>, <code>scrollTop</code>, <code>getComputedStyle</code> — while changes are pending forces layout immediately so it can answer truthfully. In a loop, that's N full layouts instead of one. The fix is to batch: read everything, then write everything."
+    },
+    {
+      "n": 14,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "Why is animating <code>transform</code> better than animating <code>left</code>?",
+      "a": "<code>left</code> changes the box's position, so every frame re-runs layout and paint. <code>transform</code> and <code>opacity</code> can usually be handled entirely by the compositor, skipping layout and paint. At 60Hz you have about 16.7ms per frame, so which pipeline stages you trigger decides whether it's smooth."
+    },
+    {
+      "n": 15,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "How would you handle clicks on a table with 500 rows?",
+      "a": "One delegated listener on the table. In the handler, <code>e.target.closest('button.delete')</code> to find the meaningful element, bail if there's no match, then act. One listener instead of 500, and rows added later work with no extra wiring."
+    },
+    {
+      "n": 16,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "How do you remove an event listener you added with an arrow function?",
+      "a": "You can't — <code>removeEventListener</code> matches by function identity, and a second arrow expression is a different object, so it silently removes nothing. Either keep a named reference, or use an <code>AbortController</code> and pass <code>{ signal }</code> to <code>addEventListener</code>, then call <code>abort()</code> to remove everything at once."
+    },
+    {
+      "n": 17,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "What is <code>IntersectionObserver</code> and what does it replace?",
+      "a": "It tells you when an element enters or leaves the viewport, at thresholds you choose, with the detection work happening inside the browser. It replaces the whole genre of scroll handlers that called <code>getBoundingClientRect</code> on every element — which is layout thrashing on every scroll event. Lazy loading, infinite scroll, scroll-spy nav and impression tracking are all one-liners with it."
+    },
+    {
+      "n": 18,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "What's the difference between the <code>input</code> and <code>change</code> events?",
+      "a": "<code>input</code> fires on every change to the value as it happens. <code>change</code> fires when the value is committed — on blur for text fields, immediately for checkboxes, radios and selects. Live search wants <code>input</code>; a save-on-commit form wants <code>change</code>."
+    },
+    {
+      "n": 19,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "Why shouldn't you use <code>keydown</code> to track what's in a text field?",
+      "a": "It doesn't reliably correspond to the value. Some keys produce no character, an IME can produce one character from several presses, and a paste or drag produces text with no key press at all. If you care about the value, listen to <code>input</code>. If you care about the key — a shortcut — listen to <code>keydown</code>."
+    },
+    {
+      "n": 20,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "What's wrong with <code>el.innerHTML += '&lt;li&gt;new&lt;/li&gt;'</code>?",
+      "a": "It serialises everything already in there to a string, concatenates, and reparses the whole subtree from scratch. Every existing node is destroyed and rebuilt, which silently drops every event listener, every bit of form state, and every node reference you were holding. Use <code>append</code> or <code>insertAdjacentHTML('beforeend', ...)</code>."
+    },
+    {
+      "n": 21,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "How do you scroll an element into view?",
+      "a": "<code>el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })</code>. It does the arithmetic and handles nested scroll containers, which manual <code>scrollTop</code> maths gets wrong the moment there's more than one scrolling ancestor."
+    },
+    {
+      "n": 22,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "How do you detect that a user has scrolled to the bottom of a list?",
+      "a": "<code>el.scrollHeight - el.scrollTop - el.clientHeight</code> approaching zero. But in practice I'd use an <code>IntersectionObserver</code> on a sentinel element at the end of the list — no scroll handler, no per-event measurement, and it handles the case where the list is shorter than the viewport."
+    },
+    {
+      "n": 23,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "What does <code>element.closest()</code> do and why is it important?",
+      "a": "It walks upward from an element through its ancestors, including itself, and returns the first one matching a CSS selector. It's the inverse of <code>querySelector</code>. It matters because it's what makes event delegation robust — <code>e.target</code> is whatever pixel was hit, often an icon inside a button, and <code>closest</code> gets you to the element you actually meant."
+    },
+    {
+      "n": 24,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "What's a <code>DocumentFragment</code> for?",
+      "a": "It's a lightweight parentless container. You append a thousand rows into it, then append the fragment once and it dissolves, delivering all its children in a single document mutation. It's the standard way to build a large list without touching the live document repeatedly."
+    },
+    {
+      "n": 25,
+      "c": "frequent",
+      "t": "Frequently asked",
+      "q": "What's the difference between <code>childNodes</code> and <code>children</code>?",
+      "a": "<code>childNodes</code> includes text and comment nodes, so any whitespace in your markup shows up in it. <code>children</code> is elements only. Nearly every 'why is <code>firstChild</code> not my element' bug is this — the newline between your tags is a real text node."
+    },
+    {
+      "n": 26,
+      "c": "occasional",
+      "t": "Occasionally asked",
+      "q": "What is a <code>MutationObserver</code> and when would you actually use one?",
+      "a": "It reports changes to the DOM tree itself — nodes added or removed, attributes changed, text modified — asynchronously and in batches. In application code it's a last resort, usually when you need to react to a third-party script's changes to the page. In browser extensions and tooling it's everywhere."
+    },
+    {
+      "n": 27,
+      "c": "occasional",
+      "t": "Occasionally asked",
+      "q": "What replaced Mutation Events and why?",
+      "a": "<code>MutationObserver</code>, in Chrome 18 in 2012. Mutation Events were a DOM Level 2 feature deprecated in 2011 because they fired synchronously on every single change, which could make a page an order of magnitude slower. The observer batches and delivers asynchronously."
+    },
+    {
+      "n": 28,
+      "c": "occasional",
+      "t": "Occasionally asked",
+      "q": "What is Shadow DOM?",
+      "a": "A second, separate tree attached to an element via <code>attachShadow</code>. Nodes inside render in the element's place but are invisible to outside selectors, and styles don't cross the boundary in either direction — except inherited properties and CSS custom properties, which pass through deliberately and are the theming mechanism."
+    },
+    {
+      "n": 29,
+      "c": "occasional",
+      "t": "Occasionally asked",
+      "q": "What are custom elements?",
+      "a": "Tags you register with <code>customElements.define('user-card', class extends HTMLElement {...})</code> that the parser and every DOM API treat as first-class elements. The name must have a hyphen so it can't collide with a future standard tag. You get lifecycle callbacks: <code>connectedCallback</code>, <code>disconnectedCallback</code>, <code>attributeChangedCallback</code>, <code>adoptedCallback</code>."
+    },
+    {
+      "n": 30,
+      "c": "occasional",
+      "t": "Occasionally asked",
+      "q": "What is a Range?",
+      "a": "A pair of boundary points in the tree — start node plus offset, end node plus offset — describing a contiguous stretch of content that can cross element boundaries. It's the DOM's model of 'from here to there', and it's what <code>window.getSelection()</code> gives you access to."
+    },
+    {
+      "n": 31,
+      "c": "occasional",
+      "t": "Occasionally asked",
+      "q": "What does <code>passive: true</code> on a listener do?",
+      "a": "It promises the handler won't call <code>preventDefault</code>. Without that promise, the browser has to wait for your <code>touchstart</code> or <code>wheel</code> handler to finish before it knows whether it's allowed to scroll — so a slow handler stalls scrolling itself. It mattered enough that Chrome 56 in January 2017 made those listeners passive by default on <code>document</code>."
+    },
+    {
+      "n": 32,
+      "c": "occasional",
+      "t": "Occasionally asked",
+      "q": "What is the accessibility tree?",
+      "a": "A parallel tree the browser derives from the DOM, exposing each node's role, name, value and state to assistive technology through the OS. A screen reader reads that, not your CSS. Native elements populate it correctly for free; a <code>&lt;div onclick&gt;</code> populates none of it."
+    },
+    {
+      "n": 33,
+      "c": "occasional",
+      "t": "Occasionally asked",
+      "q": "What does <code>getComputedStyle</code> give you that <code>element.style</code> doesn't?",
+      "a": "<code>element.style</code> only reads the inline style attribute — if the value came from a stylesheet it's an empty string. <code>getComputedStyle</code> returns the value actually in effect after the full cascade and inheritance. It's also not free to call, because it may need layout to be current."
+    },
+    {
+      "n": 34,
+      "c": "occasional",
+      "t": "Occasionally asked",
+      "q": "What is <code>ResizeObserver</code> for?",
+      "a": "Knowing when a specific element changes size, for any reason — window resize, a sibling growing, content changing, a CSS change. Before it existed in Chrome 64 in 2018 there was no way to know an element resized unless the window did, which made component-level responsive behaviour genuinely impossible."
+    },
+    {
+      "n": 35,
+      "c": "occasional",
+      "t": "Occasionally asked",
+      "q": "How do you fire your own event between unrelated parts of a page?",
+      "a": "<code>new CustomEvent('cart:updated', { detail: {...}, bubbles: true })</code> then <code>el.dispatchEvent(e)</code>. The payload goes in <code>detail</code>. It lets one part of the page announce something without holding a reference to whoever's listening."
+    },
+    {
+      "n": 36,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "A click handler on a button inside a card stopped working after you added a click handler on the card. What happened?",
+      "a": "Most likely the card's handler calls <code>stopPropagation</code>, or the card handler runs first in capture phase and removes/re-renders the button. Check for <code>stopPropagation</code> first — it's the usual culprit, and it also breaks analytics and any dropdown-close handler higher up. Usually the fix is to check <code>e.target.closest()</code> in the card handler and bail rather than stopping propagation."
+    },
+    {
+      "n": 37,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "Your list re-renders and all the click handlers are gone. Why?",
+      "a": "Something is rebuilding the markup with <code>innerHTML</code>, which destroys and recreates every node — and listeners live on nodes, not on markup. Two fixes: use event delegation so the listener is on a stable ancestor, or stop rebuilding with <code>innerHTML</code> and mutate the existing nodes."
+    },
+    {
+      "n": 38,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "A single-page app's memory grows every time the user navigates between views. How do you diagnose it?",
+      "a": "Chrome DevTools → Memory → Heap snapshot, filter for <strong>Detached</strong>, and compare snapshots across repeated mount/unmount cycles. Detached nodes that survive mean something still references them. The usual four: a listener on <code>window</code> or <code>document</code>, an observer never disconnected, an uncleared <code>setInterval</code>, or a cache holding node references."
+    },
+    {
+      "n": 39,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "A scroll-driven animation stutters badly on a mid-range phone. What do you check?",
+      "a": "First whether the scroll handler measures anything — <code>getBoundingClientRect</code> or <code>offsetTop</code> inside a scroll handler forces layout on every event. Replace it with <code>IntersectionObserver</code>. Second, what's being animated — if it's <code>top</code>/<code>left</code>/<code>width</code>, every frame re-runs layout; move to <code>transform</code>. Third, whether the handler is passive."
+    },
+    {
+      "n": 40,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "A user reports that pasting into your search box doesn't trigger the search. What's the bug?",
+      "a": "You're listening to <code>keydown</code> or <code>keyup</code>. A paste produces no key press. Listen to <code>input</code>, which fires for any change to the value regardless of how it got there — typing, pasting, dragging, autofill, or IME composition."
+    },
+    {
+      "n": 41,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "A drag-and-drop implementation never fires <code>drop</code>. What's missing?",
+      "a": "<code>e.preventDefault()</code> in the <code>dragover</code> handler. Without it the browser's default is to reject the drop, so <code>drop</code> never fires. It's the single most common HTML5 drag-and-drop gotcha."
+    },
+    {
+      "n": 42,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "Your modal opens but keyboard users can still tab into the page behind it. How do you fix it properly?",
+      "a": "Use <code>&lt;dialog&gt;</code> with <code>showModal()</code>, which handles focus movement, inerting the background, the top layer and the Escape key natively. If you can't, move focus into the dialog on open, apply <code>inert</code> to the rest of the page, trap Tab inside, and return focus to the trigger on close."
+    },
+    {
+      "n": 43,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "Something on the page is being modified by a third-party script and breaking your layout. How do you respond?",
+      "a": "A <code>MutationObserver</code> scoped to the affected subtree, so you can detect and correct the change. It's genuinely the right tool here — this is the case it exists for, because you don't control the code doing the mutating and can't hook it directly."
+    },
+    {
+      "n": 44,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "A form submits and reloads the page despite your fetch call. Why?",
+      "a": "You didn't call <code>e.preventDefault()</code> in the <code>submit</code> handler, or you returned early before reaching it. Native submission is the default action; the fetch runs and then the page navigates away and discards it."
+    },
+    {
+      "n": 45,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "You call <code>removeEventListener</code> and the handler still fires. What are the two likely causes?",
+      "a": "Either you passed a different function reference than the one you added — an inline arrow, or a <code>.bind(this)</code> which creates a new function every call — or the <code>capture</code> setting doesn't match. Add and remove must agree on both identity and phase."
+    },
+    {
+      "n": 46,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "Your <code>DOMContentLoaded</code> handler never runs. What's the likely cause?",
+      "a": "You registered it after the event already fired — for example from a dynamically imported module or a late-loading async script. Guard it: <code>if (document.readyState === 'loading') addEventListener(...); else init();</code>"
+    },
+    {
+      "n": 47,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "When would you use <code>innerHTML</code> rather than building nodes?",
+      "a": "When the markup is authored by me and static, and I'm setting a whole subtree at once — it's genuinely more readable and the parser is fast. I would not use it for anything containing a value from a user, a database or an API. If untrusted HTML must be rendered, it goes through DOMPurify first."
+    },
+    {
+      "n": 48,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "Event delegation versus per-element listeners — when is delegation the wrong choice?",
+      "a": "When the elements are few and stable, delegation adds indirection for nothing. It's also awkward for events that don't bubble — <code>focus</code>, <code>blur</code>, <code>mouseenter</code> — though <code>focusin</code>/<code>focusout</code> cover the focus case. And a delegated handler runs for every event in the region, so if the region is huge and the handler is expensive, that's a real cost."
+    },
+    {
+      "n": 49,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "Would you use Web Components on a new project?",
+      "a": "For a design system consumed by teams using different frameworks, or widgets embedded in pages I don't control — yes, that's exactly what they're for. For a normal product app where the team already has React — no. The framework's component model is more ergonomic, and shadow boundaries complicate global styling, form participation and server rendering. They're used far less than their promise suggested, and that's why."
+    },
+    {
+      "n": 50,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "<code>getBoundingClientRect</code> versus <code>offsetTop</code>/<code>offsetWidth</code> — which and why?",
+      "a": "<code>getBoundingClientRect</code> almost always. It's viewport-relative, gives sub-pixel floats, and accounts for transforms. The <code>offset*</code> family gives integers and is relative to <code>offsetParent</code>, which is whatever the nearest positioned ancestor happens to be — so the meaning changes when someone adds <code>position: relative</code> somewhere unrelated."
+    },
+    {
+      "n": 51,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "When is a scroll event listener still the right tool over <code>IntersectionObserver</code>?",
+      "a": "When you need continuous scroll position rather than a threshold crossing — a progress bar, a parallax offset, a header that shrinks proportionally. Then you read <code>window.scrollY</code>, which is cheap, coalesce into <code>requestAnimationFrame</code>, and never measure elements inside the handler."
+    },
+    {
+      "n": 52,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "Why would you choose a framework over plain DOM manipulation?",
+      "a": "Because hand-writing the bridge between state and DOM means writing a specific mutation sequence for every possible state transition, and transitions grow much faster than states. Miss one and the screen disagrees with the data. A framework lets you write a function from state to a description of the tree and computes the mutations. That's the only thing it takes over — events, geometry, focus, accessibility and teardown are all still yours."
+    },
+    {
+      "n": 53,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "<code>textContent</code> versus <code>innerText</code> — which do you reach for?",
+      "a": "<code>textContent</code>, unless I specifically need what's <em>rendered</em>. <code>innerText</code> respects <code>display: none</code>, collapses whitespace the way CSS does, and inserts breaks at block boundaries — which means the browser may have to run layout to answer, so it can be expensive. <code>textContent</code> is answerable from the tree alone."
+    },
+    {
+      "n": 54,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "Shadow DOM open versus closed mode?",
+      "a": "Open, almost always. Closed only hides <code>el.shadowRoot</code> from outside code — it is not a security boundary, anyone can still reach in by patching <code>attachShadow</code>, and it makes testing and debugging harder for no real gain."
+    },
+    {
+      "n": 55,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "<code>defer</code> versus <code>async</code> versus script at the end of body?",
+      "a": "<code>defer</code> or a module for anything touching the DOM: parallel download, executes after parsing, and multiple deferred scripts keep document order. <code>async</code> only for genuinely independent things like analytics, because execution time and order are unpredictable. End-of-body still works and is what you use when you can't change the tag attributes."
+    },
+    {
+      "n": 56,
+      "c": "self_explanation",
+      "t": "Explain your own work",
+      "q": "Walk me through how you'd build a searchable, sortable table without a framework.",
+      "a": "Render rows once from data into a <code>DocumentFragment</code> and append it in one mutation. One delegated <code>click</code> listener on the <code>&lt;thead&gt;</code> for sorting, using <code>closest('th')</code> and a <code>data-sort-key</code> attribute to know which column. One <code>input</code> listener on the search box, debounced. Sorting and filtering happen on the data array, then I re-render — and because the listeners are delegated to stable ancestors, re-rendering doesn't lose them."
+    },
+    {
+      "n": 57,
+      "c": "self_explanation",
+      "t": "Explain your own work",
+      "q": "How would you implement infinite scroll?",
+      "a": "A sentinel element after the last row and an <code>IntersectionObserver</code> watching it with a <code>rootMargin</code> so it fires a few hundred pixels early. When it intersects, fetch the next page, append rows via a fragment, and leave the sentinel at the end. No scroll handler, no per-event measurement, and it correctly handles the case where the first page doesn't fill the viewport."
+    },
+    {
+      "n": 58,
+      "c": "self_explanation",
+      "t": "Explain your own work",
+      "q": "How would you build an accessible dropdown menu?",
+      "a": "Native <code>&lt;button&gt;</code> as the trigger with <code>aria-expanded</code> kept in sync with the open state, and <code>aria-controls</code> pointing at the menu. Arrow keys move focus between items, Escape closes and returns focus to the trigger, Tab closes. A delegated click on the menu handles selection. A <code>document</code> click listener closes on outside click — and it checks <code>e.target.closest()</code> rather than the menu calling <code>stopPropagation</code>, which would break everything else on the page."
+    },
+    {
+      "n": 59,
+      "c": "self_explanation",
+      "t": "Explain your own work",
+      "q": "You built qbank with Fastify and a React front end. Where does the DOM actually show up in that stack?",
+      "a": "Everywhere React touches the screen, and in the places React deliberately doesn't. React replaces the node-building layer only. The synthetic event system is delegation. <code>useRef</code> exists because measurement, focus and third-party integration need a real node. <code>useEffect</code> cleanup is listener and observer teardown. And layout thrashing and accessibility aren't handled by React at all — if a component reads <code>getBoundingClientRect</code> during render, that forces layout exactly as plain DOM code would."
+    },
+    {
+      "n": 60,
+      "c": "self_explanation",
+      "t": "Explain your own work",
+      "q": "Describe a DOM performance problem you'd expect to find in a vibe-coded app.",
+      "a": "Reads and writes interleaved in a loop — something like measuring each item's height and setting a style from it in the same iteration, which forces a full layout per item. Also scroll handlers that measure elements instead of using <code>IntersectionObserver</code>, and <code>innerHTML +=</code> in a loop, which rebuilds the entire subtree every iteration and destroys listeners along the way."
+    },
+    {
+      "n": 61,
+      "c": "self_explanation",
+      "t": "Explain your own work",
+      "q": "How would you audit an existing page for DOM-based XSS?",
+      "a": "Find the sinks first — every assignment to <code>innerHTML</code>, <code>outerHTML</code>, <code>insertAdjacentHTML</code>, <code>document.write</code>, and any <code>eval</code>-adjacent call. Then trace backwards to see whether any value reaching them originates from <code>location</code>, a query parameter, <code>postMessage</code>, or an API response. Anything that does gets switched to <code>textContent</code>, rebuilt with <code>createElement</code>, or routed through DOMPurify. Then a CSP without <code>'unsafe-inline'</code> as defence in depth."
+    },
+    {
+      "n": 62,
+      "c": "self_explanation",
+      "t": "Explain your own work",
+      "q": "How do you decide between a native element and a custom widget?",
+      "a": "Native first, always. <code>&lt;button&gt;</code>, <code>&lt;dialog&gt;</code>, <code>&lt;details&gt;</code>, <code>&lt;select&gt;</code> come with role, focus behaviour, keyboard activation and screen-reader naming for free, and reimplementing that correctly is a lot of work that's easy to get subtly wrong. I only build a custom widget when the native one genuinely can't be styled or behave the way the design requires, and then I accept that the ARIA and focus management are now my job."
+    },
+    {
+      "n": 63,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why does the DOM exist at all?",
+      "a": "Because before it, a page was a finished document — every change meant asking the server for a whole new one, over a modem, discarding everything on screen. The browser already had a parsed structure internally; the DOM is that structure made addressable from a program. DOM Level 1 in October 1998 was the point where that became one standard rather than IE's <code>document.all</code> versus Netscape's <code>document.layers</code>."
+    },
+    {
+      "n": 64,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why do both capture and bubble phases exist?",
+      "a": "Netscape and Microsoft implemented opposite propagation models during the browser wars. DOM Level 2 Events in November 2000 resolved the argument by specifying both and letting the developer pick with the <code>capture</code> option. It's a compatibility artefact that turned out to be genuinely useful."
+    },
+    {
+      "n": 65,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why did <code>addEventListener</code> replace <code>el.onclick</code>?",
+      "a": "Because <code>onclick</code> is a single slot — assigning twice silently replaces the first handler, so two independent pieces of code can't both listen to the same event on the same element. That's untenable the moment a page contains more than one author's work. Inline <code>onclick</code> attributes have the extra problem of being strings evaluated in global scope, which CSP exists to forbid."
+    },
+    {
+      "n": 66,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why is whitespace between tags a text node?",
+      "a": "Because the DOM models documents in general, not just application UI, and in a document the text between elements is the content. The parser can't know your newlines are formatting rather than meaningful. That's why the element-only traversal properties — <code>children</code>, <code>firstElementChild</code>, <code>nextElementSibling</code> — were added alongside the original node-level ones."
+    },
+    {
+      "n": 67,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why does <code>cloneNode</code> not copy event listeners?",
+      "a": "Because listeners aren't part of the node's data — they're a separate registration held by the event system, keyed on the node. The clone is a new node with the same attributes and children, and nothing has registered anything against it."
+    },
+    {
+      "n": 68,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why can't a node be in two places at once?",
+      "a": "Because the DOM is a tree and a tree node has exactly one parent. So there's no insertion operation that duplicates — inserting a node that's already in the document moves it. If you want a copy you ask for one explicitly with <code>cloneNode</code>. This is also why React needs <code>key</code>: the diffing algorithm has to know node identity to decide what to move versus recreate."
+    },
+    {
+      "n": 69,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why does a classic script block the HTML parser?",
+      "a": "Because of <code>document.write</code> — a script was historically allowed to inject markup at its own position in the token stream, so the parser couldn't safely continue past it. <code>defer</code> and modules exist to opt out of that guarantee, which is why they can download in parallel and execute after parsing."
+    },
+    {
+      "n": 70,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why did Trusted Types get invented when we already had CSP and sanitisers?",
+      "a": "Because CSP restricts what can execute but doesn't stop a dangerous assignment, and sanitisers only help where someone remembered to call them. Trusted Types makes assigning a plain string to <code>innerHTML</code> throw, so the dangerous sinks structurally cannot be fed unvetted values. It moves the guarantee from discipline to enforcement. Chrome 83 in 2020, still Chromium-only."
+    },
+    {
+      "n": 71,
+      "c": "plumbing",
+      "t": "Plumbing / senior",
+      "q": "Walk me through what the browser does between a DOM mutation and a pixel changing.",
+      "a": "Style — recompute which CSS rules apply to which elements. Layout, sometimes called reflow — compute position and size of every affected box. Paint — fill in pixels per layer. Composite — assemble layers into the final frame. The browser batches mutations and normally runs this once before the next paint, which is why individual writes are cheap and forcing the pipeline mid-loop is not."
+    },
+    {
+      "n": 72,
+      "c": "plumbing",
+      "t": "Plumbing / senior",
+      "q": "Which property reads force a synchronous layout, and why those?",
+      "a": "<code>getBoundingClientRect</code>, the <code>offset*</code>, <code>client*</code> and <code>scroll*</code> metrics, <code>getComputedStyle</code>, and <code>innerText</code>. They all require a truthful answer about geometry or rendered output, which the browser can't give from stale data while mutations are queued — so it runs layout immediately."
+    },
+    {
+      "n": 73,
+      "c": "plumbing",
+      "t": "Plumbing / senior",
+      "q": "How does event retargeting work at a shadow boundary?",
+      "a": "An event crossing out of a shadow tree has its <code>target</code> rewritten to the host element rather than the internal node, so outside code can't learn the shadow tree's internal structure from an event. <code>e.composedPath()</code> gives you the full path when you legitimately need it."
+    },
+    {
+      "n": 74,
+      "c": "plumbing",
+      "t": "Plumbing / senior",
+      "q": "What does the HTML parser do with malformed markup, and why does that matter?",
+      "a": "It repairs it, by specification — closing unclosed tags, relocating a stray element out of a table, dropping a <code>&lt;p&gt;</code> nested in a <code>&lt;p&gt;</code>. It matters because the tree you get is the repaired one, so <code>outerHTML</code> gives you the serialisation of the repair rather than what you wrote, and <code>innerHTML</code> parsing is context-sensitive — a <code>&lt;tr&gt;</code> string assigned to a <code>&lt;div&gt;</code> has its tags discarded."
+    },
+    {
+      "n": 75,
+      "c": "plumbing",
+      "t": "Plumbing / senior",
+      "q": "How does <code>AbortController</code> integrate with event listeners?",
+      "a": "<code>addEventListener</code> gained a <code>signal</code> option in Chrome 90, April 2021. You pass <code>{ signal: controller.signal }</code> on every listener a component registers, and one <code>controller.abort()</code> removes all of them — no need to keep function references purely so <code>removeEventListener</code> can match by identity. The same controller also cancels in-flight <code>fetch</code> calls."
+    },
+    {
+      "n": 76,
+      "c": "plumbing",
+      "t": "Plumbing / senior",
+      "q": "Explain the <code>ResizeObserver</code> loop error.",
+      "a": "The callback runs at a defined point in the frame lifecycle. If a callback resizes the element it observes, that schedules another callback, which resizes again — a cycle. The browser detects it and reports 'ResizeObserver loop limit exceeded' rather than hanging. Usually it means the callback is writing a dimension it's also reading."
+    },
+    {
+      "n": 77,
+      "c": "plumbing",
+      "t": "Plumbing / senior",
+      "q": "How would you build a virtual DOM diff, conceptually?",
+      "a": "Build a plain-object tree describing the desired output — cheap, no DOM involved. Compare it against the previous description node by node. Same type at the same position means patch attributes and recurse into children; different type means replace the subtree. For lists you need stable identity to avoid recreating everything on reorder, which is what a <code>key</code> supplies. The output is a minimal sequence of real DOM operations, applied in one pass."
+    },
+    {
+      "n": 78,
+      "c": "plumbing",
+      "t": "Plumbing / senior",
+      "q": "What's the difference between the visual viewport and the layout viewport?",
+      "a": "The layout viewport is what CSS lays out against. The visual viewport is what's actually visible, which on mobile changes when the on-screen keyboard appears or the user pinch-zooms. The <code>visualViewport</code> object reports the latter, and it's what you need for positioning something relative to what the user can genuinely see."
+    },
+    {
+      "n": 79,
+      "c": "config",
+      "t": "Setup and config",
+      "q": "Where should a script tag go and with what attributes?",
+      "a": "<code>&lt;script defer src=\"...\"&gt;</code> in the head, or <code>type=\"module\"</code>, which is deferred by default. Both download in parallel with parsing and execute after the tree is complete, and deferred scripts keep document order. <code>async</code> only for independent scripts like analytics."
+    },
+    {
+      "n": 80,
+      "c": "config",
+      "t": "Setup and config",
+      "q": "How do you safely initialise code that must run once the DOM is ready?",
+      "a": "<code>if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); } else { init(); }</code> — because a listener registered after the event already fired never runs, which happens with dynamically imported modules."
+    },
+    {
+      "n": 81,
+      "c": "config",
+      "t": "Setup and config",
+      "q": "How do you set and read a CSS custom property from JavaScript?",
+      "a": "<code>el.style.setProperty('--accent', 'tomato')</code> to set, and <code>getComputedStyle(el).getPropertyValue('--accent')</code> to read. Custom properties keep their literal names — they are not camelCased like standard properties on <code>el.style</code>."
+    },
+    {
+      "n": 82,
+      "c": "config",
+      "t": "Setup and config",
+      "q": "What CSP directive most directly reduces XSS risk, and what does it break?",
+      "a": "A <code>script-src</code> without <code>'unsafe-inline'</code>. It breaks inline <code>&lt;script&gt;</code> blocks and every <code>onclick=\"...\"</code> attribute, which is the point — those are the injection sinks. You move to external scripts and <code>addEventListener</code>, or use nonces or hashes for the inline blocks you genuinely need."
+    },
+    {
+      "n": 83,
+      "c": "config",
+      "t": "Setup and config",
+      "q": "How do you observe only attribute changes on a subtree?",
+      "a": "<code>observer.observe(root, { attributes: true, attributeFilter: ['class', 'data-state'], subtree: true })</code>. The filter matters — observing all attributes on a large subtree produces a lot of records you then have to discard."
+    },
+    {
+      "n": 84,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "What happens if you assign a <code>&lt;tr&gt;</code> string to a <code>&lt;div&gt;</code>'s <code>innerHTML</code>?",
+      "a": "The tags are discarded and you're left with the text content. HTML parsing is context-sensitive — a table row is only valid inside a table section, so the parser drops it. This is why <code>&lt;template&gt;</code> or <code>DOMParser</code> is safer for parsing arbitrary fragments."
+    },
+    {
+      "n": 85,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "Does a <code>&lt;script&gt;</code> inserted via <code>innerHTML</code> run?",
+      "a": "No — the HTML spec explicitly disables it. And it buys you almost nothing, because <code>&lt;img src=x onerror=...&gt;</code>, <code>&lt;svg onload=...&gt;</code> and <code>&lt;iframe srcdoc=...&gt;</code> all work. Treat <code>innerHTML</code> with untrusted input as executing that input."
+    },
+    {
+      "n": 86,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "Can you <code>preventDefault</code> a scroll event?",
+      "a": "No — <code>scroll</code> has <code>cancelable: false</code>; by the time it fires the scroll has happened. You prevent it at the source, on <code>wheel</code> or <code>touchmove</code> with a non-passive listener, or with CSS <code>overflow: hidden</code> / <code>overscroll-behavior</code>."
+    },
+    {
+      "n": 87,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "What's <code>parentNode</code> versus <code>parentElement</code> for the <code>&lt;html&gt;</code> element?",
+      "a": "<code>parentNode</code> is the document node; <code>parentElement</code> is <code>null</code>, because the document isn't an element. That's the only place the two disagree, and it's why a loop climbing with <code>parentElement</code> terminates cleanly while one using <code>parentNode</code> needs a guard."
+    },
+    {
+      "n": 88,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "Why does <code>el.href</code> not match the string in the markup?",
+      "a": "The <code>href</code> attribute reflects into the property as a fully resolved absolute URL. <code>href=\"/docs\"</code> reads back as <code>https://example.com/docs</code>. Comparing <code>el.href</code> to a relative path never matches — use <code>getAttribute('href')</code> for the literal value."
+    },
+    {
+      "n": 89,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "What does <code>setAttribute('disabled', false)</code> do?",
+      "a": "Disables the element. The attribute becomes the string <code>\"false\"</code>, and HTML boolean attributes are true whenever present regardless of value. Use the property, <code>el.disabled = false</code>, or <code>removeAttribute('disabled')</code>."
+    },
+    {
+      "n": 90,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "Which events don't bubble, and what do you do about it?",
+      "a": "<code>focus</code>, <code>blur</code>, <code>load</code>, <code>error</code>, element <code>scroll</code>, and <code>mouseenter</code>/<code>mouseleave</code>. For focus, use <code>focusin</code>/<code>focusout</code>, which are the bubbling equivalents and exist specifically for delegation. For the others, attach directly or use capture phase, which reaches the element on the way down."
+    },
+    {
+      "n": 91,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "What happens when you iterate a live <code>HTMLCollection</code> by index and append inside the loop?",
+      "a": "An infinite loop. The collection is a standing query, not a snapshot, so every appended match extends it — the collection grows exactly as fast as the index advances and <code>length</code> is never reached. Snapshot it first with <code>Array.from(...)</code>."
+    },
+    {
+      "n": 92,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "Is <code>a.contains(a)</code> true?",
+      "a": "Yes. <code>contains</code> treats a node as containing itself, and <code>closest</code> likewise includes the element itself in its upward walk. Both are convenient in delegation and occasionally surprising in loop conditions."
+    },
+    {
+      "n": 93,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "Why might <code>getBoundingClientRect</code> return all zeros?",
+      "a": "The element isn't rendered — it's <code>display: none</code>, detached from the document, or inside a collapsed container. There's no box, so there are no coordinates. Note that <code>visibility: hidden</code> still produces a box and non-zero values."
+    }
+  ]
+}

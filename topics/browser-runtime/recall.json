@@ -1,0 +1,1558 @@
+{
+  "cards": [
+    {
+      "n": 1,
+      "c": "node-0",
+      "t": "Node 0 · A language that cannot do anything",
+      "q": "What can the ECMAScript specification itself actually do, with nothing else added?",
+      "a": "It defines values, functions, closures, objects, prototypes, classes, <code>Math</code>, <code>JSON</code>, <code>Map</code>, <code>Promise</code>, and error handling — pure computation. It defines no input or output at all."
+    },
+    {
+      "n": 2,
+      "c": "node-0",
+      "t": "Node 0 · A language that cannot do anything",
+      "q": "Is <code>console.log</code> part of the JavaScript language?",
+      "a": "No. It is supplied by whatever host embeds the engine (browser, Node, etc.); the ECMAScript spec never defines it."
+    },
+    {
+      "n": 3,
+      "c": "node-0",
+      "t": "Node 0 · A language that cannot do anything",
+      "q": "Is <code>setTimeout</code> part of the JavaScript language?",
+      "a": "No. It is a host API. Browsers define it in the HTML/WHATWG spec and Node defines its own version — they are not the same function under the hood."
+    },
+    {
+      "n": 4,
+      "c": "node-0",
+      "t": "Node 0 · A language that cannot do anything",
+      "q": "What is a <strong>host environment</strong>?",
+      "a": "A program that embeds a JavaScript engine and supplies extra objects/functions the language spec never defined — the browser, Node.js, Deno, Bun, Cloudflare Workers, etc."
+    },
+    {
+      "n": 5,
+      "c": "node-0",
+      "t": "Node 0 · A language that cannot do anything",
+      "q": "Why can the same JavaScript code behave completely differently in a browser versus Node?",
+      "a": "Because most of what a program actually does — I/O, timers, storage, DOM — comes from the host, not the language. The language's rules are identical; the host's capabilities are not."
+    },
+    {
+      "n": 6,
+      "c": "node-0",
+      "t": "Node 0 · A language that cannot do anything",
+      "q": "Give two capabilities Node has that a browser page does not.",
+      "a": "Reading/writing arbitrary files by path, and opening raw TCP sockets — neither exists in a browser page for security reasons."
+    },
+    {
+      "n": 7,
+      "c": "node-0",
+      "t": "Node 0 · A language that cannot do anything",
+      "q": "Give two capabilities a browser page has that Node does not.",
+      "a": "A <code>document</code>/DOM to render, and <code>window</code>-level things like cookies, <code>alert</code>, and geolocation prompts."
+    },
+    {
+      "n": 8,
+      "c": "node-0",
+      "t": "Node 0 · A language that cannot do anything",
+      "q": "Why does most confusing front-end debugging live in the host rather than the language?",
+      "a": "The language is small and its rules are stable across versions. The host is enormous, timing-dependent, security-dependent, and version-dependent — that's where \"works on my machine\" problems come from."
+    },
+    {
+      "n": 9,
+      "c": "node-0",
+      "t": "Node 0 · A language that cannot do anything",
+      "q": "Name three hosts besides the browser and Node that embed a JS engine.",
+      "a": "Deno, Bun, and Cloudflare Workers (also acceptable: game engines, Adobe products, MongoDB's shell)."
+    },
+    {
+      "n": 10,
+      "c": "node-0",
+      "t": "Node 0 · A language that cannot do anything",
+      "q": "What is left unexplained after establishing that \"the browser supplies the missing capabilities\"?",
+      "a": "Exactly how a browser gets from a person typing a URL to a JavaScript function actually running — the mechanism of program startup."
+    },
+    {
+      "n": 11,
+      "c": "node-0",
+      "t": "Node 0 · A language that cannot do anything",
+      "q": "Why does the same <code>fetch</code>-shaped idea exist in totally different forms across hosts (browser <code>fetch</code>, Node's <code>http</code> module)?",
+      "a": "Because neither is part of the language — each host designed its own I/O API to fit its own environment, and the language spec never mandated a shape for either."
+    },
+    {
+      "n": 12,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "What is the DOM, precisely?",
+      "a": "A live, in-memory tree of objects the browser builds by parsing HTML — one object per tag, nested as the tags nest. It is not the HTML text itself."
+    },
+    {
+      "n": 13,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "When you \"change the HTML\" from JavaScript, what are you actually doing?",
+      "a": "Mutating the in-memory DOM tree's objects. You are never editing the file that came from the server; the browser continuously re-renders from the tree, not the original text."
+    },
+    {
+      "n": 14,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "What happens by default when the HTML parser hits a <code>&lt;script&gt;</code> tag?",
+      "a": "It stops parsing entirely, fetches the script if it has a <code>src</code>, waits for the JS engine to finish executing it completely, then resumes parsing the HTML."
+    },
+    {
+      "n": 15,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "Why does the parser stop instead of continuing past a script tag?",
+      "a": "Because a script can call <code>document.write()</code> and inject text at the exact current parse position — once that's possible, the parser cannot safely run ahead of the script."
+    },
+    {
+      "n": 16,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "Why does a slow, unattributed script in <code>&lt;head&gt;</code> show a blank white page?",
+      "a": "Parser-blocking stops the DOM tree from being built further until the script finishes, and there is nothing to render until the tree exists."
+    },
+    {
+      "n": 17,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "What does <code>defer</code> do to a script?",
+      "a": "Downloads it in parallel with parsing, but delays execution until the DOM tree is fully built, running deferred scripts in document order."
+    },
+    {
+      "n": 18,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "What does <code>async</code> do to a script?",
+      "a": "Downloads it in parallel with parsing and executes it the instant it arrives — possibly mid-parse — with no guaranteed order relative to other scripts."
+    },
+    {
+      "n": 19,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "When should you prefer <code>defer</code> over <code>async</code>?",
+      "a": "For your own application code, where document order and a fully-built DOM matter. <code>async</code> suits independent third-party scripts nothing else depends on."
+    },
+    {
+      "n": 20,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "What extra behavior does <code>&lt;script type=\"module\"&gt;</code> bring beyond being deferred automatically?",
+      "a": "The language's module system: <code>import</code>/<code>export</code> resolved by URL, fetched by the browser, and each module evaluated exactly once and cached by its resolved URL."
+    },
+    {
+      "n": 21,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "What is <code>window</code>, and why does it exist?",
+      "a": "The global object in a browser page, pre-populated by the host with everything the language never defined — <code>document</code>, <code>fetch</code>, <code>setTimeout</code>, <code>localStorage</code>, and so on."
+    },
+    {
+      "n": 22,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "What is <code>globalThis</code> and why was it introduced?",
+      "a": "A portable name for the global object that resolves correctly in any host — <code>window</code> in a page, <code>self</code> in a worker, <code>global</code> in Node — created because cross-host code needed one name that isn't a lie anywhere."
+    },
+    {
+      "n": 23,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "When does <code>DOMContentLoaded</code> fire?",
+      "a": "When the HTML has been fully parsed and all deferred scripts have finished running — the DOM tree is complete, but images/stylesheets/fonts may still be loading."
+    },
+    {
+      "n": 24,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "When does <code>load</code> fire, and how does it differ from <code>DOMContentLoaded</code>?",
+      "a": "After every image, stylesheet, font, and frame has also finished loading — strictly later than <code>DOMContentLoaded</code>, which only waits for the DOM tree and scripts."
+    },
+    {
+      "n": 25,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "You need to measure the rendered size of an image the page loads. Which event should you wait for, and why?",
+      "a": "<code>load</code>, because image dimensions aren't final/available until the image itself has finished downloading, unlike <code>DOMContentLoaded</code> which fires before that."
+    },
+    {
+      "n": 26,
+      "c": "node-1",
+      "t": "Node 1 · How a page becomes a running program",
+      "q": "What is still broken after a page can reliably run code against a complete DOM?",
+      "a": "The program still runs once, top to bottom, then exits — there is no mechanism for it to run again later in response to something the user does."
+    },
+    {
+      "n": 27,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "What actually happens when you call <code>button.addEventListener(\"click\", handler)</code>?",
+      "a": "The function is stored in a list associated with that element and the call returns immediately; nothing runs yet. The browser invokes <code>handler</code> later, when the click actually occurs."
+    },
+    {
+      "n": 28,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "Why is the callback model described as the organizing idea of the whole browser runtime?",
+      "a": "Because nearly every capability the browser exposes is one of two shapes: \"do this now\" or \"call me back when this happens\" — timers, network responses, and DOM events all follow it."
+    },
+    {
+      "n": 29,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "What are the three phases of DOM event propagation, in order?",
+      "a": "Capture (top-down from <code>window</code> to the target), target (on the element itself), and bubble (bottom-up from the target back to <code>window</code>)."
+    },
+    {
+      "n": 30,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "By default, during which phase does a normally-registered event listener run?",
+      "a": "The bubble phase."
+    },
+    {
+      "n": 31,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "How do you make a listener run during the capture phase instead?",
+      "a": "Pass <code>{capture: true}</code> as the third argument to <code>addEventListener</code>."
+    },
+    {
+      "n": 32,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "Why does the browser support both capture and bubble phases instead of just one?",
+      "a": "Netscape and Internet Explorer implemented opposite directions in the 1990s, and the W3C standardized both rather than declare one implementation the loser."
+    },
+    {
+      "n": 33,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "In an event handler, what's the difference between <code>event.target</code> and <code>event.currentTarget</code>?",
+      "a": "<code>target</code> is the element where the event actually originated; <code>currentTarget</code> is the element whose listener is currently executing — they differ whenever the event has bubbled or been captured."
+    },
+    {
+      "n": 34,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "What is event delegation, and what makes it possible?",
+      "a": "Attaching one listener to a container to handle events for many (including future) children, by checking <code>event.target</code> inside the handler — made possible by the target/currentTarget distinction."
+    },
+    {
+      "n": 35,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "Why is delegation useful for children that don't exist yet at the time the listener is attached?",
+      "a": "The listener lives on the stable container and inspects <code>event.target</code> at event time, so it naturally covers children added to the DOM after the listener was registered."
+    },
+    {
+      "n": 36,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "What does <code>event.preventDefault()</code> do, and what does it NOT do?",
+      "a": "Cancels the browser's built-in reaction to the event (following a link, submitting a form, scrolling on space). It does not stop the event from continuing to propagate."
+    },
+    {
+      "n": 37,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "What does <code>event.stopPropagation()</code> do, and what does it NOT do?",
+      "a": "Halts the event's further travel through capture/bubble phases. It does not cancel the browser's default action for that event."
+    },
+    {
+      "n": 38,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "A developer calls <code>stopPropagation()</code> expecting a form not to submit. Why might the form still submit?",
+      "a": "<code>stopPropagation()</code> only stops propagation to other listeners; it doesn't cancel the default action. They needed <code>preventDefault()</code> instead (or both)."
+    },
+    {
+      "n": 39,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "What is <strong>user activation</strong>?",
+      "a": "A flag the browser attaches to events triggered directly by a human action, unlocking capabilities (opening windows, playing audio with sound, reading the clipboard, fullscreen) that are refused to code running on its own."
+    },
+    {
+      "n": 40,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "Is user activation permanent once granted by a click?",
+      "a": "No — it's transient, lasting only a few seconds, and is consumed by the capability that uses it."
+    },
+    {
+      "n": 41,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "A window.open() call inside a click handler works, but the same call after an awaited fetch inside that handler is blocked as a popup. Why?",
+      "a": "The <code>await</code> yields control back to the event loop; by the time the promise resolves and the rest of the function runs, the transient user activation from the original click has already expired."
+    },
+    {
+      "n": 42,
+      "c": "node-2",
+      "t": "Node 2 · The runtime calls you back",
+      "q": "What is still broken after a page can respond to arbitrary user events?",
+      "a": "Nothing so far explains what happens when two things want the main thread at once — e.g. the user clicks twice fast, or a network response arrives mid-handler. There's no model yet of what the browser actually is as a running system."
+    },
+    {
+      "n": 43,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "Define a <strong>process</strong> in the sense relevant here.",
+      "a": "One running program with its own private pool of memory that no other process can read or write; if one crashes, others survive."
+    },
+    {
+      "n": 44,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "Define a <strong>thread</strong>, and how it differs from a process.",
+      "a": "One sequence of instructions executed in order inside a process. Multiple threads in the same process share that process's memory, unlike separate processes."
+    },
+    {
+      "n": 45,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "Roughly how many processes does a modern browser use for a handful of open tabs?",
+      "a": "Typically a dozen or more — Chrome popularized this multi-process design starting in 2008."
+    },
+    {
+      "n": 46,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "What does the browser process own, as distinct from renderer processes?",
+      "a": "The window chrome, the address bar, the tabs UI, and actual network/disk access."
+    },
+    {
+      "n": 47,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "What does a renderer process own?",
+      "a": "Parsing, the DOM, the JavaScript engine, and layout for pages from one site — normally one renderer process per site."
+    },
+    {
+      "n": 48,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "Name two reasons browsers moved to a multi-process architecture.",
+      "a": "A crash in one page's renderer only kills that tab, not the whole browser; and a code-execution exploit in a renderer is contained inside a heavily restricted process that can't reach the user's files."
+    },
+    {
+      "n": 49,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "What is Site Isolation, and when did Chrome enable it for everyone?",
+      "a": "A guarantee that pages from different sites never share a renderer process, enabled by default in Chrome in 2018."
+    },
+    {
+      "n": 50,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "Why did Site Isolation ship specifically in 2018, tied to a named vulnerability class?",
+      "a": "Because of the Spectre attacks disclosed in January 2018, which proved that any two things sharing memory could potentially read each other's data regardless of language-level protections like the same-origin policy."
+    },
+    {
+      "n": 51,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "Within one renderer process, how many threads run your JavaScript?",
+      "a": "Exactly one — the main thread, which also does the page's layout and painting; it is not a thread per browser, and it is shared between your code and the browser's own rendering work."
+    },
+    {
+      "n": 52,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "Can two of your event handlers ever be running at the same instant on the same page?",
+      "a": "No. JavaScript on the main thread always runs to completion; a second handler cannot start until the first one finishes, so two handlers can never be inside the same object simultaneously."
+    },
+    {
+      "n": 53,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "What real category of bug does \"run to completion\" eliminate, that plagues many other concurrent environments?",
+      "a": "Two handlers racing to mutate the same object at the same instant — that data race simply cannot happen on a single thread that runs each task to completion."
+    },
+    {
+      "n": 54,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "A <code>for</code> loop takes two seconds to run inside a click handler. What happens to the page during those two seconds?",
+      "a": "The entire tab freezes: no scrolling, no repainting, no other handler runs, because the one thread that does all of that is occupied."
+    },
+    {
+      "n": 55,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "During a 2-second synchronous script, the user clicks a different button three times. What happens to those clicks?",
+      "a": "They are not lost — they're queued as tasks, and all three fire back-to-back the instant the script finishes."
+    },
+    {
+      "n": 56,
+      "c": "node-3",
+      "t": "Node 3 · What the browser actually is",
+      "q": "What is still broken after knowing there's one main thread and a queue of pending work?",
+      "a": "Nothing so far describes what actually holds that queue and decides what runs next — i.e. what the scheduler is."
+    },
+    {
+      "n": 57,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "Write the event loop's core algorithm in your own words.",
+      "a": "Forever: take the oldest task from the task queue and run it to completion; then drain the microtask queue completely; then, if it's time for a frame, run rAF callbacks and do style/layout/paint."
+    },
+    {
+      "n": 58,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "What is a <strong>task</strong> (macrotask)?",
+      "a": "One discrete unit of work the browser was asked to do — running a script, dispatching a click handler, firing a timer, delivering a network response. Tasks are pulled one at a time and each runs to completion."
+    },
+    {
+      "n": 59,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "What is a <strong>microtask</strong>, and give two examples of what schedules one.",
+      "a": "A smaller unit of work drained completely after each task, before the next task is taken. Promise <code>.then</code> callbacks and code resuming after <code>await</code> are microtasks; so are <code>queueMicrotask</code> and <code>MutationObserver</code> callbacks."
+    },
+    {
+      "n": 60,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "Given <code>console.log(1); setTimeout(()=>console.log(2)); Promise.resolve().then(()=>console.log(3)); console.log(4);</code> — what order prints, and why?",
+      "a": "1, 4, 3, 2. Synchronous code (1, 4) runs first; the microtask (3) drains fully before the loop takes the next task; the timer task (2) runs last."
+    },
+    {
+      "n": 61,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "Why does a promise callback always run before a <code>setTimeout(fn, 0)</code> scheduled at the same moment?",
+      "a": "Because the microtask queue is drained completely before the event loop looks at the task queue again, and the timer callback is a task, not a microtask."
+    },
+    {
+      "n": 62,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "What happens if a microtask keeps scheduling another microtask indefinitely?",
+      "a": "The microtask queue never finishes draining, so the loop never reaches the next task — this permanently hangs the page, unlike an infinite chain of <code>setTimeout</code> calls, which at least lets other tasks run between iterations."
+    },
+    {
+      "n": 63,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "Is rendering itself a task in the event loop?",
+      "a": "No — it's a phase the browser performs between tasks, at most as often as the display refreshes; it is not pulled from the task queue."
+    },
+    {
+      "n": 64,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "At 60Hz, roughly how much time does the browser have per frame, and where does that number come from?",
+      "a": "About 16.7 ms — one second divided by 60 refreshes."
+    },
+    {
+      "n": 65,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "A click handler takes 50ms to run. Roughly how many frames does that cost at 60Hz, and what does the user perceive?",
+      "a": "About three frames (50 / 16.7 ≈ 3), perceived as a visible stutter or jank."
+    },
+    {
+      "n": 66,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "You mutate the DOM in a tight loop 100 times. Why don't you see 100 incremental visual updates?",
+      "a": "Nothing is painted until the thread is given back to the loop — rendering only happens between tasks, so all 100 mutations are reflected in whatever the DOM looks like when the script finally finishes."
+    },
+    {
+      "n": 67,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "What does <code>requestAnimationFrame(fn)</code> actually schedule?",
+      "a": "<code>fn</code> to run immediately before the browser's next paint — exactly once per frame."
+    },
+    {
+      "n": 68,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "Give two reasons <code>requestAnimationFrame</code> is the correct tool for animation, versus a <code>setTimeout</code> loop.",
+      "a": "It runs exactly once per actual frame instead of at an arbitrary interval, it's skipped entirely in a background tab (saving battery/CPU), and it's timed so DOM changes are painted in the same frame they were made."
+    },
+    {
+      "n": 69,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "Does <code>await</code> pause the thread while the awaited promise is pending?",
+      "a": "No. It returns control to the event loop immediately and schedules the rest of the function as a microtask to run once the promise settles; other tasks run in the meantime."
+    },
+    {
+      "n": 70,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "Why does an <code>await</code> inside a click handler end that handler's synchronous run in a way that matters for user activation?",
+      "a": "Because control returns to the loop at the <code>await</code>; the handler's synchronous portion has finished, and by the time the microtask resumes, the transient user activation flag from the original click may have already expired."
+    },
+    {
+      "n": 71,
+      "c": "node-4",
+      "t": "Node 4 · The event loop",
+      "q": "What is still broken after understanding the loop, tasks, and microtasks?",
+      "a": "The loop only runs work that already exists in a queue — there's still no way shown for your own code to schedule future work, repeat work, or run work only when the thread is otherwise idle."
+    },
+    {
+      "n": 72,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "What does <code>setTimeout(fn, ms)</code> actually guarantee?",
+      "a": "Only that <code>fn</code> is placed on the task queue after at least <code>ms</code> milliseconds have elapsed — not that it runs at exactly that time. The delay is a floor, never a promise."
+    },
+    {
+      "n": 73,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "If the main thread is busy when a <code>setTimeout</code> timer expires, what happens?",
+      "a": "The task waits in the queue until the thread is free and any already-queued tasks ahead of it finish; it does not preempt running code."
+    },
+    {
+      "n": 74,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "What is <code>setTimeout(fn, 0)</code> actually useful for?",
+      "a": "Breaking a long synchronous job into chunks that let the browser render in between — it means \"run as soon as the current task and anything already queued finish,\" not \"run immediately.\""
+    },
+    {
+      "n": 75,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "What is the timer nesting clamp, and why does it exist?",
+      "a": "A timer nested more than five levels deep is clamped to a minimum delay of 4ms — a long-standing HTML spec rule to prevent runaway recursive timers from pinning a CPU."
+    },
+    {
+      "n": 76,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "How aggressively are timers throttled in a hidden/background tab?",
+      "a": "Commonly to about once per second, and in Chrome down to roughly once per minute after the tab has been hidden for five minutes."
+    },
+    {
+      "n": 77,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "A countdown timer implemented by incrementing a counter once per second is wrong. Why, and what's the fix?",
+      "a": "Background-tab throttling means \"once per second\" isn't guaranteed while hidden, so the counter drifts. Fix: compare against <code>Date.now()</code> (or a stored start time) rather than counting ticks."
+    },
+    {
+      "n": 78,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "How does <code>setInterval</code> schedule its next run, and what problem does that cause under a slow callback?",
+      "a": "It queues the next run on a fixed schedule regardless of how long the previous callback took, so slow callbacks pile up faster than they can drain."
+    },
+    {
+      "n": 79,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "What's the usual fix for setInterval's pile-up problem?",
+      "a": "A self-scheduling chain of <code>setTimeout</code> calls, where each run schedules the next only after finishing, naturally spacing runs by at least the callback's own duration."
+    },
+    {
+      "n": 80,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "What does <code>queueMicrotask(fn)</code> guarantee relative to rendering?",
+      "a": "<code>fn</code> runs before the next render, as part of the microtask drain after the current task — useful for finishing bookkeeping \"in the same moment\" as the current synchronous code."
+    },
+    {
+      "n": 81,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "What is <code>requestIdleCallback</code> for, and what's a caveat about its browser support?",
+      "a": "Running low-priority work only when the browser has spare time in a frame, given a deadline object. It only arrived in Safari in version 18.4 (March 2025), so it needs a fallback for older Safari."
+    },
+    {
+      "n": 82,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "What does <code>scheduler.yield()</code> do that a plain <code>await</code> or <code>setTimeout(0)</code> does not?",
+      "a": "It hands the thread back mid-job but lets the job resume with priority rather than going to the back of the task queue — the modern answer to breaking up long tasks without losing your place."
+    },
+    {
+      "n": 83,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "How does <code>Date.now()</code> differ from <code>performance.now()</code> in what they measure and how they can misbehave?",
+      "a": "<code>Date.now()</code> is wall-clock time since 1970 and can jump backwards if the system clock is corrected; <code>performance.now()</code> is a monotonic, sub-millisecond count of ms since the page started and never jumps."
+    },
+    {
+      "n": 84,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "Which clock should you use to measure a duration, and why?",
+      "a": "<code>performance.now()</code> — because it's monotonic and won't be corrupted by clock corrections, unlike <code>Date.now()</code>."
+    },
+    {
+      "n": 85,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "Why was <code>performance.now()</code>'s resolution deliberately coarsened to around 100 microseconds in 2018?",
+      "a": "Because the Spectre disclosures showed that a sufficiently precise timer is itself a security vulnerability, usable to infer memory contents via timing side channels."
+    },
+    {
+      "n": 86,
+      "c": "node-5",
+      "t": "Node 5 · Timers and scheduling",
+      "q": "What is still broken after mastering timers and schedulers?",
+      "a": "All of this schedules work using data the page already has locally. None of it can bring in new data from a server — that requires a completely different capability."
+    },
+    {
+      "n": 87,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "Before Ajax existed, how did a page get new data from a server?",
+      "a": "Only by leaving the page entirely — a full navigation to a new document, destroying all existing state."
+    },
+    {
+      "n": 88,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "Where did the capability behind Ajax originate, and when?",
+      "a": "Internet Explorer 5 in 1999, as an ActiveX control; Mozilla copied it in 2002 as <code>XMLHttpRequest</code>."
+    },
+    {
+      "n": 89,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "What made \"Ajax\" a household term, and roughly when?",
+      "a": "Google Maps and Gmail in 2005 made the technique visibly useful, and Jesse James Garrett coined the term \"Ajax\" that year."
+    },
+    {
+      "n": 90,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "What's notable about calling <code>XMLHttpRequest.send()</code> synchronously?",
+      "a": "It blocks the entire main thread until the response arrives — a capability still present but now deprecated and warned against in every browser."
+    },
+    {
+      "n": 91,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "What year and browser introduced the <code>fetch</code> API?",
+      "a": "Chrome 40, January 2015."
+    },
+    {
+      "n": 92,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "Why does <code>fetch</code> compose naturally with <code>async</code>/<code>await</code>, unlike <code>XMLHttpRequest</code>?",
+      "a": "Because <code>fetch</code> returns a Promise, which is exactly what <code>await</code> is designed to unwrap."
+    },
+    {
+      "n": 93,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "Does a <code>fetch</code> promise reject on a 404 or 500 response?",
+      "a": "No — <code>fetch</code> only rejects on network failure (e.g. DNS failure, no connectivity). A 404 or 500 is a successful fetch; you must check <code>response.ok</code> yourself."
+    },
+    {
+      "n": 94,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "Your <code>fetch</code> code never enters its <code>.catch</code> block even though the API keeps returning 500. Why?",
+      "a": "Because <code>fetch</code> only rejects on network failure, not on HTTP error status codes — a 500 resolves the promise successfully with <code>response.ok === false</code>, so error handling has to check the status, not rely on rejection."
+    },
+    {
+      "n": 95,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "Why does calling <code>response.json()</code> a second time throw an error?",
+      "a": "The response body is a stream that can only be read once; the first call consumes it. To read it twice, clone the response first with <code>response.clone()</code>."
+    },
+    {
+      "n": 96,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "What is the default value of <code>fetch</code>'s <code>credentials</code> option, and what does it mean?",
+      "a": "<code>\"same-origin\"</code> — cookies are sent automatically to same-origin requests but not to cross-origin ones unless explicitly requested. This was a deliberate break from <code>XMLHttpRequest</code>'s always-attach-cookies default."
+    },
+    {
+      "n": 97,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "How does <code>fetch</code> connect to consuming token-by-token LLM output in a browser?",
+      "a": "<code>response.body</code> is a <code>ReadableStream</code> you can read chunk by chunk as data arrives, rather than waiting for the whole response — the same mechanism underlying incremental streaming responses."
+    },
+    {
+      "n": 98,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "How do you cancel an in-flight <code>fetch</code> request?",
+      "a": "Create an <code>AbortController</code>, pass its <code>signal</code> into the fetch options, then call <code>controller.abort()</code>; the request is cancelled and the promise rejects with an <code>AbortError</code>."
+    },
+    {
+      "n": 99,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "Name two other transports besides <code>fetch</code>, and what each is for.",
+      "a": "<code>WebSocket</code> for a persistent two-way connection; <code>EventSource</code> for one-way server-pushed text with automatic reconnection."
+    },
+    {
+      "n": 100,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "Why does a normal <code>fetch</code> often fail inside a page-unload handler, and what's the fix?",
+      "a": "The browser is tearing the page down and routinely cancels in-flight requests during unload; <code>navigator.sendBeacon</code> is designed specifically to survive that and reliably deliver a small POST."
+    },
+    {
+      "n": 101,
+      "c": "node-6",
+      "t": "Node 6 · Talking to a server without leaving the page",
+      "q": "What is still broken after a page can freely send requests to any server?",
+      "a": "Nothing yet explains why a malicious page can't simply fetch your logged-in bank account page and read the response — which clearly must be prevented somehow."
+    },
+    {
+      "n": 102,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "Define an <strong>origin</strong> exactly.",
+      "a": "The triple of scheme, host, and port — e.g. <code>https://app.example.com:443</code>. All three must match for two URLs to be same-origin."
+    },
+    {
+      "n": 103,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "Are <code>http://example.com</code> and <code>https://example.com</code> the same origin?",
+      "a": "No — the scheme differs, so they are different origins even though the host is identical."
+    },
+    {
+      "n": 104,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "Are <code>example.com</code> and <code>www.example.com</code> the same origin?",
+      "a": "No — the host differs, even though they may be served by the same team/backend."
+    },
+    {
+      "n": 105,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "State the same-origin policy in one sentence.",
+      "a": "Script from one origin may not read data belonging to another origin."
+    },
+    {
+      "n": 106,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "When was the same-origin policy introduced, and by whom?",
+      "a": "Netscape Navigator 2, in 1995."
+    },
+    {
+      "n": 107,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "Does the same-origin policy restrict sending requests, reading responses, or both?",
+      "a": "Only reading. Sending has always been allowed cross-origin — a form can POST anywhere, an <code>&lt;img&gt;</code> can load any URL, and cookies for that target site are attached automatically. What's restricted is looking at the response."
+    },
+    {
+      "n": 108,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "How does the single asymmetry \"send is allowed, read is not\" explain both CORS and CSRF?",
+      "a": "CORS is the server granting permission to have its response read from another origin; CSRF exploits the fact that a forged cross-site request can still be sent with the victim's cookies attached, even though the attacker can't read the response."
+    },
+    {
+      "n": 109,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "Whose decision is CORS, and where is it expressed?",
+      "a": "Entirely the server's decision, expressed via response headers (like <code>Access-Control-Allow-Origin</code>), enforced by the browser on the reading end."
+    },
+    {
+      "n": 110,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "A developer gets a CORS error and tries to fix it by changing their fetch call. Why is this the wrong place to fix it, and how do you know?",
+      "a": "CORS is enforced by the browser reading a response header the server controls; the same request succeeds fine from a terminal (curl) because curl enforces no origin policy — the fix has to be a server-side header change."
+    },
+    {
+      "n": 111,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "What triggers a CORS preflight request, and what HTTP method does it use?",
+      "a": "A request that isn't \"simple\" — using a method other than GET/HEAD/POST, a content-type outside three specific ones, or carrying custom headers. The browser sends an <code>OPTIONS</code> request first to ask permission before sending the real one."
+    },
+    {
+      "n": 112,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "What must be true for cookies to be sent on a cross-origin request, on both the client and server side?",
+      "a": "The client must set <code>credentials: \"include\"</code> and the server must respond with <code>Access-Control-Allow-Credentials: true</code> and a specific (non-wildcard) <code>Access-Control-Allow-Origin</code>."
+    },
+    {
+      "n": 113,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "How do two windows from different origins communicate with each other, since they can't touch each other's DOM?",
+      "a": "Via <code>postMessage</code>, which passes copied data across the origin boundary — the sole sanctioned channel, and what every iframe-based widget and payment form is built on."
+    },
+    {
+      "n": 114,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "What does a Content Security Policy header let a site declare?",
+      "a": "Which origins are allowed to supply scripts, styles, and connections for that page — turning a successful XSS injection from \"attacker runs anything\" into \"attacker's script is blocked by policy.\""
+    },
+    {
+      "n": 115,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "What defines a <strong>secure context</strong>, and why does it matter?",
+      "a": "HTTPS pages, plus <code>localhost</code> for local development. Many powerful APIs — service workers, geolocation, camera, clipboard, WebCrypto — simply don't exist outside a secure context."
+    },
+    {
+      "n": 116,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "Why does <code>SharedArrayBuffer</code> require the <code>COOP</code>/<code>COEP</code> cross-origin-isolation headers to even be defined?",
+      "a": "Because after Spectre, shared memory combined with a sufficiently precise timer is an attack vector — cross-origin isolation guarantees no untrusted cross-origin content shares the process before the risky API is exposed at all."
+    },
+    {
+      "n": 117,
+      "c": "node-7",
+      "t": "Node 7 · The origin and the security model",
+      "q": "What is still broken after understanding origins and CORS?",
+      "a": "Reload the page and everything you fetched or computed is gone — nothing so far provides memory across navigations, or a way to stay logged in."
+    },
+    {
+      "n": 118,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "Who introduced cookies, at what company, and for what original purpose?",
+      "a": "Lou Montulli, at Netscape, in 1994, to implement a shopping cart."
+    },
+    {
+      "n": 119,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "How does a server set a cookie, and what does the browser do with it afterward?",
+      "a": "The server sends a <code>Set-Cookie</code> response header; the browser stores it and then automatically attaches it to every subsequent request to that host."
+    },
+    {
+      "n": 120,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "Why is cookies' automatic attachment described as \"the whole point and the whole danger\"?",
+      "a": "It's what keeps a user logged in across requests without extra code, but it's also exactly what makes CSRF possible — a forged request from another site carries the same cookies along."
+    },
+    {
+      "n": 121,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "What does the <code>HttpOnly</code> cookie attribute do?",
+      "a": "Hides the cookie from JavaScript entirely (it won't appear in <code>document.cookie</code>), blunting theft via an injected script."
+    },
+    {
+      "n": 122,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "What does the <code>Secure</code> cookie attribute do?",
+      "a": "Ensures the cookie is only ever sent over HTTPS connections."
+    },
+    {
+      "n": 123,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "What does <code>SameSite</code> control, and what has Chrome defaulted it to since 2020?",
+      "a": "Whether a cookie is sent along with cross-site requests at all; Chrome defaults unspecified cookies to <code>Lax</code>."
+    },
+    {
+      "n": 124,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "Roughly how large can a cookie be, and how often is it transmitted?",
+      "a": "About 4KB, and it's sent on every single request to its host — which is why cookies are for identity, never for bulk data."
+    },
+    {
+      "n": 125,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "What is the defining property of <code>localStorage</code>, and why does it matter for performance?",
+      "a": "It's synchronous — every read or write blocks the main thread — so it's fine for a few small values but wrong for anything you'd call a cache, since large or frequent access causes jank."
+    },
+    {
+      "n": 126,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "What is <code>localStorage</code>'s data shape and typical size cap?",
+      "a": "A string-to-string map, per origin, persisting until explicitly deleted, typically capped near 5MB."
+    },
+    {
+      "n": 127,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "How does <code>sessionStorage</code> differ from <code>localStorage</code> in scope and lifetime?",
+      "a": "Identical API, but scoped to a single tab and destroyed when that tab closes — suited to in-progress wizard state rather than durable data."
+    },
+    {
+      "n": 128,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "What makes IndexedDB fundamentally different from localStorage, beyond just being bigger?",
+      "a": "It's asynchronous (doesn't block the main thread), transactional, and stores structured objects/blobs rather than only strings — a real database, not a string map."
+    },
+    {
+      "n": 129,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "Why do most developers use a wrapper library over IndexedDB rather than its native API directly?",
+      "a": "The native IndexedDB API is famously unpleasant/verbose to use directly (event-based, cursor-driven), so thin wrapper libraries are near-universal."
+    },
+    {
+      "n": 130,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "What does the Cache API specifically store, and what's it designed to be used alongside?",
+      "a": "<code>Request</code>/<code>Response</code> pairs; designed to be used from a service worker for offline-capable network responses."
+    },
+    {
+      "n": 131,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "Can browser storage be evicted even without the user explicitly clearing it?",
+      "a": "Yes — storage can be evicted under disk pressure unless the origin has been granted persistence, so \"persistent\" storage means durable, not guaranteed forever."
+    },
+    {
+      "n": 132,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "What does it mean for storage to be \"partitioned by top-level site\", and what is it dismantling?",
+      "a": "An embedded widget/iframe gets a separate store depending on which top-level site it's embedded in, rather than one shared store across every site that embeds it — this is the ongoing dismantling of third-party tracking via shared storage."
+    },
+    {
+      "n": 133,
+      "c": "node-8",
+      "t": "Node 8 · Remembering things",
+      "q": "What is still broken after mastering storage and cookies?",
+      "a": "Every byte of your own code still runs through one main thread — a long computation still freezes everything, and there's still no way to work when there's no network at all."
+    },
+    {
+      "n": 134,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "What is a Web Worker?",
+      "a": "A second JavaScript execution environment running on its own thread, inside the same renderer process, created with <code>new Worker(\"worker.js\")</code>."
+    },
+    {
+      "n": 135,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "Can a Web Worker touch the DOM? Why or why not?",
+      "a": "No — the worker has no <code>document</code> or <code>window</code> at all. Permitting two threads into the DOM would require the DOM's entire design (which has no locking anywhere) to be rewritten for thread safety."
+    },
+    {
+      "n": 136,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "How does data get from the main thread to a worker, mechanically?",
+      "a": "Via <code>postMessage</code>, which copies the value using the structured clone algorithm rather than sharing it directly."
+    },
+    {
+      "n": 137,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "What can the structured clone algorithm handle, and what can it NOT clone?",
+      "a": "Handles deep structures like <code>Map</code>, <code>Set</code>, <code>Date</code>, <code>ArrayBuffer</code>, and cycles. It cannot clone functions, DOM nodes, or preserve class identity."
+    },
+    {
+      "n": 138,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "You need to send a 200MB ArrayBuffer to a worker without the cost of copying it. What do you use, and what's the tradeoff?",
+      "a": "A <strong>transfer</strong> — passing the buffer in the transfer list hands ownership to the worker with no copy cost, but the sender's copy becomes detached and unusable afterward."
+    },
+    {
+      "n": 139,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "What does <code>SharedArrayBuffer</code> plus <code>Atomics</code> allow that ordinary message passing does not, and what does it require?",
+      "a": "Genuine shared memory between two threads — the one place in the browser where this happens — and it requires cross-origin isolation headers (<code>COOP</code>/<code>COEP</code>) to be available at all, because of Spectre."
+    },
+    {
+      "n": 140,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "What is the correct test for whether a task belongs on a worker?",
+      "a": "Does the work need the DOM? If not — parsing a large file, diffing, compressing an image, cryptography, running a model — it belongs off the main thread."
+    },
+    {
+      "n": 141,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "Why is putting a 2-millisecond job on a worker usually a net loss?",
+      "a": "Message passing has real overhead (copying data via structured clone); for trivially fast work, that overhead exceeds any benefit from offloading it."
+    },
+    {
+      "n": 142,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "What is a service worker, fundamentally different in purpose from an ordinary Web Worker?",
+      "a": "A programmable proxy sitting between the page and the network, intercepting every outgoing request from its scope via the <code>fetch</code> event — not primarily for computation."
+    },
+    {
+      "n": 143,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "Name the three lifecycle stages a service worker goes through.",
+      "a": "<code>install</code>, then <code>activate</code>, with a new version sitting in a <code>waiting</code> state in between if an old version is still controlling any open tab."
+    },
+    {
+      "n": 144,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "You deploy a new service worker and reload the page, but the old cached version is still running. Why doesn't a reload fix it?",
+      "a": "A new service worker installs but won't activate/take control while any existing tab is still controlled by the old one — and a plain reload of that same tab doesn't release control, since the reload itself is still served by the old worker."
+    },
+    {
+      "n": 145,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "Why is a service worker deliberately prevented from taking over immediately when a new version is deployed?",
+      "a": "To avoid two versions of the app's code disagreeing about what's in the cache while the old tab is still open — it's designed behavior, not a caching bug."
+    },
+    {
+      "n": 146,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "Why can't a service worker hold state in ordinary JavaScript variables between events?",
+      "a": "It's terminated whenever idle and restarted on demand for the next event, so any in-memory variable state is lost between invocations; durable state must go in IndexedDB/Cache API."
+    },
+    {
+      "n": 147,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "What secure-context requirement applies to service workers, and what capability do they enable that requires no open tab?",
+      "a": "They only run in secure contexts (HTTPS or localhost); they're also the delivery point for Push notifications, letting a site wake the user with no tab open at all."
+    },
+    {
+      "n": 148,
+      "c": "node-9",
+      "t": "Node 9 · Getting off the main thread",
+      "q": "What is still broken after workers and service workers solve threading and offline?",
+      "a": "The page can still be visibly janky even with heavy work moved off-thread and input handled responsively — nothing so far describes what \"drawing\" (rendering) actually involves or costs."
+    },
+    {
+      "n": 149,
+      "c": "node-10",
+      "t": "Node 10 · The rendering pipeline",
+      "q": "List the four stages of the rendering pipeline in order.",
+      "a": "Style, layout (reflow), paint, composite."
+    },
+    {
+      "n": 150,
+      "c": "node-10",
+      "t": "Node 10 · The rendering pipeline",
+      "q": "What happens during the <strong>style</strong> stage?",
+      "a": "For every element, the browser resolves the final value of every CSS property, working out which rules match and which one wins."
+    },
+    {
+      "n": 151,
+      "c": "node-10",
+      "t": "Node 10 · The rendering pipeline",
+      "q": "What happens during <strong>layout</strong>, and why is it inherently a whole-subtree operation?",
+      "a": "Computing the geometry — position and size — of every box; moving or resizing one element can move its siblings, so layout can't be scoped to just the changed element alone."
+    },
+    {
+      "n": 152,
+      "c": "node-10",
+      "t": "Node 10 · The rendering pipeline",
+      "q": "What happens during <strong>paint</strong>?",
+      "a": "Producing the actual drawing operations for each piece of content — text, borders, shadows, images — as a list of instructions."
+    },
+    {
+      "n": 153,
+      "c": "node-10",
+      "t": "Node 10 · The rendering pipeline",
+      "q": "What happens during <strong>composite</strong>, and where does it typically run?",
+      "a": "The page (split into layers) has its layers assembled into the final image shown on screen — handled largely on a separate thread and the GPU."
+    },
+    {
+      "n": 154,
+      "c": "node-10",
+      "t": "Node 10 · The rendering pipeline",
+      "q": "State the general rule connecting pipeline stage to cost.",
+      "a": "The further down the pipeline a change can be handled, the cheaper it is — changes that reach composite alone are far cheaper than ones that force layout."
+    },
+    {
+      "n": 155,
+      "c": "node-10",
+      "t": "Node 10 · The rendering pipeline",
+      "q": "Why does animating <code>transform</code>/<code>opacity</code> run smoothly while animating <code>left</code>/<code>top</code> stutters, for the same visual result?",
+      "a": "<code>left</code>/<code>top</code> force layout, paint, and composite on every frame, while <code>transform</code> and <code>opacity</code> can often be handled by the compositor alone, skipping layout and paint entirely."
+    },
+    {
+      "n": 156,
+      "c": "node-10",
+      "t": "Node 10 · The rendering pipeline",
+      "q": "What does <code>will-change</code> do, and why isn't it safe to apply everywhere?",
+      "a": "Hints the browser to promote an element to its own compositor layer in advance; overusing it costs real memory per promoted layer, so it should be applied selectively."
+    },
+    {
+      "n": 157,
+      "c": "node-10",
+      "t": "Node 10 · The rendering pipeline",
+      "q": "What is layout thrashing (forced synchronous layout)?",
+      "a": "Reading a geometric property (like <code>offsetHeight</code>) right after writing a style forces the browser to compute layout immediately instead of batching it, and repeating this in a loop turns one layout pass into N layout passes."
+    },
+    {
+      "n": 158,
+      "c": "node-10",
+      "t": "Node 10 · The rendering pipeline",
+      "q": "Why does the browser normally batch DOM writes and defer layout, but not when you read <code>getBoundingClientRect()</code>?",
+      "a": "Because a geometric read must return a correct answer right now, the browser has no choice but to run layout immediately to answer it truthfully, rather than deferring as it would for a write."
+    },
+    {
+      "n": 159,
+      "c": "node-10",
+      "t": "Node 10 · The rendering pipeline",
+      "q": "A loop writes <code>el.style.width</code> then immediately reads <code>el.offsetHeight</code> on every iteration, over 200 elements. Why is this dramatically slower than writing all 200 styles first and reading all 200 heights after?",
+      "a": "Interleaving write-then-read forces a full synchronous layout on every single iteration (200 layouts); separating writes from reads lets the browser batch all writes and do layout once."
+    },
+    {
+      "n": 160,
+      "c": "node-10",
+      "t": "Node 10 · The rendering pipeline",
+      "q": "What do <code>content-visibility</code> and <code>contain</code> let a developer tell the browser?",
+      "a": "That a subtree's layout/paint cannot affect anything outside it, letting the browser skip layout/paint work entirely for content that's off-screen or otherwise irrelevant."
+    },
+    {
+      "n": 161,
+      "c": "node-10",
+      "t": "Node 10 · The rendering pipeline",
+      "q": "What is still broken after understanding the rendering pipeline?",
+      "a": "Everything is still a hypothesis — you can guess whether jank is a style, layout, paint, or composite problem, but you have no measurement to confirm which, or whether the page is actually slow at all."
+    },
+    {
+      "n": 162,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "What do the Navigation Timing and Resource Timing APIs record?",
+      "a": "A timestamp for each phase of loading the document and every resource it loaded — DNS lookup, connection, TLS, first byte, download complete."
+    },
+    {
+      "n": 163,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "A page feels slow. How do Navigation/Resource Timing let you distinguish \"the server was slow\" from \"the file was huge\" from \"we started requesting it late\"?",
+      "a": "Each has a distinct timing signature: a slow server shows a long gap before first byte; a huge file shows a long download phase after a fast first byte; late-starting requests show a delayed start time relative to navigation start — three different bugs that look identical to a user but different in the timing data."
+    },
+    {
+      "n": 164,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "What is <code>PerformanceObserver</code>, and what's notable about entries it reports on subscription?",
+      "a": "A general subscription mechanism for performance entry types; it can report entries for events that already occurred before your observer script even ran."
+    },
+    {
+      "n": 165,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "What are the three Core Web Vitals?",
+      "a": "LCP (Largest Contentful Paint), CLS (Cumulative Layout Shift), and INP (Interaction to Next Paint)."
+    },
+    {
+      "n": 166,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "What does LCP measure, and what's considered a good value?",
+      "a": "When the largest content element in the viewport finished rendering; good is under 2.5 seconds."
+    },
+    {
+      "n": 167,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "What does CLS measure, and name two common causes of a bad score.",
+      "a": "Content jumping around visually after it has appeared; commonly caused by an image with no declared size, or a web font swapping in and changing text metrics."
+    },
+    {
+      "n": 168,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "What does INP measure, and what metric did it replace, when?",
+      "a": "The delay from a user interaction to the next frame drawn, measured across the whole visit; it replaced First Input Delay (FID) as a Core Web Vital in March 2024."
+    },
+    {
+      "n": 169,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "Why was FID specifically inadequate compared to INP?",
+      "a": "FID only measured the delay before the first interaction started being processed, ignoring every later interaction and ignoring the total cost of processing (not just starting) an interaction."
+    },
+    {
+      "n": 170,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "Why do Core Web Vitals come up disproportionately often in interviews relative to their raw technical difficulty?",
+      "a": "Google has used them in search ranking since 2021, so they carry business/SEO weight beyond their engineering content, making them a near-universal talking point."
+    },
+    {
+      "n": 171,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "How does a bad INP score trace back to the event loop (Node 4)?",
+      "a": "INP is fundamentally about long tasks occupying the main thread — if a task is long, the next frame is delayed after an interaction, which is exactly what a long-running task does to the loop's ability to reach the rendering phase."
+    },
+    {
+      "n": 172,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "What does <code>IntersectionObserver</code> report, and what naive alternative does it replace?",
+      "a": "Whether/when an element enters or leaves the viewport; it replaces polling loops or <code>scroll</code> event listeners, which would otherwise abuse the main thread constantly."
+    },
+    {
+      "n": 173,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "What does <code>ResizeObserver</code> report that <code>window</code>'s resize event does not?",
+      "a": "An individual element's size changing, not just the browser window's size."
+    },
+    {
+      "n": 174,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "What does <code>MutationObserver</code> report, and on which queue are its callbacks delivered?",
+      "a": "DOM tree changes; its callbacks are delivered as microtasks."
+    },
+    {
+      "n": 175,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "What are <code>performance.mark</code>/<code>performance.measure</code> for?",
+      "a": "Letting you name your own custom timing spans so they appear alongside the browser's own timing data in the DevTools performance timeline."
+    },
+    {
+      "n": 176,
+      "c": "node-11",
+      "t": "Node 11 · Measuring and being told what happened",
+      "q": "What is still broken after you can measure a single page's performance?",
+      "a": "All of this measures one page in isolation, but real applications change URL, go back, get restored from history, and sit hidden in a background tab for hours — nothing so far models a page's life over that span."
+    },
+    {
+      "n": 177,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "What did <code>history.pushState</code> enable when it shipped around 2010?",
+      "a": "Changing the URL shown in the address bar without triggering an actual page navigation — the foundation every client-side router is built on."
+    },
+    {
+      "n": 178,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "What event tells your code the user pressed Back after a <code>pushState</code>-based navigation?",
+      "a": "<code>popstate</code>."
+    },
+    {
+      "n": 179,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "Why is building query strings with plain string concatenation risky, and what's the fix?",
+      "a": "It's easy to forget escaping/encoding special characters like <code>&</code> or spaces, producing broken or unsafe URLs; <code>URL</code> and <code>URLSearchParams</code> handle encoding correctly."
+    },
+    {
+      "n": 180,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "What does the Navigation API offer beyond <code>pushState</code>/<code>popstate</code>, and what's its current browser support caveat?",
+      "a": "A single coherent model with a <code>navigate</code> event that can intercept and <code>await</code> a transition; as of 2026 it's Chromium-only, so it needs a fallback or shouldn't yet be depended on alone."
+    },
+    {
+      "n": 181,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "List the states a page can be in beyond simply \"open\" or \"closed\".",
+      "a": "Active, passive, hidden, frozen, discarded, or terminated."
+    },
+    {
+      "n": 182,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "What is <code>visibilitychange</code> the correct event for?",
+      "a": "Detecting when a tab becomes hidden or visible, so you can pause work, stop polling, or save state at that moment."
+    },
+    {
+      "n": 183,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "What happens to timers in a frozen background tab, and why must time-based logic recompute from a timestamp instead of counting ticks?",
+      "a": "Timers are throttled hard and then execution can be suspended entirely, so a counter incremented \"once per tick\" silently loses ticks — logic must instead compare against an actual elapsed-time timestamp to stay correct."
+    },
+    {
+      "n": 184,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "What is the back/forward cache (BFCache)?",
+      "a": "A mechanism where the browser keeps an entire page — DOM, JS heap, in-flight state — frozen in memory when you navigate away, and restores it instantly and exactly (including scroll position and variable state) if the user goes Back."
+    },
+    {
+      "n": 185,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "Which browsers support BFCache, and since when (roughly)?",
+      "a": "Safari since 2009; Chrome shipped it for all navigations in 2022."
+    },
+    {
+      "n": 186,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "If a page is restored from BFCache, does <code>load</code> fire again? What does that imply for one-time setup code?",
+      "a": "No — the page is resumed, not restarted, so <code>load</code> won't fire again and any setup code tied only to <code>load</code> will not re-run on a BFCache restore."
+    },
+    {
+      "n": 187,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "Why does a <code>beforeunload</code> or <code>unload</code> listener disable the BFCache?",
+      "a": "The browser can't safely freeze a page that might have code expecting to run synchronously at the exact moment of unload, so having such a listener opts the page out of BFCache eligibility."
+    },
+    {
+      "n": 188,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "Why is <code>unload</code> considered deprecated/unreliable, especially on mobile?",
+      "a": "It frequently never fires at all on mobile (the OS can simply kill the tab), and even where it fires, relying on it disables the BFCache — a double cost with no reliable payoff."
+    },
+    {
+      "n": 189,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "What are the correct events/APIs for reliably saving state before a user leaves, replacing <code>unload</code>?",
+      "a": "<code>visibilitychange</code> to detect the moment, paired with <code>navigator.sendBeacon</code> to reliably deliver the save."
+    },
+    {
+      "n": 190,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "What does the <code>persisted</code> flag on a <code>pageshow</code> event tell you?",
+      "a": "Whether the page you're seeing was just restored from the BFCache (true) rather than freshly loaded (false)."
+    },
+    {
+      "n": 191,
+      "c": "node-12",
+      "t": "Node 12 · Navigation, history, and the life of a page",
+      "q": "What is still broken after a page can survive navigation, backgrounding, and BFCache restoration for hours?",
+      "a": "Long-lived pages accumulate — nothing so far explains what happens to everything allocated over that time, and pages that run all day are known to slow down and eventually die."
+    },
+    {
+      "n": 192,
+      "c": "node-13",
+      "t": "Node 13 · Memory and how pages die",
+      "q": "Since JavaScript is garbage collected, what does a \"memory leak\" actually mean in this environment?",
+      "a": "An unintended reference that keeps something alive — memory is only freed once nothing reachable refers to it, so a leak is always about accidental reachability, never a forgotten manual <code>free</code>."
+    },
+    {
+      "n": 193,
+      "c": "node-13",
+      "t": "Node 13 · Memory and how pages die",
+      "q": "How does an event listener registered on <code>document</code> or <code>window</code> cause a leak when a component is removed?",
+      "a": "If the listener's closure references the component and the listener is never removed, it keeps the whole component (and whatever it closes over) reachable and alive indefinitely, even after it's removed from the DOM."
+    },
+    {
+      "n": 194,
+      "c": "node-13",
+      "t": "Node 13 · Memory and how pages die",
+      "q": "How does an uncleared <code>setInterval</code> cause a leak?",
+      "a": "Its callback and everything it closes over remain reachable (and the interval keeps firing) for as long as the interval is never cleared — even if the code that created it is logically \"gone.\""
+    },
+    {
+      "n": 195,
+      "c": "node-13",
+      "t": "Node 13 · Memory and how pages die",
+      "q": "What is a detached DOM node, and why can it leak far more memory than expected?",
+      "a": "A DOM element removed from the tree but still referenced by a JavaScript variable or listener; because it keeps not just itself but its entire subtree reachable, leaks of this shape are typically measured in megabytes."
+    },
+    {
+      "n": 196,
+      "c": "node-13",
+      "t": "Node 13 · Memory and how pages die",
+      "q": "How does a <code>WeakMap</code> help avoid leaking a DOM node used as a map key?",
+      "a": "<code>WeakMap</code> holds its keys weakly, so a DOM node used as a key doesn't stay alive just because it's referenced there — once nothing else references it, it (and its WeakMap entry) can be collected normally."
+    },
+    {
+      "n": 197,
+      "c": "node-13",
+      "t": "Node 13 · Memory and how pages die",
+      "q": "Why are <code>WeakRef</code> and <code>FinalizationRegistry</code> described as \"almost always the wrong tool\"?",
+      "a": "Garbage collection timing is not guaranteed by the spec, so code relying on exactly when a <code>FinalizationRegistry</code> callback fires is building on an assumption the engine doesn't promise to honor."
+    },
+    {
+      "n": 198,
+      "c": "node-13",
+      "t": "Node 13 · Memory and how pages die",
+      "q": "How does passing <code>{signal}</code> to <code>addEventListener</code> with an <code>AbortController</code> improve cleanup reliability over manually calling <code>removeEventListener</code> for each listener?",
+      "a": "One controller's <code>abort()</code> call removes every listener registered with that signal at once, so cleanup can't be forgotten for individual listeners the way manually tracking and removing each one can be."
+    },
+    {
+      "n": 199,
+      "c": "node-13",
+      "t": "Node 13 · Memory and how pages die",
+      "q": "What tool do you use to find what's keeping an object alive, and what does it show you?",
+      "a": "A heap snapshot (in DevTools) — it shows what objects exist in memory and the retaining path, i.e. the chain of references keeping each one reachable."
+    },
+    {
+      "n": 200,
+      "c": "node-13",
+      "t": "Node 13 · Memory and how pages die",
+      "q": "What happens when a renderer process exceeds its memory limit?",
+      "a": "It's killed by the browser, and the tab shows a crash page — taking any unsaved user work with it."
+    },
+    {
+      "n": 201,
+      "c": "node-13",
+      "t": "Node 13 · Memory and how pages die",
+      "q": "What is still broken after you can find and fix memory leaks?",
+      "a": "The user's camera, microphone, files, clipboard, and location are all still unreachable — a page that could access any of those without asking would be intolerable, and nothing so far describes how access is gated."
+    },
+    {
+      "n": 202,
+      "c": "node-14",
+      "t": "Node 14 · Capabilities, permission, and trust",
+      "q": "What is the first gate a powerful browser API is checked against?",
+      "a": "Whether the page is running in a secure context — HTTPS or <code>localhost</code>; outside that, the API is often simply not defined at all."
+    },
+    {
+      "n": 203,
+      "c": "node-14",
+      "t": "Node 14 · Capabilities, permission, and trust",
+      "q": "What is the second gate, and give two capabilities behind it?",
+      "a": "User activation (a real, recent user gesture) — required for things like opening a new window, playing audio with sound, reading the clipboard, or entering fullscreen."
+    },
+    {
+      "n": 204,
+      "c": "node-14",
+      "t": "Node 14 · Capabilities, permission, and trust",
+      "q": "What is the third gate, and what does the Permissions API let you do differently from directly requesting a capability?",
+      "a": "An explicit permission prompt the user answers, remembered per origin; the Permissions API lets you query the current permission state without triggering a prompt, so a UI can explain itself before actually asking."
+    },
+    {
+      "n": 205,
+      "c": "node-14",
+      "t": "Node 14 · Capabilities, permission, and trust",
+      "q": "What does a Permissions-Policy header control?",
+      "a": "Which browser features a document (and its embedded iframes) are allowed to use at all, regardless of user permission."
+    },
+    {
+      "n": 206,
+      "c": "node-14",
+      "t": "Node 14 · Capabilities, permission, and trust",
+      "q": "Why does video generally autoplay only when muted?",
+      "a": "Browsers refuse to autoplay audible media without user engagement, because an internet that could shout at will was judged worse for users than a broken autoplay API for developers."
+    },
+    {
+      "n": 207,
+      "c": "node-14",
+      "t": "Node 14 · Capabilities, permission, and trust",
+      "q": "What is unique about \"user intent as an API parameter\" in the browser, compared to server-side programming?",
+      "a": "Very few environments — including most server-side programming — have an equivalent of \"this function only works if a human just clicked something,\" which is a first-class runtime concept in browsers."
+    },
+    {
+      "n": 208,
+      "c": "node-14",
+      "t": "Node 14 · Capabilities, permission, and trust",
+      "q": "Name three device-access APIs gated by this permission model.",
+      "a": "<code>getUserMedia</code> (camera/microphone), geolocation, and notifications (also acceptable: clipboard read/write, File System Access)."
+    },
+    {
+      "n": 209,
+      "c": "node-14",
+      "t": "Node 14 · Capabilities, permission, and trust",
+      "q": "What is still broken after understanding the full capability/permission gate?",
+      "a": "Every capability described exists in some browsers at some versions — treating \"the browser\" as one uniform program, rather than several independent implementations, is the last remaining fiction."
+    },
+    {
+      "n": 210,
+      "c": "node-15",
+      "t": "Node 15 · There is no such thing as \"the browser\"",
+      "q": "Name the three rendering-engine/JS-engine pairs that matter, and one browser each powers.",
+      "a": "Blink/V8 (Chrome, Edge, Brave, Electron); Gecko/SpiderMonkey (Firefox); WebKit/JavaScriptCore (Safari)."
+    },
+    {
+      "n": 211,
+      "c": "node-15",
+      "t": "Node 15 · There is no such thing as \"the browser\"",
+      "q": "Why was \"Chrome on iPhone\" historically just Chrome's interface over Safari's engine?",
+      "a": "Apple's App Store rules historically required every browser on iOS to use WebKit as its engine, regardless of branding."
+    },
+    {
+      "n": 212,
+      "c": "node-15",
+      "t": "Node 15 · There is no such thing as \"the browser\"",
+      "q": "What began forcing that requirement open, and when?",
+      "a": "The EU's Digital Markets Act, beginning in 2024 — though WebKit remains the practical situation on most iOS devices."
+    },
+    {
+      "n": 213,
+      "c": "node-15",
+      "t": "Node 15 · There is no such thing as \"the browser\"",
+      "q": "Which body owns the JavaScript language spec, and which owns HTML/DOM/fetch?",
+      "a": "TC39 owns JavaScript; WHATWG owns HTML, the DOM, <code>fetch</code>, and the event loop, published as continuously updated <strong>living standards</strong>."
+    },
+    {
+      "n": 214,
+      "c": "node-15",
+      "t": "Node 15 · There is no such thing as \"the browser\"",
+      "q": "Why is \"what version of HTML is this\" no longer a meaningful question?",
+      "a": "HTML has been a living standard since 2019 (no more versioned specs like HTML5), so it changes continuously rather than shipping in discrete numbered releases."
+    },
+    {
+      "n": 215,
+      "c": "node-15",
+      "t": "Node 15 · There is no such thing as \"the browser\"",
+      "q": "What is feature detection, and what should you never test for instead?",
+      "a": "Testing directly for the capability itself, e.g. <code>if (\"share\" in navigator)</code>, rather than sniffing the user-agent string to infer which browser is running."
+    },
+    {
+      "n": 216,
+      "c": "node-15",
+      "t": "Node 15 · There is no such thing as \"the browser\"",
+      "q": "Why has user-agent sniffing been broken since it was invented?",
+      "a": "Browsers' UA strings have historically claimed to be several other browsers at once specifically for compatibility with sites that sniff incorrectly, making the string an unreliable signal from the start."
+    },
+    {
+      "n": 217,
+      "c": "node-15",
+      "t": "Node 15 · There is no such thing as \"the browser\"",
+      "q": "What is progressive enhancement?",
+      "a": "Building so that a missing capability causes the experience to degrade gracefully rather than break outright."
+    },
+    {
+      "n": 218,
+      "c": "node-15",
+      "t": "Node 15 · There is no such thing as \"the browser\"",
+      "q": "What is Baseline, introduced in 2023, and what's the difference between \"newly available\" and \"widely available\"?",
+      "a": "A shared cross-engine status for whether a web feature is safe to use everywhere; \"newly available\" means all three engines now support it, \"widely available\" means they've supported it for at least 30 months."
+    },
+    {
+      "n": 219,
+      "c": "node-15",
+      "t": "Node 15 · There is no such thing as \"the browser\"",
+      "q": "What's the difference between a polyfill and transpilation, and why can't one substitute for the other?",
+      "a": "A polyfill supplies a missing runtime API; transpilation rewrites new syntax into older syntax. Syntax cannot be polyfilled (there's no runtime object to add), and APIs cannot be transpiled (there's no syntax to rewrite) — they solve two disjoint problems."
+    },
+    {
+      "n": 220,
+      "c": "node-15",
+      "t": "Node 15 · There is no such thing as \"the browser\"",
+      "q": "What is an origin trial?",
+      "a": "A mechanism letting a site opt into an experimental browser feature in production for a limited time, which is how large features get real-world testing before permanent rollout."
+    },
+    {
+      "n": 221,
+      "c": "node-15",
+      "t": "Node 15 · There is no such thing as \"the browser\"",
+      "q": "Why are vendor prefixes like <code>-webkit-</code> considered a failed experiment, and why does old code still carry them?",
+      "a": "Sites ended up depending on one vendor's prefixed behavior forever, defeating the purpose of a temporary experimental marker — old code retains them because removing them risks breaking sites that never migrated to the standard property."
+    },
+    {
+      "n": 222,
+      "c": "node-15",
+      "t": "Node 15 · There is no such thing as \"the browser\"",
+      "q": "After this node, what does the chain say is genuinely complete, and what is explicitly handed off to other topics?",
+      "a": "The account of how a browser takes a URL to a running, responsive, persistent, permissioned, measurable application is complete; structuring an app on top of it (react), making it fast in practice (web-performance-basics), the DOM API surface itself (dom-apis), and the same language in a file/socket host (nodejs-runtime) are all handed off."
+    }
+  ]
+}

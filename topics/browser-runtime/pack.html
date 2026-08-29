@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<!--
+  TOPIC PACK TEMPLATE — filled by the topic-mastery skill per topic.
+  Placeholders to replace: browser-runtime Browser runtime The host underneath your JavaScript: process, thread, main-thread scheduling, the event loop, fetch, the same-origin security model, storage, workers, rendering, and why there is no such thing as "the browser."
+  <p>Read this top to bottom. Each node exists because the one before it left something specifically broken, and each node ends by naming that break. If you can feel the break, you can derive the next node instead of memorising it. Nothing here assumes you know how an operating system, a CPU, or a network card works — where those things matter, they are built up from zero at the point they matter.</p>
+
+<p>Depth markers are attached inline to individual capabilities. <strong>[EXPLAIN]</strong> means you should be able to explain it out loud, from first principles, with no notes, under interview pressure. <strong>[USE]</strong> means you should be able to use it correctly and debug it when it breaks, without needing the internals cold. <strong>[AWARE]</strong> means know it exists, know what problem it solves, know roughly when someone would reach for it.</p>
+
+<h3>Node 0 — A language that cannot do anything</h3>
+
+<p>Take the JavaScript language exactly as the specification defines it — ECMAScript, the document TC39 publishes. Read the whole thing and write down every capability it gives you. You get numbers, strings, objects, arrays, functions, closures, prototypes, classes, <code>Math</code>, <code>JSON</code>, <code>Map</code>, <code>Promise</code>, and error handling. That is close to all of it.</p>
+
+<p>Now look for the things that are not there. There is no way to print anything. <code>console.log</code> is not in the language specification. There is no way to read a file, open a network connection, ask what time it is in a useful way, draw a pixel, or wait. <code>setTimeout</code> is not in the language specification either — this genuinely surprises people, and it is the single cleanest illustration of what this topic is about. Even <code>alert</code>, the first function most people ever call in a browser, is not JavaScript.</p>
+
+<p>So a pure ECMAScript engine, given a program, can compute a value and then has no way to tell anyone what it was. It is a calculator sealed in a box with no display. That is the actual situation, not a rhetorical device: the specification defines <em>evaluation</em>, and deliberately says nothing about input or output, because it was designed to be embedded in different environments that would each supply their own.</p>
+
+<p>Everything a JavaScript program actually does is therefore supplied by a <strong>host environment</strong> [EXPLAIN] — a program that embeds the engine and hands it extra objects and functions the language never defined. The browser is one host. Node.js is another. There are others: Deno, Bun, Cloudflare Workers, Adobe products, MongoDB's shell, some game engines. The same language, radically different capabilities. In the browser you can open a dialog and read a cookie but you cannot open a file by path; in Node you can read any file on the disk but there is no screen, no cookie, no <code>document</code>. Neither difference is a difference in the <em>language</em>.</p>
+
+<p>The reason this matters practically is that almost every confusing bug in front-end work lives in the host, not the language. The language is small and its rules are stable. The host is enormous, timing-dependent, security-dependent, and version-dependent, and it is where "it works on my machine" comes from.</p>
+
+<p><strong>What's still broken:</strong> you have a language with no capabilities and a claim that "the browser supplies them." That is a hand-wave until you can say exactly how a browser gets from <em>a person typing a URL</em> to <em>a JavaScript function running</em>. Nothing above explains where the program even comes from.</p>
+
+<h3>Node 1 — How a page becomes a running program</h3>
+
+<p><strong>The limitation:</strong> the language does nothing on its own, and nothing so far explains how it starts.</p>
+
+<p>Someone types a URL, or clicks a link. The browser turns that into a network request, gets bytes back, and those bytes are HTML text. It reads that text left to right and builds an in-memory tree of objects out of it — one object per tag, nested the way the tags nest. That tree is the <strong>DOM</strong> [EXPLAIN], the Document Object Model, and the crucial thing to understand at this node is that <em>the DOM is not the HTML</em>. The HTML is text that arrived over the network and is then thrown away. The DOM is a live tree of objects the browser built from it, which JavaScript can read and change, and which the browser continuously re-renders from. When you "change the HTML" from JavaScript you are never editing the file on the server; you are mutating objects in that tree.</p>
+
+<p>While building the tree, the parser hits a <code>&lt;script&gt;</code> tag. By default it <strong>stops</strong> — it stops parsing, downloads the script if it has a <code>src</code>, hands the source text to the JavaScript engine, waits for it to finish executing completely, and only then resumes parsing HTML. This is called <strong>parser-blocking</strong> [EXPLAIN] and it is not an oversight. It exists because a script from 1996 could call <code>document.write("&lt;p&gt;hello")</code> and inject text into the middle of the document at exactly the parse position. Once that is possible, the parser cannot safely run ahead. Twenty-eight years later the behaviour is still the default because the web does not break old pages.</p>
+
+<p>That default is why a slow script in <code>&lt;head&gt;</code> gives you a blank white page — the tree does not exist yet, so nothing can be shown. Two attributes fix it. <strong><code>defer</code></strong> [USE] says: download in parallel with parsing, run after the tree is fully built, and run deferred scripts in document order. <strong><code>async</code></strong> [USE] says: download in parallel, run the moment it arrives, order not guaranteed, possibly mid-parse. <code>defer</code> is the right default for your own application code, <code>async</code> for genuinely independent third-party scripts that nothing depends on. A third form, <code>&lt;script type="module"&gt;</code> [USE], is deferred automatically and additionally brings the language's own module system — <code>import</code>/<code>export</code> resolved by URL, fetched by the browser, each module evaluated once and cached by its resolved URL.</p>
+
+<p>When the engine runs your top-level code, it does so with a <strong>global object</strong> already populated by the host. In a browser that object is <code>window</code> [EXPLAIN], and hanging off it are the several hundred things the language never defined: <code>document</code>, <code>fetch</code>, <code>setTimeout</code>, <code>localStorage</code>, <code>location</code>, <code>navigator</code>, <code>console</code>, and the constructors for every DOM type. <code>globalThis</code> is the newer portable name for the same object — it is <code>window</code> in a page, <code>self</code> in a worker, <code>global</code> in Node — and it exists precisely because code that wants to work in more than one host needed a name that is not a lie in the others.</p>
+
+<p>Two events mark the milestones. <strong><code>DOMContentLoaded</code></strong> [USE] fires when the HTML has been fully parsed and all deferred scripts have run — the tree is complete and safe to touch. <strong><code>load</code></strong> [USE] fires later, when every image, stylesheet, font and frame has also finished. Most code wants the first; code that measures sizes of images wants the second.</p>
+
+<p><strong>What you can do at this point:</strong> get your code to run at a predictable moment against a complete document tree, and explain why a script tag's position and attributes change what the user sees.</p>
+
+<p><strong>What's still broken:</strong> your program runs once, top to bottom, and then it is over. The user has not clicked anything yet. There is no mechanism by which anything you wrote runs <em>again</em>, later, in response to something.</p>
+
+<h3>Node 2 — The runtime calls you back</h3>
+
+<p><strong>The limitation:</strong> code that runs once and exits cannot respond to a user who has not acted yet.</p>
+
+<p>The shape of the answer is inversion. You do not ask the browser "has the button been clicked?" over and over — you hand the browser a function and say <em>call this when it happens</em>. <code>button.addEventListener("click", handler)</code> [EXPLAIN] stores your function in a list associated with that element, and returns immediately. Your top-level script then finishes and exits. Much later — seconds, minutes — the user clicks, and the browser calls your function. This is the <strong>callback</strong> model, and it is the single organising idea of the whole runtime: nearly every capability the browser gives you is either "do this now" or "call me back when this happens."</p>
+
+<p>The browser has to answer a question your code never asks: <em>which</em> handler, when there are handlers on the button, on the div containing it, on the form, on <code>document</code>, and on <code>window</code>. Its answer is a defined two-way trip called <strong>propagation</strong> [EXPLAIN]. The browser first walks <em>down</em> from <code>window</code> to the clicked element — the <strong>capture</strong> phase — calling any handler that asked for capture. Then it calls handlers on the element itself, the <strong>target</strong> phase. Then it walks back <em>up</em> from the element to <code>window</code> — the <strong>bubble</strong> phase — calling ordinary handlers along the way. Handlers registered normally run during bubbling; passing <code>{capture: true}</code> opts into the downward trip. This exists because Netscape and Internet Explorer implemented opposite directions in the 1990s and the W3C standardised both rather than pick a loser.</p>
+
+<p>The <strong>event object</strong> [USE] passed to your handler carries the details: <code>target</code> is where it actually happened, <code>currentTarget</code> is the element whose listener is running right now, and the difference between those two is what makes <strong>delegation</strong> [EXPLAIN] possible — one listener on a container handling clicks for a thousand children, including children that do not exist yet. <code>preventDefault()</code> cancels the browser's built-in reaction (following a link, submitting a form, scrolling on space). <code>stopPropagation()</code> halts the walk. These are different things and confusing them is a classic bug: cancelling the default does not stop the event travelling, and stopping travel does not cancel the default.</p>
+
+<p>Not all events are equal. Some are dispatched because a human did something physical; those carry <strong>user activation</strong> [EXPLAIN], a flag that unlocks capabilities the browser refuses to give to code running on its own — opening a window, playing audio with sound, reading the clipboard, going fullscreen. The flag is <em>transient</em>: it lasts a few seconds and is consumed. This is why "the popup works when I click but not after an <code>await</code>" is a real and extremely common failure, and it is a runtime rule, not a language rule.</p>
+
+<p><strong>What you can do at this point:</strong> write a page that responds to a user indefinitely, and explain precisely which of many nested handlers runs, in what order, and why.</p>
+
+<p><strong>What's still broken:</strong> if the browser can call your handler at any time, and the user can click twice quickly, and a network response can arrive in the middle — what happens when two things want to run at the same moment? Nothing so far says whether your handler can be interrupted halfway through.</p>
+
+<h3>Node 3 — What the browser actually is, as a set of running programs</h3>
+
+<p><strong>The limitation:</strong> "the browser calls your function" says nothing about what else is running while it does.</p>
+
+<p>A little vocabulary has to be built here, because everything after this node depends on it and none of it is assumed.</p>
+
+<p>A <strong>process</strong> [EXPLAIN] is one running program with its own private pool of memory that no other process can read or write. Two processes cannot corrupt each other; if one crashes, the others survive. A <strong>thread</strong> [EXPLAIN] is one sequence of instructions being executed in order inside a process. A process can have several threads, and threads in the same process <em>do</em> share memory — which makes them fast to coordinate and dangerous to get wrong. That is the whole of the vocabulary needed.</p>
+
+<p>A modern browser is not one program. Chrome opened with three tabs is typically a dozen or more processes. There is one <strong>browser process</strong> [AWARE] that owns the window, the address bar, the tabs and the actual network and disk access. There are <strong>renderer processes</strong> [EXPLAIN], normally one per site, each of which owns the parsing, the DOM, the JavaScript engine and the layout for pages from that site. There are separate processes for the GPU, for extensions, for audio, for network service. This design shipped with Chrome in 2008 and every other browser followed, for two reasons: a crash in one page's renderer kills a tab, not the browser, and — far more importantly — a bug in the renderer that lets an attacker run arbitrary code still leaves them inside a heavily restricted process that cannot open your files. <strong>Site Isolation</strong> [EXPLAIN], which Chrome enabled for everyone in 2018, hardened this by guaranteeing pages from different sites never share a renderer, specifically because the Spectre attacks of January 2018 proved that any two things sharing memory can potentially read each other regardless of language-level protections.</p>
+
+<p>Inside one renderer process, the part that matters to you: <strong>there is exactly one thread that runs your JavaScript and also does the page's layout and painting.</strong> It is called the <strong>main thread</strong> [EXPLAIN]. Not "one thread per browser" — one per page-ish, and it is shared between your code and the browser's own rendering work. The other threads in the renderer exist for parsing HTML ahead, decoding images, compositing, and running workers, and none of them touch the DOM.</p>
+
+<p>This single fact has consequences you will meet for the rest of the topic. Your handler can never be interrupted halfway through by another handler — JavaScript in a page runs to completion, always. That is a genuine simplification: two handlers can never be inside the same object at once, so a whole category of concurrency bug that plagues other environments does not exist here. But the price is exact: while your code is running, <em>nothing else on that page can happen</em>. Not another handler, not scrolling, not an animation, not repainting a button you just changed. A <code>for</code> loop that takes two seconds freezes the tab for two seconds, and the user's clicks during it are not lost — they are queued, and they all arrive at once when you finish.</p>
+
+<p><strong>What you can do at this point:</strong> explain why a page freezes, why it freezes for exactly as long as your code runs, and why a crashed tab does not take the browser with it.</p>
+
+<p><strong>What's still broken:</strong> if there is one thread and code runs to completion, and clicks queue up while it is busy — then something is holding a queue and deciding what runs next. Nothing so far describes that thing.</p>
+
+<h3>Node 4 — The event loop</h3>
+
+<p><strong>The limitation:</strong> one thread plus queued work implies a scheduler, and you have not seen it.</p>
+
+<p>The scheduler is the <strong>event loop</strong> [EXPLAIN], and it is genuinely as simple as its name. Written as pseudocode, the whole thing is:</p>
+
+<pre>forever:
+    take the oldest task from the task queue
+    run it to completion
+    drain the microtask queue completely
+    if it is time to draw a frame:
+        run animation callbacks, then style, layout, paint</pre>
+
+<p>A <strong>task</strong> (the specification calls it a task; older writing says macrotask) is one unit of work the browser was asked to do: run this script, dispatch this click handler, fire this timer, deliver this network response. Tasks are pulled one at a time and each runs to completion. That is where "run to completion" from the previous node comes from — it is not a property of the language, it is a property of this loop.</p>
+
+<p>The second queue is where most confusion lives. A <strong>microtask</strong> [EXPLAIN] is a smaller unit, and the queue holding them is drained <em>completely</em> after each task, before the loop looks at the task queue again. Promise callbacks — everything scheduled by <code>.then</code>, and every resumption after an <code>await</code> — go on the microtask queue. So do <code>queueMicrotask</code> and <code>MutationObserver</code> callbacks. The practical rules that fall out: promise callbacks always run before a <code>setTimeout(…, 0)</code> scheduled at the same moment, because the microtask queue drains before the next task is taken; and a microtask that schedules another microtask extends the drain, so an infinite chain of promises will hang the page permanently in a way an infinite chain of <code>setTimeout</code> will not.</p>
+
+<p>Rendering is not a task. It is a phase of the loop that the browser performs <em>between</em> tasks, at most as often as the display refreshes — typically 60 times a second on ordinary hardware, which gives roughly <strong>16.7 milliseconds</strong> per frame (one second divided by 60), and about 8.3 ms on a 120 Hz screen. This is the number that governs perceived smoothness, and it is why a handler that takes 50 ms is a real problem: the browser could not draw during it, so three frames were missed and the user saw a stutter. It is also why changes you make to the DOM in a loop do not appear one by one — nothing is drawn until you give the thread back.</p>
+
+<p><code>requestAnimationFrame(fn)</code> [EXPLAIN] is the hook into that phase: it asks the browser to call <code>fn</code> immediately before the next paint. It is the correct place for animation work because it runs exactly once per frame, is skipped entirely in a background tab, and is timed so your changes are painted in the same frame you made them.</p>
+
+<p>There is one more distinction worth naming now because it reappears constantly. <code>await</code> does <strong>not</strong> pause the thread. It returns control to the loop immediately and schedules the rest of your function as a microtask to run when the promise settles. Nothing is blocked; other tasks run in between. An <code>await</code> inside a click handler therefore ends the handler's synchronous run, which is exactly why transient user activation from Node 2 has expired by the time you come back.</p>
+
+<p><strong>What you can do at this point:</strong> predict the exact output order of a program mixing synchronous code, promises, <code>setTimeout</code> and <code>requestAnimationFrame</code> — the single most-asked front-end interview question — and explain why, from the loop, not from memorised rules.</p>
+
+<p><strong>What's still broken:</strong> the loop runs tasks that already exist. Nothing so far lets you say "do this later", or "do this repeatedly", or "do this when the thread is otherwise idle."</p>
+
+<h3>Node 5 — Timers and scheduling</h3>
+
+<p><strong>The limitation:</strong> you can react to events but cannot schedule your own future work.</p>
+
+<p><code>setTimeout(fn, ms)</code> [EXPLAIN] does not mean "run <code>fn</code> in <code>ms</code> milliseconds." It means "after <code>ms</code> milliseconds have elapsed, put <code>fn</code> on the task queue." Those are different claims, and the gap between them is where every timer bug lives. If the thread is busy when the timer expires, the task waits. If the task queue already has three tasks, yours runs fourth. <code>ms</code> is a floor, never a promise. <code>setTimeout(fn, 0)</code> therefore means "as soon as the current task finishes and any already-queued tasks are done," and it is a legitimate tool for breaking a long job into pieces that let the browser draw in between.</p>
+
+<p>The specified quirks matter because they cause real bugs. A timer nested more than five deep is <strong>clamped to a minimum of 4 ms</strong> [USE] — an old rule, in the HTML standard, that exists to stop runaway recursive timers pinning a CPU. Background tabs are throttled far harder, commonly to once per second and in Chrome down to once per minute after five minutes hidden, which is why a countdown implemented by incrementing a counter every second is wrong and one implemented by comparing to <code>Date.now()</code> is right. <code>setInterval</code> [USE] queues the next run on a fixed schedule regardless of how long the callback took, so slow callbacks pile up; a self-scheduling <code>setTimeout</code> chain avoids that and is usually the better tool. Both return an integer id for <code>clearTimeout</code>/<code>clearInterval</code>, and forgetting to clear one when a component disappears is one of the two or three most common memory leaks on the web.</p>
+
+<p>Around this core sit the other schedulers, each solving a distinct need. <code>queueMicrotask(fn)</code> [USE] puts work at the front, before rendering — for finishing bookkeeping in the same "moment". <code>requestAnimationFrame</code> [EXPLAIN] from the previous node aligns work to the paint. <code>requestIdleCallback(fn)</code> [AWARE] runs low-priority work only when the browser has spare time in a frame, with a deadline object telling you how much you have; it is Chromium- and Firefox-supported and only arrived in Safari 18.4 in March 2025, so it needs a fallback. <code>scheduler.postTask</code> [AWARE] is the newer explicit-priority API, <code>user-blocking</code> / <code>user-visible</code> / <code>background</code>, and <code>scheduler.yield()</code> [AWARE] lets a long job hand the thread back and <em>resume with priority</em> rather than going to the back of the queue — the modern answer to "break up long tasks".</p>
+
+<p>Timing measurement belongs here too. <code>Date.now()</code> [USE] is wall-clock time in milliseconds since 1 January 1970, and it can jump backwards when the clock is corrected. <code>performance.now()</code> [USE] is a monotonic count of milliseconds since the page started, with fractional precision, and it never jumps. Measure durations with the second, never the first. Its resolution was deliberately coarsened to around 100 microseconds in 2018 — again Spectre — because a sufficiently precise clock is itself a security vulnerability.</p>
+
+<p><strong>What you can do at this point:</strong> schedule work correctly against the loop, keep the page responsive during long jobs, and explain why timers are late.</p>
+
+<p><strong>What's still broken:</strong> everything so far happens inside the page with data the page already has. The moment you need something from a server, none of these tools help — they schedule work, they do not fetch anything.</p>
+
+<h3>Node 6 — Talking to a server without leaving the page</h3>
+
+<p><strong>The limitation:</strong> timers move work around in time; they cannot bring in data.</p>
+
+<p>Before this existed, the only way to get new data was for the browser to leave the page entirely — a full navigation, a new document, all state destroyed. The capability that changed the web arrived in Internet Explorer 5 in 1999 as an ActiveX control, was copied by Mozilla in 2002 as <code>XMLHttpRequest</code>, and became famous in 2005 when Google Maps and Gmail made it obvious what it was for and Jesse James Garrett coined "Ajax" for it. It let a page ask for data and update itself in place.</p>
+
+<p><code>XMLHttpRequest</code> [AWARE] still exists and you will meet it in old code and in some analytics scripts; know that it is event-based, that its <code>send</code> can be called synchronously (blocking the entire main thread, now deprecated and warned about in every browser), and that it can report upload progress, which for years was the only reason to prefer it.</p>
+
+<p>The modern API is <strong><code>fetch</code></strong> [EXPLAIN], introduced in Chrome 40 in January 2015. It returns a promise, so it composes with <code>async</code>/<code>await</code> and with everything in Node 4. Three things about it are exam-grade and bite people constantly. First, <strong>it rejects only on network failure</strong> — a 404 or a 500 is a perfectly successful fetch, and you must check <code>response.ok</code> yourself. Second, <strong>the response body is a stream you read once</strong>; <code>await response.json()</code> consumes it, and a second read throws, which is why you clone before reading twice. Third, <strong>cookies are not sent cross-origin unless you ask</strong> — the default <code>credentials: "same-origin"</code> was one of the deliberate breaks from <code>XMLHttpRequest</code>'s behaviour.</p>
+
+<p>Because the body is a stream, <code>fetch</code> is also the entry point to genuinely incremental data. <code>response.body</code> is a <code>ReadableStream</code> [AWARE] you can read chunk by chunk, which is how token-by-token LLM output is consumed in a browser — this connects directly to <code>server-sent-events</code> and <code>llm-api-usage</code> later in the catalog. Cancellation is not built into promises, so the runtime supplies <code>AbortController</code> [USE]: create one, pass its <code>signal</code> into the fetch, call <code>abort()</code> and the request is cancelled and the promise rejects with an <code>AbortError</code>. Every serious front-end data-fetching library is built on that one object.</p>
+
+<p>Alongside it sit the other transports, each existing for a different reason: <code>WebSocket</code> [AWARE] for a persistent two-way connection, <code>EventSource</code> [AWARE] for one-way server-pushed text with automatic reconnection, and <code>navigator.sendBeacon</code> [USE] for a small POST that must survive the page closing — a normal <code>fetch</code> in an unload handler is routinely cancelled, and this is the correct fix.</p>
+
+<p><strong>What you can do at this point:</strong> load and send data without navigating, cancel it, stream it, and read error handling correctly.</p>
+
+<p><strong>What's still broken:</strong> you just gave a page the ability to send HTTP requests to any address. Your browser holds a logged-in session with your bank. Nothing above explains why a random page cannot simply fetch your bank's account page and read it — and it clearly cannot, or the web would be unusable.</p>
+
+<h3>Node 7 — The origin, and the whole security model built on it</h3>
+
+<p><strong>The limitation:</strong> unrestricted network access from arbitrary pages would expose every logged-in session you have.</p>
+
+<p>The entire browser security model rests on one definition. An <strong>origin</strong> [EXPLAIN] is the triple of <em>scheme, host, and port</em>: <code>https://app.example.com:443</code>. Two URLs are same-origin only if all three match exactly. <code>http://</code> and <code>https://</code> differ. <code>example.com</code> and <code>www.example.com</code> differ. A different port differs. The <strong>same-origin policy</strong> [EXPLAIN] then says: script from one origin may not read data belonging to another origin. It dates to Netscape 2 in 1995 and it is the reason the web is usable at all while every tab you have open is potentially hostile.</p>
+
+<p>The critical subtlety, and the source of nearly all confusion: the policy restricts <strong>reading</strong>, not <strong>sending</strong>. Your page has always been allowed to <em>send</em> requests anywhere — a form can POST to any site, an <code>&lt;img&gt;</code> can load any URL, and the browser attaches that site's cookies automatically. What it may not do is <em>look at the response</em>. That single asymmetry explains both CORS and CSRF, which are usually taught as unrelated topics and are really two faces of the same rule.</p>
+
+<p><strong>CORS</strong> [EXPLAIN] — Cross-Origin Resource Sharing — is the server's way of saying "actually, it is fine for that origin to read me." It is entirely a <em>server</em> decision expressed in <em>response headers</em>, and it is enforced <em>by the browser</em>, which is why a CORS error is not something you can fix in your front-end code and why the same request from a terminal works perfectly. <code>Access-Control-Allow-Origin</code> names who may read. For requests that are not "simple" — anything other than GET/HEAD/POST, or with a content type other than three specific ones, or carrying custom headers — the browser first sends an <code>OPTIONS</code> <strong>preflight</strong> [EXPLAIN] request asking permission, and only sends the real request if the answer allows it. <code>Access-Control-Allow-Credentials</code> is needed for cookies, and cannot be combined with a wildcard origin. This is the single most reported "bug" in front-end work and it is not a bug.</p>
+
+<p>The origin is also the unit for everything else. Storage is partitioned by origin (Node 8). Two windows may only touch each other's DOM if same-origin, and otherwise must use <code>postMessage</code> [USE], which passes copied data across the boundary — the sole sanctioned channel between origins, and the mechanism every iframe-based widget and payment form runs on. <strong>Content Security Policy</strong> [USE] is a response header letting a site declare which origins may supply scripts, styles and connections, turning cross-site scripting from "attacker runs anything" into "attacker is blocked by policy". <code>&lt;iframe sandbox&gt;</code> [AWARE] strips capabilities from embedded content. <strong>Secure contexts</strong> [EXPLAIN] — HTTPS pages plus <code>localhost</code> — gate the powerful APIs; service workers, geolocation, camera, clipboard and crypto simply do not exist on a plain <code>http://</code> page, which is why local development is special-cased. And <strong>cross-origin isolation</strong> [AWARE], opted into with the <code>COOP</code> and <code>COEP</code> headers, is required before <code>SharedArrayBuffer</code> is even defined, because after Spectre, shared memory plus a timer is an attack.</p>
+
+<p><strong>What you can do at this point:</strong> read a CORS failure correctly, know whose problem it is, and explain the boundary the browser is actually enforcing.</p>
+
+<p><strong>What's still broken:</strong> you can fetch data, and you now know the rules. But reload the page and everything is gone. There is no memory across navigations, and no way to stay logged in.</p>
+
+<h3>Node 8 — Remembering things</h3>
+
+<p><strong>The limitation:</strong> every navigation destroys all state; a page begins from nothing every time.</p>
+
+<p>The first answer, and still the most important, is the <strong>cookie</strong> [EXPLAIN] — introduced by Lou Montulli at Netscape in 1994 for a shopping cart. A cookie is a small string the server sets with a <code>Set-Cookie</code> response header, which the browser stores and then <strong>attaches automatically to every subsequent request</strong> to that host. That automatic attachment is the whole point and the whole danger: it is what keeps you logged in, and it is what makes CSRF possible, because a request forged by another site carries them too. Hence the modern attributes: <code>HttpOnly</code> hides the cookie from JavaScript entirely, blunting theft by injected script; <code>Secure</code> sends it only over HTTPS; <code>SameSite</code> — now defaulting to <code>Lax</code> in Chrome since 2020 — controls whether it rides along on cross-site requests at all. Cookies are limited to about 4 KB and are sent on every single request, so they are for identity, never for data.</p>
+
+<p>For data, the runtime provides three stores, each solving a different shape of problem. <strong><code>localStorage</code></strong> [EXPLAIN] is the simplest: a string-to-string map, per origin, persisting until deleted, typically capped near 5 MB. Its defining property is that it is <strong>synchronous</strong> — reading it blocks the main thread — and therefore it is precisely wrong for anything large, and the reason a "just cache it in localStorage" habit shows up as jank. <strong><code>sessionStorage</code></strong> [USE] has the identical API but is scoped to a single tab and dies when it closes, which is what you want for a wizard's in-progress state. <strong><code>IndexedDB</code></strong> [USE] is the real database: asynchronous, transactional, stores structured objects and blobs rather than strings, effectively unlimited within the origin's quota. Its native API is famously unpleasant, which is why almost everyone uses a thin wrapper over it, and it is what every offline-capable app actually stores its data in.</p>
+
+<p>Sitting beside them is the <strong>Cache API</strong> [USE], a store specifically for <code>Request</code>/<code>Response</code> pairs, designed to be used from a service worker (Node 10). Quota is per origin, granted from a browser-managed pool, and storage can be <strong>evicted</strong> [AWARE] under disk pressure unless the origin has been granted persistence — so "persistent" means "durable, not guaranteed". Increasingly, storage is also <strong>partitioned by top-level site</strong>, so an embedded widget gets a different store on each host site; this is the ongoing dismantling of third-party tracking, and it changes behaviour that older code depended on.</p>
+
+<p><strong>What you can do at this point:</strong> keep a user logged in, keep data across reloads, and choose the right store for the size and lifetime of what you are keeping.</p>
+
+<p><strong>What's still broken:</strong> you can store data and fetch data, but every byte of your own code still travels through one thread. A long computation still freezes everything, and with no network there is no page at all.</p>
+
+<h3>Node 9 — Getting off the main thread</h3>
+
+<p><strong>The limitation:</strong> one thread means any real computation blocks rendering and input.</p>
+
+<p>A <strong>Web Worker</strong> [EXPLAIN] is a second JavaScript environment, running on its own thread, inside the same renderer process. You create one with <code>new Worker("worker.js")</code>, and from that moment there are two programs running genuinely simultaneously. A worker has no <code>document</code>, no <code>window</code>, and cannot touch the DOM at all — that restriction is not arbitrary. The DOM is a large mutable object graph with no locking anywhere in its design; permitting two threads into it would require rewriting the entire platform for thread safety. Instead, workers communicate by <strong>message passing</strong> [EXPLAIN]: <code>postMessage</code> sends a value, which is <em>copied</em> using the structured clone algorithm — deeply, handling <code>Map</code>, <code>Set</code>, <code>Date</code>, <code>ArrayBuffer</code> and cycles, but not functions, DOM nodes, or class identity. Because copying a large buffer is expensive, buffers can instead be <strong>transferred</strong> [USE], handing ownership across and leaving the sender's copy detached and unusable. And for genuinely shared state there is <code>SharedArrayBuffer</code> with <code>Atomics</code> [AWARE], which is the one place in the browser where two threads touch the same memory, and which requires the cross-origin isolation headers from Node 7 before it is even available.</p>
+
+<p>The right mental test for a worker: does this work need the DOM? Parsing a 40 MB CSV, running a diff, compressing an image, doing cryptography, running a client-side model — none of them need the DOM, all of them belong off the main thread.</p>
+
+<p>Then there is a special worker with a different purpose entirely. A <strong>service worker</strong> [EXPLAIN] is not for computation; it is a programmable proxy that sits between your page and the network. Once installed, it can intercept every outgoing request from its scope through the <code>fetch</code> event and answer from cache, from the network, or from anything it invents. That is what makes offline web apps possible, and it is the foundation of installable web apps. Its lifecycle is the part that costs people days: it must <code>install</code>, then <code>activate</code>, and a new version does not take over from an old one while any existing tab is still controlled by it — it sits in <code>waiting</code>. This is deliberate, to avoid two versions of your code disagreeing about the cache, and it is why "I deployed but the old version is still there" is a service-worker question and not a caching-header question. It runs only in secure contexts, it is terminated whenever idle and restarted on demand — so it may hold no state in variables — and it is also the delivery point for <strong>Push notifications</strong> [AWARE], which is how a site can be woken with no tab open at all.</p>
+
+<p><strong>What you can do at this point:</strong> move heavy work off the thread that draws, and control your app's network layer well enough to work offline.</p>
+
+<p><strong>What's still broken:</strong> input is responsive and work is off-thread, and the page is <em>still</em> visibly janky. Node 4 said the browser draws between tasks, but never said what "drawing" involves — and you cannot fix what you cannot describe.</p>
+
+<h3>Node 10 — The rendering pipeline</h3>
+
+<p><strong>The limitation:</strong> you know when the browser draws, not what drawing costs.</p>
+
+<p>Between tasks, the browser turns the DOM into pixels through a fixed sequence, and knowing the sequence is what turns performance work from superstition into diagnosis.</p>
+
+<p>First, <strong>style</strong> [EXPLAIN]: for every element, work out the final value of every CSS property, resolving which rules match and which wins. Then <strong>layout</strong> [EXPLAIN], also called reflow: compute the geometry — position and size of every box — which is inherently a whole-subtree calculation, because moving one element moves its siblings. Then <strong>paint</strong> [EXPLAIN]: produce the list of drawing operations for each piece — text, borders, shadows, images. Then <strong>composite</strong> [EXPLAIN]: the page has been split into layers, and layers are assembled into the final image, a step handled largely on another thread and on the GPU.</p>
+
+<p>The pipeline is the source of the two rules that actually matter. First: <strong>the further down the pipeline you can change something, the cheaper it is.</strong> Changing <code>width</code> or <code>top</code> forces layout, paint and composite. Changing <code>background-color</code> skips layout. Changing <code>transform</code> or <code>opacity</code> can skip both layout and paint and be handled by the compositor alone — which is why every smooth animation on the web is written with <code>transform</code> and <code>opacity</code>, and why animating <code>left</code> stutters. <code>will-change</code> [USE] hints that an element should be promoted to its own layer in advance, and overusing it costs memory, so it is a scalpel.</p>
+
+<p>Second, and this is the one that produces mysterious slowness: <strong>layout thrashing</strong> [EXPLAIN]. The browser is lazy — it batches your DOM writes and does layout once, later. But if you <em>read</em> a geometric property, such as <code>offsetHeight</code>, <code>getBoundingClientRect()</code>, or <code>scrollTop</code>, it must give you a correct answer <em>now</em>, so it performs layout immediately. A loop that writes a style and then reads a size on every iteration therefore forces a full synchronous layout on every iteration — this is forced synchronous layout, and it turns a millisecond into a second. The fix is not a trick: read everything first, then write everything.</p>
+
+<p>Around this sit the containment tools — <code>content-visibility</code> and <code>contain</code> [AWARE], which let you tell the browser that a subtree's layout cannot affect anything outside it, so it can skip work entirely for off-screen content — and the older knowledge that certain properties and effects create layers whether you asked or not.</p>
+
+<p><strong>What you can do at this point:</strong> look at a janky page and form a <em>specific</em> hypothesis — style, layout, paint or composite — rather than guessing.</p>
+
+<p><strong>What's still broken:</strong> every hypothesis in the last paragraph is still a hypothesis. You have no numbers, and no way to know whether the user's experience is actually bad or you are optimising something nobody feels.</p>
+
+<h3>Node 11 — Measuring, and being told what happened</h3>
+
+<p><strong>The limitation:</strong> performance reasoning without measurement is guessing.</p>
+
+<p>The runtime keeps a running record of its own behaviour and exposes it. <strong>Navigation Timing</strong> and <strong>Resource Timing</strong> [USE] record, for the document and for every resource it loaded, a timestamp for each phase — DNS lookup, connection, TLS, first byte, download complete. That is how you distinguish "the server was slow" from "the file was huge" from "we did not start requesting it until late", which are three different bugs with three different fixes and look identical to a user.</p>
+
+<p>The general mechanism is <strong><code>PerformanceObserver</code></strong> [USE]: you subscribe to entry types and get called as they occur, including for events that already happened before your script ran. Through it come the <strong>Core Web Vitals</strong> [EXPLAIN], the three metrics Google publishes and, since 2021, uses in search ranking — which is why they come up in interviews far more than their technical importance alone would justify. <strong>LCP</strong>, Largest Contentful Paint, is when the biggest thing in the viewport appeared; good is under 2.5 seconds. <strong>CLS</strong>, Cumulative Layout Shift, measures content jumping around after it appeared, which is what happens when an image has no declared size or a font swaps; good is under 0.1. <strong>INP</strong>, Interaction to Next Paint, measures the delay from a user's interaction to the next frame drawn, across the whole visit, and it <strong>replaced First Input Delay as a Core Web Vital in March 2024</strong> precisely because FID only measured the first interaction and only its delay, not its total cost; good is under 200 ms. Read INP back against Node 4 and it is the same statement: long tasks own the thread, so the frame is late.</p>
+
+<p>Three observers report changes rather than timings, and they exist because the alternative — polling in a loop or listening to <code>scroll</code> — is exactly the main-thread abuse this whole chain is about avoiding. <strong><code>IntersectionObserver</code></strong> [USE] tells you when an element enters or leaves the viewport, which is how lazy loading, infinite scroll and impression tracking are correctly built. <strong><code>ResizeObserver</code></strong> [USE] reports an element's size changing, not just the window's. <strong><code>MutationObserver</code></strong> [USE] reports DOM changes, delivering its callbacks as microtasks. Alongside them, <code>performance.mark</code> and <code>performance.measure</code> [USE] let you name your own spans and see them on the DevTools timeline next to the browser's own work.</p>
+
+<p><strong>What you can do at this point:</strong> replace opinions about speed with named metrics, and attribute a bad metric to a specific phase of a specific node in this chain.</p>
+
+<p><strong>What's still broken:</strong> all of this measures a page. Real applications are not a page — they change the URL, they go back, they get restored from history, they are hidden in a background tab for six hours and brought back. Nothing so far describes the life of a page over that span.</p>
+
+<h3>Node 12 — Navigation, history and the life of a page</h3>
+
+<p><strong>The limitation:</strong> an application outlives a document, and the runtime has an entire model for that which most people never learn.</p>
+
+<p>Traditionally, a link click is the end of your program: new document, new global object, everything discarded. The single-page application exists because <code>history.pushState</code> [EXPLAIN], shipped around 2010, let a page change the URL in the address bar <em>without</em> a navigation, and <code>popstate</code> let it be told when the user pressed Back. Every client-side router in every framework is those two things plus code to decide what to render. The <code>URL</code> and <code>URLSearchParams</code> objects [USE] are the correct way to build and read those URLs; string concatenation with query parameters is a bug waiting for an ampersand. The newer <strong>Navigation API</strong> [AWARE] replaces this with a single coherent model — a <code>navigate</code> event that can intercept and await a transition — and is Chromium-only as of 2026, so it is worth knowing about and not yet worth depending on.</p>
+
+<p>The lifecycle is the part with real consequences. A page is not simply "open" or "closed": it is <strong>active, passive, hidden, frozen, discarded or terminated</strong>, and the transitions are observable. <code>visibilitychange</code> [USE] fires when a tab is hidden or shown and is the correct place to pause work, stop polling and save state. Background tabs get frozen — timers throttled hard, then execution suspended entirely — which is why anything time-based must recompute from a timestamp rather than count ticks.</p>
+
+<p>Then the <strong>back/forward cache</strong>, or <strong>BFCache</strong> [EXPLAIN], which is the single most commonly misunderstood item in this node. When you navigate away, the browser may keep the entire page — DOM, JavaScript heap, in-flight state — frozen in memory, and on Back restore it instantly and exactly, mid-scroll, with your variables intact. Safari has done this since 2009; Chrome shipped it for all navigations in 2022. It changes the rules: your page can be <em>resumed</em>, not just started, so <code>load</code> will not fire again and one-time setup will not re-run. Certain things disable it, and a <code>beforeunload</code> or <code>unload</code> listener is the classic offender — which is why <code>unload</code> is deprecated, why <code>pagehide</code>/<code>pageshow</code> [USE] are the correct events (<code>pageshow</code> carries a <code>persisted</code> flag telling you it was a BFCache restore), and why a "save on exit" implemented with <code>unload</code> both breaks the BFCache and is unreliable on mobile. Use <code>visibilitychange</code> plus <code>sendBeacon</code> instead.</p>
+
+<p><strong>What you can do at this point:</strong> build an application that survives navigation, back, restoration and long periods hidden, and explain why its state is or is not preserved.</p>
+
+<p><strong>What's still broken:</strong> a page that lives for hours accumulates. Nothing so far says what happens to everything you allocated, and pages that run all day do, in practice, slow down and die.</p>
+
+<h3>Node 13 — Memory, and how pages die</h3>
+
+<p><strong>The limitation:</strong> long-lived pages leak, and the mechanisms are all things introduced in earlier nodes.</p>
+
+<p>JavaScript is garbage collected: memory is freed when nothing reachable refers to it any more. That means a "leak" in the browser is never a forgotten <code>free</code> — it is always <strong>an unintended reference that keeps something alive</strong> [EXPLAIN], and every common leak in a web page is one of a small number of shapes, each traceable back to a node in this chain.</p>
+
+<p>An event listener from Node 2 registered on <code>document</code> or <code>window</code>, referring to a component that has since been removed, keeps that component and everything it closes over alive forever. A timer from Node 5 never cleared keeps its callback and its closure alive, and keeps running. A <strong>detached DOM node</strong> [EXPLAIN] — removed from the tree, but still referenced by a JavaScript variable or by a listener — keeps not just itself but its entire subtree in memory, which is why leaks in single-page applications are usually measured in megabytes rather than kilobytes. A cache that only ever grows, a module-level array of every message ever seen, a closure capturing a huge buffer it does not use — same shape.</p>
+
+<p>The tools the language gives, which the runtime makes meaningful: <code>WeakMap</code> and <code>WeakSet</code> [USE] hold keys weakly, so associating metadata with a DOM node through a <code>WeakMap</code> does not keep that node alive; <code>WeakRef</code> and <code>FinalizationRegistry</code> [AWARE] go further and are almost always the wrong tool, because collection timing is not guaranteed. Modern DOM APIs increasingly take an <code>AbortSignal</code> — <code>addEventListener(…, {signal})</code> — so one controller can tear down every listener at once, which is by far the most reliable cleanup pattern available.</p>
+
+<p>Diagnosis is a real skill: a heap snapshot shows what exists and what is retaining it, and the retaining path is the answer. The failure mode at the end of the road is concrete — a renderer that exceeds its limit is killed, and the tab shows a crash page, taking the user's unsaved work with it.</p>
+
+<p><strong>What you can do at this point:</strong> name the reference that is keeping something alive, and design cleanup so it cannot be forgotten.</p>
+
+<p><strong>What's still broken:</strong> everything so far is code, data and pixels. The user has a camera, a microphone, files, a clipboard, a location — and a page that could reach any of those without asking would be intolerable.</p>
+
+<h3>Node 14 — Capabilities, permission and trust</h3>
+
+<p><strong>The limitation:</strong> powerful features cannot be granted the way ordinary APIs are.</p>
+
+<p>The runtime's answer is a layered gate that you have already met parts of. First, <strong>secure context</strong> [EXPLAIN]: HTTPS or <code>localhost</code>, or the API is simply not defined. Second, <strong>user activation</strong> [EXPLAIN] from Node 2: some things may only happen inside a real user gesture and within a few seconds of it — opening a window, entering fullscreen, playing audio, reading the clipboard. Third, an explicit <strong>permission prompt</strong> [EXPLAIN] the user answers, with the answer remembered per origin; the <strong>Permissions API</strong> lets you query the current state without triggering a prompt, which is what lets a good interface explain itself before asking. Fourth, <strong>Permissions-Policy</strong> [AWARE], a header controlling which features a document and its iframes may use at all.</p>
+
+<p>The capabilities themselves are a long list and the point is the pattern, not the inventory: <code>getUserMedia</code> for camera and microphone [USE], geolocation [USE], notifications [USE], clipboard read and write [USE], the File System Access API [AWARE] for reading and writing real files the user chose, drag-and-drop and <code>&lt;input type=file&gt;</code> with <code>File</code>/<code>Blob</code> [USE], Web Bluetooth, USB and Serial [AWARE], Web Share [AWARE], <code>WebAuthn</code>/passkeys [AWARE], the Screen Wake Lock, media capture and recording, <code>WebCrypto</code> [USE] for real cryptographic primitives, WebGL and WebGPU [AWARE] for graphics, and <code>WebAssembly</code> [AWARE] as a second executable format the same runtime can run at near-native speed.</p>
+
+<p>Two lessons generalise. Autoplay policy is worth understanding as an example of the whole design: browsers refuse to play audible media without engagement, so video autoplays only when muted, and this rule was added because the alternative — an internet that shouted — was worse for users than a broken API for developers. And the notion of <strong>user intent as an API parameter</strong> is unique to this host; nothing in the language, and very little in server-side programming, has an equivalent to "this function only works if a human just clicked".</p>
+
+<p><strong>What you can do at this point:</strong> reach the device, and design a permission flow that a user will actually accept.</p>
+
+<p><strong>What's still broken:</strong> every capability described so far exists in <em>some</em> browsers, at <em>some</em> versions. Writing to "the browser" as though it were one program is the last remaining fiction in this chain.</p>
+
+<h3>Node 15 — There is no such thing as "the browser"</h3>
+
+<p><strong>The limitation:</strong> everything above is an abstraction over four independent implementations and twenty years of versions.</p>
+
+<p>There are three rendering engines that matter. <strong>Blink</strong> with the <strong>V8</strong> JavaScript engine powers Chrome, Edge, Opera, Brave, Arc, Electron and most embedded browsers; Blink was forked from WebKit in 2013. <strong>Gecko</strong> with <strong>SpiderMonkey</strong> powers Firefox. <strong>WebKit</strong> with <strong>JavaScriptCore</strong> powers Safari — and, because of Apple's App Store rules, historically every browser on iOS regardless of its name, which is why "Chrome on iPhone" was Chrome's interface over Safari's engine; the EU's Digital Markets Act began forcing that open from 2024 but the practical situation on most devices is still WebKit.</p>
+
+<p>Specifications come from several bodies and it is worth being able to name which: <strong>TC39</strong> owns the JavaScript language, <strong>WHATWG</strong> owns HTML, the DOM, <code>fetch</code> and the event loop as <em>living standards</em> that change continuously rather than in versions, and the <strong>W3C</strong> owns CSS and many device APIs. There is no "HTML6". This is why the honest answer to "what version of HTML is this" is that the question stopped applying in 2019.</p>
+
+<p>Practically, the skills are three. <strong>Feature detection</strong> [EXPLAIN]: test for the thing (<code>if ("share" in navigator)</code>), never for the browser — user-agent sniffing has been wrong since the day it was invented, which is why every browser's UA string now claims to be several browsers at once for compatibility with bad sniffing. <strong>Progressive enhancement</strong> [USE]: build so the missing capability degrades rather than breaks. And <strong>knowing where to look</strong>: MDN for behaviour, <code>caniuse.com</code> for support, and <strong>Baseline</strong> [USE] — the shared status introduced in 2023 — for the one number that matters, whether a feature is safely usable across all three engines, "newly available" meaning all of them support it now and "widely available" meaning they have for 30 months.</p>
+
+<p>The remaining tools follow from that. <strong>Polyfills</strong> [USE] supply a missing API at runtime; <strong>transpilation</strong> [USE] rewrites new syntax into old, and the distinction matters because syntax cannot be polyfilled and APIs cannot be transpiled. <strong>Origin trials</strong> [AWARE] let a site opt into an experimental feature in production for a limited time, which is how large features get real-world testing. And vendor prefixes [AWARE] — <code>-webkit-</code>, <code>-moz-</code> — are a failed experiment worth knowing about because so much old code still carries them and because the failure mode, sites depending on one vendor's prefix forever, is why the practice was abandoned.</p>
+
+<p><strong>What you can do at this point:</strong> write code that survives contact with a browser you did not test in, and answer "does this work everywhere?" with evidence.</p>
+
+<p><strong>What's still broken:</strong> nothing, in the sense that the chain is complete — a browser now has a full account of how it takes a URL and produces a running, responsive, persistent, permissioned, measurable application. What remains broken is everything the chain <em>hands off</em>: how you structure an application on top of it (<code>react</code>), how you make it fast in practice (<code>web-performance-basics</code>), how the DOM API surface actually reads (<code>dom-apis</code>), and how the same language behaves in a host with files and sockets instead of a screen (<code>nodejs-runtime</code>).</p>
+
+<h3>Where the chain gets misread</h3>
+
+<p><strong>"JavaScript is single-threaded."</strong> (Node 3) The language says nothing about threads. <em>A page's main thread</em> runs one task at a time; the browser is dozens of processes and many threads, and workers give you genuinely parallel JavaScript. The accurate sentence is "your page has one thread that runs JS and rendering, and code on it runs to completion."</p>
+
+<p><strong>"<code>setTimeout(fn, 100)</code> runs <code>fn</code> in 100 ms."</strong> (Node 5) It queues <code>fn</code> after 100 ms. If the thread is busy it runs later — sometimes much later. The delay is a minimum, and in a background tab it may be a minute.</p>
+
+<p><strong>"<code>await</code> pauses execution."</strong> (Node 4) It pauses <em>that function</em>, returns control to the event loop immediately, and resumes as a microtask. Nothing is blocked. This is also why user activation is gone after an <code>await</code>.</p>
+
+<p><strong>"A CORS error means my fetch code is wrong."</strong> (Node 7) The request usually succeeded. The browser refused to let <em>you read the response</em> because the server did not grant permission. It is fixed on the server, and it does not reproduce in <code>curl</code> because <code>curl</code> is not enforcing anyone's policy.</p>
+
+<p><strong>"The same-origin policy stops other sites sending requests to my API."</strong> (Node 7) It stops them <em>reading</em> the response. Sending has always been allowed, with your cookies attached — that is precisely what CSRF is, and why <code>SameSite</code> cookies and CSRF tokens exist.</p>
+
+<p><strong>"<code>localStorage</code> is a good cache."</strong> (Node 8) It is synchronous and string-only, so every read and write blocks the thread that draws. It is right for a few small values, wrong for anything you would call a cache. That is IndexedDB or the Cache API.</p>
+
+<p><strong>"The DOM is the HTML."</strong> (Node 1) The HTML is text that was parsed once and discarded. The DOM is a live object tree. Viewing source shows you the text that arrived; the elements panel shows you the tree as it is now, and they routinely differ.</p>
+
+<p><strong>"Web Workers make things faster."</strong> (Node 9) They move work off the drawing thread, which makes the page <em>responsive</em>. The work itself is not faster, message passing copies data and costs real time, and a worker for a two-millisecond job is a net loss.</p>
+
+<p><strong>"My service worker updated when I deployed."</strong> (Node 9) A new service worker installs but waits until every tab controlled by the old one is gone. Reloading is not enough — the old worker is still controlling that tab through the reload. This is designed behaviour, not a cache bug.</p>
+
+<p><strong>"Animating <code>left</code> and animating <code>transform</code> are the same thing done two ways."</strong> (Node 10) <code>left</code> forces layout, paint and composite on every frame; <code>transform</code> can be handled by the compositor alone. Same visual result, an order of magnitude apart in cost.</p>
+
+<p><strong>"Reading <code>offsetHeight</code> is free — it's just a property."</strong> (Node 10) It forces the browser to complete layout immediately so it can answer. In a loop that also writes styles, it converts batched work into one full layout per iteration.</p>
+
+<p><strong>"Garbage collection means you can't leak memory."</strong> (Node 13) GC frees what is unreachable. Leaks are unintended reachability — a listener on <code>document</code>, an uncleared interval, a detached subtree still referenced. The collector is working exactly as designed.</p>
+
+<p><strong>"<code>unload</code> is where you save state before the user leaves."</strong> (Node 12) <code>unload</code> is unreliable on mobile, frequently never fires, and its presence disables the BFCache — so using it both fails and makes your site slower. Save on <code>visibilitychange</code> with <code>sendBeacon</code>.</p>
+
+<p><strong>"Feature detection means checking the browser version."</strong> (Node 15) It means checking for the feature. Every user-agent string is a pile of historical lies specifically because sniffing was so common and so wrong.</p>
+
+<h3>The chain in one paragraph</h3>
+
+<p>JavaScript the language can compute values and nothing else — no output, no clock, no network — so every capability comes from a host, and the browser is one; it turns a URL into bytes, bytes into a live DOM tree, and runs your script at a moment determined by parser-blocking and <code>defer</code>/<code>async</code>, after which your program would simply end, so the runtime instead calls you back through events that propagate down and up the tree and carry transient user activation; those callbacks run on a single main thread inside a per-site renderer process that also does the page's layout and painting, scheduled by an event loop that takes one task at a time, drains all microtasks — which is where promise callbacks live — after each, and draws at most once per display refresh, roughly every 16.7 ms; you schedule your own future work with timers whose delays are floors rather than promises and with <code>requestAnimationFrame</code> for anything visual; you reach a server with <code>fetch</code>, which rejects only on network failure, streams its body once, and cancels through <code>AbortController</code>; and because a page may send anywhere but may not <em>read</em> across the boundary defined by scheme-host-port, the same-origin policy governs everything, with CORS as the server's opt-in for reading, <code>postMessage</code> as the sanctioned cross-origin channel, and secure contexts gating the powerful APIs; state survives reloads through cookies that ride every request, synchronous <code>localStorage</code> for small values, and asynchronous IndexedDB and the Cache API for real data; heavy work moves to Web Workers that have no DOM and communicate by structured-cloned messages, while a service worker sits in front of the network as a programmable proxy with an install-activate-waiting lifecycle that explains stale deployments; what the main thread still owes is rendering — style, layout, paint, composite — where cheapness increases down the pipeline, <code>transform</code> and <code>opacity</code> skip to the end, and reading geometry after writing styles forces synchronous layout; you replace guesses with <code>PerformanceObserver</code>, resource timings, and the Core Web Vitals LCP, CLS and INP, the last having replaced FID in March 2024; applications then outlive documents through <code>pushState</code> routing, a lifecycle of visible, hidden and frozen states, and a back/forward cache that can resume an entire heap on Back, which <code>unload</code> silently disables; long-lived pages die from unintended reachability — listeners, intervals and detached nodes — cleaned up with <code>AbortSignal</code> and <code>WeakMap</code>; the device is reached only through a gate of secure context, user gesture and explicit permission; and none of it is one program, but three engines and a living standard, so the final skill is detecting features rather than browsers and knowing what is Baseline.</p>
+ — the landscape content, hand-authored HTML (prose + <h3> subsections)
+  This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
+  elaboration.json live alongside it and are fetched at runtime — do not inline
+  that data here.
+
+  Tabs: Landscape (this file) | Recall (topics/<slug>/recall.json, teaching deck,
+  ordered by landscape node) | Prep (topics/<slug>/prep.json, interview/scenario
+  bank) | Elaboration (topics/<slug>/elaboration.json, deep-dive write-ups).
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browser runtime — devxkapoor mastery track</title>
+<link rel="manifest" href="../../manifest.webmanifest">
+<meta name="theme-color" content="#080d16">
+<link rel="apple-touch-icon" href="../../assets/icons/icon-192.png">
+<link rel="stylesheet" href="../../assets/styles.css?v=5c109ddfa6">
+<script src="../../assets/globals.js?v=58a0eb29e6"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="brand" href="../../index.html">devxkapoor<strong>/mastery-track</strong></a>
+  <div class="right">
+    <nav>
+      <a href="../../index.html">topics</a>
+      <a href="../../recall.html">recall</a>
+      <a href="../../search.html">search</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle"></button>
+  </div>
+</header>
+
+<div class="wrap">
+  <h1>Browser runtime</h1>
+  <p class="lede">The host underneath your JavaScript: process, thread, main-thread scheduling, the event loop, fetch, the same-origin security model, storage, workers, rendering, and why there is no such thing as "the browser."</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="landscape">Landscape</button>
+    <button class="tab-btn" data-tab="recall">Recall</button>
+    <button class="tab-btn" data-tab="prep">Prep</button>
+    <button class="tab-btn" data-tab="elaboration">Elaboration</button>
+    <button class="tab-btn" data-tab="discuss">Discuss</button>
+  </div>
+
+  <div id="tab-landscape">
+    <div class="prose">
+      <p>Read this top to bottom. Each node exists because the one before it left something specifically broken, and each node ends by naming that break. If you can feel the break, you can derive the next node instead of memorising it. Nothing here assumes you know how an operating system, a CPU, or a network card works — where those things matter, they are built up from zero at the point they matter.</p>
+
+<p>Depth markers are attached inline to individual capabilities. <strong>[EXPLAIN]</strong> means you should be able to explain it out loud, from first principles, with no notes, under interview pressure. <strong>[USE]</strong> means you should be able to use it correctly and debug it when it breaks, without needing the internals cold. <strong>[AWARE]</strong> means know it exists, know what problem it solves, know roughly when someone would reach for it.</p>
+
+<h3>Node 0 — A language that cannot do anything</h3>
+
+<p>Take the JavaScript language exactly as the specification defines it — ECMAScript, the document TC39 publishes. Read the whole thing and write down every capability it gives you. You get numbers, strings, objects, arrays, functions, closures, prototypes, classes, <code>Math</code>, <code>JSON</code>, <code>Map</code>, <code>Promise</code>, and error handling. That is close to all of it.</p>
+
+<p>Now look for the things that are not there. There is no way to print anything. <code>console.log</code> is not in the language specification. There is no way to read a file, open a network connection, ask what time it is in a useful way, draw a pixel, or wait. <code>setTimeout</code> is not in the language specification either — this genuinely surprises people, and it is the single cleanest illustration of what this topic is about. Even <code>alert</code>, the first function most people ever call in a browser, is not JavaScript.</p>
+
+<p>So a pure ECMAScript engine, given a program, can compute a value and then has no way to tell anyone what it was. It is a calculator sealed in a box with no display. That is the actual situation, not a rhetorical device: the specification defines <em>evaluation</em>, and deliberately says nothing about input or output, because it was designed to be embedded in different environments that would each supply their own.</p>
+
+<p>Everything a JavaScript program actually does is therefore supplied by a <strong>host environment</strong> [EXPLAIN] — a program that embeds the engine and hands it extra objects and functions the language never defined. The browser is one host. Node.js is another. There are others: Deno, Bun, Cloudflare Workers, Adobe products, MongoDB's shell, some game engines. The same language, radically different capabilities. In the browser you can open a dialog and read a cookie but you cannot open a file by path; in Node you can read any file on the disk but there is no screen, no cookie, no <code>document</code>. Neither difference is a difference in the <em>language</em>.</p>
+
+<p>The reason this matters practically is that almost every confusing bug in front-end work lives in the host, not the language. The language is small and its rules are stable. The host is enormous, timing-dependent, security-dependent, and version-dependent, and it is where "it works on my machine" comes from.</p>
+
+<p><strong>What's still broken:</strong> you have a language with no capabilities and a claim that "the browser supplies them." That is a hand-wave until you can say exactly how a browser gets from <em>a person typing a URL</em> to <em>a JavaScript function running</em>. Nothing above explains where the program even comes from.</p>
+
+<h3>Node 1 — How a page becomes a running program</h3>
+
+<p><strong>The limitation:</strong> the language does nothing on its own, and nothing so far explains how it starts.</p>
+
+<p>Someone types a URL, or clicks a link. The browser turns that into a network request, gets bytes back, and those bytes are HTML text. It reads that text left to right and builds an in-memory tree of objects out of it — one object per tag, nested the way the tags nest. That tree is the <strong>DOM</strong> [EXPLAIN], the Document Object Model, and the crucial thing to understand at this node is that <em>the DOM is not the HTML</em>. The HTML is text that arrived over the network and is then thrown away. The DOM is a live tree of objects the browser built from it, which JavaScript can read and change, and which the browser continuously re-renders from. When you "change the HTML" from JavaScript you are never editing the file on the server; you are mutating objects in that tree.</p>
+
+<p>While building the tree, the parser hits a <code>&lt;script&gt;</code> tag. By default it <strong>stops</strong> — it stops parsing, downloads the script if it has a <code>src</code>, hands the source text to the JavaScript engine, waits for it to finish executing completely, and only then resumes parsing HTML. This is called <strong>parser-blocking</strong> [EXPLAIN] and it is not an oversight. It exists because a script from 1996 could call <code>document.write("&lt;p&gt;hello")</code> and inject text into the middle of the document at exactly the parse position. Once that is possible, the parser cannot safely run ahead. Twenty-eight years later the behaviour is still the default because the web does not break old pages.</p>
+
+<p>That default is why a slow script in <code>&lt;head&gt;</code> gives you a blank white page — the tree does not exist yet, so nothing can be shown. Two attributes fix it. <strong><code>defer</code></strong> [USE] says: download in parallel with parsing, run after the tree is fully built, and run deferred scripts in document order. <strong><code>async</code></strong> [USE] says: download in parallel, run the moment it arrives, order not guaranteed, possibly mid-parse. <code>defer</code> is the right default for your own application code, <code>async</code> for genuinely independent third-party scripts that nothing depends on. A third form, <code>&lt;script type="module"&gt;</code> [USE], is deferred automatically and additionally brings the language's own module system — <code>import</code>/<code>export</code> resolved by URL, fetched by the browser, each module evaluated once and cached by its resolved URL.</p>
+
+<p>When the engine runs your top-level code, it does so with a <strong>global object</strong> already populated by the host. In a browser that object is <code>window</code> [EXPLAIN], and hanging off it are the several hundred things the language never defined: <code>document</code>, <code>fetch</code>, <code>setTimeout</code>, <code>localStorage</code>, <code>location</code>, <code>navigator</code>, <code>console</code>, and the constructors for every DOM type. <code>globalThis</code> is the newer portable name for the same object — it is <code>window</code> in a page, <code>self</code> in a worker, <code>global</code> in Node — and it exists precisely because code that wants to work in more than one host needed a name that is not a lie in the others.</p>
+
+<p>Two events mark the milestones. <strong><code>DOMContentLoaded</code></strong> [USE] fires when the HTML has been fully parsed and all deferred scripts have run — the tree is complete and safe to touch. <strong><code>load</code></strong> [USE] fires later, when every image, stylesheet, font and frame has also finished. Most code wants the first; code that measures sizes of images wants the second.</p>
+
+<p><strong>What you can do at this point:</strong> get your code to run at a predictable moment against a complete document tree, and explain why a script tag's position and attributes change what the user sees.</p>
+
+<p><strong>What's still broken:</strong> your program runs once, top to bottom, and then it is over. The user has not clicked anything yet. There is no mechanism by which anything you wrote runs <em>again</em>, later, in response to something.</p>
+
+<h3>Node 2 — The runtime calls you back</h3>
+
+<p><strong>The limitation:</strong> code that runs once and exits cannot respond to a user who has not acted yet.</p>
+
+<p>The shape of the answer is inversion. You do not ask the browser "has the button been clicked?" over and over — you hand the browser a function and say <em>call this when it happens</em>. <code>button.addEventListener("click", handler)</code> [EXPLAIN] stores your function in a list associated with that element, and returns immediately. Your top-level script then finishes and exits. Much later — seconds, minutes — the user clicks, and the browser calls your function. This is the <strong>callback</strong> model, and it is the single organising idea of the whole runtime: nearly every capability the browser gives you is either "do this now" or "call me back when this happens."</p>
+
+<p>The browser has to answer a question your code never asks: <em>which</em> handler, when there are handlers on the button, on the div containing it, on the form, on <code>document</code>, and on <code>window</code>. Its answer is a defined two-way trip called <strong>propagation</strong> [EXPLAIN]. The browser first walks <em>down</em> from <code>window</code> to the clicked element — the <strong>capture</strong> phase — calling any handler that asked for capture. Then it calls handlers on the element itself, the <strong>target</strong> phase. Then it walks back <em>up</em> from the element to <code>window</code> — the <strong>bubble</strong> phase — calling ordinary handlers along the way. Handlers registered normally run during bubbling; passing <code>{capture: true}</code> opts into the downward trip. This exists because Netscape and Internet Explorer implemented opposite directions in the 1990s and the W3C standardised both rather than pick a loser.</p>
+
+<p>The <strong>event object</strong> [USE] passed to your handler carries the details: <code>target</code> is where it actually happened, <code>currentTarget</code> is the element whose listener is running right now, and the difference between those two is what makes <strong>delegation</strong> [EXPLAIN] possible — one listener on a container handling clicks for a thousand children, including children that do not exist yet. <code>preventDefault()</code> cancels the browser's built-in reaction (following a link, submitting a form, scrolling on space). <code>stopPropagation()</code> halts the walk. These are different things and confusing them is a classic bug: cancelling the default does not stop the event travelling, and stopping travel does not cancel the default.</p>
+
+<p>Not all events are equal. Some are dispatched because a human did something physical; those carry <strong>user activation</strong> [EXPLAIN], a flag that unlocks capabilities the browser refuses to give to code running on its own — opening a window, playing audio with sound, reading the clipboard, going fullscreen. The flag is <em>transient</em>: it lasts a few seconds and is consumed. This is why "the popup works when I click but not after an <code>await</code>" is a real and extremely common failure, and it is a runtime rule, not a language rule.</p>
+
+<p><strong>What you can do at this point:</strong> write a page that responds to a user indefinitely, and explain precisely which of many nested handlers runs, in what order, and why.</p>
+
+<p><strong>What's still broken:</strong> if the browser can call your handler at any time, and the user can click twice quickly, and a network response can arrive in the middle — what happens when two things want to run at the same moment? Nothing so far says whether your handler can be interrupted halfway through.</p>
+
+<h3>Node 3 — What the browser actually is, as a set of running programs</h3>
+
+<p><strong>The limitation:</strong> "the browser calls your function" says nothing about what else is running while it does.</p>
+
+<p>A little vocabulary has to be built here, because everything after this node depends on it and none of it is assumed.</p>
+
+<p>A <strong>process</strong> [EXPLAIN] is one running program with its own private pool of memory that no other process can read or write. Two processes cannot corrupt each other; if one crashes, the others survive. A <strong>thread</strong> [EXPLAIN] is one sequence of instructions being executed in order inside a process. A process can have several threads, and threads in the same process <em>do</em> share memory — which makes them fast to coordinate and dangerous to get wrong. That is the whole of the vocabulary needed.</p>
+
+<p>A modern browser is not one program. Chrome opened with three tabs is typically a dozen or more processes. There is one <strong>browser process</strong> [AWARE] that owns the window, the address bar, the tabs and the actual network and disk access. There are <strong>renderer processes</strong> [EXPLAIN], normally one per site, each of which owns the parsing, the DOM, the JavaScript engine and the layout for pages from that site. There are separate processes for the GPU, for extensions, for audio, for network service. This design shipped with Chrome in 2008 and every other browser followed, for two reasons: a crash in one page's renderer kills a tab, not the browser, and — far more importantly — a bug in the renderer that lets an attacker run arbitrary code still leaves them inside a heavily restricted process that cannot open your files. <strong>Site Isolation</strong> [EXPLAIN], which Chrome enabled for everyone in 2018, hardened this by guaranteeing pages from different sites never share a renderer, specifically because the Spectre attacks of January 2018 proved that any two things sharing memory can potentially read each other regardless of language-level protections.</p>
+
+<p>Inside one renderer process, the part that matters to you: <strong>there is exactly one thread that runs your JavaScript and also does the page's layout and painting.</strong> It is called the <strong>main thread</strong> [EXPLAIN]. Not "one thread per browser" — one per page-ish, and it is shared between your code and the browser's own rendering work. The other threads in the renderer exist for parsing HTML ahead, decoding images, compositing, and running workers, and none of them touch the DOM.</p>
+
+<p>This single fact has consequences you will meet for the rest of the topic. Your handler can never be interrupted halfway through by another handler — JavaScript in a page runs to completion, always. That is a genuine simplification: two handlers can never be inside the same object at once, so a whole category of concurrency bug that plagues other environments does not exist here. But the price is exact: while your code is running, <em>nothing else on that page can happen</em>. Not another handler, not scrolling, not an animation, not repainting a button you just changed. A <code>for</code> loop that takes two seconds freezes the tab for two seconds, and the user's clicks during it are not lost — they are queued, and they all arrive at once when you finish.</p>
+
+<p><strong>What you can do at this point:</strong> explain why a page freezes, why it freezes for exactly as long as your code runs, and why a crashed tab does not take the browser with it.</p>
+
+<p><strong>What's still broken:</strong> if there is one thread and code runs to completion, and clicks queue up while it is busy — then something is holding a queue and deciding what runs next. Nothing so far describes that thing.</p>
+
+<h3>Node 4 — The event loop</h3>
+
+<p><strong>The limitation:</strong> one thread plus queued work implies a scheduler, and you have not seen it.</p>
+
+<p>The scheduler is the <strong>event loop</strong> [EXPLAIN], and it is genuinely as simple as its name. Written as pseudocode, the whole thing is:</p>
+
+<pre>forever:
+    take the oldest task from the task queue
+    run it to completion
+    drain the microtask queue completely
+    if it is time to draw a frame:
+        run animation callbacks, then style, layout, paint</pre>
+
+<p>A <strong>task</strong> (the specification calls it a task; older writing says macrotask) is one unit of work the browser was asked to do: run this script, dispatch this click handler, fire this timer, deliver this network response. Tasks are pulled one at a time and each runs to completion. That is where "run to completion" from the previous node comes from — it is not a property of the language, it is a property of this loop.</p>
+
+<p>The second queue is where most confusion lives. A <strong>microtask</strong> [EXPLAIN] is a smaller unit, and the queue holding them is drained <em>completely</em> after each task, before the loop looks at the task queue again. Promise callbacks — everything scheduled by <code>.then</code>, and every resumption after an <code>await</code> — go on the microtask queue. So do <code>queueMicrotask</code> and <code>MutationObserver</code> callbacks. The practical rules that fall out: promise callbacks always run before a <code>setTimeout(…, 0)</code> scheduled at the same moment, because the microtask queue drains before the next task is taken; and a microtask that schedules another microtask extends the drain, so an infinite chain of promises will hang the page permanently in a way an infinite chain of <code>setTimeout</code> will not.</p>
+
+<p>Rendering is not a task. It is a phase of the loop that the browser performs <em>between</em> tasks, at most as often as the display refreshes — typically 60 times a second on ordinary hardware, which gives roughly <strong>16.7 milliseconds</strong> per frame (one second divided by 60), and about 8.3 ms on a 120 Hz screen. This is the number that governs perceived smoothness, and it is why a handler that takes 50 ms is a real problem: the browser could not draw during it, so three frames were missed and the user saw a stutter. It is also why changes you make to the DOM in a loop do not appear one by one — nothing is drawn until you give the thread back.</p>
+
+<p><code>requestAnimationFrame(fn)</code> [EXPLAIN] is the hook into that phase: it asks the browser to call <code>fn</code> immediately before the next paint. It is the correct place for animation work because it runs exactly once per frame, is skipped entirely in a background tab, and is timed so your changes are painted in the same frame you made them.</p>
+
+<p>There is one more distinction worth naming now because it reappears constantly. <code>await</code> does <strong>not</strong> pause the thread. It returns control to the loop immediately and schedules the rest of your function as a microtask to run when the promise settles. Nothing is blocked; other tasks run in between. An <code>await</code> inside a click handler therefore ends the handler's synchronous run, which is exactly why transient user activation from Node 2 has expired by the time you come back.</p>
+
+<p><strong>What you can do at this point:</strong> predict the exact output order of a program mixing synchronous code, promises, <code>setTimeout</code> and <code>requestAnimationFrame</code> — the single most-asked front-end interview question — and explain why, from the loop, not from memorised rules.</p>
+
+<p><strong>What's still broken:</strong> the loop runs tasks that already exist. Nothing so far lets you say "do this later", or "do this repeatedly", or "do this when the thread is otherwise idle."</p>
+
+<h3>Node 5 — Timers and scheduling</h3>
+
+<p><strong>The limitation:</strong> you can react to events but cannot schedule your own future work.</p>
+
+<p><code>setTimeout(fn, ms)</code> [EXPLAIN] does not mean "run <code>fn</code> in <code>ms</code> milliseconds." It means "after <code>ms</code> milliseconds have elapsed, put <code>fn</code> on the task queue." Those are different claims, and the gap between them is where every timer bug lives. If the thread is busy when the timer expires, the task waits. If the task queue already has three tasks, yours runs fourth. <code>ms</code> is a floor, never a promise. <code>setTimeout(fn, 0)</code> therefore means "as soon as the current task finishes and any already-queued tasks are done," and it is a legitimate tool for breaking a long job into pieces that let the browser draw in between.</p>
+
+<p>The specified quirks matter because they cause real bugs. A timer nested more than five deep is <strong>clamped to a minimum of 4 ms</strong> [USE] — an old rule, in the HTML standard, that exists to stop runaway recursive timers pinning a CPU. Background tabs are throttled far harder, commonly to once per second and in Chrome down to once per minute after five minutes hidden, which is why a countdown implemented by incrementing a counter every second is wrong and one implemented by comparing to <code>Date.now()</code> is right. <code>setInterval</code> [USE] queues the next run on a fixed schedule regardless of how long the callback took, so slow callbacks pile up; a self-scheduling <code>setTimeout</code> chain avoids that and is usually the better tool. Both return an integer id for <code>clearTimeout</code>/<code>clearInterval</code>, and forgetting to clear one when a component disappears is one of the two or three most common memory leaks on the web.</p>
+
+<p>Around this core sit the other schedulers, each solving a distinct need. <code>queueMicrotask(fn)</code> [USE] puts work at the front, before rendering — for finishing bookkeeping in the same "moment". <code>requestAnimationFrame</code> [EXPLAIN] from the previous node aligns work to the paint. <code>requestIdleCallback(fn)</code> [AWARE] runs low-priority work only when the browser has spare time in a frame, with a deadline object telling you how much you have; it is Chromium- and Firefox-supported and only arrived in Safari 18.4 in March 2025, so it needs a fallback. <code>scheduler.postTask</code> [AWARE] is the newer explicit-priority API, <code>user-blocking</code> / <code>user-visible</code> / <code>background</code>, and <code>scheduler.yield()</code> [AWARE] lets a long job hand the thread back and <em>resume with priority</em> rather than going to the back of the queue — the modern answer to "break up long tasks".</p>
+
+<p>Timing measurement belongs here too. <code>Date.now()</code> [USE] is wall-clock time in milliseconds since 1 January 1970, and it can jump backwards when the clock is corrected. <code>performance.now()</code> [USE] is a monotonic count of milliseconds since the page started, with fractional precision, and it never jumps. Measure durations with the second, never the first. Its resolution was deliberately coarsened to around 100 microseconds in 2018 — again Spectre — because a sufficiently precise clock is itself a security vulnerability.</p>
+
+<p><strong>What you can do at this point:</strong> schedule work correctly against the loop, keep the page responsive during long jobs, and explain why timers are late.</p>
+
+<p><strong>What's still broken:</strong> everything so far happens inside the page with data the page already has. The moment you need something from a server, none of these tools help — they schedule work, they do not fetch anything.</p>
+
+<h3>Node 6 — Talking to a server without leaving the page</h3>
+
+<p><strong>The limitation:</strong> timers move work around in time; they cannot bring in data.</p>
+
+<p>Before this existed, the only way to get new data was for the browser to leave the page entirely — a full navigation, a new document, all state destroyed. The capability that changed the web arrived in Internet Explorer 5 in 1999 as an ActiveX control, was copied by Mozilla in 2002 as <code>XMLHttpRequest</code>, and became famous in 2005 when Google Maps and Gmail made it obvious what it was for and Jesse James Garrett coined "Ajax" for it. It let a page ask for data and update itself in place.</p>
+
+<p><code>XMLHttpRequest</code> [AWARE] still exists and you will meet it in old code and in some analytics scripts; know that it is event-based, that its <code>send</code> can be called synchronously (blocking the entire main thread, now deprecated and warned about in every browser), and that it can report upload progress, which for years was the only reason to prefer it.</p>
+
+<p>The modern API is <strong><code>fetch</code></strong> [EXPLAIN], introduced in Chrome 40 in January 2015. It returns a promise, so it composes with <code>async</code>/<code>await</code> and with everything in Node 4. Three things about it are exam-grade and bite people constantly. First, <strong>it rejects only on network failure</strong> — a 404 or a 500 is a perfectly successful fetch, and you must check <code>response.ok</code> yourself. Second, <strong>the response body is a stream you read once</strong>; <code>await response.json()</code> consumes it, and a second read throws, which is why you clone before reading twice. Third, <strong>cookies are not sent cross-origin unless you ask</strong> — the default <code>credentials: "same-origin"</code> was one of the deliberate breaks from <code>XMLHttpRequest</code>'s behaviour.</p>
+
+<p>Because the body is a stream, <code>fetch</code> is also the entry point to genuinely incremental data. <code>response.body</code> is a <code>ReadableStream</code> [AWARE] you can read chunk by chunk, which is how token-by-token LLM output is consumed in a browser — this connects directly to <code>server-sent-events</code> and <code>llm-api-usage</code> later in the catalog. Cancellation is not built into promises, so the runtime supplies <code>AbortController</code> [USE]: create one, pass its <code>signal</code> into the fetch, call <code>abort()</code> and the request is cancelled and the promise rejects with an <code>AbortError</code>. Every serious front-end data-fetching library is built on that one object.</p>
+
+<p>Alongside it sit the other transports, each existing for a different reason: <code>WebSocket</code> [AWARE] for a persistent two-way connection, <code>EventSource</code> [AWARE] for one-way server-pushed text with automatic reconnection, and <code>navigator.sendBeacon</code> [USE] for a small POST that must survive the page closing — a normal <code>fetch</code> in an unload handler is routinely cancelled, and this is the correct fix.</p>
+
+<p><strong>What you can do at this point:</strong> load and send data without navigating, cancel it, stream it, and read error handling correctly.</p>
+
+<p><strong>What's still broken:</strong> you just gave a page the ability to send HTTP requests to any address. Your browser holds a logged-in session with your bank. Nothing above explains why a random page cannot simply fetch your bank's account page and read it — and it clearly cannot, or the web would be unusable.</p>
+
+<h3>Node 7 — The origin, and the whole security model built on it</h3>
+
+<p><strong>The limitation:</strong> unrestricted network access from arbitrary pages would expose every logged-in session you have.</p>
+
+<p>The entire browser security model rests on one definition. An <strong>origin</strong> [EXPLAIN] is the triple of <em>scheme, host, and port</em>: <code>https://app.example.com:443</code>. Two URLs are same-origin only if all three match exactly. <code>http://</code> and <code>https://</code> differ. <code>example.com</code> and <code>www.example.com</code> differ. A different port differs. The <strong>same-origin policy</strong> [EXPLAIN] then says: script from one origin may not read data belonging to another origin. It dates to Netscape 2 in 1995 and it is the reason the web is usable at all while every tab you have open is potentially hostile.</p>
+
+<p>The critical subtlety, and the source of nearly all confusion: the policy restricts <strong>reading</strong>, not <strong>sending</strong>. Your page has always been allowed to <em>send</em> requests anywhere — a form can POST to any site, an <code>&lt;img&gt;</code> can load any URL, and the browser attaches that site's cookies automatically. What it may not do is <em>look at the response</em>. That single asymmetry explains both CORS and CSRF, which are usually taught as unrelated topics and are really two faces of the same rule.</p>
+
+<p><strong>CORS</strong> [EXPLAIN] — Cross-Origin Resource Sharing — is the server's way of saying "actually, it is fine for that origin to read me." It is entirely a <em>server</em> decision expressed in <em>response headers</em>, and it is enforced <em>by the browser</em>, which is why a CORS error is not something you can fix in your front-end code and why the same request from a terminal works perfectly. <code>Access-Control-Allow-Origin</code> names who may read. For requests that are not "simple" — anything other than GET/HEAD/POST, or with a content type other than three specific ones, or carrying custom headers — the browser first sends an <code>OPTIONS</code> <strong>preflight</strong> [EXPLAIN] request asking permission, and only sends the real request if the answer allows it. <code>Access-Control-Allow-Credentials</code> is needed for cookies, and cannot be combined with a wildcard origin. This is the single most reported "bug" in front-end work and it is not a bug.</p>
+
+<p>The origin is also the unit for everything else. Storage is partitioned by origin (Node 8). Two windows may only touch each other's DOM if same-origin, and otherwise must use <code>postMessage</code> [USE], which passes copied data across the boundary — the sole sanctioned channel between origins, and the mechanism every iframe-based widget and payment form runs on. <strong>Content Security Policy</strong> [USE] is a response header letting a site declare which origins may supply scripts, styles and connections, turning cross-site scripting from "attacker runs anything" into "attacker is blocked by policy". <code>&lt;iframe sandbox&gt;</code> [AWARE] strips capabilities from embedded content. <strong>Secure contexts</strong> [EXPLAIN] — HTTPS pages plus <code>localhost</code> — gate the powerful APIs; service workers, geolocation, camera, clipboard and crypto simply do not exist on a plain <code>http://</code> page, which is why local development is special-cased. And <strong>cross-origin isolation</strong> [AWARE], opted into with the <code>COOP</code> and <code>COEP</code> headers, is required before <code>SharedArrayBuffer</code> is even defined, because after Spectre, shared memory plus a timer is an attack.</p>
+
+<p><strong>What you can do at this point:</strong> read a CORS failure correctly, know whose problem it is, and explain the boundary the browser is actually enforcing.</p>
+
+<p><strong>What's still broken:</strong> you can fetch data, and you now know the rules. But reload the page and everything is gone. There is no memory across navigations, and no way to stay logged in.</p>
+
+<h3>Node 8 — Remembering things</h3>
+
+<p><strong>The limitation:</strong> every navigation destroys all state; a page begins from nothing every time.</p>
+
+<p>The first answer, and still the most important, is the <strong>cookie</strong> [EXPLAIN] — introduced by Lou Montulli at Netscape in 1994 for a shopping cart. A cookie is a small string the server sets with a <code>Set-Cookie</code> response header, which the browser stores and then <strong>attaches automatically to every subsequent request</strong> to that host. That automatic attachment is the whole point and the whole danger: it is what keeps you logged in, and it is what makes CSRF possible, because a request forged by another site carries them too. Hence the modern attributes: <code>HttpOnly</code> hides the cookie from JavaScript entirely, blunting theft by injected script; <code>Secure</code> sends it only over HTTPS; <code>SameSite</code> — now defaulting to <code>Lax</code> in Chrome since 2020 — controls whether it rides along on cross-site requests at all. Cookies are limited to about 4 KB and are sent on every single request, so they are for identity, never for data.</p>
+
+<p>For data, the runtime provides three stores, each solving a different shape of problem. <strong><code>localStorage</code></strong> [EXPLAIN] is the simplest: a string-to-string map, per origin, persisting until deleted, typically capped near 5 MB. Its defining property is that it is <strong>synchronous</strong> — reading it blocks the main thread — and therefore it is precisely wrong for anything large, and the reason a "just cache it in localStorage" habit shows up as jank. <strong><code>sessionStorage</code></strong> [USE] has the identical API but is scoped to a single tab and dies when it closes, which is what you want for a wizard's in-progress state. <strong><code>IndexedDB</code></strong> [USE] is the real database: asynchronous, transactional, stores structured objects and blobs rather than strings, effectively unlimited within the origin's quota. Its native API is famously unpleasant, which is why almost everyone uses a thin wrapper over it, and it is what every offline-capable app actually stores its data in.</p>
+
+<p>Sitting beside them is the <strong>Cache API</strong> [USE], a store specifically for <code>Request</code>/<code>Response</code> pairs, designed to be used from a service worker (Node 10). Quota is per origin, granted from a browser-managed pool, and storage can be <strong>evicted</strong> [AWARE] under disk pressure unless the origin has been granted persistence — so "persistent" means "durable, not guaranteed". Increasingly, storage is also <strong>partitioned by top-level site</strong>, so an embedded widget gets a different store on each host site; this is the ongoing dismantling of third-party tracking, and it changes behaviour that older code depended on.</p>
+
+<p><strong>What you can do at this point:</strong> keep a user logged in, keep data across reloads, and choose the right store for the size and lifetime of what you are keeping.</p>
+
+<p><strong>What's still broken:</strong> you can store data and fetch data, but every byte of your own code still travels through one thread. A long computation still freezes everything, and with no network there is no page at all.</p>
+
+<h3>Node 9 — Getting off the main thread</h3>
+
+<p><strong>The limitation:</strong> one thread means any real computation blocks rendering and input.</p>
+
+<p>A <strong>Web Worker</strong> [EXPLAIN] is a second JavaScript environment, running on its own thread, inside the same renderer process. You create one with <code>new Worker("worker.js")</code>, and from that moment there are two programs running genuinely simultaneously. A worker has no <code>document</code>, no <code>window</code>, and cannot touch the DOM at all — that restriction is not arbitrary. The DOM is a large mutable object graph with no locking anywhere in its design; permitting two threads into it would require rewriting the entire platform for thread safety. Instead, workers communicate by <strong>message passing</strong> [EXPLAIN]: <code>postMessage</code> sends a value, which is <em>copied</em> using the structured clone algorithm — deeply, handling <code>Map</code>, <code>Set</code>, <code>Date</code>, <code>ArrayBuffer</code> and cycles, but not functions, DOM nodes, or class identity. Because copying a large buffer is expensive, buffers can instead be <strong>transferred</strong> [USE], handing ownership across and leaving the sender's copy detached and unusable. And for genuinely shared state there is <code>SharedArrayBuffer</code> with <code>Atomics</code> [AWARE], which is the one place in the browser where two threads touch the same memory, and which requires the cross-origin isolation headers from Node 7 before it is even available.</p>
+
+<p>The right mental test for a worker: does this work need the DOM? Parsing a 40 MB CSV, running a diff, compressing an image, doing cryptography, running a client-side model — none of them need the DOM, all of them belong off the main thread.</p>
+
+<p>Then there is a special worker with a different purpose entirely. A <strong>service worker</strong> [EXPLAIN] is not for computation; it is a programmable proxy that sits between your page and the network. Once installed, it can intercept every outgoing request from its scope through the <code>fetch</code> event and answer from cache, from the network, or from anything it invents. That is what makes offline web apps possible, and it is the foundation of installable web apps. Its lifecycle is the part that costs people days: it must <code>install</code>, then <code>activate</code>, and a new version does not take over from an old one while any existing tab is still controlled by it — it sits in <code>waiting</code>. This is deliberate, to avoid two versions of your code disagreeing about the cache, and it is why "I deployed but the old version is still there" is a service-worker question and not a caching-header question. It runs only in secure contexts, it is terminated whenever idle and restarted on demand — so it may hold no state in variables — and it is also the delivery point for <strong>Push notifications</strong> [AWARE], which is how a site can be woken with no tab open at all.</p>
+
+<p><strong>What you can do at this point:</strong> move heavy work off the thread that draws, and control your app's network layer well enough to work offline.</p>
+
+<p><strong>What's still broken:</strong> input is responsive and work is off-thread, and the page is <em>still</em> visibly janky. Node 4 said the browser draws between tasks, but never said what "drawing" involves — and you cannot fix what you cannot describe.</p>
+
+<h3>Node 10 — The rendering pipeline</h3>
+
+<p><strong>The limitation:</strong> you know when the browser draws, not what drawing costs.</p>
+
+<p>Between tasks, the browser turns the DOM into pixels through a fixed sequence, and knowing the sequence is what turns performance work from superstition into diagnosis.</p>
+
+<p>First, <strong>style</strong> [EXPLAIN]: for every element, work out the final value of every CSS property, resolving which rules match and which wins. Then <strong>layout</strong> [EXPLAIN], also called reflow: compute the geometry — position and size of every box — which is inherently a whole-subtree calculation, because moving one element moves its siblings. Then <strong>paint</strong> [EXPLAIN]: produce the list of drawing operations for each piece — text, borders, shadows, images. Then <strong>composite</strong> [EXPLAIN]: the page has been split into layers, and layers are assembled into the final image, a step handled largely on another thread and on the GPU.</p>
+
+<p>The pipeline is the source of the two rules that actually matter. First: <strong>the further down the pipeline you can change something, the cheaper it is.</strong> Changing <code>width</code> or <code>top</code> forces layout, paint and composite. Changing <code>background-color</code> skips layout. Changing <code>transform</code> or <code>opacity</code> can skip both layout and paint and be handled by the compositor alone — which is why every smooth animation on the web is written with <code>transform</code> and <code>opacity</code>, and why animating <code>left</code> stutters. <code>will-change</code> [USE] hints that an element should be promoted to its own layer in advance, and overusing it costs memory, so it is a scalpel.</p>
+
+<p>Second, and this is the one that produces mysterious slowness: <strong>layout thrashing</strong> [EXPLAIN]. The browser is lazy — it batches your DOM writes and does layout once, later. But if you <em>read</em> a geometric property, such as <code>offsetHeight</code>, <code>getBoundingClientRect()</code>, or <code>scrollTop</code>, it must give you a correct answer <em>now</em>, so it performs layout immediately. A loop that writes a style and then reads a size on every iteration therefore forces a full synchronous layout on every iteration — this is forced synchronous layout, and it turns a millisecond into a second. The fix is not a trick: read everything first, then write everything.</p>
+
+<p>Around this sit the containment tools — <code>content-visibility</code> and <code>contain</code> [AWARE], which let you tell the browser that a subtree's layout cannot affect anything outside it, so it can skip work entirely for off-screen content — and the older knowledge that certain properties and effects create layers whether you asked or not.</p>
+
+<p><strong>What you can do at this point:</strong> look at a janky page and form a <em>specific</em> hypothesis — style, layout, paint or composite — rather than guessing.</p>
+
+<p><strong>What's still broken:</strong> every hypothesis in the last paragraph is still a hypothesis. You have no numbers, and no way to know whether the user's experience is actually bad or you are optimising something nobody feels.</p>
+
+<h3>Node 11 — Measuring, and being told what happened</h3>
+
+<p><strong>The limitation:</strong> performance reasoning without measurement is guessing.</p>
+
+<p>The runtime keeps a running record of its own behaviour and exposes it. <strong>Navigation Timing</strong> and <strong>Resource Timing</strong> [USE] record, for the document and for every resource it loaded, a timestamp for each phase — DNS lookup, connection, TLS, first byte, download complete. That is how you distinguish "the server was slow" from "the file was huge" from "we did not start requesting it until late", which are three different bugs with three different fixes and look identical to a user.</p>
+
+<p>The general mechanism is <strong><code>PerformanceObserver</code></strong> [USE]: you subscribe to entry types and get called as they occur, including for events that already happened before your script ran. Through it come the <strong>Core Web Vitals</strong> [EXPLAIN], the three metrics Google publishes and, since 2021, uses in search ranking — which is why they come up in interviews far more than their technical importance alone would justify. <strong>LCP</strong>, Largest Contentful Paint, is when the biggest thing in the viewport appeared; good is under 2.5 seconds. <strong>CLS</strong>, Cumulative Layout Shift, measures content jumping around after it appeared, which is what happens when an image has no declared size or a font swaps; good is under 0.1. <strong>INP</strong>, Interaction to Next Paint, measures the delay from a user's interaction to the next frame drawn, across the whole visit, and it <strong>replaced First Input Delay as a Core Web Vital in March 2024</strong> precisely because FID only measured the first interaction and only its delay, not its total cost; good is under 200 ms. Read INP back against Node 4 and it is the same statement: long tasks own the thread, so the frame is late.</p>
+
+<p>Three observers report changes rather than timings, and they exist because the alternative — polling in a loop or listening to <code>scroll</code> — is exactly the main-thread abuse this whole chain is about avoiding. <strong><code>IntersectionObserver</code></strong> [USE] tells you when an element enters or leaves the viewport, which is how lazy loading, infinite scroll and impression tracking are correctly built. <strong><code>ResizeObserver</code></strong> [USE] reports an element's size changing, not just the window's. <strong><code>MutationObserver</code></strong> [USE] reports DOM changes, delivering its callbacks as microtasks. Alongside them, <code>performance.mark</code> and <code>performance.measure</code> [USE] let you name your own spans and see them on the DevTools timeline next to the browser's own work.</p>
+
+<p><strong>What you can do at this point:</strong> replace opinions about speed with named metrics, and attribute a bad metric to a specific phase of a specific node in this chain.</p>
+
+<p><strong>What's still broken:</strong> all of this measures a page. Real applications are not a page — they change the URL, they go back, they get restored from history, they are hidden in a background tab for six hours and brought back. Nothing so far describes the life of a page over that span.</p>
+
+<h3>Node 12 — Navigation, history and the life of a page</h3>
+
+<p><strong>The limitation:</strong> an application outlives a document, and the runtime has an entire model for that which most people never learn.</p>
+
+<p>Traditionally, a link click is the end of your program: new document, new global object, everything discarded. The single-page application exists because <code>history.pushState</code> [EXPLAIN], shipped around 2010, let a page change the URL in the address bar <em>without</em> a navigation, and <code>popstate</code> let it be told when the user pressed Back. Every client-side router in every framework is those two things plus code to decide what to render. The <code>URL</code> and <code>URLSearchParams</code> objects [USE] are the correct way to build and read those URLs; string concatenation with query parameters is a bug waiting for an ampersand. The newer <strong>Navigation API</strong> [AWARE] replaces this with a single coherent model — a <code>navigate</code> event that can intercept and await a transition — and is Chromium-only as of 2026, so it is worth knowing about and not yet worth depending on.</p>
+
+<p>The lifecycle is the part with real consequences. A page is not simply "open" or "closed": it is <strong>active, passive, hidden, frozen, discarded or terminated</strong>, and the transitions are observable. <code>visibilitychange</code> [USE] fires when a tab is hidden or shown and is the correct place to pause work, stop polling and save state. Background tabs get frozen — timers throttled hard, then execution suspended entirely — which is why anything time-based must recompute from a timestamp rather than count ticks.</p>
+
+<p>Then the <strong>back/forward cache</strong>, or <strong>BFCache</strong> [EXPLAIN], which is the single most commonly misunderstood item in this node. When you navigate away, the browser may keep the entire page — DOM, JavaScript heap, in-flight state — frozen in memory, and on Back restore it instantly and exactly, mid-scroll, with your variables intact. Safari has done this since 2009; Chrome shipped it for all navigations in 2022. It changes the rules: your page can be <em>resumed</em>, not just started, so <code>load</code> will not fire again and one-time setup will not re-run. Certain things disable it, and a <code>beforeunload</code> or <code>unload</code> listener is the classic offender — which is why <code>unload</code> is deprecated, why <code>pagehide</code>/<code>pageshow</code> [USE] are the correct events (<code>pageshow</code> carries a <code>persisted</code> flag telling you it was a BFCache restore), and why a "save on exit" implemented with <code>unload</code> both breaks the BFCache and is unreliable on mobile. Use <code>visibilitychange</code> plus <code>sendBeacon</code> instead.</p>
+
+<p><strong>What you can do at this point:</strong> build an application that survives navigation, back, restoration and long periods hidden, and explain why its state is or is not preserved.</p>
+
+<p><strong>What's still broken:</strong> a page that lives for hours accumulates. Nothing so far says what happens to everything you allocated, and pages that run all day do, in practice, slow down and die.</p>
+
+<h3>Node 13 — Memory, and how pages die</h3>
+
+<p><strong>The limitation:</strong> long-lived pages leak, and the mechanisms are all things introduced in earlier nodes.</p>
+
+<p>JavaScript is garbage collected: memory is freed when nothing reachable refers to it any more. That means a "leak" in the browser is never a forgotten <code>free</code> — it is always <strong>an unintended reference that keeps something alive</strong> [EXPLAIN], and every common leak in a web page is one of a small number of shapes, each traceable back to a node in this chain.</p>
+
+<p>An event listener from Node 2 registered on <code>document</code> or <code>window</code>, referring to a component that has since been removed, keeps that component and everything it closes over alive forever. A timer from Node 5 never cleared keeps its callback and its closure alive, and keeps running. A <strong>detached DOM node</strong> [EXPLAIN] — removed from the tree, but still referenced by a JavaScript variable or by a listener — keeps not just itself but its entire subtree in memory, which is why leaks in single-page applications are usually measured in megabytes rather than kilobytes. A cache that only ever grows, a module-level array of every message ever seen, a closure capturing a huge buffer it does not use — same shape.</p>
+
+<p>The tools the language gives, which the runtime makes meaningful: <code>WeakMap</code> and <code>WeakSet</code> [USE] hold keys weakly, so associating metadata with a DOM node through a <code>WeakMap</code> does not keep that node alive; <code>WeakRef</code> and <code>FinalizationRegistry</code> [AWARE] go further and are almost always the wrong tool, because collection timing is not guaranteed. Modern DOM APIs increasingly take an <code>AbortSignal</code> — <code>addEventListener(…, {signal})</code> — so one controller can tear down every listener at once, which is by far the most reliable cleanup pattern available.</p>
+
+<p>Diagnosis is a real skill: a heap snapshot shows what exists and what is retaining it, and the retaining path is the answer. The failure mode at the end of the road is concrete — a renderer that exceeds its limit is killed, and the tab shows a crash page, taking the user's unsaved work with it.</p>
+
+<p><strong>What you can do at this point:</strong> name the reference that is keeping something alive, and design cleanup so it cannot be forgotten.</p>
+
+<p><strong>What's still broken:</strong> everything so far is code, data and pixels. The user has a camera, a microphone, files, a clipboard, a location — and a page that could reach any of those without asking would be intolerable.</p>
+
+<h3>Node 14 — Capabilities, permission and trust</h3>
+
+<p><strong>The limitation:</strong> powerful features cannot be granted the way ordinary APIs are.</p>
+
+<p>The runtime's answer is a layered gate that you have already met parts of. First, <strong>secure context</strong> [EXPLAIN]: HTTPS or <code>localhost</code>, or the API is simply not defined. Second, <strong>user activation</strong> [EXPLAIN] from Node 2: some things may only happen inside a real user gesture and within a few seconds of it — opening a window, entering fullscreen, playing audio, reading the clipboard. Third, an explicit <strong>permission prompt</strong> [EXPLAIN] the user answers, with the answer remembered per origin; the <strong>Permissions API</strong> lets you query the current state without triggering a prompt, which is what lets a good interface explain itself before asking. Fourth, <strong>Permissions-Policy</strong> [AWARE], a header controlling which features a document and its iframes may use at all.</p>
+
+<p>The capabilities themselves are a long list and the point is the pattern, not the inventory: <code>getUserMedia</code> for camera and microphone [USE], geolocation [USE], notifications [USE], clipboard read and write [USE], the File System Access API [AWARE] for reading and writing real files the user chose, drag-and-drop and <code>&lt;input type=file&gt;</code> with <code>File</code>/<code>Blob</code> [USE], Web Bluetooth, USB and Serial [AWARE], Web Share [AWARE], <code>WebAuthn</code>/passkeys [AWARE], the Screen Wake Lock, media capture and recording, <code>WebCrypto</code> [USE] for real cryptographic primitives, WebGL and WebGPU [AWARE] for graphics, and <code>WebAssembly</code> [AWARE] as a second executable format the same runtime can run at near-native speed.</p>
+
+<p>Two lessons generalise. Autoplay policy is worth understanding as an example of the whole design: browsers refuse to play audible media without engagement, so video autoplays only when muted, and this rule was added because the alternative — an internet that shouted — was worse for users than a broken API for developers. And the notion of <strong>user intent as an API parameter</strong> is unique to this host; nothing in the language, and very little in server-side programming, has an equivalent to "this function only works if a human just clicked".</p>
+
+<p><strong>What you can do at this point:</strong> reach the device, and design a permission flow that a user will actually accept.</p>
+
+<p><strong>What's still broken:</strong> every capability described so far exists in <em>some</em> browsers, at <em>some</em> versions. Writing to "the browser" as though it were one program is the last remaining fiction in this chain.</p>
+
+<h3>Node 15 — There is no such thing as "the browser"</h3>
+
+<p><strong>The limitation:</strong> everything above is an abstraction over four independent implementations and twenty years of versions.</p>
+
+<p>There are three rendering engines that matter. <strong>Blink</strong> with the <strong>V8</strong> JavaScript engine powers Chrome, Edge, Opera, Brave, Arc, Electron and most embedded browsers; Blink was forked from WebKit in 2013. <strong>Gecko</strong> with <strong>SpiderMonkey</strong> powers Firefox. <strong>WebKit</strong> with <strong>JavaScriptCore</strong> powers Safari — and, because of Apple's App Store rules, historically every browser on iOS regardless of its name, which is why "Chrome on iPhone" was Chrome's interface over Safari's engine; the EU's Digital Markets Act began forcing that open from 2024 but the practical situation on most devices is still WebKit.</p>
+
+<p>Specifications come from several bodies and it is worth being able to name which: <strong>TC39</strong> owns the JavaScript language, <strong>WHATWG</strong> owns HTML, the DOM, <code>fetch</code> and the event loop as <em>living standards</em> that change continuously rather than in versions, and the <strong>W3C</strong> owns CSS and many device APIs. There is no "HTML6". This is why the honest answer to "what version of HTML is this" is that the question stopped applying in 2019.</p>
+
+<p>Practically, the skills are three. <strong>Feature detection</strong> [EXPLAIN]: test for the thing (<code>if ("share" in navigator)</code>), never for the browser — user-agent sniffing has been wrong since the day it was invented, which is why every browser's UA string now claims to be several browsers at once for compatibility with bad sniffing. <strong>Progressive enhancement</strong> [USE]: build so the missing capability degrades rather than breaks. And <strong>knowing where to look</strong>: MDN for behaviour, <code>caniuse.com</code> for support, and <strong>Baseline</strong> [USE] — the shared status introduced in 2023 — for the one number that matters, whether a feature is safely usable across all three engines, "newly available" meaning all of them support it now and "widely available" meaning they have for 30 months.</p>
+
+<p>The remaining tools follow from that. <strong>Polyfills</strong> [USE] supply a missing API at runtime; <strong>transpilation</strong> [USE] rewrites new syntax into old, and the distinction matters because syntax cannot be polyfilled and APIs cannot be transpiled. <strong>Origin trials</strong> [AWARE] let a site opt into an experimental feature in production for a limited time, which is how large features get real-world testing. And vendor prefixes [AWARE] — <code>-webkit-</code>, <code>-moz-</code> — are a failed experiment worth knowing about because so much old code still carries them and because the failure mode, sites depending on one vendor's prefix forever, is why the practice was abandoned.</p>
+
+<p><strong>What you can do at this point:</strong> write code that survives contact with a browser you did not test in, and answer "does this work everywhere?" with evidence.</p>
+
+<p><strong>What's still broken:</strong> nothing, in the sense that the chain is complete — a browser now has a full account of how it takes a URL and produces a running, responsive, persistent, permissioned, measurable application. What remains broken is everything the chain <em>hands off</em>: how you structure an application on top of it (<code>react</code>), how you make it fast in practice (<code>web-performance-basics</code>), how the DOM API surface actually reads (<code>dom-apis</code>), and how the same language behaves in a host with files and sockets instead of a screen (<code>nodejs-runtime</code>).</p>
+
+<h3>Where the chain gets misread</h3>
+
+<p><strong>"JavaScript is single-threaded."</strong> (Node 3) The language says nothing about threads. <em>A page's main thread</em> runs one task at a time; the browser is dozens of processes and many threads, and workers give you genuinely parallel JavaScript. The accurate sentence is "your page has one thread that runs JS and rendering, and code on it runs to completion."</p>
+
+<p><strong>"<code>setTimeout(fn, 100)</code> runs <code>fn</code> in 100 ms."</strong> (Node 5) It queues <code>fn</code> after 100 ms. If the thread is busy it runs later — sometimes much later. The delay is a minimum, and in a background tab it may be a minute.</p>
+
+<p><strong>"<code>await</code> pauses execution."</strong> (Node 4) It pauses <em>that function</em>, returns control to the event loop immediately, and resumes as a microtask. Nothing is blocked. This is also why user activation is gone after an <code>await</code>.</p>
+
+<p><strong>"A CORS error means my fetch code is wrong."</strong> (Node 7) The request usually succeeded. The browser refused to let <em>you read the response</em> because the server did not grant permission. It is fixed on the server, and it does not reproduce in <code>curl</code> because <code>curl</code> is not enforcing anyone's policy.</p>
+
+<p><strong>"The same-origin policy stops other sites sending requests to my API."</strong> (Node 7) It stops them <em>reading</em> the response. Sending has always been allowed, with your cookies attached — that is precisely what CSRF is, and why <code>SameSite</code> cookies and CSRF tokens exist.</p>
+
+<p><strong>"<code>localStorage</code> is a good cache."</strong> (Node 8) It is synchronous and string-only, so every read and write blocks the thread that draws. It is right for a few small values, wrong for anything you would call a cache. That is IndexedDB or the Cache API.</p>
+
+<p><strong>"The DOM is the HTML."</strong> (Node 1) The HTML is text that was parsed once and discarded. The DOM is a live object tree. Viewing source shows you the text that arrived; the elements panel shows you the tree as it is now, and they routinely differ.</p>
+
+<p><strong>"Web Workers make things faster."</strong> (Node 9) They move work off the drawing thread, which makes the page <em>responsive</em>. The work itself is not faster, message passing copies data and costs real time, and a worker for a two-millisecond job is a net loss.</p>
+
+<p><strong>"My service worker updated when I deployed."</strong> (Node 9) A new service worker installs but waits until every tab controlled by the old one is gone. Reloading is not enough — the old worker is still controlling that tab through the reload. This is designed behaviour, not a cache bug.</p>
+
+<p><strong>"Animating <code>left</code> and animating <code>transform</code> are the same thing done two ways."</strong> (Node 10) <code>left</code> forces layout, paint and composite on every frame; <code>transform</code> can be handled by the compositor alone. Same visual result, an order of magnitude apart in cost.</p>
+
+<p><strong>"Reading <code>offsetHeight</code> is free — it's just a property."</strong> (Node 10) It forces the browser to complete layout immediately so it can answer. In a loop that also writes styles, it converts batched work into one full layout per iteration.</p>
+
+<p><strong>"Garbage collection means you can't leak memory."</strong> (Node 13) GC frees what is unreachable. Leaks are unintended reachability — a listener on <code>document</code>, an uncleared interval, a detached subtree still referenced. The collector is working exactly as designed.</p>
+
+<p><strong>"<code>unload</code> is where you save state before the user leaves."</strong> (Node 12) <code>unload</code> is unreliable on mobile, frequently never fires, and its presence disables the BFCache — so using it both fails and makes your site slower. Save on <code>visibilitychange</code> with <code>sendBeacon</code>.</p>
+
+<p><strong>"Feature detection means checking the browser version."</strong> (Node 15) It means checking for the feature. Every user-agent string is a pile of historical lies specifically because sniffing was so common and so wrong.</p>
+
+<h3>The chain in one paragraph</h3>
+
+<p>JavaScript the language can compute values and nothing else — no output, no clock, no network — so every capability comes from a host, and the browser is one; it turns a URL into bytes, bytes into a live DOM tree, and runs your script at a moment determined by parser-blocking and <code>defer</code>/<code>async</code>, after which your program would simply end, so the runtime instead calls you back through events that propagate down and up the tree and carry transient user activation; those callbacks run on a single main thread inside a per-site renderer process that also does the page's layout and painting, scheduled by an event loop that takes one task at a time, drains all microtasks — which is where promise callbacks live — after each, and draws at most once per display refresh, roughly every 16.7 ms; you schedule your own future work with timers whose delays are floors rather than promises and with <code>requestAnimationFrame</code> for anything visual; you reach a server with <code>fetch</code>, which rejects only on network failure, streams its body once, and cancels through <code>AbortController</code>; and because a page may send anywhere but may not <em>read</em> across the boundary defined by scheme-host-port, the same-origin policy governs everything, with CORS as the server's opt-in for reading, <code>postMessage</code> as the sanctioned cross-origin channel, and secure contexts gating the powerful APIs; state survives reloads through cookies that ride every request, synchronous <code>localStorage</code> for small values, and asynchronous IndexedDB and the Cache API for real data; heavy work moves to Web Workers that have no DOM and communicate by structured-cloned messages, while a service worker sits in front of the network as a programmable proxy with an install-activate-waiting lifecycle that explains stale deployments; what the main thread still owes is rendering — style, layout, paint, composite — where cheapness increases down the pipeline, <code>transform</code> and <code>opacity</code> skip to the end, and reading geometry after writing styles forces synchronous layout; you replace guesses with <code>PerformanceObserver</code>, resource timings, and the Core Web Vitals LCP, CLS and INP, the last having replaced FID in March 2024; applications then outlive documents through <code>pushState</code> routing, a lifecycle of visible, hidden and frozen states, and a back/forward cache that can resume an entire heap on Back, which <code>unload</code> silently disables; long-lived pages die from unintended reachability — listeners, intervals and detached nodes — cleaned up with <code>AbortSignal</code> and <code>WeakMap</code>; the device is reached only through a gate of secure context, user gesture and explicit permission; and none of it is one program, but three engines and a living standard, so the final skill is detecting features rather than browsers and knowing what is Baseline.</p>
+
+    </div>
+  </div>
+
+  <div id="tab-recall" style="display:none">
+    <div class="card-list" id="recallCards"></div>
+  </div>
+
+  <div id="tab-prep" style="display:none">
+    <div class="card-list" id="prepCards"></div>
+  </div>
+
+  <div id="tab-elaboration" style="display:none">
+    <div class="card-list" id="elabCards"></div>
+  </div>
+
+  <div id="tab-discuss" style="display:none">
+    <div class="card-list" id="discussCards"></div>
+  </div>
+</div>
+
+<footer class="site-footer">devxkapoor-learning · browser-runtime · built with Claude</footer>
+
+<script>
+DK.wireThemeToggle(document.getElementById("themeToggle"));
+
+const TABS = ["landscape", "recall", "prep", "elaboration", "discuss"];
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    TABS.forEach(t => {
+      document.getElementById("tab-" + t).style.display = (t === btn.dataset.tab) ? "block" : "none";
+    });
+  });
+});
+
+// Landscape: split the flat prose into collapsible nodes, closed by default,
+// so 19 nodes read as a navigable list instead of one continuous wall.
+(function () {
+  const prose = document.querySelector("#tab-landscape .prose");
+  if (!prose) return;
+  const n = DK.makeSectionsCollapsible(prose, { startOpen: false });
+  DK.addCopyButtons(prose);
+  DK.decorateBlocks(prose);
+  if (n) DK.addExpandControls(document.getElementById("tab-landscape"), prose, n + " nodes");
+})();
+
+// If the URL has a #anchor (e.g. from search.html), jump straight to the elaboration tab.
+if (window.location.hash) {
+  document.querySelector('.tab-btn[data-tab="elaboration"]').click();
+}
+
+function renderCards(container, cards, bank) {
+  DK.renderDeck(container, cards, { bank, topic: "browser-runtime", showTopic: false });
+}
+
+(async function () {
+  const recall = await DK.fetchJSON("topics/browser-runtime/recall.json");
+  const recallEl = document.getElementById("recallCards");
+  if (recall && recall.cards && recall.cards.length) {
+    renderCards(recallEl, recall.cards, "recall");
+  } else {
+    recallEl.innerHTML = "<p class='empty-note'>Recall questions land here once this topic's build gets underway.</p>";
+  }
+
+  const prep = await DK.fetchJSON("topics/browser-runtime/prep.json");
+  const prepEl = document.getElementById("prepCards");
+  if (prep && prep.cards && prep.cards.length) {
+    renderCards(prepEl, prep.cards, "prep");
+  } else {
+    prepEl.innerHTML = "<p class='empty-note'>Interview and scenario prep lands here once this topic's build gets underway.</p>";
+  }
+
+  const discuss = await DK.fetchJSON("topics/browser-runtime/discuss.json");
+  const discussEl = document.getElementById("discussCards");
+  if (discuss && discuss.pieces && discuss.pieces.length) {
+    discuss.pieces.forEach(pc => {
+      const block = document.createElement("details");
+      block.className = "el-block";
+      block.id = pc.anchor || "";
+      block.innerHTML =
+        `<summary class="node-summary">` +
+          `<span class="node-chevron">${DK.ICON.chevron}</span>` +
+          `<span class="node-title">${pc.title}</span>` +
+          (pc.resolves ? `<span class="node-count">${pc.resolves.length} doubts</span>` : "") +
+        `</summary>` +
+        `<div class="node-body"><div class="prose">${pc.content}</div></div>`;
+      discussEl.appendChild(block);
+    });
+    discussEl.querySelectorAll(".el-block .prose").forEach(pr => {
+      DK.makeSectionsCollapsible(pr, { startOpen: false, level: "sub" });
+      DK.addCopyButtons(pr);
+    });
+    DK.decorateBlocks(discussEl);
+    DK.addExpandControls(document.getElementById("tab-discuss"), discussEl,
+      discuss.pieces.length + " resolutions");
+  } else {
+    discussEl.innerHTML = "<p class='empty-note'>Resolutions to your follow-up questions land here.</p>";
+  }
+
+  const elab = await DK.fetchJSON("topics/browser-runtime/elaboration.json");
+  const elabEl = document.getElementById("elabCards");
+  if (elab && elab.sections && elab.sections.length) {
+    elab.sections.forEach(s => {
+      const block = document.createElement("details");
+      block.className = "el-block";
+      block.id = s.anchor || "";
+      block.innerHTML =
+        `<summary class="node-summary">` +
+          `<span class="node-chevron">${DK.ICON.chevron}</span>` +
+          `<span class="node-title">${s.title}</span>` +
+        `</summary>` +
+        `<div class="node-body"><div class="prose">${s.content}</div></div>`;
+      elabEl.appendChild(block);
+    });
+    elabEl.querySelectorAll(".el-block .prose").forEach(pr => {
+      // Sub-sections start closed too: opening a node shouldn't dump its
+      // entire subtree on you at once.
+      DK.makeSectionsCollapsible(pr, { startOpen: false, level: "sub" });
+      DK.addCopyButtons(pr);
+    });
+    DK.decorateBlocks(elabEl);
+    DK.addExpandControls(document.getElementById("tab-elaboration"), elabEl,
+      elab.sections.length + " sections");
+    DK.revealHash();
+  } else {
+    elabEl.innerHTML = "<p class='empty-note'>The deep-dive write-up for this topic hasn't been started yet — it'll fill in section by section as we go.</p>";
+  }
+})();
+</script>
+
+</body>
+</html>

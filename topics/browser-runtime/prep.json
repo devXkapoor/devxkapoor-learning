@@ -1,0 +1,508 @@
+{
+  "cards": [
+    {
+      "n": 1,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "Explain the event loop: given synchronous code, a setTimeout, and a Promise.then, what order do they run in and why?",
+      "a": "Synchronous code runs first (main thread, top to bottom). Then the microtask queue drains completely — so the Promise callback runs next. Then the event loop takes the next task from the task queue, running the setTimeout callback last."
+    },
+    {
+      "n": 2,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "Why can't a page freeze forever from one bad script, but it can freeze noticeably from a busy one?",
+      "a": "A script runs to completion on the main thread — while it runs, nothing else happens, but once it finishes control returns to the loop. \"Freezes forever\" would require an infinite synchronous loop or an infinite microtask chain; a merely slow script just delays the next frame and next task, producing visible jank rather than a permanent hang."
+    },
+    {
+      "n": 3,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What is the DOM, and how is it different from the HTML source?",
+      "a": "The DOM is a live, in-memory object tree the browser builds by parsing HTML. The HTML is text that arrived once and is discarded; the DOM is what JavaScript actually reads and mutates, and what the browser renders from continuously."
+    },
+    {
+      "n": 4,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What's the difference between <code>localStorage</code> and cookies?",
+      "a": "Cookies are small (~4KB), sent automatically with every HTTP request to their host, and used for identity/session. <code>localStorage</code> is larger (~5MB), never sent over the network, purely client-side, and synchronous — reading/writing it blocks the main thread."
+    },
+    {
+      "n": 5,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What is CORS, and whose problem is a CORS error?",
+      "a": "Cross-Origin Resource Sharing — the server's mechanism, via response headers, to permit a page from another origin to read its response. A CORS error is a server configuration issue; it's enforced entirely by the browser and doesn't reproduce in curl."
+    },
+    {
+      "n": 6,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What does <code>defer</code> do on a script tag, and why would you use it over a plain script tag?",
+      "a": "Downloads in parallel with HTML parsing but delays execution until the DOM is fully parsed, running deferred scripts in order. It avoids parser-blocking (which causes a blank page while a synchronous script loads) while still guaranteeing the DOM exists before your code runs."
+    },
+    {
+      "n": 7,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "Why does JavaScript need a host environment at all?",
+      "a": "The ECMAScript language spec defines pure computation only — no I/O, no timers, no DOM. Everything a program actually does (print, fetch, wait, render) is supplied by whatever embeds the engine — a browser, Node, etc."
+    },
+    {
+      "n": 8,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "What's the difference between <code>preventDefault()</code> and <code>stopPropagation()</code>?",
+      "a": "<code>preventDefault()</code> cancels the browser's built-in reaction to the event (like following a link); <code>stopPropagation()</code> stops the event from continuing to travel to other listeners. Neither implies the other."
+    },
+    {
+      "n": 9,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "Why is <code>fetch</code> considered successful even when the server returns a 404?",
+      "a": "<code>fetch</code>'s promise only rejects on network-level failure (DNS, connectivity). An HTTP error status is still a completed, valid HTTP exchange, so you must check <code>response.ok</code> or <code>response.status</code> explicitly."
+    },
+    {
+      "n": 10,
+      "c": "near_universal",
+      "t": "Near-universal",
+      "q": "Why does an animation using <code>left</code> stutter while the same animation using <code>transform</code> is smooth?",
+      "a": "<code>left</code> forces layout, paint, and composite on every frame of the animation. <code>transform</code> (and <code>opacity</code>) can be handled by the compositor alone, skipping layout and paint — same visual result, far less work per frame."
+    },
+    {
+      "n": 11,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What is the difference between a microtask and a task (macrotask)?",
+      "a": "Tasks (setTimeout, event dispatch, network callbacks) are pulled one at a time from a queue and each runs to completion. Microtasks (promise callbacks, queueMicrotask) are drained completely — every single one, including new ones scheduled during the drain — before the loop takes the next task."
+    },
+    {
+      "n": 12,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "Does <code>await</code> block the thread while waiting for a promise?",
+      "a": "No. It returns control to the event loop immediately; the rest of the async function is scheduled as a microtask to run once the promise settles. Other tasks run in the meantime."
+    },
+    {
+      "n": 13,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What is event delegation and why is it useful?",
+      "a": "Attaching a single listener to a stable parent element instead of many listeners to individual children, using <code>event.target</code> inside the handler to determine which child was actually interacted with. It's more efficient for many elements and automatically covers children added to the DOM later."
+    },
+    {
+      "n": 14,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What is a Web Worker and what can't it do?",
+      "a": "A second JavaScript environment running on its own thread. It cannot touch the DOM at all — no <code>document</code>, no <code>window</code> — because the DOM has no locking and isn't designed for concurrent access. It communicates with the main thread only via message passing."
+    },
+    {
+      "n": 15,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What is a service worker, and how is it different in purpose from a Web Worker?",
+      "a": "A programmable network proxy that intercepts requests from pages in its scope via the <code>fetch</code> event, enabling offline support and caching strategies. A Web Worker is for offloading computation; a service worker is for controlling the network layer, and it can even run with no page open."
+    },
+    {
+      "n": 16,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What's the same-origin policy, precisely — what does it restrict?",
+      "a": "It restricts a script from one origin (scheme+host+port) reading data belonging to another origin. It does not restrict sending requests cross-origin — only reading the response."
+    },
+    {
+      "n": 17,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What is user activation, and why does it matter for popups and clipboard access?",
+      "a": "A transient flag the browser sets on events that came from a real user gesture (like a click), which unlocks otherwise-restricted capabilities (opening windows, clipboard access, unmuted audio). It expires after a few seconds and is consumed, which is why a popup opened after an awaited fetch inside a click handler is often blocked."
+    },
+    {
+      "n": 18,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What's the layout thrashing / forced synchronous layout problem?",
+      "a": "Reading a geometric property like <code>offsetHeight</code> right after writing a style forces the browser to compute layout immediately instead of batching it. Doing this in a loop turns one layout pass into N — the fix is to separate all reads from all writes."
+    },
+    {
+      "n": 19,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What is IndexedDB, and when would you reach for it over localStorage?",
+      "a": "An asynchronous, transactional, structured-object database built into the browser, effectively unlimited within origin quota. Use it for anything sizable or where blocking the main thread (as localStorage does) is unacceptable."
+    },
+    {
+      "n": 20,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What is AbortController used for with fetch?",
+      "a": "Cancelling an in-flight request. You pass its <code>signal</code> into fetch options; calling <code>abort()</code> cancels the request and the promise rejects with an <code>AbortError</code>. It's also used generally for tearing down event listeners in bulk."
+    },
+    {
+      "n": 21,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "Why does INP matter, and what replaced it in Core Web Vitals?",
+      "a": "INP (Interaction to Next Paint) measures the delay from any user interaction to the next rendered frame, across the entire page visit. It replaced First Input Delay (FID) in March 2024 because FID only measured the first interaction's start delay, not its full processing cost nor any later interaction."
+    },
+    {
+      "n": 22,
+      "c": "frequent",
+      "t": "Frequent",
+      "q": "What's the difference between capturing and bubbling in event propagation?",
+      "a": "Capturing runs top-down from <code>window</code> to the target element; bubbling runs bottom-up from the target back to <code>window</code>. Listeners are bubble-phase by default; passing <code>{capture: true}</code> opts into the capture phase."
+    },
+    {
+      "n": 23,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "What's the difference between <code>Date.now()</code> and <code>performance.now()</code>, and when would you use each?",
+      "a": "<code>Date.now()</code> is wall-clock time and can jump if the system clock is corrected; <code>performance.now()</code> is a monotonic, sub-millisecond timer since page load that never jumps. Use <code>performance.now()</code> for measuring durations, <code>Date.now()</code> for actual calendar/clock display."
+    },
+    {
+      "n": 24,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "What is the back/forward cache (BFCache), and what commonly disables it?",
+      "a": "A mechanism that freezes an entire page — DOM, JS heap, scroll position — in memory on navigation-away, restoring it instantly on Back. An <code>unload</code> or <code>beforeunload</code> listener commonly disables it, since the browser can't safely freeze a page expecting synchronous teardown code."
+    },
+    {
+      "n": 25,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "Why does an <code>unload</code> event handler often not fire on mobile?",
+      "a": "Mobile OSes frequently kill backgrounded tabs/apps outright rather than giving them a chance to run teardown code — <code>visibilitychange</code> plus <code>sendBeacon</code> is the reliable alternative."
+    },
+    {
+      "n": 26,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "What's the difference between a polyfill and transpilation?",
+      "a": "A polyfill adds a missing runtime API/object; transpilation rewrites newer syntax into older syntax the target environment understands. Syntax can't be polyfilled and APIs can't be transpiled — they solve disjoint problems."
+    },
+    {
+      "n": 27,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "What is structured cloning, and where does it show up?",
+      "a": "The algorithm used to copy data across a <code>postMessage</code> boundary (to workers, other windows, or via history state) — it handles deep structures like Map, Set, Date, and cycles, but not functions or DOM nodes."
+    },
+    {
+      "n": 28,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "Why is reading the clipboard gated behind more than just a permission prompt?",
+      "a": "It also requires a secure context and, in many browsers, active user activation from a recent gesture — stacking multiple gates because clipboard content can be sensitive and easy to exfiltrate silently otherwise."
+    },
+    {
+      "n": 29,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "What's the significance of Baseline, introduced in 2023?",
+      "a": "A cross-engine status indicating whether a web feature is safe to use everywhere. 'Newly available' means all three engines now support it; 'widely available' means 30+ months of support — replacing ad hoc caniuse-checking with a single authoritative signal."
+    },
+    {
+      "n": 30,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "What does <code>content-visibility: auto</code> actually save the browser from doing?",
+      "a": "It lets the browser skip layout and paint work entirely for off-screen subtrees, rather than computing full layout for content the user can't currently see."
+    },
+    {
+      "n": 31,
+      "c": "occasional",
+      "t": "Occasional",
+      "q": "Why did performance.now()'s resolution get deliberately reduced in 2018?",
+      "a": "Because the Spectre disclosures showed that a sufficiently precise timer combined with other primitives could be used to infer memory contents via timing side channels — reducing precision to ~100 microseconds closed that specific exploit path."
+    },
+    {
+      "n": 32,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "A single-page app gets slower the longer a user keeps it open in one tab, eventually crashing. Walk through your diagnostic process.",
+      "a": "Take a heap snapshot in DevTools at two points in time and diff them to find what's growing. Look for the classic leak shapes: event listeners registered on <code>document</code>/<code>window</code> that reference removed components, uncleared <code>setInterval</code>/<code>setTimeout</code> callbacks, and detached DOM nodes still referenced by a variable or closure. The retaining path in the snapshot tells you exactly what's holding each object alive — trace it back to the specific listener or timer and clean it up, ideally with a single <code>AbortController</code> per component lifecycle."
+    },
+    {
+      "n": 33,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "Users report that after you deployed a critical fix, some of them are still seeing the old broken behavior even after refreshing. What's your hypothesis and how do you confirm it?",
+      "a": "Hypothesize a stale service worker: a new service worker installs but stays in 'waiting' while any tab controlled by the old one remains open — and a normal reload of that same tab doesn't release control, since the reload is still served by the old worker. Confirm via DevTools Application panel, showing an activated worker and one waiting. Fix: either have all tabs fully close and reopen, or ship a <code>skipWaiting()</code>/<code>clients.claim()</code> strategy (understanding the tradeoff of forcing an update mid-session)."
+    },
+    {
+      "n": 34,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "Your fetch call to a third-party API works from the terminal (curl) but fails in the browser with a network-panel error and a console message about a blocked cross-origin request. What's happening and who fixes it?",
+      "a": "It's a CORS failure — the browser sent the request (curl proves the server responds fine) but refused to hand the response to your JavaScript because the server's response didn't include a permissive <code>Access-Control-Allow-Origin</code> header for your origin. It's fixed on the server; there is no client-side workaround beyond routing through a proxy you control."
+    },
+    {
+      "n": 35,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "A countdown timer that should tick every second visibly loses time whenever the tab is in the background for a while. Diagnose and fix.",
+      "a": "Background tabs throttle timers heavily (commonly to once per second, sometimes down to once per minute after five minutes hidden), so a counter incremented per tick under-counts elapsed time. Fix by computing remaining time from an absolute end timestamp compared against <code>Date.now()</code> on each tick, rather than trusting tick counts."
+    },
+    {
+      "n": 36,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "A page's list-filtering code writes a style to 500 elements in a loop and reads each element's height right after writing to it, and it's taking multiple seconds. What's wrong and what's the fix?",
+      "a": "This is forced synchronous layout / layout thrashing: reading a geometric property immediately after writing a style forces the browser to run layout right then, on every iteration, turning one layout pass into 500. Fix by doing all writes in one pass, then all reads in a second pass, letting the browser batch layout once."
+    },
+    {
+      "n": 37,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "A user clicks a 'Copy to clipboard' button, but the copy silently fails only when it happens after an awaited API call inside the same click handler. Why, and how do you fix it?",
+      "a": "The awaited call yields to the event loop, and by the time it resumes, the transient user activation from the original click has expired — clipboard writes require active user activation. Fix: perform the clipboard write synchronously in the handler before the await (write a placeholder immediately, update later, or restructure so the await happens first and the write happens directly on click)."
+    },
+    {
+      "n": 38,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "A page you built uses <code>localStorage</code> to cache a growing dataset, and now the UI feels laggy on every interaction that touches that cache. What's the root cause and what's the fix?",
+      "a": "<code>localStorage</code> is synchronous — every read/write blocks the main thread, and a growing string blob makes each operation cost more. Migrate to IndexedDB (asynchronous, structured, effectively unlimited within quota) for anything beyond a few small values."
+    },
+    {
+      "n": 39,
+      "c": "recovery",
+      "t": "Recovery scenario",
+      "q": "An <code>unload</code>-based analytics beacon stopped reliably reporting session-end data after a browser update, and separately your team noticed the site got slower to navigate back into. Connect these two symptoms.",
+      "a": "Both trace to the same cause: an <code>unload</code> listener. It's unreliable (often doesn't fire, especially on mobile) which explains the missing beacons, and its mere presence disables the BFCache, which explains the slower back-navigation (the page can no longer be resumed from a frozen snapshot and must fully reload). Fix: drop the <code>unload</code> listener, save state on <code>visibilitychange</code>, and send data with <code>navigator.sendBeacon</code>."
+    },
+    {
+      "n": 40,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "When would you choose a Web Worker over just optimizing the algorithm to run faster on the main thread?",
+      "a": "When the work is inherently heavy (parsing large files, image processing, cryptography) and the goal is keeping the page responsive during it, not necessarily making the computation itself faster — a worker doesn't speed up the work, it moves it off the thread that also has to draw. If the work is trivially fast, the message-passing overhead of a worker isn't worth it."
+    },
+    {
+      "n": 41,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "WebSocket vs Server-Sent Events vs polling with fetch — how do you choose?",
+      "a": "WebSocket for genuine two-way real-time communication (chat, collaborative editing). SSE for one-way server-to-client streaming with built-in reconnection, when the client never needs to push data back over the same channel (good fit for LLM token streaming). Polling with fetch when updates are infrequent enough that the complexity of a persistent connection isn't justified."
+    },
+    {
+      "n": 42,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "localStorage vs sessionStorage vs IndexedDB vs cookies — what determines which one a team should use?",
+      "a": "Cookies: small values that must travel with every HTTP request (session identity). localStorage: small values that persist across tabs/sessions and are read/written rarely enough that synchronous blocking doesn't matter. sessionStorage: same shape but scoped to one tab's lifetime (wizard state). IndexedDB: anything large, structured, or frequently accessed, where async and non-blocking matters."
+    },
+    {
+      "n": 43,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "Why might a team deliberately choose polling over a service worker + push notifications for a background-update feature?",
+      "a": "Service workers and push add real complexity — lifecycle management, permission prompts, browser support gaps — and require a secure context and user opt-in. For a low-stakes, low-frequency update, simple polling (even if less 'real-time') can be far cheaper to build, debug, and reason about, with no permission friction for the user."
+    },
+    {
+      "n": 44,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "Your team is deciding whether to build with plain event listeners plus manual DOM updates versus a framework. What does understanding the rendering pipeline (Node 10) tell you about that choice?",
+      "a": "Frameworks batch DOM writes and schedule updates to avoid the exact layout-thrashing / redundant-layout problem manual code is prone to. Choosing a framework isn't just about developer ergonomics — it encodes hard-won knowledge about not forcing synchronous layout, at the cost of an abstraction layer between you and the actual DOM operations."
+    },
+    {
+      "n": 45,
+      "c": "tradeoff",
+      "t": "Trade-off",
+      "q": "Why would a team accept the complexity of a service worker for offline support instead of just telling users 'you need internet'?",
+      "a": "For an installable, app-like product (PWA), reliability under flaky connectivity (mobile networks, subways) is often the difference between a product people trust and one they abandon — the lifecycle complexity is a one-time cost paid to unlock a durable UX advantage."
+    },
+    {
+      "n": 46,
+      "c": "self_explanation",
+      "t": "Explain your own work",
+      "q": "In qbank, you make calls to the Anthropic API from a Node backend, not directly from the browser. Why would calling it directly from browser JavaScript be a bad idea, tying back to what you now know about the runtime?",
+      "a": "The API key would have to ship inside client-side JavaScript, which anyone can read via DevTools — there's no secret-keeping mechanism on the client side. Also, the same-origin/CORS model means the Anthropic API would need to explicitly permit browser origins to read its responses, and even if it did, exposing a paid API key client-side is a direct cost/abuse vector. Routing through your own backend keeps the key server-side and lets you apply your own rate limiting."
+    },
+    {
+      "n": 47,
+      "c": "self_explanation",
+      "t": "Explain your own work",
+      "q": "If qbank streamed LLM responses to its frontend, what browser mechanism would actually receive that data token by token, and why not just wait for the full response?",
+      "a": "<code>fetch</code>'s <code>response.body</code> is a <code>ReadableStream</code>, or the endpoint could use Server-Sent Events via <code>EventSource</code> — both let you process data as chunks arrive instead of buffering the whole response. Waiting for the full response would mean the user stares at nothing for however long the full generation takes, instead of seeing tokens appear immediately."
+    },
+    {
+      "n": 48,
+      "c": "self_explanation",
+      "t": "Explain your own work",
+      "q": "You vibe-coded infralens without understanding the browser runtime deeply. Now that you do — what's one thing you'd specifically go check for in that codebase?",
+      "a": "Whether any event listeners are attached to <code>window</code> or <code>document</code> without ever being removed when the visualization components they reference are torn down — a classic leak shape for a page that renders and re-renders diagrams repeatedly, and exactly the kind of thing that wouldn't have been visible without knowing what to look for."
+    },
+    {
+      "n": 49,
+      "c": "self_explanation",
+      "t": "Explain your own work",
+      "q": "Explain, as you would in an interview, why the browser and Node.js are 'the same language, different runtimes' rather than two different languages.",
+      "a": "Both embed a JavaScript engine (V8 in Chrome and in Node) that implements the same ECMAScript specification — the same syntax, same core objects like <code>Array</code> and <code>Promise</code>, same evaluation rules. What differs entirely is the host API surface each one bolts on: the browser gives you <code>document</code>, <code>fetch</code>, <code>localStorage</code>; Node gives you the <code>fs</code> module, raw TCP sockets, and no DOM at all. Code that only uses the language core runs identically in both; code using host APIs is tied to whichever host supplied them."
+    },
+    {
+      "n": 50,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why does the browser run JavaScript and page rendering on the same single thread, instead of giving each its own thread?",
+      "a": "Because the DOM has no locking anywhere in its design — letting two threads mutate it concurrently would require rewriting the entire platform for thread safety. A single thread with run-to-completion semantics eliminates that whole category of race condition by construction, at the cost of one script being able to block rendering."
+    },
+    {
+      "n": 51,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why does the same-origin policy exist at all — what would the web look like without it?",
+      "a": "Every tab you have open is potentially hostile code from an origin you don't trust. Without the same-origin policy, any page you visited could silently read your logged-in Gmail, bank account, or any other site's data via a background fetch, simply because your browser holds those sessions' cookies. It's the single rule that makes it safe to have multiple sites open simultaneously."
+    },
+    {
+      "n": 52,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why does a service worker deliberately wait rather than immediately activate on deploy?",
+      "a": "To prevent two versions of the app's logic from disagreeing about what's cached while an old tab is still open and being served by the old worker — activating immediately mid-session could serve a page a mismatched combination of new code and old cached assets."
+    },
+    {
+      "n": 53,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why did browsers move to a multi-process architecture instead of staying single-process with multiple threads?",
+      "a": "Process boundaries provide memory isolation that threads don't — a crash or a security exploit in one renderer process cannot read or corrupt another process's memory. This contains both accidental crashes (one tab dying doesn't kill the browser) and security exploits (a compromised renderer still can't reach the user's files or other tabs' data)."
+    },
+    {
+      "n": 54,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why is there a distinct microtask queue at all, instead of just putting promise callbacks on the regular task queue?",
+      "a": "Promises need to resolve 'as soon as possible' relative to the currently executing code, before the browser does anything else (including rendering) — draining microtasks fully after every task guarantees promise chains complete in a predictable, tight sequence rather than being interleaved with arbitrary other tasks and render passes."
+    },
+    {
+      "n": 55,
+      "c": "why",
+      "t": "Why does this exist",
+      "q": "Why does CORS require a preflight OPTIONS request for some requests but not others?",
+      "a": "'Simple' requests (GET/HEAD/POST with limited headers/content-types) were already possible before CORS existed via plain HTML forms, so allowing them without a preflight doesn't newly expose anything. Anything beyond that shape could have side effects a server never opted into supporting cross-origin, so the browser asks permission first via OPTIONS before risking it."
+    },
+    {
+      "n": 56,
+      "c": "plumbing",
+      "t": "Plumbing / senior-level",
+      "q": "Explain Site Isolation and its relationship to Spectre.",
+      "a": "Site Isolation guarantees that pages from different sites are never rendered in the same process, enabled by default in Chrome in 2018. It exists because the Spectre speculative-execution vulnerabilities, disclosed in January 2018, proved that any two pieces of data sharing a process's memory space could potentially be read by one from the other via timing side channels — regardless of language-level protections like the same-origin policy. Process-level isolation is a hardware-boundary-backed defense that doesn't rely on software correctness the way in-process protections do."
+    },
+    {
+      "n": 57,
+      "c": "plumbing",
+      "t": "Plumbing / senior-level",
+      "q": "What is the technical reason SharedArrayBuffer requires cross-origin isolation (COOP/COEP) to be defined at all?",
+      "a": "SharedArrayBuffer plus Atomics gives two threads true shared memory access, and combined with a high-resolution timer, shared memory is exactly the primitive Spectre-style attacks need to read data across a trust boundary. Cross-origin isolation (via COOP and COEP headers) guarantees no untrusted cross-origin resource shares the same process/isolation boundary before the browser will expose the API at all — it's an opt-in the origin makes explicitly accepting the isolation guarantee."
+    },
+    {
+      "n": 58,
+      "c": "plumbing",
+      "t": "Plumbing / senior-level",
+      "q": "Trace the exact order of operations when a component's effect fires a fetch, updates state on response, and the component might unmount before the response arrives.",
+      "a": "The fetch is initiated synchronously (a task begins, returns a pending promise immediately). Control returns to the event loop. When the network response arrives, a task is queued to resume the awaiting code; that resumption itself runs as a microtask once the promise settles. If the component unmounted in between, the state-update code may run against a component no longer in the DOM — hence the standard pattern of using an <code>AbortController</code> tied to unmount to cancel the fetch, avoiding a 'setState on unmounted component' bug."
+    },
+    {
+      "n": 59,
+      "c": "plumbing",
+      "t": "Plumbing / senior-level",
+      "q": "What exactly does the browser do differently for a 'simple' fetch request versus one that triggers a CORS preflight, at the network level?",
+      "a": "For a simple request, the browser sends the actual request directly and then applies the CORS check when reading the response, blocking JS from seeing the body/headers if not permitted (the request still reaches the server). For a non-simple request, the browser first sends a separate <code>OPTIONS</code> request with <code>Access-Control-Request-Method</code>/<code>-Headers</code>, and only sends the real request if the server's OPTIONS response explicitly allows the method/headers — so the actual request may never reach the server's application logic at all if preflight fails."
+    },
+    {
+      "n": 60,
+      "c": "plumbing",
+      "t": "Plumbing / senior-level",
+      "q": "Explain precisely why reading <code>offsetHeight</code> after writing a style forces synchronous layout, at the level of what the browser's internal state machine is doing.",
+      "a": "The browser maintains a 'render tree is dirty' flag after any style/DOM mutation and normally defers recomputing layout until the next natural rendering opportunity (between tasks). But <code>offsetHeight</code> and similar geometric properties must return a value that reflects the current DOM state truthfully — the browser cannot answer with stale pre-mutation geometry — so it's forced to synchronously flush the dirty layout right at that call, before returning your read, rather than at the next scheduled render."
+    },
+    {
+      "n": 61,
+      "c": "plumbing",
+      "t": "Plumbing / senior-level",
+      "q": "What does 'renderer process' isolation NOT protect against, i.e. what's still shared or exploitable across same-renderer content?",
+      "a": "Content within the same renderer process (typically same-site, or intentionally embedded same-origin iframes) still shares that process's memory space, so a vulnerability affecting content inside one renderer can still potentially affect other frames sharing that same renderer — process isolation protects across sites, not within a site's own complexity."
+    },
+    {
+      "n": 62,
+      "c": "config",
+      "t": "Config / setup",
+      "q": "What header does a server need to set to allow a specific cross-origin frontend to read its API responses?",
+      "a": "<code>Access-Control-Allow-Origin: https://your-frontend.example.com</code> (or <code>*</code> for any origin, though <code>*</code> can't be combined with credentials). For requests carrying custom headers or non-simple methods, the server must also correctly respond to the OPTIONS preflight with <code>Access-Control-Allow-Methods</code> and <code>Access-Control-Allow-Headers</code>."
+    },
+    {
+      "n": 63,
+      "c": "config",
+      "t": "Config / setup",
+      "q": "What cookie attributes should a session cookie have in a production app, and why each?",
+      "a": "<code>HttpOnly</code> (JavaScript can't read it, blunting XSS-based theft), <code>Secure</code> (only sent over HTTPS), and <code>SameSite=Lax</code> or <code>Strict</code> (limits or blocks it being sent on cross-site requests, mitigating CSRF)."
+    },
+    {
+      "n": 64,
+      "c": "config",
+      "t": "Config / setup",
+      "q": "What's required to register and use a service worker in a project?",
+      "a": "The page must be served over a secure context (HTTPS or localhost). You register it with <code>navigator.serviceWorker.register('/sw.js')</code>, typically from the main script; the worker file itself implements <code>install</code>, <code>activate</code>, and <code>fetch</code> event listeners to define caching behavior."
+    },
+    {
+      "n": 65,
+      "c": "config",
+      "t": "Config / setup",
+      "q": "What headers are needed to enable cross-origin isolation for SharedArrayBuffer?",
+      "a": "<code>Cross-Origin-Opener-Policy: same-origin</code> and <code>Cross-Origin-Embedder-Policy: require-corp</code> (COOP and COEP), set on the top-level document's response."
+    },
+    {
+      "n": 66,
+      "c": "config",
+      "t": "Config / setup",
+      "q": "How do you correctly attach a listener that will be automatically removed later without a manual removeEventListener call?",
+      "a": "Create an <code>AbortController</code>, pass <code>{signal: controller.signal}</code> as the options to <code>addEventListener</code>, and call <code>controller.abort()</code> whenever cleanup should happen — this removes that listener (and any others sharing the same signal) in one call."
+    },
+    {
+      "n": 67,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "A <code>setTimeout</code> nested recursively more than 5 levels deep behaves differently from the first few calls. What changes, and why?",
+      "a": "Once nesting exceeds 5 levels, the browser clamps the minimum delay to 4ms regardless of what delay you requested — a long-standing spec rule preventing runaway recursive timers from monopolizing the CPU."
+    },
+    {
+      "n": 68,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "You clone a <code>Response</code> object to read its body twice, but one clone was made after the first read already started. What happens?",
+      "a": "It throws — cloning must happen before the body stream has begun being consumed; once <code>.json()</code> or <code>.text()</code> has started reading, the body is locked and cloning at that point fails."
+    },
+    {
+      "n": 69,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "A <code>MutationObserver</code> callback itself mutates the DOM in a way that would trigger the observer again. What happens?",
+      "a": "Because MutationObserver callbacks run as microtasks, the new mutation queues another microtask; it doesn't recurse infinitely in the call stack the way a naive recursive function would, but a callback that always re-triggers itself will still create an unbounded microtask chain that can hang the page, per the general microtask-starvation rule from the event loop."
+    },
+    {
+      "n": 70,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "A page you're on gets frozen (backgrounded, not just hidden) by the browser after being hidden for a long time. What happens to pending promises and in-flight timers?",
+      "a": "JavaScript execution itself is suspended — no timers fire, no code runs, including pending microtask resumptions — until the page is unfrozen (usually by becoming visible again), at which point execution resumes from where it was frozen, not from where it 'should' be as if time had passed normally."
+    },
+    {
+      "n": 71,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "You transfer an ArrayBuffer to a worker via the transfer list, then try to read it on the main thread afterward. What happens?",
+      "a": "The main thread's reference is detached — its byteLength becomes 0 and any attempt to read it either returns nothing meaningful or throws, because ownership was fully handed to the worker, not copied."
+    },
+    {
+      "n": 72,
+      "c": "edge_case",
+      "t": "Edge case",
+      "q": "A page restored from the BFCache fires <code>pageshow</code> but not <code>load</code>. What real bug does this cause if your analytics code only listens for <code>load</code>?",
+      "a": "A user's return visit via Back button after a BFCache restore is never counted, silently undercounting real page views — the fix is listening for <code>pageshow</code> and checking its <code>persisted</code> flag to also count restored views."
+    }
+  ]
+}

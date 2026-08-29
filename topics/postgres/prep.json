@@ -1,0 +1,963 @@
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is an index and how does it make a query faster?",
+   "a": "A separate sorted structure mapping column values to row locations. Postgres's default is a B+tree; because each 8 KB page holds hundreds of keys, a hundred-million-row table is about four levels deep, so a lookup is four page reads instead of scanning millions of pages. The cost is disk space and slower writes, since every index must be updated on every write."
+  },
+  {
+   "n": 2,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "When would an index not help, or make things worse?",
+   "a": "When the query matches a large fraction of the table, so random heap access costs more than a sequential scan; when the predicate can't use it, like <code>LIKE '%foo'</code> or a function of the column with no expression index; when statistics are stale so the planner won't pick it; and always on writes, which pay for every index forever."
+  },
+  {
+   "n": 3,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Explain ACID.",
+   "a": "Atomicity — all statements in a transaction take effect or none do. Consistency — declared constraints hold at commit. Isolation — concurrent transactions don't see each other's partial work. Durability — once COMMIT returns, the change survives a crash, which Postgres guarantees by flushing a write-ahead log record with fsync before acknowledging."
+  },
+  {
+   "n": 4,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a transaction and how do you use one?",
+   "a": "A group of statements that succeed or fail together. <code>BEGIN</code>, statements, <code>COMMIT</code> or <code>ROLLBACK</code>. Every standalone statement is already wrapped in its own transaction. In application code, always release the pooled connection in a <code>finally</code> block and never await a slow external call inside one."
+  },
+  {
+   "n": 5,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What's the difference between an INNER JOIN and a LEFT JOIN?",
+   "a": "Inner keeps only rows matching on both sides; left keeps every row from the left table, NULL-filling the right. The trap is putting a right-table condition in <code>WHERE</code> instead of <code>ON</code> in a left join — the NULL rows fail it and it silently becomes an inner join."
+  },
+  {
+   "n": 6,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a primary key, and what's the difference from a unique constraint?",
+   "a": "A primary key is unique plus not-null plus the declared identity of the row; a table has one. A unique constraint just prevents duplicates, can be on multiple columns, and by default allows several NULLs because two unknowns aren't known to be equal."
+  },
+  {
+   "n": 7,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "How do you find why a query is slow?",
+   "a": "<code>EXPLAIN (ANALYZE, BUFFERS)</code>. Read it inside out and compare estimated <code>rows</code> against <code>actual rows</code> — a large gap means the planner was misled and that's the real bug. Then look for sequential scans on big tables, nested loops with huge loop counts, and sorts spilling to disk."
+  },
+  {
+   "n": 8,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What does EXPLAIN ANALYZE do that EXPLAIN doesn't?",
+   "a": "It actually runs the query and reports real timings and row counts alongside the estimates. That means it also really performs writes, so wrap it in a transaction you roll back."
+  },
+  {
+   "n": 9,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a foreign key and what does it buy you?",
+   "a": "A constraint that every value in a column exists as a key in another table, so \"this order belongs to a real customer\" is guaranteed by the server rather than hoped for by every writer. Note that Postgres does not create an index on the referencing column for you — you must add it."
+  },
+  {
+   "n": 10,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What's the difference between WHERE and HAVING?",
+   "a": "WHERE filters rows before grouping; HAVING filters groups after aggregation. You need HAVING for a condition on an aggregate like <code>count(*) &gt; 5</code>."
+  },
+  {
+   "n": 11,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is normalization, and when would you denormalize?",
+   "a": "Structuring data so each fact lives in exactly one place, which removes update anomalies. You denormalize deliberately when a join is provably too expensive for a hot read path — a cached count, a materialized view — and you accept that you now own keeping it correct."
+  },
+  {
+   "n": 12,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What are the differences between DELETE, TRUNCATE and DROP?",
+   "a": "DELETE removes rows one at a time, is transactional, fires triggers, leaves dead tuples. TRUNCATE discards the table's storage instantly, still transactional in Postgres, but takes an ACCESS EXCLUSIVE lock. DROP removes the table itself."
+  },
+  {
+   "n": 13,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "How would you paginate a large result set?",
+   "a": "Keyset pagination, not OFFSET. <code>WHERE (created_at, id) &lt; ($1, $2) ORDER BY created_at DESC, id DESC LIMIT 20</code> with a composite index — constant time at any depth, because the index seeks straight to the position. OFFSET must produce and discard every skipped row."
+  },
+  {
+   "n": 14,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Why do you use timestamptz instead of timestamp?",
+   "a": "Because <code>timestamptz</code> stores a UTC instant — it converts on input and renders in the session timezone on output. Plain <code>timestamp</code> is a wall-clock reading with no idea what part of the world it refers to, so you cannot correctly compare two events or handle a clock shift."
+  },
+  {
+   "n": 15,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a connection pool and why do you need one?",
+   "a": "Postgres forks a full OS process per connection, so connecting is expensive and throughput actually falls once backends exceed a small multiple of the core count. A pool opens a fixed small number of connections once and hands them out per request. Remember <code>max</code> is per process, so multiply by instances before comparing to <code>max_connections</code>."
+  },
+  {
+   "n": 16,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is MVCC and what does it give you?",
+   "a": "Multi-Version Concurrency Control. An UPDATE writes a new row version rather than modifying in place, each version carrying <code>xmin</code> and <code>xmax</code> transaction ids, and each transaction reads through a snapshot. The result is that readers never block writers and writers never block readers — only two writers on the same row contend."
+  },
+  {
+   "n": 17,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What are the isolation levels and which does Postgres use by default?",
+   "a": "READ COMMITTED is the default and takes a fresh snapshot per statement, preventing only dirty reads. REPEATABLE READ holds one snapshot for the transaction, preventing non-repeatable reads and phantoms, and can fail with a 40001 serialization error. SERIALIZABLE adds write-skew prevention via SSI, also by aborting. READ UNCOMMITTED exists but behaves as READ COMMITTED."
+  },
+  {
+   "n": 18,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is a composite index and does column order matter?",
+   "a": "An index on multiple columns, sorted by the first, then the second within equal firsts. Order matters enormously: it serves any query constraining a leftmost prefix. Put equality columns first and the range or sort column last."
+  },
+  {
+   "n": 19,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why is SELECT count(*) slow in Postgres?",
+   "a": "Because under MVCC how many rows exist depends on which transaction is asking, so there is no maintained counter. Every row's visibility must be checked, meaning a full scan of the table or a covering index. For an approximation use <code>reltuples</code> from <code>pg_class</code>."
+  },
+  {
+   "n": 20,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is VACUUM and why is it necessary?",
+   "a": "Because every UPDATE and DELETE leaves a dead row version behind, VACUUM reclaims that space for reuse, removes the dead index entries, updates the visibility map and freezes old transaction ids. Autovacuum does it automatically; if it can't keep up, the table bloats and plans degrade."
+  },
+  {
+   "n": 21,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What's the difference between VACUUM and VACUUM FULL?",
+   "a": "Plain VACUUM marks space reusable inside the existing file and runs concurrently with traffic. VACUUM FULL rewrites the table into a new file, genuinely returning disk to the OS, while holding an ACCESS EXCLUSIVE lock that blocks even SELECT — an outage, not maintenance. Use <code>pg_repack</code> instead."
+  },
+  {
+   "n": 22,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is the WAL?",
+   "a": "The write-ahead log. Before any data page change reaches disk, a record describing it is written to the log and flushed. COMMIT means that record is fsynced. It makes commits durable with sequential writes instead of random ones, enables crash recovery by replay, and is the basis of both replication and point-in-time recovery."
+  },
+  {
+   "n": 23,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What's the difference between a clustered index and Postgres's model?",
+   "a": "Postgres has no clustered index — the heap is unordered and every index is secondary, storing a pointer to the row. MySQL's InnoDB stores rows inside the primary key B-tree, so secondary index lookups go through the primary key. Postgres's <code>CLUSTER</code> command is a one-off physical reorder, not a maintained property."
+  },
+  {
+   "n": 24,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you handle a race condition where two requests update the same row?",
+   "a": "Either make the statement self-contained (<code>SET balance = balance - 10</code>), or lock explicitly with <code>SELECT ... FOR UPDATE</code> before computing, or use a unique constraint so the bad state is impossible, or raise the isolation level and retry on 40001. The default READ COMMITTED does not prevent lost updates on its own."
+  },
+  {
+   "n": 25,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is a deadlock and how does Postgres deal with it?",
+   "a": "Two transactions each holding a lock the other wants. After <code>deadlock_timeout</code> (1 second) Postgres runs cycle detection and aborts one with SQLSTATE 40P01. The usual application cause is locking rows in inconsistent order; the fix is a deterministic order plus a retry."
+  },
+  {
+   "n": 26,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is an N+1 query and how do you fix it?",
+   "a": "Fetching N rows and then issuing one query per row for a related record. Fix it with a join, a single <code>WHERE id = ANY($1)</code>, or the ORM's eager-loading option. You find it by turning on query logging and counting."
+  },
+  {
+   "n": 27,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "When would you use JSONB instead of columns?",
+   "a": "For genuinely variable data — a webhook payload stored verbatim, per-tenant custom fields, an LLM's raw response. Anything you filter, join or constrain on should be a real column, because JSONB gives up the type system and constraint enforcement that are the point of using a database."
+  },
+  {
+   "n": 28,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you index a JSONB column?",
+   "a": "A GIN index, which supports containment (<code>@&gt;</code>) and key existence. <code>jsonb_path_ops</code> makes a smaller, faster index if containment is all you need. For a single scalar field queried constantly, a B-tree expression index on <code>(data-&gt;&gt;'status')</code> is often better."
+  },
+  {
+   "n": 29,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is a CTE and does it hurt performance?",
+   "a": "<code>WITH x AS (...)</code>, a named subquery. Before Postgres 12 it was always an optimisation fence — materialised and never inlined. From 12, a single-reference side-effect-free CTE is inlined by default, so the old \"CTEs are slow\" advice is version-specific. You can force either with <code>MATERIALIZED</code> / <code>NOT MATERIALIZED</code>."
+  },
+  {
+   "n": 30,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is a window function and when do you need one?",
+   "a": "A function computing across related rows without collapsing them, unlike GROUP BY. The canonical use is \"latest row per group\": <code>ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC)</code> filtered to 1. Also running totals, ranks, and comparing a row to the previous one with LAG."
+  },
+  {
+   "n": 31,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you add an index to a large table in production?",
+   "a": "<code>CREATE INDEX CONCURRENTLY</code>, which doesn't block reads or writes. It cannot run inside a transaction block, so the migration tool must be told, and if it fails it leaves an INVALID index to drop and retry."
+  },
+  {
+   "n": 32,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is a materialized view and when would you use one?",
+   "a": "A view whose result is stored on disk and refreshed on demand. It is the standard answer to a dashboard aggregation that takes 40 seconds — you accept staleness for instant reads. Refresh with <code>CONCURRENTLY</code> (requires a unique index) so readers aren't blocked."
+  },
+  {
+   "n": 33,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What's the difference between UNION and UNION ALL?",
+   "a": "UNION removes duplicates, which requires a sort or hash and therefore costs real work. UNION ALL just concatenates. Use ALL unless you specifically need deduplication."
+  },
+  {
+   "n": 34,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How does Postgres decide whether to use an index?",
+   "a": "The planner estimates how many rows each step returns using column statistics gathered by ANALYZE, prices each candidate plan with cost constants, and picks the cheapest. If <code>random_page_cost</code> is still the spinning-disk default of 4.0 on an SSD, or if statistics are stale, it will systematically undervalue indexes."
+  },
+  {
+   "n": 35,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is the difference between char, varchar and text?",
+   "a": "<code>text</code> and <code>varchar</code> are the same underlying type; <code>varchar(n)</code> adds a length check and is no faster. <code>char(n)</code> blank-pads to a fixed length and should essentially never be used. Default to <code>text</code>."
+  },
+  {
+   "n": 36,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is TOAST?",
+   "a": "The Oversized-Attribute Storage Technique. Because a row can't span an 8 KB page, values pushing a row past about 2 KB are compressed and, if still too large, moved to a hidden side table in chunks. It's why a huge JSON column costs nothing to query unless you select it — a concrete argument against <code>SELECT *</code>."
+  },
+  {
+   "n": 37,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is transaction id wraparound?",
+   "a": "The xid is 32-bit and wraps after about 4 billion transactions; since visibility compares xids, a wrap would make old rows look like they're from the future and vanish. VACUUM prevents it by freezing old tuples. If freezing falls far behind, Postgres refuses writes to protect itself."
+  },
+  {
+   "n": 38,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is a partial index and when is it a big win?",
+   "a": "An index with a WHERE clause, covering only some rows. On a table where 98% of rows are soft-deleted or completed, indexing only the live ones makes the index a fiftieth of the size and keeps it in cache."
+  },
+  {
+   "n": 39,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is row-level security?",
+   "a": "A policy attached to a table that implicitly adds a WHERE clause to every query based on the current role or a session setting, so multi-tenant isolation is enforced by the database rather than by every query the team writes. It's what Supabase is built on."
+  },
+  {
+   "n": 40,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is LISTEN/NOTIFY and when would you use it?",
+   "a": "Built-in pub/sub. A session LISTENs on a channel; NOTIFY wakes it, delivered at commit so it's transactionally correct. Payload is capped at 8000 bytes, there's no persistence, and it doesn't survive transaction-mode pooling — so it's right for cache invalidation or nudging a worker, wrong when delivery must be guaranteed."
+  },
+  {
+   "n": 41,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "How would you implement a job queue in Postgres, without Redis?",
+   "a": "A jobs table plus <code>SELECT ... FOR UPDATE SKIP LOCKED LIMIT n</code> to claim work. Each worker takes unlocked pending rows, so there's no contention and no double-processing, and claiming is transactional with whatever else the worker does."
+  },
+  {
+   "n": 42,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is declarative partitioning and when does it pay off?",
+   "a": "Splitting one logical table into physical partitions by range, list or hash. It pays off on time-series data — dropping last year is an instant DROP TABLE instead of a huge DELETE, and vacuum works on manageable pieces. It's not a general performance fix; usually a good index is better."
+  },
+  {
+   "n": 43,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What are Postgres extensions, and which do you actually install?",
+   "a": "Packaged types, functions and index support installed with <code>CREATE EXTENSION</code>. In practice: <code>pg_stat_statements</code> on every server, <code>pg_trgm</code> for fuzzy search, <code>pgvector</code> for embeddings, <code>pgcrypto</code> historically for UUIDs, PostGIS if you have geography."
+  },
+  {
+   "n": 44,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "How does Postgres full-text search work?",
+   "a": "<code>to_tsvector</code> turns text into stemmed lexemes with stop words removed; <code>websearch_to_tsquery</code> parses the user's search string; <code>@@</code> matches them; a GIN index on the vector makes it fast; <code>ts_rank</code> orders and <code>ts_headline</code> highlights. Store the vector in a generated column so it maintains itself."
+  },
+  {
+   "n": 45,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is an exclusion constraint?",
+   "a": "A constraint using GiST that forbids rows whose values overlap under a given operator — <code>EXCLUDE USING gist (room_id WITH =, during WITH &amp;&amp;)</code> guarantees two bookings for the same room can never overlap. It enforces an invariant that's genuinely hard to get right in application code."
+  },
+  {
+   "n": 46,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is logical replication and how does it differ from streaming replication?",
+   "a": "Streaming replication ships raw WAL for a byte-identical copy; logical replication decodes WAL into row changes published per table. Because it's logical, it works across major versions and into a target with its own tables — which is how you do a near-zero-downtime version upgrade or feed a CDC pipeline."
+  },
+  {
+   "n": 47,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What's the difference between pg_dump and pg_basebackup?",
+   "a": "<code>pg_dump</code> is a logical backup — SQL or an archive, portable across versions, restorable table by table, slow to restore at scale. <code>pg_basebackup</code> is a physical byte-level copy of the data directory, fast to restore but only to a compatible version, and it's what point-in-time recovery builds on."
+  },
+  {
+   "n": 48,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is point-in-time recovery?",
+   "a": "Restoring a base backup and replaying archived WAL up to a chosen timestamp, so you can land one second before a bad DELETE. It requires continuous WAL archiving configured in advance."
+  },
+  {
+   "n": 49,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is an advisory lock and what would you use it for?",
+   "a": "A lock on an arbitrary integer key rather than a row. It gives you a cross-process mutex without new infrastructure — most commonly to ensure only one instance of a scheduled job runs across all app servers."
+  },
+  {
+   "n": 50,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "How does pgvector work?",
+   "a": "It adds a <code>vector</code> type and distance operators, plus IVFFlat and HNSW approximate-nearest-neighbour indexes. HNSW is a graph index — slower and larger to build, better on the recall-versus-speed curve. Keeping embeddings in Postgres means they're written in the same transaction as the row they describe."
+  },
+  {
+   "n": 51,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "The application is down. Everything times out. Where do you start?",
+   "a": "<code>pg_stat_activity</code>: count connections against <code>max_connections</code>, find the longest-running queries, and look for anything <code>idle in transaction</code>. Then <code>pg_blocking_pids()</code> to see whether there's a lock chain. If one query is blocking everything, cancel it with <code>pg_cancel_backend</code>. Only then start asking what changed."
+  },
+  {
+   "n": 52,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A migration is hanging and now nothing works. What happened?",
+   "a": "The ALTER TABLE is waiting to acquire ACCESS EXCLUSIVE behind some open transaction, and because lock requests queue in order, every query after it is stuck behind the ALTER. Kill the ALTER, find the transaction that was holding the table, and re-run the DDL with <code>SET lock_timeout = '3s'</code>."
+  },
+  {
+   "n": 53,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "The disk is filling up and the data hasn't grown. What are the likely causes?",
+   "a": "Bloat from dead tuples that autovacuum can't reclaim because of a long-running or idle-in-transaction session; WAL accumulating in <code>pg_wal</code> because of an abandoned replication slot or a failing <code>archive_command</code>; or temp files from queries spilling their sorts to disk."
+  },
+  {
+   "n": 54,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A query that ran in 20 ms yesterday takes 40 seconds today. What changed?",
+   "a": "Most likely the plan, because statistics went stale or data volume crossed a threshold — run ANALYZE and compare EXPLAIN. Other candidates: an index was dropped or invalidated, bloat grew, a parameter value now matches far more rows, or a generic plan replaced a custom one on a prepared statement."
+  },
+  {
+   "n": 55,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Someone ran DELETE without a WHERE clause and committed. What now?",
+   "a": "If you have continuous WAL archiving, restore a base backup and do point-in-time recovery to just before the statement, typically onto a separate instance so you can copy the rows back. Without archiving, your options are the last dump and whatever the application can reconstruct. This is the question that justifies backup drills."
+  },
+  {
+   "n": 56,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "You're getting \"FATAL: sorry, too many clients already\". What do you do?",
+   "a": "Immediately: identify and terminate idle connections and find the leak. Structurally: the pool's <code>max</code> is per process, so multiply by instances and containers — the fix is a smaller per-process max or an external pooler like PgBouncer in transaction mode, not raising <code>max_connections</code>."
+  },
+  {
+   "n": 57,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your application is throwing \"could not serialize access due to concurrent update\". What's happening?",
+   "a": "You're running at REPEATABLE READ or SERIALIZABLE and two transactions conflicted. This is expected behaviour, not a bug — the transaction must be retried from the beginning with backoff. If it's frequent, reduce the transaction's footprint or move to explicit row locking at READ COMMITTED."
+  },
+  {
+   "n": 58,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Autovacuum is running constantly on one table but dead tuples keep climbing. Why?",
+   "a": "It can only remove tuples invisible to every transaction. Something is pinning the horizon — an <code>idle in transaction</code> session, a very long query, an abandoned prepared transaction, an inactive replication slot, or a standby with <code>hot_standby_feedback</code> on. Find the oldest transaction and end it."
+  },
+  {
+   "n": 59,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A replica is falling further and further behind. What do you check?",
+   "a": "<code>pg_stat_replication</code> on the primary for which stage is lagging — write, flush or replay. Replay lag usually means the standby can't keep up with the WAL, from underpowered I/O or from replay being paused by a conflicting long query on the standby. Write lag points at network or a saturated primary."
+  },
+  {
+   "n": 60,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Users report that data they just saved isn't there, but it reappears on refresh.",
+   "a": "Reads are going to an asynchronous replica that hasn't caught up. Either route reads after writes to the primary for that session, wait on the replica's LSN, or make the replication synchronous — but understand that last option adds commit latency and stops writes if the standby dies."
+  },
+  {
+   "n": 61,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "CPU on the database is pinned at 100% but no individual query looks slow.",
+   "a": "Look at <code>pg_stat_statements</code> by <em>total</em> time, not mean. It's usually a fast query executed enormously often — an N+1 loop, a health check, or a poll. Also check connection churn, which burns CPU on forking with nothing expensive running."
+  },
+  {
+   "n": 62,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "An index build failed halfway. What state is the database in?",
+   "a": "If it was <code>CREATE INDEX CONCURRENTLY</code>, an INVALID index exists, taking space and being maintained on writes without being usable. Find it with <code>SELECT * FROM pg_index WHERE NOT indisvalid</code>, drop it concurrently, and retry."
+  },
+  {
+   "n": 63,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Writes have started failing with a message about wraparound. What is happening and what do you do?",
+   "a": "Freezing has fallen far enough behind that Postgres is protecting itself from transaction id wraparound by refusing writes. You must let the anti-wraparound vacuum complete — raise <code>maintenance_work_mem</code>, remove whatever was blocking vacuum, and afterwards fix the autovacuum settings that let it get that far."
+  },
+  {
+   "n": 64,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "The same query is fast in psql and slow from the application. Why?",
+   "a": "Different session settings, a generic plan on a prepared statement, a parameter type causing an implicit cast that defeats an index, the application fetching all rows rather than a limited sample, or time spent waiting for a pooled connection rather than in the database at all."
+  },
+  {
+   "n": 65,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A table has 40 GB of data and occupies 400 GB on disk. Explain and fix.",
+   "a": "Bloat: dead row versions that VACUUM couldn't reclaim, plus index bloat. Fix the cause first (whatever pins the vacuum horizon, and per-table autovacuum scale factors), then reclaim with <code>pg_repack</code> online, or <code>VACUUM FULL</code> if you can take an outage."
+  },
+  {
+   "n": 66,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Postgres or MySQL — how do you actually choose?",
+   "a": "Honestly, for most applications either works. Postgres wins on transactional DDL, richer types (JSONB, arrays, ranges), extensions like PostGIS and pgvector, stricter correctness by default, and window/CTE features arriving earlier. MySQL has historically had simpler replication and a clustered-index layout that suits primary-key-heavy access. The deciding factor is usually the team and the ecosystem, and I'd pick Postgres by default."
+  },
+  {
+   "n": 67,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Postgres or MongoDB for a new product?",
+   "a": "Postgres, with JSONB for the genuinely variable parts. You get schemaless storage where you need it plus constraints, joins and real transactions where you need those. Mongo makes sense when the access pattern is truly document-shaped at large scale and you'd otherwise fight the relational model — but \"we don't know the schema yet\" is not that."
+  },
+  {
+   "n": 68,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "When would you put a queue in Postgres instead of Redis/BullMQ?",
+   "a": "When throughput is modest and transactional correctness matters — <code>FOR UPDATE SKIP LOCKED</code> lets you enqueue a job in the same transaction as the data change, so you can never enqueue work for a row that rolled back. Redis wins on raw throughput, latency, and rich queue features like rate limiting and repeatable jobs, at the cost of a second system and dual-write consistency."
+  },
+  {
+   "n": 69,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "UUID or bigint for primary keys?",
+   "a": "Bigint identity by default: compact, sequential, cache-friendly. UUID when clients must generate ids offline, when ids are exposed publicly and enumeration matters, or when merging data across systems. If you use UUIDs, prefer UUIDv7 — random v4 scatters inserts across the B-tree and causes page splits and bloat."
+  },
+  {
+   "n": 70,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Soft delete or hard delete?",
+   "a": "Soft delete (<code>deleted_at</code>) preserves history and makes undo possible, but every query must filter it, uniqueness needs a partial index, and the table grows forever. Hard delete keeps things simple and fast. A common middle ground is hard delete plus an archive table or an audit log."
+  },
+  {
+   "n": 71,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Should business logic live in the database or in the application?",
+   "a": "Invariants belong in the database as constraints, because that's the only place they're guaranteed. Application logic belongs in the application, where it's testable, versioned with the code, and visible at the call site. Triggers should maintain data integrity — <code>updated_at</code>, audit rows — not implement features, because they're invisible to whoever reads the calling code."
+  },
+  {
+   "n": 72,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "ORM or raw SQL?",
+   "a": "Both. The ORM handles the large majority of queries that are trivial and gives you type safety and migrations; raw parameterised SQL handles the queries where the plan matters. The non-negotiable is being able to see the generated SQL — most ORM performance disasters are invisible until you turn logging on."
+  },
+  {
+   "n": 73,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Read replicas or a bigger machine?",
+   "a": "Bigger machine first: it helps every workload, requires no application change, and costs nothing in consistency. Read replicas only help read-heavy workloads and force you to handle staleness and read-your-writes. Reach for replicas when you also want the availability benefit, which you probably do."
+  },
+  {
+   "n": 74,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Synchronous or asynchronous replication?",
+   "a": "Async by default — no commit latency cost, and lag is usually milliseconds. Synchronous when your RPO is genuinely zero, accepting higher commit latency and the risk that losing the standby stops writes. Configure it as a quorum over several standbys rather than requiring one specific node."
+  },
+  {
+   "n": 75,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Normalize fully, or denormalize for reads?",
+   "a": "Normalize first — one fact in one place is what makes the data correctable. Denormalize only against a measured problem, and prefer a mechanism that keeps itself correct (a materialized view, a generated column, a trigger-maintained counter) over one that relies on every writer remembering."
+  },
+  {
+   "n": 76,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "pgvector or a dedicated vector database?",
+   "a": "pgvector when the vectors belong to rows you already store — you get transactional consistency, one backup, one system to operate, and filtering by ordinary SQL predicates alongside similarity. A dedicated vector store when scale, index build times, or specialised retrieval features become the bottleneck. Start with pgvector."
+  },
+  {
+   "n": 77,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Postgres full-text search or Elasticsearch?",
+   "a": "Postgres FTS for most applications: no second system, no sync pipeline, search results transactionally consistent with the data. Elasticsearch when you need serious relevance tuning, faceting at scale, fuzzy matching out of the box, or search scaling independent of the database."
+  },
+  {
+   "n": 78,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "When do you shard?",
+   "a": "Much later than people think. Vertical scaling, correcting queries and indexes, read replicas, and partitioning will carry a normal application a long way. Shard when a single primary genuinely cannot hold the write volume or the data, and accept that cross-shard joins, transactions and rebalancing become your problem."
+  },
+  {
+   "n": 79,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Managed Postgres or self-hosted?",
+   "a": "Managed, unless you have a specific reason. Backups, failover, patching and monitoring are exactly the things that are boring to build and catastrophic to get wrong, and failover with correct fencing is genuinely hard. You give up superuser, arbitrary extensions and some cost efficiency."
+  },
+  {
+   "n": 80,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Enum type, check constraint, or lookup table?",
+   "a": "A check constraint on a text column is usually the sweet spot — easy to change, readable, enforced. Enums are compact and self-documenting but painful to remove values from. A lookup table when the set is data rather than code: user-editable, or carrying extra attributes."
+  },
+  {
+   "n": 81,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Walk me through the data layer of qbank.",
+   "a": "It's Postgres accessed through Drizzle from a Fastify TypeScript service, with BullMQ on Redis for background work and the Anthropic API with forced tool use for generation. Drizzle gives typed schema definitions and generates SQL migrations; the schema is the source of truth in TypeScript and migrations are checked in. The parts I'd want to walk through carefully are the transaction boundaries around job creation and the indexes supporting the read paths."
+  },
+  {
+   "n": 82,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Why did you choose Drizzle over Prisma?",
+   "a": "Drizzle stays close to SQL — the query builder maps almost one to one onto the statement it emits, so what the database does stays visible, and it's a thin runtime rather than a generated client with its own engine. Prisma is more ergonomic for simple relational fetching and has a stronger migration story out of the box. If I were optimising for team velocity on straightforward CRUD I'd consider Prisma; I wanted the SQL to stay legible."
+  },
+  {
+   "n": 83,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How do you handle migrations in qbank?",
+   "a": "Drizzle Kit generates SQL migration files from the schema diff, and they're committed and applied in order. What I'd add if I were doing it again is the discipline from safe-migration practice: <code>lock_timeout</code> on anything taking a strong lock, <code>CREATE INDEX CONCURRENTLY</code> outside a transaction, and expand-migrate-contract for anything destructive rather than a rename in one release."
+  },
+  {
+   "n": 84,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Where does the Postgres/Redis split fall in qbank, and why?",
+   "a": "Postgres is the system of record — questions, banks, users, job records. Redis is BullMQ's backing store for queued generation work. The reason for the split is that job state is high-churn and disposable while question data must be durable and queryable; putting queue churn in Postgres would generate large amounts of dead-tuple work for data nobody needs a week later."
+  },
+  {
+   "n": 85,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "What would you change about qbank's database design now?",
+   "a": "Concretely: check that every foreign key has an index on the referencing side, because Postgres doesn't create those; set <code>statement_timeout</code> and <code>idle_in_transaction_session_timeout</code> on the application role; make sure no LLM call happens inside an open transaction, since those are slow and would pin a connection and the vacuum horizon; and install <code>pg_stat_statements</code> so I can see what the workload actually is rather than guessing."
+  },
+  {
+   "n": 86,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Have you had to debug a slow query in your own work?",
+   "a": "I want to be straight about this: qbank was built quickly and I haven't yet driven a real performance investigation on it end to end. What I can do is describe exactly how I'd run one — <code>pg_stat_statements</code> by total time to pick the target, <code>EXPLAIN (ANALYZE, BUFFERS)</code> to find where estimates diverge from actuals, then decide between an index, a statistics fix, and a query rewrite — and that's the process I'm applying to it now."
+  },
+  {
+   "n": 87,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How do you decide what to index in a project you're building?",
+   "a": "Start from the queries, not the schema. Every foreign key used in a lookup gets an index; every filter-plus-sort pair on a hot endpoint gets a composite index with the equality column first; anything filtering on a small subset gets a partial index. Then verify with EXPLAIN rather than assuming, and check <code>idx_scan</code> later to drop the ones nothing uses."
+  },
+  {
+   "n": 88,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How do you handle transactions in your application code?",
+   "a": "A pool created once at startup, and a helper that acquires a client, BEGINs, runs the callback, COMMITs, ROLLBACKs on error, and releases in a <code>finally</code>. The rules I hold to are that transactions stay short, no external network call happens inside one, and serialization and deadlock errors (40001, 40P01) are retried at that helper rather than at every call site."
+  },
+  {
+   "n": 89,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Tell me about a database mistake you've made.",
+   "a": "The honest one is building qbank without being able to explain its data layer — vibe-coding a working system and then not being able to answer why a particular index exists or what a given transaction boundary protects. The remediation has been going back through the fundamentals deliberately: heap and page layout, MVCC and vacuum, the planner, locking, pooling, and safe migrations, and then re-reading my own schema against them."
+  },
+  {
+   "n": 90,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How would you design a schema for a quiz/question bank product from scratch?",
+   "a": "Users, banks, questions, options, attempts, and a jobs table. Bigint identity keys, <code>timestamptz</code> everywhere, foreign keys with explicit ON DELETE behaviour and an index on every referencing column, a check constraint rather than an enum for status, and a JSONB column only for the raw LLM response. Composite indexes driven by the actual endpoints — <code>(bank_id, created_at)</code> for listing, partial indexes on pending jobs."
+  },
+  {
+   "n": 91,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why does Postgres use a write-ahead log instead of just writing the data?",
+   "a": "Because a data page write can be interrupted by a crash, leaving a half-written page with no way to tell. Logging the change first, sequentially, and flushing that, means recovery can replay forward to a consistent state. It also happens to be much faster, since one sequential append replaces many random writes, and it's what makes replication and point-in-time recovery possible at all."
+  },
+  {
+   "n": 92,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why does Postgres keep old row versions in the table instead of an undo log?",
+   "a": "It was the design chosen at Berkeley, and it makes rollback instantaneous — nothing needs undoing, the versions simply never become visible — and keeps read paths simple. The price is bloat and the need for VACUUM, which undo-log systems like Oracle and InnoDB don't have. It's a genuine trade, not an oversight."
+  },
+  {
+   "n": 93,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why is there no query hint mechanism in Postgres?",
+   "a": "The project's position is that a hint encodes an assumption about data that will eventually stop being true, and then it's a permanently wrong instruction nobody remembers to revisit. The sanctioned alternatives are giving the planner better information — ANALYZE, <code>CREATE STATISTICS</code>, higher statistics targets — and better cost constants."
+  },
+  {
+   "n": 94,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why does Postgres fork a process per connection instead of using threads?",
+   "a": "Isolation — a crash in one backend can't corrupt another — and decades of much simpler code. It's from the 1980s and it's still the model in version 18. The cost is that connections are expensive, which is exactly why pooling is mandatory rather than optional."
+  },
+  {
+   "n": 95,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why do indexes have to check the heap for visibility?",
+   "a": "Because an index entry records a value and a row location but not which transactions can see that row version — that lives in the tuple header. Index-only scans work around it using the visibility map, which VACUUM maintains, which is why \"index-only scan with heap fetches\" is a vacuum symptom."
+  },
+  {
+   "n": 96,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why is SQL declarative rather than procedural?",
+   "a": "So the same query can be executed differently as the data changes, without being rewritten. You describe the result; the planner picks the strategy based on current statistics. It's why optimising SQL is usually about giving the planner better information or better tools rather than editing the text."
+  },
+  {
+   "n": 97,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why does an 8 KB page size matter?",
+   "a": "It's the unit of everything — reads, writes, caching, and the reason a row can't exceed it and needs TOAST. Nearly every performance number in Postgres is really a page count, which is why <code>EXPLAIN (BUFFERS)</code> is so informative."
+  },
+  {
+   "n": 98,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why does Postgres have transactional DDL when most databases don't?",
+   "a": "Because its catalog is stored in ordinary tables subject to the same MVCC rules as your data, so a schema change is just another set of row versions that can be rolled back. Practically it means a failed migration leaves nothing half-applied, which is a real operational advantage."
+  },
+  {
+   "n": 99,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why do sequences produce gaps?",
+   "a": "Because they deliberately live outside transactional visibility — if <code>nextval</code> were rolled back, every concurrent inserter would have to serialise on the sequence. Gaps are the price of a counter that never blocks, and they are not evidence of lost rows."
+  },
+  {
+   "n": 100,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why does Postgres have such an extensive extension ecosystem?",
+   "a": "Because its type, operator and index frameworks were designed at Berkeley to be extended — an extension can add a genuinely new kind of data together with a working index for it. That's why PostGIS and pgvector are first-class rather than bolt-ons, and it's the strongest argument for \"just use Postgres\"."
+  },
+  {
+   "n": 101,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "Walk me through what happens between the client sending a query and getting rows back.",
+   "a": "The driver sends the query over the frontend/backend protocol to that connection's dedicated backend process. It's parsed into a tree, rewritten (views expanded, rules applied), planned — candidate plans priced using <code>pg_statistic</code> estimates and cost constants — then executed node by node, pulling 8 KB pages from shared_buffers or the OS, checking tuple visibility against the transaction's snapshot, and streaming rows back over the protocol."
+  },
+  {
+   "n": 102,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "What exactly is in a heap tuple header?",
+   "a": "23 bytes (padded to 24): <code>xmin</code> and <code>xmax</code>, command ids, the ctid of the next version in an update chain, an infomask of status bits including hint bits about whether xmin/xmax committed, and the null bitmap offset. It's why every row carries a fixed overhead and why very narrow tables are less efficient than they look."
+  },
+  {
+   "n": 103,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "What are hint bits?",
+   "a": "Cached conclusions in the tuple's infomask about whether its creating or deleting transaction committed, so subsequent readers don't have to consult the commit log. They're set lazily by whoever reads the tuple first, which is why the first SELECT after a bulk load can be surprisingly write-heavy."
+  },
+  {
+   "n": 104,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "How does a bitmap heap scan differ from an index scan, and why does it exist?",
+   "a": "An index scan follows the index one entry at a time, fetching heap rows in index order, which is random I/O. A bitmap scan reads the index first, builds a bitmap of matching pages, sorts it, and reads pages in physical order. It exists for mid-selectivity queries and it's also how two indexes are combined with BitmapAnd/BitmapOr."
+  },
+  {
+   "n": 105,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "What is a lossy bitmap and what does \"Recheck Cond\" mean?",
+   "a": "If the bitmap exceeds <code>work_mem</code>, Postgres degrades entries from individual rows to whole pages. It then has to recheck the condition on every row in those pages, which is what the Recheck Cond line reports."
+  },
+  {
+   "n": 106,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "Explain SSI — how does serializable isolation work without locking?",
+   "a": "Postgres tracks read-write dependencies between concurrent transactions using predicate locks over the data each one read. When it detects a pattern of dependencies that couldn't arise from any serial execution — specifically a dangerous structure of two consecutive rw-conflicts — it aborts one transaction with 40001. It's optimistic detection, not blocking."
+  },
+  {
+   "n": 107,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "What is a HOT update and why does it matter?",
+   "a": "If an update changes no indexed column and the new version fits on the same page, the versions are chained within the page and no index is touched at all. It dramatically reduces write amplification, which is why <code>fillfactor</code> below 100 on hot tables can pay, and why indexing a constantly-changing column costs more than its size."
+  },
+  {
+   "n": 108,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "What is the visibility map and what two things does it enable?",
+   "a": "A per-relation bitmap marking pages where all tuples are visible to all transactions. It lets VACUUM skip those pages entirely, and it lets index-only scans skip the heap fetch for rows on them."
+  },
+  {
+   "n": 109,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "How does the planner estimate selectivity for a WHERE clause?",
+   "a": "From <code>pg_statistic</code>: the fraction of nulls, the most-common-values list with frequencies, a histogram for the rest, and the distinct count. For a value in the MCV list it uses the recorded frequency; otherwise it interpolates from the histogram. It assumes independence between columns unless you've created extended statistics."
+  },
+  {
+   "n": 110,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "What's the difference between a generic and a custom plan?",
+   "a": "A custom plan is built with the actual parameter values; a generic plan is parameter-independent and reused. After five executions of a prepared statement Postgres compares the average custom cost to the generic cost and may switch. On skewed data the generic plan can be much worse — <code>plan_cache_mode</code> forces either."
+  },
+  {
+   "n": 111,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "How does streaming replication actually work?",
+   "a": "The standby connects to the primary as a replication client; a walsender process streams WAL records as they're produced; the standby's startup process replays them continuously. A replication slot records the standby's position so the primary retains the WAL it still needs — which is also how an abandoned slot fills the primary's disk."
+  },
+  {
+   "n": 112,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "What is logical decoding?",
+   "a": "The mechanism that turns physical WAL records back into logical row-level changes using an output plugin, which is what logical replication and CDC tools are built on. It requires <code>wal_level = logical</code> and a replication slot per consumer."
+  },
+  {
+   "n": 113,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "Why does a long-running query on a standby cause problems?",
+   "a": "WAL replay may need to remove rows the query's snapshot still requires. Postgres either cancels the query or delays replay, controlled by <code>max_standby_streaming_delay</code>. <code>hot_standby_feedback</code> pushes the problem to the primary as retained bloat instead."
+  },
+  {
+   "n": 114,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "How is a unique constraint actually enforced under MVCC?",
+   "a": "Through a unique index, with a special check: an inserter that finds a conflicting entry from an in-progress transaction waits for that transaction to finish before deciding. That's why two concurrent inserts of the same key block rather than both succeeding, and why one gets a constraint violation rather than a serialization error."
+  },
+  {
+   "n": 115,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "What does the free space map do, and why does the heap not shrink after VACUUM?",
+   "a": "The FSM records usable space per page so inserts can reuse it. VACUUM updates the FSM but does not move rows, so the file only shrinks if the free space happens to be at the very end and can be truncated."
+  },
+  {
+   "n": 116,
+   "c": "config",
+   "t": "Configuration",
+   "q": "Which settings would you change first on a fresh production Postgres?",
+   "a": "<code>shared_buffers</code> to about 25% of RAM, <code>effective_cache_size</code> to 50–75%, <code>random_page_cost</code> to about 1.1 on SSD, <code>work_mem</code> raised modestly with the concurrency multiplier in mind, <code>maintenance_work_mem</code> to several hundred MB, <code>log_min_duration_statement</code>, and per-table autovacuum scale factors on the big tables."
+  },
+  {
+   "n": 117,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What exactly does work_mem control, and what's the danger?",
+   "a": "Memory per sort or hash <em>operation</em>, default 4 MB — not per query and not per server. One query can have several, and many connections run at once, so worst case is roughly work_mem × operations × connections. Raising it globally to a gigabyte is how machines run out of memory."
+  },
+  {
+   "n": 118,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What does effective_cache_size allocate?",
+   "a": "Nothing. It only tells the planner how much caching to assume exists, which changes how attractive repeated index access looks. Setting it correctly is free and changes plans."
+  },
+  {
+   "n": 119,
+   "c": "config",
+   "t": "Configuration",
+   "q": "How do you change a setting and make it take effect?",
+   "a": "<code>ALTER SYSTEM SET x = y;</code> then <code>SELECT pg_reload_conf();</code>. Check <code>pg_settings.context</code> — <code>sighup</code> reloads, <code>postmaster</code> needs a restart, <code>user</code> can be set per session."
+  },
+  {
+   "n": 120,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What timeouts should every application set, and why?",
+   "a": "<code>statement_timeout</code> so no query runs forever holding locks and pinning the vacuum horizon; <code>idle_in_transaction_session_timeout</code> so an abandoned transaction can't block autovacuum database-wide; and <code>lock_timeout</code> in migrations so DDL fails fast instead of queueing all traffic behind it."
+  },
+  {
+   "n": 121,
+   "c": "config",
+   "t": "Configuration",
+   "q": "How would you tune autovacuum for a very large, frequently-updated table?",
+   "a": "Per-table overrides: drop <code>autovacuum_vacuum_scale_factor</code> to around 0.01 so it triggers on 1% churn rather than 20%, raise <code>autovacuum_vacuum_cost_limit</code> so it isn't throttled, and raise <code>maintenance_work_mem</code> so it doesn't need multiple index passes."
+  },
+  {
+   "n": 122,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What is synchronous_commit and when would you turn it off?",
+   "a": "It controls whether COMMIT waits for the WAL to be flushed. Turning it off risks losing a fraction of a second of committed transactions in a crash but never corrupts anything — a reasonable trade for a job queue or analytics ingestion, not for payments. It can be set per transaction, which is the best of both."
+  },
+  {
+   "n": 123,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What is wal_level and what do the values enable?",
+   "a": "<code>minimal</code> logs the least; <code>replica</code> (the default) supports physical replication and archiving; <code>logical</code> adds the information needed for logical decoding. Each step up increases WAL volume."
+  },
+  {
+   "n": 124,
+   "c": "config",
+   "t": "Configuration",
+   "q": "How do you set up connection limits sensibly?",
+   "a": "Work backwards: a small per-process pool <code>max</code>, multiplied by app instances, must sit comfortably below <code>max_connections</code> with headroom for admin sessions and <code>superuser_reserved_connections</code>. If the arithmetic doesn't fit, add an external transaction-mode pooler rather than raising <code>max_connections</code>."
+  },
+  {
+   "n": 125,
+   "c": "config",
+   "t": "Configuration",
+   "q": "Which logging settings do you turn on in production?",
+   "a": "<code>log_min_duration_statement</code> at a few hundred milliseconds, <code>log_lock_waits</code>, <code>log_temp_files = 0</code>, <code>log_checkpoints</code>, <code>log_autovacuum_min_duration</code>, and <code>auto_explain</code> with a threshold if you can preload it."
+  },
+  {
+   "n": 126,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why does WHERE status != 'archived' miss rows?",
+   "a": "Rows where <code>status</code> is NULL evaluate the comparison to unknown, and only rows evaluating to true are returned. Use <code>IS DISTINCT FROM</code>, or add <code>OR status IS NULL</code>."
+  },
+  {
+   "n": 127,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why does NOT IN with a subquery sometimes return nothing at all?",
+   "a": "If the subquery yields even one NULL, every comparison becomes unknown and the predicate is never true, so zero rows come back with no error. Use <code>NOT EXISTS</code>."
+  },
+  {
+   "n": 128,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Can a UNIQUE column contain two NULLs?",
+   "a": "Yes, by default — two unknowns aren't known to be equal, so any number of NULLs is allowed. Postgres 15 added <code>UNIQUE NULLS NOT DISTINCT</code> if you want at most one."
+  },
+  {
+   "n": 129,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Your ORDER BY-less query started returning rows in a different order. Is that a bug?",
+   "a": "Not in Postgres. A table is an unordered bag and the order depends on the plan chosen, which can change with data volume, vacuum, or parallelism. Any code depending on incidental order is the bug."
+  },
+  {
+   "n": 130,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why did a query stop using an index after a bulk load?",
+   "a": "Statistics are stale — the planner still believes the old distribution. Run <code>ANALYZE</code> on the table; autovacuum will get to it eventually but not before your next query."
+  },
+  {
+   "n": 131,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why can't you use a column alias from SELECT in the WHERE clause?",
+   "a": "Because WHERE is evaluated before SELECT in the logical order, so the alias doesn't exist yet. ORDER BY runs after SELECT, which is why it works there."
+  },
+  {
+   "n": 132,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "An UPDATE with a WHERE clause affected a row that shouldn't have matched. How?",
+   "a": "Under READ COMMITTED, if the row was locked by a concurrent transaction the statement waits, then re-evaluates its WHERE against the <em>new</em> version and proceeds if it still matches. The read and the write aren't against the same snapshot."
+  },
+  {
+   "n": 133,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why does adding a column with DEFAULT gen_random_uuid() rewrite the table when a constant default doesn't?",
+   "a": "A constant default can be stored once in the catalog and applied lazily (Postgres 11+). A volatile function must produce a distinct value per row, which means writing every row."
+  },
+  {
+   "n": 134,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why did LIKE 'foo%' use the index on one server and not another?",
+   "a": "Because a B-tree can only serve a prefix match under the C collation or with a <code>text_pattern_ops</code> index; under a non-C locale the plain index's ordering doesn't match prefix semantics."
+  },
+  {
+   "n": 135,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "A query returns different results inside a transaction than outside it. Why?",
+   "a": "At READ COMMITTED each statement takes a fresh snapshot, so a transaction can see changes committed between its own statements. At REPEATABLE READ the whole transaction shares one snapshot and will keep returning the older state."
+  },
+  {
+   "n": 136,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why does an index-only scan still show heap fetches?",
+   "a": "Because the pages involved aren't marked all-visible in the visibility map — VACUUM hasn't caught up. It's a vacuum problem, not an index problem."
+  },
+  {
+   "n": 137,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "A DELETE on a parent table is extremely slow. Why?",
+   "a": "Almost certainly a foreign key on a child table with no index on the referencing column, so each parent row deletion scans the whole child table to check the constraint. Postgres does not create that index for you."
+  }
+ ]
+}

@@ -1,0 +1,3560 @@
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "node-0",
+   "t": "Node 0 · Before a database",
+   "q": "You store application data in a JSON file that two processes both read, modify and write back. What goes wrong, and what is the failure called?",
+   "a": "Both read the same starting content, both write the whole file back, and the second write erases the first one's change entirely. This is a <strong>lost update</strong>. There is no error and nothing in any log — the change simply is not there."
+  },
+  {
+   "n": 2,
+   "c": "node-0",
+   "t": "Node 0 · Before a database",
+   "q": "Why doesn't a lock file solve concurrent access to a data file?",
+   "a": "It mostly works until the process holding the lock is killed or crashes. The lock file stays on disk forever with no owner, and the application is dead until a human deletes it. There is no mechanism to release a lock when its holder dies."
+  },
+  {
+   "n": 3,
+   "c": "node-0",
+   "t": "Node 0 · Before a database",
+   "q": "You write a file and your program returns successfully. Is the data on disk?",
+   "a": "No. The operating system accepts the bytes into memory and writes them to physical storage whenever it chooses, possibly seconds later. A power loss in that window can leave a file that is half old content and half new, or the right length but full of zeroes."
+  },
+  {
+   "n": 4,
+   "c": "node-0",
+   "t": "Node 0 · Before a database",
+   "q": "Why does searching a large data file become impossible rather than just slow?",
+   "a": "Answering any question means reading and checking every record, because nothing in the file knows where anything is. At ten million records you cannot hold it in memory and every query touches everything, so response time grows linearly with data forever."
+  },
+  {
+   "n": 5,
+   "c": "node-0",
+   "t": "Node 0 · Before a database",
+   "q": "What does it mean that a plain file enforces no structure?",
+   "a": "Nothing prevents one record having <code>\"age\": 30</code>, the next <code>\"age\": \"thirty\"</code>, and a third having no age at all. Every invariant must be re-enforced by every piece of code that ever writes — including one-off scripts and manual edits."
+  },
+  {
+   "n": 6,
+   "c": "node-0",
+   "t": "Node 0 · Before a database",
+   "q": "Why is \"move money from account A to account B\" unsafe with files?",
+   "a": "It is two separate writes. If the process dies between them the money has left A and never arrived at B. A filesystem has no concept of \"these two changes happen together or neither happens.\""
+  },
+  {
+   "n": 7,
+   "c": "node-0",
+   "t": "Node 0 · Before a database",
+   "q": "Name the five categories of failure that a database management system exists to solve.",
+   "a": "<strong>Concurrency</strong> (lost updates), <strong>crash safety</strong> (partial writes), <strong>search</strong> (finding data without reading everything), <strong>structure and truth</strong> (enforced invariants), and <strong>partial failure</strong> (grouping changes atomically)."
+  },
+  {
+   "n": 8,
+   "c": "node-0",
+   "t": "Node 0 · Before a database",
+   "q": "Why is \"it worked fine as a JSON file for months\" not evidence that files are adequate?",
+   "a": "Every one of the five failure modes is load- and size-dependent. Lost updates require concurrent writes, crash corruption requires an ill-timed crash, and scan cost requires volume. The failures are rare-then-constant, not gradual."
+  },
+  {
+   "n": 9,
+   "c": "node-0",
+   "t": "Node 0 · Before a database",
+   "q": "What is the single structural idea that makes all five problems solvable?",
+   "a": "Stop letting application code touch storage. One long-running program owns the bytes, and everybody else asks it. That gives you one place where locking, crash recovery, and rule enforcement can live."
+  },
+  {
+   "n": 10,
+   "c": "node-0",
+   "t": "Node 0 · Before a database",
+   "q": "Why does a soft \"we validate in the application\" approach fail to guarantee data quality?",
+   "a": "There is always more than one writer — a second service, a background job, a migration script, a human in a shell. Any rule that lives only in one client is a hope, not a guarantee."
+  },
+  {
+   "n": 11,
+   "c": "node-0",
+   "t": "Node 0 · Before a database",
+   "q": "What is the difference between data being consistent and data being correct here?",
+   "a": "Consistency is about invariants the system enforces at every moment. Correctness is about the values being right. A database can only guarantee the first, and that turns out to be enough to eliminate most classes of the second."
+  },
+  {
+   "n": 12,
+   "c": "node-0",
+   "t": "Node 0 · Before a database",
+   "q": "Why do these problems matter more for a web server than for a script you run once a day?",
+   "a": "A web server handles many requests concurrently by design, so \"two processes modify the same record at the same time\" is the normal case rather than a rare race."
+  },
+  {
+   "n": 13,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "Where did Postgres come from, and what does the name mean?",
+   "a": "It began at Berkeley in 1986 under Michael Stonebraker as the successor to a database called Ingres — <strong>post-Ingres</strong>, POSTGRES. It originally used a query language called QUEL; SQL was added in 1994 producing Postgres95, renamed <strong>PostgreSQL</strong> in 1996 and handed to a volunteer community."
+  },
+  {
+   "n": 14,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "Who owns Postgres?",
+   "a": "Nobody. It is developed by a global volunteer community under a permissive licence, with no controlling company. This is a real differentiator against MySQL (Oracle) and is why there is no \"enterprise edition\" gate."
+  },
+  {
+   "n": 15,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is the current major version, and how often do releases happen?",
+   "a": "<strong>Postgres 18</strong>, released September 2025. The project ships roughly one major version per year, each September, with five years of support."
+  },
+  {
+   "n": 16,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is the default Postgres port and what does the number mean?",
+   "a": "<strong>5432</strong>. It is simply the port the project registered as its default; nothing about the digits is derived from anything meaningful."
+  },
+  {
+   "n": 17,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is the frontend/backend protocol?",
+   "a": "The documented binary wire format clients use to talk to the server over TCP. You almost never implement it — a <strong>driver</strong> like <code>pg</code>, <code>postgres.js</code> or <code>psycopg</code> speaks it for you."
+  },
+  {
+   "n": 18,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is <code>psql</code>?",
+   "a": "The official command-line client. Connect with <code>psql \"postgres://user:pass@host:5432/db\"</code>."
+  },
+  {
+   "n": 19,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "Give the four psql meta-commands you use constantly.",
+   "a": "<code>\\dt</code> lists tables, <code>\\d tablename</code> describes one, <code>\\l</code> lists databases, <code>\\q</code> quits. Also <code>\\dx</code> for extensions and <code>\\di</code> for indexes."
+  },
+  {
+   "n": 20,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "In Postgres, what is a \"cluster\"? Why is the word misleading?",
+   "a": "A cluster is <strong>one server process managing one data directory</strong> containing multiple databases — it has nothing to do with multiple machines. The distributed sense of the word does not apply."
+  },
+  {
+   "n": 21,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is the data directory?",
+   "a": "The single directory on disk holding everything the server owns — data files, WAL, configuration — typically something like <code>/var/lib/postgresql/18/main</code>. Often referred to as <code>PGDATA</code>."
+  },
+  {
+   "n": 22,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "Can one connection query two different databases in the same cluster?",
+   "a": "No. A connection is bound to exactly one database and cannot see another's tables. Cross-database queries require a second connection or an extension such as <code>postgres_fdw</code> or <code>dblink</code>."
+  },
+  {
+   "n": 23,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is a schema in Postgres, and what is <code>public</code>?",
+   "a": "A schema is a namespace inside a database that groups tables and other objects. Every database has a default schema called <code>public</code>, which is why most people never think about schemas until they need multi-tenancy or want to isolate extension objects."
+  },
+  {
+   "n": 24,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is <code>search_path</code>?",
+   "a": "The ordered list of schemas Postgres searches when you name an object without qualifying it. Defaults to <code>\"$user\", public</code>. Setting it is how you make a query written against unqualified names resolve to a specific tenant's schema."
+  },
+  {
+   "n": 25,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is a table, formally?",
+   "a": "A fixed set of named, typed <strong>columns</strong> and an unordered bag of <strong>rows</strong>."
+  },
+  {
+   "n": 26,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "Why is \"unordered\" important in the definition of a table?",
+   "a": "Because a query without <code>ORDER BY</code> may return rows in any order at all, and that order can change tomorrow for the same data if the server picks a different plan. Relying on incidental ordering is a bug that appears only in production."
+  },
+  {
+   "n": 27,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is the relational model and who proposed it?",
+   "a": "Edgar Codd at IBM, 1970. Data is stored as plain values in named columns rather than as pointers between records, so new questions can be asked later without restructuring the data."
+  },
+  {
+   "n": 28,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "Why does storing values rather than pointers matter practically?",
+   "a": "Because relationships are expressed by matching values at query time, you can join any two tables on any compatible columns, including combinations nobody anticipated when the schema was written."
+  },
+  {
+   "n": 29,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is the difference between a database, a schema, and a table?",
+   "a": "Cluster contains databases; a database contains schemas; a schema contains tables. Connections attach to a database; names resolve within schemas."
+  },
+  {
+   "n": 30,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is a role in Postgres?",
+   "a": "The unified concept covering both users and groups. <code>CREATE ROLE</code> with <code>LOGIN</code> makes what you would call a user. Permissions are granted to roles, and roles can be members of other roles."
+  },
+  {
+   "n": 31,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is <code>pg_hba.conf</code>?",
+   "a": "The host-based authentication file. It decides, per connection type, database, user and source address, which authentication method applies — <code>scram-sha-256</code>, <code>md5</code>, <code>trust</code>, <code>peer</code>. A connection refused before any password check is usually this file."
+  },
+  {
+   "n": 32,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What does <code>GRANT</code> operate on?",
+   "a": "Privileges on objects — <code>SELECT</code>, <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code> on tables, <code>USAGE</code> on schemas and sequences, <code>CONNECT</code> on databases — granted to roles. <code>ALTER DEFAULT PRIVILEGES</code> makes grants apply to objects created later."
+  },
+  {
+   "n": 33,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is the system catalog?",
+   "a": "The set of tables where Postgres stores its own metadata — <code>pg_class</code> (tables and indexes), <code>pg_attribute</code> (columns), <code>pg_index</code>, <code>pg_stat_activity</code> and so on. They are queryable with ordinary SQL, which is why monitoring Postgres needs no special tooling."
+  },
+  {
+   "n": 34,
+   "c": "node-1",
+   "t": "Node 1 · A server that owns the data",
+   "q": "What is <code>information_schema</code> and how does it differ from <code>pg_catalog</code>?",
+   "a": "<code>information_schema</code> is the SQL-standard, portable view of metadata; <code>pg_catalog</code> is Postgres's own, which is more complete and more accurate about Postgres-specific features. Use the latter when you need the truth."
+  },
+  {
+   "n": 35,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What is the right mental model of a database schema?",
+   "a": "Not a bucket you put things in, but a <strong>set of enforced invariants</strong> — statements guaranteed true of the data at every moment, regardless of which client wrote it. If a rule lives in the database it is true; if it lives only in application code it is a hope."
+  },
+  {
+   "n": 36,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "How strict is Postgres about types compared to MySQL or MongoDB?",
+   "a": "Very. Inserting a string into an <code>integer</code> column is an error, not a silent coercion to zero. There is no equivalent of MySQL's historical non-strict mode truncating or defaulting bad values."
+  },
+  {
+   "n": 37,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "<code>text</code> or <code>varchar(n)</code> — which is faster?",
+   "a": "Neither. They are the same underlying type; <code>varchar(n)</code> just adds a length check. Choose a limit only when it is a genuine business rule, otherwise use <code>text</code>."
+  },
+  {
+   "n": 38,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What is <code>char(n)</code> and why avoid it?",
+   "a": "A blank-padded fixed-length type. It pads values with spaces to length <code>n</code>, which surprises comparisons and wastes space. There is essentially no reason to use it."
+  },
+  {
+   "n": 39,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "Why must money never be stored in <code>float8</code>?",
+   "a": "Binary floating point cannot represent 0.1 exactly, so sums drift by fractions of a cent and comparisons fail. Use <code>numeric</code>, which is exact decimal arithmetic, at some cost in speed."
+  },
+  {
+   "n": 40,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "When is <code>float8</code> the right choice?",
+   "a": "For measurements and scientific quantities where approximation is inherent and arithmetic speed matters — sensor readings, coordinates, scores — never for anything that must total exactly."
+  },
+  {
+   "n": 41,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "<code>timestamp</code> versus <code>timestamptz</code> — what is the actual difference?",
+   "a": "<code>timestamptz</code> converts input to <strong>UTC</strong> on the way in and renders it in the session's timezone on the way out. It does <em>not</em> store a timezone. Plain <code>timestamp</code> stores a wall-clock reading with no idea what part of the world it refers to."
+  },
+  {
+   "n": 42,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "Which timestamp type should you default to and why?",
+   "a": "<code>timestamptz</code>, always, for any point in time. Plain <code>timestamp</code> loses the information needed to compare two events from different places, and produces bugs when clocks shift."
+  },
+  {
+   "n": 43,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "When is plain <code>timestamp</code> actually correct?",
+   "a": "When the value genuinely is a local wall-clock time with no instant attached — \"the shop opens at 09:00 wherever it is\" or a date-and-time a user typed that must be shown back unchanged."
+  },
+  {
+   "n": 44,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "Why prefer <code>bigint</code> over <code>integer</code> for surrogate keys?",
+   "a": "A 32-bit <code>integer</code> runs out at about 2.1 billion. Migrating a live primary key from <code>integer</code> to <code>bigint</code> rewrites the whole table under an exclusive lock, which is a painful outage you can avoid for free at design time."
+  },
+  {
+   "n": 45,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "Name the five constraint types that matter.",
+   "a": "<code>NOT NULL</code>, <code>CHECK</code>, <code>UNIQUE</code>, <code>PRIMARY KEY</code>, and <code>FOREIGN KEY</code>."
+  },
+  {
+   "n": 46,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What is a <code>CHECK</code> constraint?",
+   "a": "An arbitrary boolean expression evaluated per row on insert and update — <code>CHECK (price &gt; 0)</code>, <code>CHECK (status IN ('draft','sent'))</code>. It cannot reference other rows or other tables."
+  },
+  {
+   "n": 47,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What exactly is a primary key?",
+   "a": "<code>UNIQUE</code> plus <code>NOT NULL</code>, plus the declaration that this column (or set of columns) is the row's identity. Postgres automatically creates a unique index to enforce it."
+  },
+  {
+   "n": 48,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What does a foreign key guarantee?",
+   "a": "That every value in the referencing column exists as a key in the referenced table. It makes \"an order always belongs to a real customer\" a fact enforced by the server rather than something application code hopes for."
+  },
+  {
+   "n": 49,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What are the <code>ON DELETE</code> options for a foreign key and what does each do?",
+   "a": "<code>RESTRICT</code>/<code>NO ACTION</code> (default) refuses to delete a parent with children; <code>CASCADE</code> deletes the children too; <code>SET NULL</code> orphans them; <code>SET DEFAULT</code> points them at the column default."
+  },
+  {
+   "n": 50,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "Why is <code>ON DELETE CASCADE</code> something to use deliberately rather than by default?",
+   "a": "Because a single <code>DELETE</code> can silently remove an unbounded amount of data across many tables, and it can be extremely slow if the child tables lack an index on the referencing column."
+  },
+  {
+   "n": 51,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What is a composite primary key and when is it appropriate?",
+   "a": "A primary key spanning more than one column. It is natural for join tables (<code>(post_id, tag_id)</code>) and for partitioned tables where the partition key must be part of any unique constraint."
+  },
+  {
+   "n": 52,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What is the difference between a natural key and a surrogate key?",
+   "a": "A natural key is meaningful data used as identity (an email, an ISBN); a surrogate key is a meaningless generated value (an identity integer or a UUID). Surrogates are preferred because natural keys change and correcting them cascades everywhere."
+  },
+  {
+   "n": 53,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What does <code>NULL</code> mean?",
+   "a": "<strong>Unknown</strong>. Not zero, not empty string, not false. Everything strange about NULL follows from that."
+  },
+  {
+   "n": 54,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "Why is <code>WHERE col = NULL</code> always wrong?",
+   "a": "Because \"unknown equals unknown\" evaluates to unknown, not true, so no rows are returned. You must write <code>IS NULL</code> or <code>IS NOT NULL</code>."
+  },
+  {
+   "n": 55,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What is three-valued logic?",
+   "a": "SQL predicates evaluate to true, false, or <strong>unknown</strong>. Only rows where the <code>WHERE</code> clause is true are returned, so unknown behaves like false for filtering but not for negation — <code>NOT unknown</code> is still unknown."
+  },
+  {
+   "n": 56,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "Why does <code>WHERE status != 'archived'</code> silently drop rows?",
+   "a": "Rows where <code>status</code> is NULL evaluate the comparison to unknown and are excluded. You need <code>WHERE status IS DISTINCT FROM 'archived'</code> or <code>WHERE status != 'archived' OR status IS NULL</code>."
+  },
+  {
+   "n": 57,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "How do aggregates treat NULLs?",
+   "a": "They skip them. <code>AVG(score)</code> over ten rows with four NULLs averages six values, not ten. <code>COUNT(col)</code> counts non-null values while <code>COUNT(*)</code> counts rows."
+  },
+  {
+   "n": 58,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "Can a UNIQUE column contain more than one NULL?",
+   "a": "Yes, by default — two unknowns are not known to be equal. Postgres 15 added <code>UNIQUE NULLS NOT DISTINCT</code> if you want at most one NULL."
+  },
+  {
+   "n": 59,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What is <code>COALESCE</code>?",
+   "a": "A function returning its first non-null argument — <code>COALESCE(nickname, name, 'anonymous')</code>. The standard way to supply a fallback for a possibly-null value."
+  },
+  {
+   "n": 60,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What is the difference between <code>SERIAL</code> and <code>GENERATED ALWAYS AS IDENTITY</code>?",
+   "a": "<code>SERIAL</code> is not a type; it is a macro that creates an integer column, a sequence, and a default. <code>GENERATED ALWAYS AS IDENTITY</code> (Postgres 10+) is standard SQL, has cleaner ownership and permissions, and is the modern choice."
+  },
+  {
+   "n": 61,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "Why do identity columns produce gaps in the numbers?",
+   "a": "Sequences are deliberately <strong>not transactional</strong> — a number handed out to a transaction that rolls back is not returned. Gaps are normal and expected, and are not a sign of lost data."
+  },
+  {
+   "n": 62,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What is a sequence, as an object?",
+   "a": "A separate database object holding a counter, with functions <code>nextval</code>, <code>currval</code> and <code>setval</code>. Identity and serial columns are just columns whose default calls <code>nextval</code> on one."
+  },
+  {
+   "n": 63,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What does <code>GENERATED BY DEFAULT AS IDENTITY</code> allow that <code>ALWAYS</code> does not?",
+   "a": "It lets you supply an explicit value on insert, which matters for data loading and migrations. <code>ALWAYS</code> rejects it unless you write <code>OVERRIDING SYSTEM VALUE</code>."
+  },
+  {
+   "n": 64,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What is a column <code>DEFAULT</code> and what is the most useful one?",
+   "a": "A value inserted when the statement supplies none. <code>DEFAULT now()</code> on a <code>created_at timestamptz</code> is the one you will write in almost every table."
+  },
+  {
+   "n": 65,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What is the difference between <code>now()</code> and <code>clock_timestamp()</code>?",
+   "a": "<code>now()</code> returns the start time of the current <strong>transaction</strong> and is constant within it; <code>clock_timestamp()</code> returns the actual wall clock at the moment of the call and changes within a transaction."
+  },
+  {
+   "n": 66,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "What is a domain type?",
+   "a": "A named type built from an existing one plus constraints — <code>CREATE DOMAIN email AS text CHECK (VALUE ~ '@')</code> — so a rule can be declared once and reused across many columns."
+  },
+  {
+   "n": 67,
+   "c": "node-2",
+   "t": "Node 2 · Types and constraints",
+   "q": "If constraints slow down writes, why not enforce everything in the application?",
+   "a": "Because the cost is small and the guarantee is absolute. Constraint checks are cheap relative to the write itself, and the alternative is trusting every current and future writer, including scripts and manual edits, forever."
+  },
+  {
+   "n": 68,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What does it mean that SQL is declarative?",
+   "a": "You describe the <strong>result you want</strong>, not the steps to produce it. The server decides how. Two very different-looking queries can execute identically, and one query can execute in two different ways on different days as the data changes."
+  },
+  {
+   "n": 69,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What follows practically from SQL being declarative?",
+   "a": "That \"optimising SQL\" rarely means rewriting the text. It usually means giving the server better information (statistics), better tools (indexes), or removing something that blocks it from choosing well."
+  },
+  {
+   "n": 70,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is the logical evaluation order of a SELECT?",
+   "a": "<code>FROM</code> (and joins), then <code>WHERE</code>, then <code>GROUP BY</code>, then <code>HAVING</code>, then <code>SELECT</code>, then <code>ORDER BY</code>, then <code>LIMIT</code>. This is not the order you write them in."
+  },
+  {
+   "n": 71,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "Why can you use a SELECT alias in ORDER BY but not in WHERE?",
+   "a": "Because <code>WHERE</code> is evaluated before <code>SELECT</code>, so the alias does not exist yet; <code>ORDER BY</code> is evaluated after, so it does."
+  },
+  {
+   "n": 72,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is the difference between WHERE and HAVING?",
+   "a": "<code>WHERE</code> filters individual rows before grouping; <code>HAVING</code> filters groups after aggregation. <code>HAVING count(*) &gt; 5</code> is only expressible after grouping."
+  },
+  {
+   "n": 73,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What does an INNER JOIN return?",
+   "a": "Only rows where the join condition matched on both sides. Unmatched rows from either table are dropped."
+  },
+  {
+   "n": 74,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What does a LEFT JOIN return?",
+   "a": "Every row from the left table, with the right side's columns filled with NULLs where nothing matched. This is what you want for \"all customers and their order count, including customers with none.\""
+  },
+  {
+   "n": 75,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is the classic LEFT JOIN bug?",
+   "a": "Putting a condition on the right-hand table in <code>WHERE</code> instead of in the <code>ON</code> clause. The NULL-filled rows fail the condition and are discarded, silently turning the left join into an inner join."
+  },
+  {
+   "n": 76,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is a FULL OUTER JOIN?",
+   "a": "A join keeping unmatched rows from both sides, NULL-filling whichever side is missing. Useful for reconciliation — finding what is in one dataset and not the other."
+  },
+  {
+   "n": 77,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is a CROSS JOIN, and how do you write one by accident?",
+   "a": "Every combination of rows from both tables, with no condition. You write one by accident by listing two tables in <code>FROM</code> and forgetting the join predicate, producing a result set of size N×M."
+  },
+  {
+   "n": 78,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is a self join and when do you need one?",
+   "a": "Joining a table to itself with two aliases — for hierarchies (an employee's manager is another row in the same table) or for comparing rows to each other."
+  },
+  {
+   "n": 79,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is a lateral join?",
+   "a": "<code>LEFT JOIN LATERAL (...) ON true</code> lets the subquery reference columns from the rows to its left. It is the clean way to write \"for each row, the top 3 related rows.\""
+  },
+  {
+   "n": 80,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is the difference between <code>COUNT(*)</code> and <code>COUNT(col)</code>?",
+   "a": "<code>COUNT(*)</code> counts rows. <code>COUNT(col)</code> counts rows where <code>col</code> is not null. <code>COUNT(DISTINCT col)</code> counts distinct non-null values."
+  },
+  {
+   "n": 81,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What does GROUP BY actually do?",
+   "a": "Collapses rows into one output row per distinct combination of the grouping expressions. Every selected column must either be in the GROUP BY or be inside an aggregate."
+  },
+  {
+   "n": 82,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is <code>FILTER</code> on an aggregate?",
+   "a": "A cleaner alternative to <code>CASE</code> inside an aggregate: <code>count(*) FILTER (WHERE status = 'paid')</code> counts only matching rows, letting you compute several conditional totals in one pass."
+  },
+  {
+   "n": 83,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is a scalar subquery?",
+   "a": "A subquery returning exactly one row and one column, usable anywhere a value is — <code>WHERE price &gt; (SELECT avg(price) FROM products)</code>. It errors at runtime if it returns more than one row."
+  },
+  {
+   "n": 84,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is a correlated subquery?",
+   "a": "A subquery referencing a column from the outer query, so it is conceptually re-evaluated per outer row. Postgres often rewrites these into joins, but they can be a performance trap when it cannot."
+  },
+  {
+   "n": 85,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "<code>IN</code> versus <code>EXISTS</code> — what is the difference?",
+   "a": "<code>EXISTS</code> asks whether any matching row exists and can stop at the first hit; <code>IN</code> compares against a value list. They also differ on NULLs: <code>NOT IN</code> with a NULL in the list returns no rows at all, which is a notorious silent bug. Prefer <code>NOT EXISTS</code>."
+  },
+  {
+   "n": 86,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "Why is <code>NOT IN (SELECT ...)</code> dangerous?",
+   "a": "If the subquery returns even one NULL, every comparison becomes unknown and the whole predicate is never true, so the query returns zero rows with no error."
+  },
+  {
+   "n": 87,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is UNION versus UNION ALL?",
+   "a": "<code>UNION</code> concatenates two result sets and removes duplicates, which requires a sort or hash. <code>UNION ALL</code> just concatenates. Use <code>ALL</code> unless you specifically need deduplication."
+  },
+  {
+   "n": 88,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is <code>DISTINCT ON</code>?",
+   "a": "A Postgres extension: <code>SELECT DISTINCT ON (user_id) * FROM events ORDER BY user_id, created_at DESC</code> returns the first row per <code>user_id</code> in the given order. A compact alternative to a window function for \"latest per group.\""
+  },
+  {
+   "n": 89,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What does <code>ON CONFLICT</code> do?",
+   "a": "Added in Postgres 9.5, it turns an <code>INSERT</code> into an upsert: <code>ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name</code> inserts or updates atomically, without a read-then-write race. <code>DO NOTHING</code> silently skips conflicts."
+  },
+  {
+   "n": 90,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is <code>EXCLUDED</code> in an ON CONFLICT clause?",
+   "a": "A pseudo-table holding the row you tried to insert, so the update can reference the proposed values alongside the existing ones."
+  },
+  {
+   "n": 91,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What does <code>RETURNING</code> do?",
+   "a": "Returns rows affected by an <code>INSERT</code>, <code>UPDATE</code> or <code>DELETE</code> in the same round trip — most commonly <code>INSERT ... RETURNING id</code> to get a generated key without a second query."
+  },
+  {
+   "n": 92,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is <code>MERGE</code> and how does it differ from ON CONFLICT?",
+   "a": "Added in Postgres 15, it is the SQL-standard statement for conditional insert/update/delete driven by a join against a source. It is more expressive than <code>ON CONFLICT</code>, which is keyed specifically on a unique constraint violation."
+  },
+  {
+   "n": 93,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is the difference between <code>DELETE</code> and <code>TRUNCATE</code>?",
+   "a": "<code>DELETE</code> removes rows one at a time, is transactional, fires triggers, and leaves dead tuples. <code>TRUNCATE</code> discards the whole table's storage instantly, is still transactional in Postgres, but takes an <code>ACCESS EXCLUSIVE</code> lock and does not fire row triggers."
+  },
+  {
+   "n": 94,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What does <code>LIMIT ... OFFSET</code> cost at large offsets?",
+   "a": "The server must still produce and discard every skipped row, so <code>OFFSET 1000000</code> does a million rows of work to return ten. This is why deep pagination gets slower with page number."
+  },
+  {
+   "n": 95,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is keyset (cursor) pagination?",
+   "a": "Paginating by a value rather than a count: <code>WHERE (created_at, id) &lt; ($1, $2) ORDER BY created_at DESC, id DESC LIMIT 20</code>. Constant time at any depth because the index can seek straight to the position."
+  },
+  {
+   "n": 96,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "What is <code>CASE</code> used for in SQL?",
+   "a": "Conditional expressions inside a query — mapping values, bucketing, or conditional aggregation. <code>CASE WHEN x &gt; 100 THEN 'big' ELSE 'small' END</code>."
+  },
+  {
+   "n": 97,
+   "c": "node-3",
+   "t": "Node 3 · SQL is a question, not a program",
+   "q": "Why is <code>SELECT *</code> discouraged in application code?",
+   "a": "It fetches columns you do not need (including large TOASTed ones), it breaks silently when a column is added or reordered, and it prevents index-only scans. Name your columns."
+  },
+  {
+   "n": 98,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What is the heap?",
+   "a": "The file (or set of files) holding a table's row data. \"Heap\" means unordered pile: rows sit wherever there was room, in no meaningful order."
+  },
+  {
+   "n": 99,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "How large is a Postgres page, and why does the number matter?",
+   "a": "<strong>8192 bytes</strong> — 8 KB. It is a compile-time constant and effectively universal. It is the atom of all storage work: Postgres reads, writes and caches whole pages, so most performance numbers are really page counts."
+  },
+  {
+   "n": 100,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What is inside a page?",
+   "a": "A header, then a <strong>line pointer array</strong> growing down from the top, then row data growing up from the bottom, with free space in the middle."
+  },
+  {
+   "n": 101,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What is a tuple?",
+   "a": "Postgres's name for a stored row version. Each has a 23-byte header (padded to 24) before its column data; that header holds the transaction visibility information."
+  },
+  {
+   "n": 102,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What is a <code>ctid</code>?",
+   "a": "A row's physical address — a pair of (page number, line pointer). Visible via <code>SELECT ctid, * FROM t</code>. It is <strong>not stable</strong>: any update can move the row, so never store one."
+  },
+  {
+   "n": 103,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "Why do heap files get split at 1 GB?",
+   "a": "Postgres splits each relation into segment files of 1 GB to stay within filesystem limits and keep file handling manageable. It is invisible in normal use."
+  },
+  {
+   "n": 104,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "Why can't a row exceed 8 KB, and what saves you?",
+   "a": "A tuple cannot span pages. <strong>TOAST</strong> saves you: values that would push a row over roughly 2 KB are compressed and, if still too large, moved into a hidden side table in chunks, leaving a pointer in the main row."
+  },
+  {
+   "n": 105,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What does TOAST stand for?",
+   "a": "The Oversized-Attribute Storage Technique."
+  },
+  {
+   "n": 106,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What is the practical performance consequence of TOAST?",
+   "a": "A column holding a megabyte of JSON costs almost nothing to <code>SELECT</code> <em>unless you select that column</em>. This is a concrete reason <code>SELECT *</code> on a wide table can be dramatically more expensive than naming four columns."
+  },
+  {
+   "n": 107,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What are the TOAST storage strategies?",
+   "a": "<code>PLAIN</code> (no toasting), <code>EXTENDED</code> (compress then move out — the default for most variable-length types), <code>EXTERNAL</code> (move out without compressing, faster substring access), and <code>MAIN</code> (compress, avoid moving out if possible)."
+  },
+  {
+   "n": 108,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "How does column order affect table size?",
+   "a": "Postgres aligns values on natural boundaries, so declaring <code>bool, int8, bool, int8</code> wastes seven padding bytes after each boolean. Declaring fixed-width columns largest-first, then variable-length, then nullable, avoids it. Irrelevant on small tables, gigabytes on billions of rows."
+  },
+  {
+   "n": 109,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What is a sequential scan?",
+   "a": "Reading every page of a table and checking every row. It is one long streaming read, which disks handle well, so it is the fastest option for small tables and for queries matching a large fraction of rows."
+  },
+  {
+   "n": 110,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "When does a sequential scan become catastrophic?",
+   "a": "When the table is large and the query is selective — a 50 GB table means 6.5 million page reads to find one row, repeated on every request."
+  },
+  {
+   "n": 111,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What is <code>shared_buffers</code>?",
+   "a": "Postgres's own cache of pages in memory, shared by all connections. Default 128 MB; conventionally set to about 25% of the machine's RAM."
+  },
+  {
+   "n": 112,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "Why is Postgres caching described as double caching?",
+   "a": "Because underneath <code>shared_buffers</code>, the operating system keeps its own page cache of the same files. A page missing from shared_buffers is often still in RAM via the OS."
+  },
+  {
+   "n": 113,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What is <code>effective_cache_size</code> and what does it allocate?",
+   "a": "Nothing. It is a <em>hint to the planner</em> about how much total caching (Postgres plus OS) is likely available, which changes how cheap it thinks repeated index access will be. Typically set to 50–75% of RAM."
+  },
+  {
+   "n": 114,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What is <code>fillfactor</code>?",
+   "a": "The percentage of each page Postgres fills when inserting, default 100 for tables. Lowering it to around 90 leaves room for updated row versions on the same page, enabling HOT updates."
+  },
+  {
+   "n": 115,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What is the free space map?",
+   "a": "A per-relation structure recording how much usable space each page has, so inserts can reuse space reclaimed by VACUUM instead of always appending."
+  },
+  {
+   "n": 116,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What is the visibility map?",
+   "a": "A per-relation bitmap marking pages where all tuples are visible to all transactions. It is what makes index-only scans possible and what lets VACUUM skip pages entirely."
+  },
+  {
+   "n": 117,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "How do you see how big a table is?",
+   "a": "<code>SELECT pg_size_pretty(pg_total_relation_size('t'))</code> for table plus indexes plus TOAST, <code>pg_relation_size('t')</code> for the heap alone, and <code>pg_indexes_size('t')</code> for the indexes."
+  },
+  {
+   "n": 118,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "Why does Postgres read a whole page to fetch one row?",
+   "a": "Because the page is the unit of I/O and of caching. There is no mechanism to read part of one, and in practice the neighbouring rows are often wanted next anyway."
+  },
+  {
+   "n": 119,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What is a relation?",
+   "a": "Postgres's internal term for anything table-shaped stored in files — tables, indexes, sequences, materialized views. It is why so many system functions and views are named <code>*_relation_*</code>."
+  },
+  {
+   "n": 120,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "Does inserting a row put it anywhere meaningful in the heap?",
+   "a": "No. It goes wherever there is free space, which may be a hole left by a vacuumed dead tuple in the middle of the file. Physical order is not logical order."
+  },
+  {
+   "n": 121,
+   "c": "node-4",
+   "t": "Node 4 · Pages, tuples and the heap",
+   "q": "What is physical correlation and why does it matter?",
+   "a": "How closely a column's ordering matches physical row order on disk. High correlation makes index scans cheap because matching rows cluster into few pages; it is why BRIN indexes work and why <code>CLUSTER</code> exists."
+  },
+  {
+   "n": 122,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is an index?",
+   "a": "A separate data structure, in its own files, mapping values to the physical locations of the rows containing them — a redundant, automatically maintained copy of part of your data kept in an order that makes searching cheap."
+  },
+  {
+   "n": 123,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What are the two costs of an index?",
+   "a": "Disk space, and write amplification — every <code>INSERT</code>, <code>UPDATE</code> and <code>DELETE</code> must also update every index on the table. Ten indexes on a hot write table is a real problem."
+  },
+  {
+   "n": 124,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What structure does a default Postgres index use?",
+   "a": "A <strong>B+tree</strong>. Leaves hold every indexed value in sorted order paired with a ctid, and are linked to each other; internal pages hold separator keys."
+  },
+  {
+   "n": 125,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "Why is a B-tree lookup so cheap?",
+   "a": "Each 8 KB page holds hundreds of keys, so fan-out is enormous. A hundred-million-row table typically has a tree only <strong>four levels deep</strong>, and the top levels stay cached — four page reads instead of millions."
+  },
+  {
+   "n": 126,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "Which query shapes can a B-tree serve besides equality?",
+   "a": "Range queries (<code>&gt;</code>, <code>&lt;</code>, <code>BETWEEN</code>) because leaves are sorted and linked; <code>ORDER BY</code> on the indexed column, letting the sort be skipped; prefix matching <code>LIKE 'abc%'</code>; and <code>MIN</code>/<code>MAX</code> by reading one end."
+  },
+  {
+   "n": 127,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "Why can't a B-tree help <code>LIKE '%abc'</code>?",
+   "a": "A suffix has no position in a value-sorted structure. Sorting by leading characters says nothing about trailing ones, so the whole index would have to be scanned."
+  },
+  {
+   "n": 128,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What does an index on <code>(tenant_id, created_at)</code> sort by?",
+   "a": "<code>tenant_id</code> first, and within equal tenant values, <code>created_at</code>. That is why it serves queries about one tenant well and queries about a date range across all tenants badly."
+  },
+  {
+   "n": 129,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "State the leftmost prefix rule.",
+   "a": "A composite index is usable for a query that constrains a <strong>prefix</strong> of its columns. An index on (a, b, c) helps queries on a, on (a, b), and on (a, b, c) — not on b alone."
+  },
+  {
+   "n": 130,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is the column ordering rule for a composite index?",
+   "a": "Equality columns first, then the range or sort column. Once you use a range predicate on a column, columns after it in the index can no longer be used for further seeking."
+  },
+  {
+   "n": 131,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is a partial index and when does it pay off?",
+   "a": "<code>CREATE INDEX ... WHERE deleted_at IS NULL</code> indexes only some rows. Where 98% of rows are soft-deleted or completed, the index becomes a fiftieth of the size and stays cached."
+  },
+  {
+   "n": 132,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is an expression index and why is it necessary?",
+   "a": "<code>CREATE INDEX ON users (lower(email))</code>. A query filtering on <code>lower(email)</code> cannot use a plain index on <code>email</code>, because the index knows nothing about a function of the column. The function must be <code>IMMUTABLE</code>."
+  },
+  {
+   "n": 133,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What does <code>INCLUDE</code> do in a CREATE INDEX?",
+   "a": "Added in Postgres 11, it stores extra columns in the index leaves without making them part of the sort key. It exists to enable index-only scans without widening the searchable key."
+  },
+  {
+   "n": 134,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is an index-only scan?",
+   "a": "A scan that answers the query entirely from the index without visiting the heap, possible when every column needed is in the index."
+  },
+  {
+   "n": 135,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "Why does an index scan normally have to visit the heap at all?",
+   "a": "Because the index does not record visibility. An index entry points at a tuple, but only the tuple's header knows whether your transaction may see that version."
+  },
+  {
+   "n": 136,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "If the index has all the columns, why might an index-only scan still hit the heap?",
+   "a": "Because it can only skip the heap for pages marked all-visible in the <strong>visibility map</strong>, which VACUUM maintains. Heap fetches in an index-only scan are a vacuum problem, not an index problem."
+  },
+  {
+   "n": 137,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is a bitmap scan, and what problem does it solve?",
+   "a": "When many rows match, following the index one at a time produces random heap access. Postgres instead builds an in-memory bitmap of matching <em>pages</em>, sorts it, and reads those pages in physical order — <code>Bitmap Index Scan</code> feeding <code>Bitmap Heap Scan</code>."
+  },
+  {
+   "n": 138,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "How can Postgres use two indexes for one query?",
+   "a": "By building a bitmap from each and combining them with AND or OR before reading the heap. This is why a bitmap plan can show <code>BitmapAnd</code> over two index scans."
+  },
+  {
+   "n": 139,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is the \"Recheck Cond\" line in a bitmap heap scan?",
+   "a": "When the bitmap becomes lossy (it stores whole pages instead of individual rows because it ran out of <code>work_mem</code>), Postgres must recheck the condition on every row of those pages."
+  },
+  {
+   "n": 140,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is a GIN index for?",
+   "a": "Values that <em>contain</em> many searchable items — array elements, JSONB keys and values, full-text search lexemes. It is an inverted index mapping each item to the rows containing it."
+  },
+  {
+   "n": 141,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is a GiST index for?",
+   "a": "A framework for indexing things with overlap and containment rather than ordering: geometric shapes, ranges, nearest-neighbour search. PostGIS is built on it, and exclusion constraints require it."
+  },
+  {
+   "n": 142,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is a BRIN index and when is it excellent?",
+   "a": "Block Range INdex: it stores only the min and max value for each group of pages, making it tiny. It is superb on append-only time-series tables where physical order already correlates with the indexed column, and useless when it does not."
+  },
+  {
+   "n": 143,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "Why are hash indexes rarely used?",
+   "a": "They support only equality, offer little over a B-tree in practice, and were not even crash-safe before Postgres 10. A B-tree does everything they do plus ranges and ordering."
+  },
+  {
+   "n": 144,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What index types does pgvector add?",
+   "a": "<strong>IVFFlat</strong>, which clusters vectors into lists and searches the nearest few, and <strong>HNSW</strong> (pgvector 0.5.0, 2023), a graph index that is slower and larger to build but far better on the recall-versus-speed trade-off."
+  },
+  {
+   "n": 145,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "Does Postgres index the referencing side of a foreign key automatically?",
+   "a": "<strong>No.</strong> It indexes the referenced primary key, which already had one. <code>orders.customer_id</code> gets nothing, so lookups by customer and deletes of parents both become sequential scans."
+  },
+  {
+   "n": 146,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "You add an index and the query gets slower. Name three likely reasons.",
+   "a": "The planner is not using it and you added write cost for nothing; it is used but the query matches so many rows that random heap access beats a sequential scan; or statistics are stale and the planner chose it on a bad estimate."
+  },
+  {
+   "n": 147,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "How do you find unused indexes?",
+   "a": "<code>SELECT * FROM pg_stat_user_indexes WHERE idx_scan = 0</code>. An index with zero scans after a representative period of production is pure write and space overhead — subject to the caveat that the counters reset on restart and on replicas are separate."
+  },
+  {
+   "n": 148,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is index bloat and why does it happen?",
+   "a": "Index pages accumulate dead entries and become sparsely filled as rows are updated and deleted, so the index grows larger than its data warrants. <code>REINDEX CONCURRENTLY</code> (Postgres 12+) rebuilds it without blocking."
+  },
+  {
+   "n": 149,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is B-tree deduplication?",
+   "a": "Added in Postgres 13, it stores a single copy of a repeated key with a list of pointers, dramatically shrinking indexes on low-cardinality columns."
+  },
+  {
+   "n": 150,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What does <code>CREATE UNIQUE INDEX</code> give you that a UNIQUE constraint does not?",
+   "a": "It can be partial — <code>CREATE UNIQUE INDEX ON users (email) WHERE deleted_at IS NULL</code> enforces uniqueness only among live rows, which a declared constraint cannot express."
+  },
+  {
+   "n": 151,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "Why is indexing a frequently-updated column more expensive than it looks?",
+   "a": "Because an update to an indexed column prevents the HOT optimisation, forcing new index entries in every index on the table rather than a cheap in-page chain."
+  },
+  {
+   "n": 152,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is a covering index?",
+   "a": "One that contains every column a query needs, so the query can be answered by an index-only scan. Built either by adding columns to the key or, better, with <code>INCLUDE</code>."
+  },
+  {
+   "n": 153,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "How selective must an index be to be worth using?",
+   "a": "There is no fixed number, but as a rule of thumb once a query matches more than roughly 5–10% of a table the planner will prefer a sequential scan, because random page access costs more than streaming."
+  },
+  {
+   "n": 154,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is <code>CLUSTER</code>?",
+   "a": "A command that physically rewrites a table in the order of a chosen index, maximising correlation. It takes an exclusive lock and the order is not maintained afterwards, so it is a one-off, not a property."
+  },
+  {
+   "n": 155,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "Can an index be used for <code>ORDER BY ... DESC</code>?",
+   "a": "Yes — B-tree leaves can be walked backwards. You only need an explicitly <code>DESC</code> index when mixing directions across columns, e.g. <code>ORDER BY a ASC, b DESC</code>."
+  },
+  {
+   "n": 156,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "How do you index for a query that filters on one column and sorts by another?",
+   "a": "A composite index with the equality column first and the sort column second, so the index provides both the filter and the ordering and the sort node disappears from the plan."
+  },
+  {
+   "n": 157,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What is the trade-off of adding an index to speed up one report?",
+   "a": "Every write to that table pays for it forever, and it consumes cache space that other data could use. A report that runs hourly rarely justifies an index on a table written thousands of times per second."
+  },
+  {
+   "n": 158,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "Why does a query on a small table ignore your index?",
+   "a": "Because reading the whole table is a handful of sequential pages and is genuinely cheaper than the index lookup plus heap fetch. The planner is right; the index will start being used as the table grows."
+  },
+  {
+   "n": 159,
+   "c": "node-5",
+   "t": "Node 5 · Indexes",
+   "q": "What does <code>pg_stat_user_indexes.idx_tup_fetch</code> tell you?",
+   "a": "How many live rows were fetched via that index. Compared against <code>idx_scan</code> it tells you whether each use of the index returns one row or thousands."
+  },
+  {
+   "n": 160,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What does the planner do?",
+   "a": "It takes a parsed query, enumerates many possible execution strategies — which index or none, join order, join algorithm — assigns each a cost, and executes the cheapest."
+  },
+  {
+   "n": 161,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What are the units of planner cost?",
+   "a": "Abstract numbers, not milliseconds. They are built from constants where one sequential page read is defined as 1.0, a random page read defaults to 4.0, and processing one row is 0.01."
+  },
+  {
+   "n": 162,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What is <code>random_page_cost</code> and why change it?",
+   "a": "The estimated cost of a random page read, default 4.0 — calibrated for spinning disks. On SSDs it is conventionally lowered to about 1.1, and this single change is one of the highest-impact tuning steps because at 4.0 the planner systematically undervalues indexes."
+  },
+  {
+   "n": 163,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "Where do the planner's row estimates come from?",
+   "a": "Column statistics in <code>pg_statistic</code> — the null fraction, the most common values with their frequencies, a histogram of the distribution, and the number of distinct values — gathered by <code>ANALYZE</code>."
+  },
+  {
+   "n": 164,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What runs <code>ANALYZE</code> in normal operation?",
+   "a": "Autovacuum, on its own threshold. This is why a table autovacuum cannot keep up with suffers both bloat and bad plans."
+  },
+  {
+   "n": 165,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What is the most common root cause of a catastrophically bad plan?",
+   "a": "A wrong row estimate. The planner thinks a step returns 5 rows, picks a nested loop, and the step actually returns 500,000."
+  },
+  {
+   "n": 166,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What is the difference between <code>EXPLAIN</code> and <code>EXPLAIN ANALYZE</code>?",
+   "a": "<code>EXPLAIN</code> shows the chosen plan with estimates and does not run the query. <code>EXPLAIN ANALYZE</code> actually executes it and annotates the plan with real timings and row counts."
+  },
+  {
+   "n": 167,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What is the danger of running <code>EXPLAIN ANALYZE</code> on a write statement?",
+   "a": "It really performs the write. Wrap it in <code>BEGIN; ... ROLLBACK;</code>."
+  },
+  {
+   "n": 168,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What is the single most valuable thing to look at in an EXPLAIN ANALYZE?",
+   "a": "The gap between <code>rows=</code> (estimate) and <code>actual rows=</code> on each line. A three-order-of-magnitude difference identifies exactly where the planner was misled."
+  },
+  {
+   "n": 169,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What does <code>BUFFERS</code> add to EXPLAIN?",
+   "a": "Counts of pages read, split into <code>shared hit</code> (found in shared_buffers) and <code>shared read</code> (fetched from the OS or disk), plus temp file usage. It turns \"slow\" into \"read 400,000 pages.\""
+  },
+  {
+   "n": 170,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "Which direction do you read an EXPLAIN plan?",
+   "a": "Inside out and bottom up — the most indented nodes execute first and feed their parents."
+  },
+  {
+   "n": 171,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "Why can a node showing 0.02 ms actually account for forty seconds?",
+   "a": "Because timings and row counts on inner nodes are usually <strong>per loop</strong>. A node with <code>actual time=0.02 rows=1 loops=200000</code> ran two hundred thousand times."
+  },
+  {
+   "n": 172,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "Name the scan node types you must recognise.",
+   "a": "<code>Seq Scan</code>, <code>Index Scan</code>, <code>Index Only Scan</code>, <code>Bitmap Index Scan</code> and <code>Bitmap Heap Scan</code>, plus <code>Sort</code>, <code>Hash</code>, <code>Aggregate</code>, <code>Gather</code>, <code>Materialize</code> and <code>Memoize</code>."
+  },
+  {
+   "n": 173,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "How does a nested loop join work and when is it right?",
+   "a": "For each row on the outer side, look up matching rows on the inner side. Excellent when the outer side is tiny and the inner side is indexed; disastrous when the outer side turns out to be much larger than estimated."
+  },
+  {
+   "n": 174,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "How does a hash join work and when is it right?",
+   "a": "Build a hash table of the smaller side in memory, then stream the larger side past it. The workhorse for joining two large tables on equality. It needs enough <code>work_mem</code> or it spills to disk in batches."
+  },
+  {
+   "n": 175,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "How does a merge join work and when is it right?",
+   "a": "Both sides are sorted on the join key and walked together like merging two sorted lists. Good when indexes already provide the ordering so the sorts are free."
+  },
+  {
+   "n": 176,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What is <code>work_mem</code>, precisely?",
+   "a": "The memory allowed <strong>per sort or hash operation</strong>, default 4 MB. Not per query, not per server. One query can have several such operations, and many connections run them at once."
+  },
+  {
+   "n": 177,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What is the worst-case memory formula for work_mem?",
+   "a": "Roughly <code>work_mem × operations per query × concurrent connections</code>. This is why raising it globally to 1 GB on a 100-connection server is how machines run out of memory."
+  },
+  {
+   "n": 178,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "How do you know a sort spilled to disk?",
+   "a": "<code>EXPLAIN ANALYZE</code> shows <code>Sort Method: external merge Disk: 24000kB</code> instead of <code>quicksort Memory: ...</code>. Enable <code>log_temp_files</code> to catch it in production."
+  },
+  {
+   "n": 179,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "Does Postgres support query hints?",
+   "a": "No, deliberately. The project's position is that hints become permanently wrong as data changes. The escape hatches are <code>enable_*</code> settings for diagnosis, <code>CREATE STATISTICS</code>, and raising the statistics target."
+  },
+  {
+   "n": 180,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What is <code>CREATE STATISTICS</code> for?",
+   "a": "Telling the planner about <strong>correlations between columns</strong> it otherwise assumes are independent — e.g. city and postcode. Without it the planner multiplies selectivities and underestimates dramatically."
+  },
+  {
+   "n": 181,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What is <code>default_statistics_target</code>?",
+   "a": "How many histogram buckets and most-common-values entries ANALYZE collects, default 100. Raising it per column (<code>ALTER TABLE ... ALTER COLUMN ... SET STATISTICS 1000</code>) helps on heavily skewed data at the cost of slower ANALYZE."
+  },
+  {
+   "n": 182,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "When did Postgres gain parallel query, and what does it look like in a plan?",
+   "a": "Postgres 9.6. Plans show a <code>Gather</code> node above parallel-aware scans or joins, and row counts beneath it are per worker."
+  },
+  {
+   "n": 183,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What controls how many parallel workers a query gets?",
+   "a": "<code>max_parallel_workers_per_gather</code> (per node), <code>max_parallel_workers</code> and <code>max_worker_processes</code> (server-wide), plus table size thresholds — small tables never go parallel."
+  },
+  {
+   "n": 184,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What is a generic plan versus a custom plan?",
+   "a": "For prepared statements, Postgres first builds custom plans using the actual parameter values; after five executions it may switch to a parameter-independent <strong>generic plan</strong>. On skewed data the generic plan can be much worse. Controlled by <code>plan_cache_mode</code>."
+  },
+  {
+   "n": 185,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What is a <code>Memoize</code> node?",
+   "a": "Added in Postgres 14, it caches inner-side results in a nested loop so repeated lookups of the same key are not re-executed. It turns some bad nested loops into good ones."
+  },
+  {
+   "n": 186,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What does <code>SET enable_seqscan = off</code> actually do?",
+   "a": "It does not forbid sequential scans; it adds a huge cost penalty so the planner avoids them if any alternative exists. It is a <strong>diagnostic</strong> tool for confirming an index would help, not a production setting."
+  },
+  {
+   "n": 187,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "A query is fast in psql and slow from the application. What are the likely causes?",
+   "a": "A generic plan chosen for a prepared statement, different session settings (<code>work_mem</code>, <code>search_path</code>), different parameter values or types causing a cast that defeats an index, or the application fetching far more rows than you tested with."
+  },
+  {
+   "n": 188,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "What does <code>ANALYZE tablename</code> do, as a command?",
+   "a": "Samples the table and refreshes its statistics immediately. It is the first thing to run after a bulk load or a large data change, because the planner is otherwise working from the previous shape of the data."
+  },
+  {
+   "n": 189,
+   "c": "node-6",
+   "t": "Node 6 · The planner and EXPLAIN",
+   "q": "How do you get a plan in a machine-readable form?",
+   "a": "<code>EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT ...</code> — which is what visualisation tools consume."
+  },
+  {
+   "n": 190,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What is a transaction?",
+   "a": "A group of statements that either all take effect or none do. <code>BEGIN</code> opens one, <code>COMMIT</code> makes it permanent, <code>ROLLBACK</code> discards it, and a dropped connection or crash acts as a rollback."
+  },
+  {
+   "n": 191,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "Is a single statement outside BEGIN in a transaction?",
+   "a": "Yes. Postgres wraps every standalone statement in its own transaction — this is <strong>autocommit</strong>, the default in psql and in every driver."
+  },
+  {
+   "n": 192,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What does the A in ACID prevent?",
+   "a": "<strong>Atomicity</strong> — all or nothing, so money never disappears between two updates and no half-completed multi-step change is ever visible or persisted."
+  },
+  {
+   "n": 193,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What does the C in ACID mean in Postgres?",
+   "a": "<strong>Consistency</strong> — declared constraints hold at commit, so no transaction can leave a foreign key dangling or a check violated."
+  },
+  {
+   "n": 194,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What does the D in ACID require mechanically?",
+   "a": "<strong>Durability</strong> — once <code>COMMIT</code> returns, the change survives immediate power loss. Since writing to a file does not put bytes on disk, this needs an explicit flush."
+  },
+  {
+   "n": 195,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What is the WAL and what is the rule in its name?",
+   "a": "The <strong>Write-Ahead Log</strong>. Before any change to a data page may reach disk, a record describing that change must be written to the log and physically flushed."
+  },
+  {
+   "n": 196,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What happens mechanically when you COMMIT?",
+   "a": "Postgres writes a commit record to the WAL and calls <code>fsync</code>, which does not return until the bytes are on physical media. Only then does it report success. The modified data pages are still dirty in shared_buffers."
+  },
+  {
+   "n": 197,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "Why is the WAL faster than writing data pages directly?",
+   "a": "Because it is a strictly sequential append to one file, which storage handles far better than scattered random writes across a large table. Every commit becomes one append."
+  },
+  {
+   "n": 198,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What is a checkpoint?",
+   "a": "A periodic operation that flushes all dirty pages to their data files and records that everything before this point is safely on disk, so recovery need only replay WAL from there forward."
+  },
+  {
+   "n": 199,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What happens during crash recovery?",
+   "a": "Postgres replays the WAL from the last checkpoint, redoing every logged change not yet written to its data page. Because replay is deterministic and idempotent, the database returns to exactly the last successful commit."
+  },
+  {
+   "n": 200,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "Someone says \"Postgres crashed and we lost committed data.\" What is almost certainly true?",
+   "a": "A configuration or hardware problem — <code>fsync = off</code>, <code>synchronous_commit = off</code>, or storage that lies about having flushed. The WAL design does not permit losing an acknowledged commit on honest hardware."
+  },
+  {
+   "n": 201,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What does <code>synchronous_commit = off</code> trade away?",
+   "a": "Commits return before the WAL is flushed, so up to a fraction of a second of committed transactions can be lost in a crash. The database stays <em>consistent</em> — this is not corruption — so it is often a good trade for a background job queue and a bad one for payments."
+  },
+  {
+   "n": 202,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What is <code>full_page_writes</code> and why does WAL volume spike after a checkpoint?",
+   "a": "A power failure can tear an 8 KB page mid-write, so the first change to each page after a checkpoint logs the entire page image. That is why WAL generation jumps immediately after every checkpoint."
+  },
+  {
+   "n": 203,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "Why is the WAL the foundation of replication and PITR?",
+   "a": "Because it is a complete description of every change. Shipping it to another machine and replaying it produces an identical copy; stopping the replay at a chosen point reproduces the database as of that moment."
+  },
+  {
+   "n": 204,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What is transactional DDL and why is it a Postgres advantage?",
+   "a": "<code>CREATE</code>, <code>ALTER</code> and <code>DROP</code> participate in transactions and roll back cleanly. Oracle and MySQL cannot do this. It means a failed migration leaves nothing half-applied."
+  },
+  {
+   "n": 205,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What is a savepoint?",
+   "a": "A named point inside a transaction — <code>SAVEPOINT s1</code> — that you can <code>ROLLBACK TO</code> without aborting the whole transaction. Drivers and ORMs implement nested transactions with these."
+  },
+  {
+   "n": 206,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "In Postgres, what happens to a transaction after any error?",
+   "a": "It enters an aborted state and rejects every further statement with \"current transaction is aborted\" until you <code>ROLLBACK</code> (or roll back to a savepoint). Unlike some databases, you cannot simply continue."
+  },
+  {
+   "n": 207,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What is a two-phase commit / prepared transaction?",
+   "a": "<code>PREPARE TRANSACTION 'id'</code> persists a transaction in a ready-to-commit state so an external coordinator can commit it across systems. Dangerous operationally: a forgotten prepared transaction holds locks and blocks vacuum forever."
+  },
+  {
+   "n": 208,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What are WAL segments and where do they live?",
+   "a": "Fixed-size files (16 MB by default) in the <code>pg_wal/</code> directory, written sequentially and recycled once no longer needed for recovery, replication, or archiving."
+  },
+  {
+   "n": 209,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What is <code>wal_level</code>?",
+   "a": "How much information is written to the WAL: <code>minimal</code>, <code>replica</code> (the default, enough for physical replication and archiving), or <code>logical</code> (enough to decode row-level changes for logical replication)."
+  },
+  {
+   "n": 210,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What limits how much WAL accumulates?",
+   "a": "<code>max_wal_size</code> triggers checkpoints; <code>wal_keep_size</code> and replication slots keep segments around for standbys; archiving keeps them until <code>archive_command</code> succeeds. A failing archive command or an abandoned replication slot fills the disk."
+  },
+  {
+   "n": 211,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What is <code>pg_wal</code> filling up usually caused by?",
+   "a": "An inactive replication slot holding segments for a standby that no longer exists, or a failing <code>archive_command</code>. Never delete WAL files by hand."
+  },
+  {
+   "n": 212,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "Why is a rollback in Postgres instantaneous?",
+   "a": "Because nothing needs undoing — the transaction's row versions are simply never made visible. Marking the transaction aborted is the entire operation. The dead versions are cleaned up later by VACUUM."
+  },
+  {
+   "n": 213,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What is <code>checkpoint_completion_target</code>?",
+   "a": "The fraction of the interval over which a checkpoint spreads its writes, default 0.9. Spreading them avoids an I/O spike that stalls queries."
+  },
+  {
+   "n": 214,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What is the background writer?",
+   "a": "A process that trickles dirty pages out of shared_buffers ahead of checkpoints so that backends rarely have to write a page themselves in order to find a free buffer."
+  },
+  {
+   "n": 215,
+   "c": "node-7",
+   "t": "Node 7 · Transactions, the WAL and durability",
+   "q": "What does <code>xact_commit</code> and <code>xact_rollback</code> in <code>pg_stat_database</code> tell you?",
+   "a": "The commit and rollback counts for the database. A high or rising rollback ratio usually means application errors or serialization failures, not deliberate rollbacks."
+  },
+  {
+   "n": 216,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "What does MVCC stand for and what problem does it solve?",
+   "a": "<strong>Multi-Version Concurrency Control</strong>. It lets many transactions read and write concurrently without readers taking locks, avoiding the situation where one long report blocks all writes."
+  },
+  {
+   "n": 217,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "State the headline property of MVCC in one sentence.",
+   "a": "Readers never block writers and writers never block readers; only two writers touching the same row block each other."
+  },
+  {
+   "n": 218,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "What are <code>xmin</code> and <code>xmax</code>?",
+   "a": "Fields in every tuple's header. <code>xmin</code> is the id of the transaction that created this version; <code>xmax</code> is the id of the transaction that deleted or superseded it, or zero if it is still live."
+  },
+  {
+   "n": 219,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "How can you actually see them?",
+   "a": "<code>SELECT xmin, xmax, * FROM accounts;</code> — they are hidden system columns available on every table."
+  },
+  {
+   "n": 220,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "What does an UPDATE physically do in Postgres?",
+   "a": "It writes an entirely <strong>new tuple</strong> with the new values and the current transaction as its <code>xmin</code>, and sets <code>xmax</code> on the old tuple. Both versions exist in the heap simultaneously. It does not modify the row in place."
+  },
+  {
+   "n": 221,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "What does a DELETE physically do?",
+   "a": "Sets <code>xmax</code> on the existing tuple. Nothing new is written and nothing is removed at that moment."
+  },
+  {
+   "n": 222,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "What is a snapshot?",
+   "a": "The set of transactions that had committed at the instant the snapshot was taken. A transaction judges every tuple's visibility against its snapshot."
+  },
+  {
+   "n": 223,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "State the visibility rule in plain terms.",
+   "a": "A tuple version is visible to you if the transaction that created it had committed as of your snapshot, and the transaction that deleted it either does not exist or had not committed as of your snapshot."
+  },
+  {
+   "n": 224,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "Why is <code>SELECT count(*)</code> slow on a large Postgres table?",
+   "a": "Because how many rows exist depends on who is asking. There is no maintained counter to read; every row's visibility must be evaluated, so the table (or a covering index) must be scanned."
+  },
+  {
+   "n": 225,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "How do you get a fast approximate row count?",
+   "a": "<code>SELECT reltuples::bigint FROM pg_class WHERE relname = 't'</code>. It is the planner's estimate, updated by ANALYZE, and is usually close enough for a dashboard."
+  },
+  {
+   "n": 226,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "Why must an index scan visit the heap to check visibility?",
+   "a": "Because the index entry records only the value and the ctid. Visibility lives in the tuple header, so only the heap tuple can say whether your transaction may see that version."
+  },
+  {
+   "n": 227,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "What is a HOT update?",
+   "a": "A Heap-Only Tuple update, from Postgres 8.3: if the update changes no indexed column <em>and</em> the new version fits on the same page, the versions are chained within the page and <strong>no index is touched at all</strong>."
+  },
+  {
+   "n": 228,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "How does <code>fillfactor</code> relate to HOT updates?",
+   "a": "HOT requires free space on the same page. Lowering <code>fillfactor</code> to around 90 on a heavily-updated table reserves that space, raising the fraction of updates that can be HOT."
+  },
+  {
+   "n": 229,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "How is Postgres's MVCC different from Oracle's or InnoDB's?",
+   "a": "They update rows in place and keep old versions in a separate <strong>undo log</strong>. Postgres keeps every version in the table itself, which makes rollback instant and reads simple — and creates bloat, which they do not have."
+  },
+  {
+   "n": 230,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "What is the cost side of Postgres's MVCC choice?",
+   "a": "Every update leaves a dead tuple in the table and stale entries in every index, so the table grows even when the row count does not, and something must clean up afterwards."
+  },
+  {
+   "n": 231,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "What is <code>txid_current()</code> / <code>pg_current_xact_id()</code>?",
+   "a": "A function returning the current transaction's id. Useful for demonstrating xmin behaviour and for reasoning about visibility while learning."
+  },
+  {
+   "n": 232,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "Do read-only transactions consume a transaction id?",
+   "a": "Not a permanent one — Postgres assigns a real xid lazily, only when a transaction first writes. Read-only transactions get a virtual id, which is why a read-heavy workload does not burn through the xid space."
+  },
+  {
+   "n": 233,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "What is the \"snapshot too old\" idea?",
+   "a": "A configurable limit after which a very long-running transaction's snapshot is invalidated so vacuum can proceed. It trades an error in that transaction for the ability to reclaim space."
+  },
+  {
+   "n": 234,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "How does MVCC interact with sequences?",
+   "a": "It does not — sequences deliberately live outside transactional visibility, which is why <code>nextval</code> is never rolled back and identity columns have gaps."
+  },
+  {
+   "n": 235,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "Why does a long-running SELECT not block a concurrent UPDATE?",
+   "a": "The updater appends a new row version rather than modifying the one the reader is looking at, and the reader's snapshot keeps pointing at the old version, which still physically exists."
+  },
+  {
+   "n": 236,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "Two transactions update the same row concurrently under MVCC. What happens?",
+   "a": "The second one blocks on the first one's row lock until it commits or rolls back, then proceeds (re-evaluating its WHERE clause under READ COMMITTED). MVCC removes locking from reads, not from writes."
+  },
+  {
+   "n": 237,
+   "c": "node-8",
+   "t": "Node 8 · MVCC",
+   "q": "What determines whether a dead tuple can actually be removed?",
+   "a": "Whether any still-running transaction could see it. The oldest running transaction's snapshot defines the horizon, and nothing newer than that horizon can be cleaned up."
+  },
+  {
+   "n": 238,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "When is a tuple dead?",
+   "a": "When no running transaction could possibly still need to see it — its deleting transaction committed before the oldest active snapshot."
+  },
+  {
+   "n": 239,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What are the three costs of dead tuples?",
+   "a": "They occupy disk, they occupy shared_buffers when their page is read, and every scan reads past them."
+  },
+  {
+   "n": 240,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What is bloat?",
+   "a": "A table or index whose physical size is far larger than the live data it holds. It is the most common reason a database that was fast six months ago is slow now with the same amount of data."
+  },
+  {
+   "n": 241,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What does plain VACUUM do?",
+   "a": "Scans the table, removes dead tuples' index entries, marks their space reusable in the free space map, and updates the visibility map. It runs concurrently with normal traffic and takes no exclusive lock."
+  },
+  {
+   "n": 242,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "Does plain VACUUM shrink the file?",
+   "a": "No. Space is marked reusable <em>within</em> the existing file. Only if dead space is at the very end can the file be truncated."
+  },
+  {
+   "n": 243,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What does VACUUM FULL do and why is it dangerous?",
+   "a": "It rewrites the whole table into a new file, genuinely returning disk to the OS, while holding an <code>ACCESS EXCLUSIVE</code> lock that blocks even <code>SELECT</code>. On a large table that is hours of total outage."
+  },
+  {
+   "n": 244,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What is the online alternative to VACUUM FULL?",
+   "a": "The <code>pg_repack</code> extension, which rebuilds a table or index without a long exclusive lock, taking a brief one only at the swap."
+  },
+  {
+   "n": 245,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What is autovacuum?",
+   "a": "A background daemon that watches per-table statistics and triggers VACUUM and ANALYZE when dead tuple or change counts cross thresholds."
+  },
+  {
+   "n": 246,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What is the default autovacuum trigger formula?",
+   "a": "<code>autovacuum_vacuum_threshold</code> (50) plus <code>autovacuum_vacuum_scale_factor</code> (0.2) × estimated row count. So a table is vacuumed after roughly 20% of it has churned."
+  },
+  {
+   "n": 247,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "Why is the 0.2 scale factor wrong on large tables?",
+   "a": "On a hundred-million-row table it means waiting for twenty million dead tuples before cleanup starts. The standard fix is a per-table override: <code>ALTER TABLE t SET (autovacuum_vacuum_scale_factor = 0.01)</code>."
+  },
+  {
+   "n": 248,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What single thing most commonly defeats autovacuum?",
+   "a": "A connection sitting <code>idle in transaction</code>. It pins the visibility horizon <strong>database-wide</strong>, so nothing newer than that transaction can be cleaned anywhere."
+  },
+  {
+   "n": 249,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "Besides idle transactions, what else holds back the vacuum horizon?",
+   "a": "Long-running queries, abandoned prepared (two-phase) transactions, inactive replication slots, and standbys with <code>hot_standby_feedback = on</code>."
+  },
+  {
+   "n": 250,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "You see autovacuum running constantly on a growing table and reclaiming nothing. What do you check first?",
+   "a": "<code>SELECT pid, state, xact_start, query FROM pg_stat_activity WHERE state = 'idle in transaction' ORDER BY xact_start;</code> — find the oldest transaction pinning the horizon."
+  },
+  {
+   "n": 251,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What is transaction id wraparound?",
+   "a": "The xid is a 32-bit counter, so it wraps after about 4 billion transactions. Since visibility is decided by comparing xids, a wrap would make ancient rows look like they came from the future and become invisible — silent total data loss."
+  },
+  {
+   "n": 252,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "How does Postgres prevent wraparound?",
+   "a": "By <strong>freezing</strong>: vacuum marks sufficiently old tuples as committed-and-visible-to-everyone, removing them from xid comparison entirely."
+  },
+  {
+   "n": 253,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What is <code>autovacuum_freeze_max_age</code>?",
+   "a": "Default 200 million. Once a table's oldest unfrozen xid is that old, an anti-wraparound vacuum is forced even on tables autovacuum would otherwise skip, and it cannot be cancelled."
+  },
+  {
+   "n": 254,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What happens if freezing falls far enough behind?",
+   "a": "Postgres begins warning, then <strong>refuses writes</strong> to protect itself, and the only cure is a vacuum that must now run in single-user mode. This has taken down real companies."
+  },
+  {
+   "n": 255,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "How do you monitor wraparound risk?",
+   "a": "Watch <code>age(datfrozenxid)</code> per database and <code>age(relfrozenxid)</code> per table against <code>autovacuum_freeze_max_age</code>."
+  },
+  {
+   "n": 256,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What is <code>maintenance_work_mem</code> and why does it matter to vacuum?",
+   "a": "The memory a maintenance operation may use, default 64 MB. Vacuum stores dead tuple identifiers in it; if it fills, vacuum must make multiple passes over every index. Raising it to hundreds of megabytes or 1 GB dramatically speeds vacuum on big tables."
+  },
+  {
+   "n": 257,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What are <code>autovacuum_vacuum_cost_delay</code> and <code>cost_limit</code>?",
+   "a": "Throttles that pause autovacuum after a budget of page accesses so it does not saturate I/O. On modern hardware the defaults are often far too conservative and are why autovacuum cannot keep up."
+  },
+  {
+   "n": 258,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "How do you see when a table was last vacuumed?",
+   "a": "<code>SELECT relname, last_vacuum, last_autovacuum, n_live_tup, n_dead_tup FROM pg_stat_user_tables;</code>"
+  },
+  {
+   "n": 259,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "Why is a table of 10 million rows that you update constantly worse than one you only insert into?",
+   "a": "Every update creates a dead tuple, so an update-heavy table generates cleanup work proportional to its write rate, while an insert-only table generates almost none."
+  },
+  {
+   "n": 260,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "Does VACUUM help query plans?",
+   "a": "Indirectly and directly: it updates the visibility map (enabling index-only scans) and autovacuum also runs ANALYZE, which refreshes the statistics the planner depends on."
+  },
+  {
+   "n": 261,
+   "c": "node-9",
+   "t": "Node 9 · VACUUM, bloat and freezing",
+   "q": "What is <code>VACUUM (VERBOSE, ANALYZE) tablename</code> useful for?",
+   "a": "Running both operations on demand and printing exactly how many tuples were removed, how many could not be removed yet, and how many pages were skipped — the fastest way to confirm a horizon problem."
+  },
+  {
+   "n": 262,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What is an isolation level?",
+   "a": "The dial controlling how strongly concurrent transactions are separated from each other — specifically, which anomalies they are permitted to experience."
+  },
+  {
+   "n": 263,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "Which isolation levels does Postgres actually implement?",
+   "a": "Three distinct behaviours: <code>READ COMMITTED</code> (the default), <code>REPEATABLE READ</code>, and <code>SERIALIZABLE</code>. <code>READ UNCOMMITTED</code> is accepted but behaves as READ COMMITTED, because MVCC makes dirty reads impossible."
+  },
+  {
+   "n": 264,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What is a dirty read, and can it happen in Postgres?",
+   "a": "Seeing another transaction's uncommitted change. It cannot happen in Postgres at any isolation level."
+  },
+  {
+   "n": 265,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What is a non-repeatable read?",
+   "a": "Running the same <code>SELECT</code> twice in one transaction and getting different values, because another transaction committed a change in between."
+  },
+  {
+   "n": 266,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What is a phantom read?",
+   "a": "Running the same range query twice in one transaction and finding rows that were not there before, because another transaction inserted them."
+  },
+  {
+   "n": 267,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What is a lost update?",
+   "a": "Two transactions read the same value, each computes a new one from it, and the second write overwrites the first. Available at READ COMMITTED."
+  },
+  {
+   "n": 268,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What is write skew?",
+   "a": "Two transactions read overlapping data, each verifies an invariant that currently holds, and each writes something individually fine that together breaks the invariant — e.g. two on-call doctors each cancelling after checking that someone else is on call."
+  },
+  {
+   "n": 269,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What defines READ COMMITTED in Postgres?",
+   "a": "The snapshot is taken <strong>per statement</strong>. Each statement sees everything committed before it started, so two identical SELECTs in one transaction can legitimately differ."
+  },
+  {
+   "n": 270,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What anomalies does READ COMMITTED permit?",
+   "a": "Non-repeatable reads, phantoms, lost updates and write skew. It prevents only dirty reads."
+  },
+  {
+   "n": 271,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What is the EPQ re-check under READ COMMITTED?",
+   "a": "If an <code>UPDATE</code> reaches a row another transaction is concurrently updating, it blocks, waits for that transaction to commit, then re-evaluates its <code>WHERE</code> clause against the <em>new</em> version and proceeds only if it still matches."
+  },
+  {
+   "n": 272,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "Why does the EPQ re-check surprise people?",
+   "a": "Because <code>UPDATE ... WHERE status = 'pending'</code> can act on a row that was pending when the statement began but is not any more, or skip one it appeared to select. Under a single statement the read and the write are not against the same snapshot."
+  },
+  {
+   "n": 273,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What defines REPEATABLE READ in Postgres?",
+   "a": "One snapshot taken at the first statement and held for the whole transaction, so every read is consistent with every other. Non-repeatable reads and phantoms are eliminated."
+  },
+  {
+   "n": 274,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "Why is Postgres's REPEATABLE READ stronger than the SQL standard requires?",
+   "a": "The standard allows phantoms at that level; Postgres's implementation is snapshot isolation, which prevents them."
+  },
+  {
+   "n": 275,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What new failure does REPEATABLE READ introduce?",
+   "a": "Updating a row modified after your snapshot raises <code>ERROR: could not serialize access due to concurrent update</code>, SQLSTATE <strong>40001</strong>, and aborts the transaction. Your application must retry."
+  },
+  {
+   "n": 276,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What does SERIALIZABLE guarantee?",
+   "a": "That the outcome is identical to <em>some</em> serial order of running the concurrent transactions one after another. Every anomaly, including write skew, is eliminated."
+  },
+  {
+   "n": 277,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "How does Postgres implement SERIALIZABLE?",
+   "a": "With <strong>SSI</strong>, Serializable Snapshot Isolation, added in 9.1. It tracks read/write dependencies between concurrent transactions and aborts one when it detects a dependency cycle that could not occur in any serial order."
+  },
+  {
+   "n": 278,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "Is SERIALIZABLE pessimistic or optimistic in Postgres?",
+   "a": "Optimistic — it does not block; it detects and aborts. So it costs you retries under contention rather than waiting."
+  },
+  {
+   "n": 279,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What must application code do to use REPEATABLE READ or SERIALIZABLE safely?",
+   "a": "Wrap transactions in a retry loop that catches SQLSTATE <code>40001</code> (and <code>40P01</code> for deadlocks) and re-runs the whole transaction with backoff. This is a contract, not an edge case."
+  },
+  {
+   "n": 280,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "How do you set the isolation level?",
+   "a": "<code>BEGIN ISOLATION LEVEL REPEATABLE READ;</code> or <code>SET TRANSACTION ISOLATION LEVEL ...</code> as the first statement, or globally via <code>default_transaction_isolation</code>."
+  },
+  {
+   "n": 281,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "Which isolation level should a typical web application use?",
+   "a": "READ COMMITTED, the default — and close specific races explicitly with <code>SELECT FOR UPDATE</code>, unique constraints, or atomic statements, rather than by raising the level globally."
+  },
+  {
+   "n": 282,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "When is REPEATABLE READ the right choice?",
+   "a": "For reports and exports that must be internally consistent across many queries — every part of the output reflects the same instant."
+  },
+  {
+   "n": 283,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "When is SERIALIZABLE worth it?",
+   "a": "When an invariant spans multiple rows or tables and you would rather pay in occasional retries than reason about every possible interleaving in application code."
+  },
+  {
+   "n": 284,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "Does a higher isolation level make a single statement safer?",
+   "a": "A single statement is already atomic and sees one snapshot. Isolation levels matter when a transaction spans multiple statements, or when it reads and then writes based on what it read."
+  },
+  {
+   "n": 285,
+   "c": "node-10",
+   "t": "Node 10 · Isolation levels",
+   "q": "What is the cheapest way to prevent a lost update without changing isolation level?",
+   "a": "Make the update self-contained — <code>UPDATE accounts SET balance = balance - 10 WHERE id = 1</code> reads and writes atomically inside one statement, so no interleaving is possible."
+  },
+  {
+   "n": 286,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "Where are row-level locks stored in Postgres?",
+   "a": "In the tuple itself, in the <code>xmax</code> field — not in a lock table. That is why locking a million rows costs no extra memory and there is no limit on how many rows you can lock."
+  },
+  {
+   "n": 287,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What does <code>SELECT ... FOR UPDATE</code> do?",
+   "a": "Locks the returned rows as if you were about to update them, so no other transaction can modify them until yours ends. It is how you close a lost-update race: read with FOR UPDATE, compute, write, commit."
+  },
+  {
+   "n": 288,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What is the difference between <code>FOR UPDATE</code> and <code>FOR NO KEY UPDATE</code>?",
+   "a": "<code>FOR NO KEY UPDATE</code> is weaker and is what a plain UPDATE of non-key columns takes; it does not conflict with <code>FOR KEY SHARE</code>, which is what foreign-key checks take. Using the weaker mode reduces contention with child-row inserts."
+  },
+  {
+   "n": 289,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What are <code>FOR SHARE</code> and <code>FOR KEY SHARE</code>?",
+   "a": "Shared row locks: multiple transactions may hold them simultaneously, but writers are blocked. <code>FOR KEY SHARE</code> is the weakest, taken automatically to protect a row referenced by a foreign key."
+  },
+  {
+   "n": 290,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What does <code>SKIP LOCKED</code> do and what is it for?",
+   "a": "Added in 9.5, it makes a <code>SELECT ... FOR UPDATE</code> silently skip rows another transaction has locked. It is how you build a job queue on a table: each worker claims the next N unlocked pending jobs with no contention and no double processing."
+  },
+  {
+   "n": 291,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What does <code>NOWAIT</code> do?",
+   "a": "Raises an error immediately instead of waiting if a requested row lock is unavailable — useful when you would rather fail fast than queue."
+  },
+  {
+   "n": 292,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "Sketch the SQL for claiming a job from a queue table.",
+   "a": "<code>UPDATE jobs SET status='running' WHERE id IN (SELECT id FROM jobs WHERE status='pending' ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 10) RETURNING *;</code>"
+  },
+  {
+   "n": 293,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What table-level lock does a plain <code>SELECT</code> take?",
+   "a": "<code>ACCESS SHARE</code>, the weakest mode, which conflicts only with <code>ACCESS EXCLUSIVE</code>."
+  },
+  {
+   "n": 294,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What lock does an INSERT, UPDATE or DELETE take on the table?",
+   "a": "<code>ROW EXCLUSIVE</code>. It is compatible with <code>ACCESS SHARE</code> and with itself, which is why ordinary traffic never blocks ordinary traffic at the table level."
+  },
+  {
+   "n": 295,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What takes <code>ACCESS EXCLUSIVE</code>, and what does it conflict with?",
+   "a": "Most <code>ALTER TABLE</code> forms, <code>DROP TABLE</code>, <code>TRUNCATE</code>, <code>VACUUM FULL</code>, <code>REINDEX</code>. It conflicts with <strong>everything</strong>, including plain SELECT."
+  },
+  {
+   "n": 296,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "Explain how one ALTER TABLE takes down a healthy site.",
+   "a": "The ALTER must <em>acquire</em> ACCESS EXCLUSIVE, and cannot while any transaction holds any lock on the table. It queues behind a slow SELECT — and because lock requests are granted in order, every subsequent query queues behind the ALTER. Thousands of queries pile up and the ALTER never even runs."
+  },
+  {
+   "n": 297,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What is the standard mitigation for that?",
+   "a": "Set <code>lock_timeout</code> (e.g. <code>SET lock_timeout = '3s'</code>) before DDL so it gives up rather than queueing, and retry. Never run unbounded DDL against a busy table."
+  },
+  {
+   "n": 298,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What is a deadlock?",
+   "a": "Transaction A holds a lock B wants while B holds a lock A wants. Neither can proceed."
+  },
+  {
+   "n": 299,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "How does Postgres handle deadlocks?",
+   "a": "After <code>deadlock_timeout</code> (default 1 second) it runs cycle detection on the wait graph and aborts one transaction with <code>ERROR: deadlock detected</code>, SQLSTATE <strong>40P01</strong>."
+  },
+  {
+   "n": 300,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What causes most application deadlocks?",
+   "a": "Updating multiple rows in an order determined by a hash map or set iteration, so two concurrent requests touch the same rows in different orders."
+  },
+  {
+   "n": 301,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What is the standard fix for application deadlocks?",
+   "a": "Establish a consistent lock ordering — <code>ORDER BY id</code> before locking, or always touch tables in the same sequence — plus a retry on 40P01."
+  },
+  {
+   "n": 302,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What are advisory locks?",
+   "a": "Application-defined locks unrelated to any row: <code>pg_advisory_lock(key)</code> (session-scoped) and <code>pg_advisory_xact_lock(key)</code> (released at commit). They give you a distributed mutex without adding infrastructure."
+  },
+  {
+   "n": 303,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What is a typical use of an advisory lock?",
+   "a": "Ensuring only one instance of a scheduled job runs across all application servers, or serialising an expensive rebuild without locking the underlying table."
+  },
+  {
+   "n": 304,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "Why must session-scoped advisory locks be avoided behind PgBouncer transaction pooling?",
+   "a": "Because the connection you hold the lock on is returned to the pool between statements, so your next statement may run on a different backend that does not hold it."
+  },
+  {
+   "n": 305,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "How do you find what is blocking a query?",
+   "a": "<code>SELECT pid, pg_blocking_pids(pid), state, query FROM pg_stat_activity WHERE cardinality(pg_blocking_pids(pid)) &gt; 0;</code> — it gives the blocking chain directly."
+  },
+  {
+   "n": 306,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "How do you cancel or kill a problem query?",
+   "a": "<code>pg_cancel_backend(pid)</code> cancels the running query and leaves the connection; <code>pg_terminate_backend(pid)</code> kills the whole connection. Try cancel first."
+  },
+  {
+   "n": 307,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "What is <code>lock_timeout</code> versus <code>statement_timeout</code>?",
+   "a": "<code>lock_timeout</code> caps how long a statement waits to <em>acquire</em> a lock; <code>statement_timeout</code> caps total statement runtime including execution."
+  },
+  {
+   "n": 308,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "Which ALTER TABLE forms take a weaker lock than ACCESS EXCLUSIVE?",
+   "a": "A number of them since Postgres 9.4–13, including <code>ALTER TABLE ... VALIDATE CONSTRAINT</code> and <code>SET STATISTICS</code>. <code>CREATE INDEX CONCURRENTLY</code> takes <code>SHARE UPDATE EXCLUSIVE</code>, which permits reads and writes."
+  },
+  {
+   "n": 309,
+   "c": "node-11",
+   "t": "Node 11 · Locks and deadlocks",
+   "q": "Why can two transactions inserting different rows into the same table never block each other?",
+   "a": "Both take only <code>ROW EXCLUSIVE</code> on the table, which is self-compatible, and they lock different tuples. They collide only if they insert the same value into a unique index."
+  },
+  {
+   "n": 310,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What is Postgres's connection model?",
+   "a": "<strong>Process per connection</strong>. The postmaster listens on 5432 and forks a dedicated operating-system process for each client, for the lifetime of that connection. Not a thread — a full process."
+  },
+  {
+   "n": 311,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "Why did Postgres choose processes over threads, and is it still true in version 18?",
+   "a": "Process isolation means a crash in one backend cannot corrupt another, and it kept the code much simpler for decades. It is still the model in Postgres 18."
+  },
+  {
+   "n": 312,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What does each connection cost?",
+   "a": "A few megabytes of private memory before it does any work, an entry in the OS scheduler, and single-digit milliseconds to fork — enormous next to a 0.2 ms query."
+  },
+  {
+   "n": 313,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "Why does throughput fall as connections rise past a point?",
+   "a": "More backends means more context switching and more contention on shared memory structures. Past roughly a small multiple of the CPU core count, adding connections reduces total throughput."
+  },
+  {
+   "n": 314,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What is the default <code>max_connections</code>?",
+   "a": "100. Raising it to thousands to \"handle more load\" is one of the most reliable ways to make a database slower."
+  },
+  {
+   "n": 315,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What is a connection pool?",
+   "a": "A fixed set of connections opened once and handed out to requests, returned when each finishes — so the fork cost is paid once and the number of backends stays bounded."
+  },
+  {
+   "n": 316,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What are the important settings on <code>pg.Pool</code> in Node?",
+   "a": "<code>max</code> (how many connections — typically 10–20 per app instance, far fewer than people expect), <code>idleTimeoutMillis</code>, and <code>connectionTimeoutMillis</code>."
+  },
+  {
+   "n": 317,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "Why do teams hit \"too many clients already\" despite using a pool?",
+   "a": "Because <code>max</code> is per <strong>process</strong>. 20 × 4 Node instances × 3 containers is 240 connections against a <code>max_connections</code> of 100."
+  },
+  {
+   "n": 318,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What is PgBouncer?",
+   "a": "An external connection pooler sitting between applications and Postgres, accepting thousands of client connections and multiplexing them onto a small number of real backends."
+  },
+  {
+   "n": 319,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What is session pooling?",
+   "a": "A real backend is assigned to a client for the whole connection. Safe, preserves all session state, and gives almost no benefit over no pooler."
+  },
+  {
+   "n": 320,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What is transaction pooling and why is it the default at serverless providers?",
+   "a": "A backend is assigned only for the duration of a transaction and returned at commit, so a handful of backends serve thousands of clients. It is where the large win is."
+  },
+  {
+   "n": 321,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What breaks under transaction pooling?",
+   "a": "Anything carrying session state: persistent <code>SET</code>, session-level advisory locks, <code>LISTEN</code>/<code>NOTIFY</code>, cursors held across statements, temporary tables, and server-side prepared statements."
+  },
+  {
+   "n": 322,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "How do drivers and ORMs cope with transaction pooling?",
+   "a": "With an explicit flag disabling server-side prepared statements — <code>prepare: false</code> in postgres.js, <code>?pgbouncer=true</code> in Prisma's connection string. Without it you get \"prepared statement already exists\" errors under load."
+  },
+  {
+   "n": 323,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What is statement pooling?",
+   "a": "The strictest mode: a backend is returned after every single statement, which forbids multi-statement transactions entirely. Rarely usable."
+  },
+  {
+   "n": 324,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What is a prepared statement?",
+   "a": "A parameterised query template Postgres parses and plans once, then executes repeatedly with different values, saving parse and plan time."
+  },
+  {
+   "n": 325,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "Why are prepared statements the correct defence against SQL injection?",
+   "a": "Because parameters are sent separately from the query text and are never parsed as SQL. The query structure is fixed before any user value is involved, so no value can become syntax."
+  },
+  {
+   "n": 326,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What is the one thing parameters cannot do?",
+   "a": "Parameterise identifiers — table names, column names, sort direction. Dynamic <code>ORDER BY</code> must be validated against an allow-list, never interpolated."
+  },
+  {
+   "n": 327,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What is <code>statement_timeout</code> and why set it?",
+   "a": "A cap on how long any statement may run. Without it a runaway query holds locks and pins the vacuum horizon indefinitely. Setting it per role or per application is basic hygiene."
+  },
+  {
+   "n": 328,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What is <code>idle_in_transaction_session_timeout</code>?",
+   "a": "A cap on how long a connection may sit inside an open transaction doing nothing before Postgres terminates it. It is the direct defence against the autovacuum problem from Node 9."
+  },
+  {
+   "n": 329,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "Why is opening a connection per HTTP request catastrophic in Node?",
+   "a": "Every request pays the fork and authentication cost, and under any concurrency you exceed <code>max_connections</code> immediately. The pool must live at module scope, created once."
+  },
+  {
+   "n": 330,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What is the rough formula for sizing a pool?",
+   "a": "Small. A common starting point is a few times the number of database CPU cores <em>in total across all app instances</em>, not per instance — often far fewer than the number of concurrent requests, because queries are short."
+  },
+  {
+   "n": 331,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What happens when every pooled connection is busy?",
+   "a": "New requests queue in the pool. If the pool has no timeout they wait forever and the application appears frozen, with nothing wrong visible on the database side."
+  },
+  {
+   "n": 332,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "What do RDS Proxy, Supavisor and Neon's pooler have in common with PgBouncer?",
+   "a": "They are all transaction-mode poolers solving the same problem, and they carry the same restrictions on session state and prepared statements."
+  },
+  {
+   "n": 333,
+   "c": "node-12",
+   "t": "Node 12 · Connections and pooling",
+   "q": "Why do serverless platforms make connection pooling harder?",
+   "a": "Because each function instance is a separate process with its own pool and an unpredictable lifetime, so the total connection count scales with concurrency rather than with the number of servers. An external pooler becomes mandatory."
+  },
+  {
+   "n": 334,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "What is a migration?",
+   "a": "A versioned, checked-in script that moves the schema from one state to the next, applied in order, exactly once, tracked in a table the migration tool owns — so the schema is reproducible from an empty database."
+  },
+  {
+   "n": 335,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "What does transactional DDL give a migration tool?",
+   "a": "The ability to wrap each migration in a transaction, guaranteeing it is all-or-nothing. A failed migration leaves nothing half-applied, unlike MySQL where you clean up by hand."
+  },
+  {
+   "n": 336,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "Which schema changes are catalog-only and effectively instant?",
+   "a": "Adding a nullable column; adding a column with a <strong>constant</strong> default (Postgres 11+); dropping a column; renaming anything; widening <code>varchar(50)</code> to <code>varchar(100)</code> or to <code>text</code>."
+  },
+  {
+   "n": 337,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "Why is adding a column with a constant default now cheap?",
+   "a": "Postgres 11 stores the default in the catalog and materialises it lazily when rows are next written, instead of rewriting every row. This removed one of the most notorious causes of migration downtime."
+  },
+  {
+   "n": 338,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "Which schema changes rewrite the whole table?",
+   "a": "Adding a column with a <strong>volatile</strong> default such as <code>gen_random_uuid()</code>; changing a column type in a way that changes its storage representation, e.g. <code>integer</code> to <code>bigint</code>."
+  },
+  {
+   "n": 339,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "Which changes scan the table under a strong lock without rewriting it?",
+   "a": "Adding <code>NOT NULL</code> to an existing column, and adding a <code>CHECK</code> or foreign key constraint — each must verify every existing row."
+  },
+  {
+   "n": 340,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "What does dropping a column actually do?",
+   "a": "Marks it dropped in the catalog and stops showing it. The bytes stay in the tuples until rows are rewritten, so the table does not shrink immediately."
+  },
+  {
+   "n": 341,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "What is <code>CREATE INDEX CONCURRENTLY</code>?",
+   "a": "An index build that does not block reads or writes, achieved by scanning the table twice and tracking concurrent changes. It takes longer and takes only a <code>SHARE UPDATE EXCLUSIVE</code> lock."
+  },
+  {
+   "n": 342,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "What are the two caveats of CREATE INDEX CONCURRENTLY?",
+   "a": "It cannot run inside a transaction block, so your migration tool must be told not to wrap it; and if it fails it leaves an <code>INVALID</code> index behind that you must drop and retry."
+  },
+  {
+   "n": 343,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "How do you find an invalid index?",
+   "a": "<code>SELECT * FROM pg_index WHERE NOT indisvalid;</code> — then <code>DROP INDEX CONCURRENTLY</code> and rebuild."
+  },
+  {
+   "n": 344,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "What does <code>ADD CONSTRAINT ... NOT VALID</code> do?",
+   "a": "Adds the constraint so it is enforced on all new and modified rows, taking only a brief lock and scanning nothing. Existing rows are not checked."
+  },
+  {
+   "n": 345,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "What does <code>VALIDATE CONSTRAINT</code> do afterwards?",
+   "a": "Scans the existing rows to confirm they satisfy the constraint, under a lock weak enough to permit concurrent reads and writes. This two-step is how you add constraints to a large live table safely."
+  },
+  {
+   "n": 346,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "How do you add NOT NULL to a huge table without a long lock?",
+   "a": "Add <code>CHECK (col IS NOT NULL) NOT VALID</code>, then <code>VALIDATE</code> it, then (Postgres 12+) <code>SET NOT NULL</code>, which is instant because the planner can prove it from the validated check. Finally drop the redundant check."
+  },
+  {
+   "n": 347,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "What is the expand–migrate–contract pattern?",
+   "a": "Add the new structure alongside the old; deploy code writing to both and reading the old; backfill in batches; deploy code reading the new; drop the old in a later release. Every step is independently reversible."
+  },
+  {
+   "n": 348,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "Why must a backfill be batched?",
+   "a": "One giant <code>UPDATE</code> creates a dead tuple per row, generates enormous WAL, holds locks for the duration, and cannot be interrupted safely. Batches with a commit between each keep every unit small."
+  },
+  {
+   "n": 349,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "What does a batched backfill loop look like?",
+   "a": "Repeatedly <code>UPDATE t SET new = f(old) WHERE new IS NULL AND id IN (SELECT id FROM t WHERE new IS NULL LIMIT 5000)</code>, committing between iterations, until zero rows are affected."
+  },
+  {
+   "n": 350,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "Why does a rolling deploy constrain what a migration may do?",
+   "a": "Because old and new application code run simultaneously against the same database. The schema must be compatible with both — which is exactly why you never rename or drop in the same release that introduces the replacement."
+  },
+  {
+   "n": 351,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "What must always be set in a migration that takes a strong lock?",
+   "a": "<code>lock_timeout</code>, so the DDL fails fast rather than queueing every subsequent query behind it."
+  },
+  {
+   "n": 352,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "Why is renaming a column dangerous even though it is instant?",
+   "a": "Because the old application code, still running during the deploy, refers to the old name and immediately errors. Use expand–migrate–contract instead."
+  },
+  {
+   "n": 353,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "How should a migration tool handle CREATE INDEX CONCURRENTLY?",
+   "a": "By running that migration outside a transaction. Most tools have an explicit escape hatch for this; ignoring it produces \"CREATE INDEX CONCURRENTLY cannot run inside a transaction block\"."
+  },
+  {
+   "n": 354,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "What is the safest way to change a column's type?",
+   "a": "Add a new column of the target type, backfill in batches, switch reads and writes, then drop the old one — rather than <code>ALTER COLUMN TYPE</code> on a large table."
+  },
+  {
+   "n": 355,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "Should migrations contain data changes as well as schema changes?",
+   "a": "Small, deterministic data fixes are fine. Large backfills belong in a separate, resumable, batched job, because a migration that runs for an hour blocks your deploy pipeline and cannot be safely retried."
+  },
+  {
+   "n": 356,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "What is a down migration and is it always worth writing?",
+   "a": "The reverse of a migration. It is worth writing while the change is still additive; once you have dropped a column the down migration cannot restore data, so the honest answer is that reversibility comes from ordering (expand–contract), not from down scripts."
+  },
+  {
+   "n": 357,
+   "c": "node-13",
+   "t": "Node 13 · Migrations on a live schema",
+   "q": "Why check migrations into the repository rather than applying changes by hand?",
+   "a": "Because the schema is part of the application's definition. Hand-applied changes cannot be reviewed, reproduced in another environment, or replayed onto a fresh database."
+  },
+  {
+   "n": 358,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is the difference between <code>json</code> and <code>jsonb</code>?",
+   "a": "<code>json</code> stores the text verbatim — whitespace, key order and duplicate keys preserved — and reparses on every access. <code>jsonb</code> parses once into a decomposed binary form, losing key order and duplicates but making access fast and, decisively, making it indexable."
+  },
+  {
+   "n": 359,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "Which should you use by default?",
+   "a": "<code>jsonb</code>, unless you specifically need to preserve the exact original document text."
+  },
+  {
+   "n": 360,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What do <code>-&gt;</code> and <code>-&gt;&gt;</code> do?",
+   "a": "<code>-&gt;</code> extracts a JSON value (still JSON); <code>-&gt;&gt;</code> extracts it as <code>text</code>. <code>#&gt;</code> and <code>#&gt;&gt;</code> follow a path array."
+  },
+  {
+   "n": 361,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What does the <code>@&gt;</code> operator ask?",
+   "a": "Containment — does this JSONB document contain the given structure. <code>data @&gt; '{\"status\":\"active\"}'</code> is the canonical indexable JSONB filter."
+  },
+  {
+   "n": 362,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "How do you index a JSONB column?",
+   "a": "A <strong>GIN</strong> index. The default operator class supports containment and key-existence; <code>jsonb_path_ops</code> builds a smaller, faster index supporting containment only."
+  },
+  {
+   "n": 363,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "When is JSONB the right modelling choice?",
+   "a": "For genuinely schemaless data — a webhook payload stored verbatim, per-tenant custom fields, an LLM's raw response. It is wrong as a way to avoid designing a schema."
+  },
+  {
+   "n": 364,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is the standard hybrid pattern?",
+   "a": "Real typed columns for everything the application filters, joins or constrains on, plus one <code>jsonb</code> column for the variable long tail."
+  },
+  {
+   "n": 365,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is JSONPath in Postgres?",
+   "a": "A query language for navigating inside JSON documents, added in Postgres 12 — <code>jsonb_path_query(data, '$.items[*].price ? (@ &gt; 100)')</code>."
+  },
+  {
+   "n": 366,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "How do you turn a JSONB array into rows?",
+   "a": "<code>jsonb_array_elements(data-&gt;'items')</code> in a lateral join, which is how you aggregate or join against elements of a document."
+  },
+  {
+   "n": 367,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What are Postgres arrays good for and where do they go wrong?",
+   "a": "Good for small, stable lists such as tags, queried with <code>= ANY(...)</code> and <code>@&gt;</code> and indexed with GIN. Wrong when the \"array\" is really an entity with its own attributes, lifecycle or constraints — that is a table."
+  },
+  {
+   "n": 368,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is an ENUM type, and what is the catch?",
+   "a": "A fixed set of allowed labels with compact storage. Adding a value is easy; <em>removing</em> one is genuinely painful, which is why many teams prefer a text column with a CHECK constraint or a lookup table."
+  },
+  {
+   "n": 369,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "Why choose UUID over a bigint identity key?",
+   "a": "Clients can generate ids without a round trip, ids can be merged across systems, and they do not leak how many rows exist or let someone enumerate your data."
+  },
+  {
+   "n": 370,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is the performance cost of random UUIDs as primary keys?",
+   "a": "They are random, so inserts scatter across the whole B-tree instead of appending at one end, causing page splits, poor cache locality and index bloat."
+  },
+  {
+   "n": 371,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is UUIDv7 and why does it matter?",
+   "a": "A UUID with a timestamp in its high bits so values sort roughly by creation time, restoring append-like insert behaviour. Postgres 18 provides <code>uuidv7()</code> in core."
+  },
+  {
+   "n": 372,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "Where does <code>gen_random_uuid()</code> come from?",
+   "a": "It was in the <code>pgcrypto</code> extension historically and moved into core in Postgres 13, so no extension is needed on modern versions."
+  },
+  {
+   "n": 373,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What are range types?",
+   "a": "Types holding an interval as one value — <code>tstzrange</code>, <code>daterange</code>, <code>int4range</code> — with containment (<code>@&gt;</code>) and overlap (<code>&amp;&amp;</code>) operators."
+  },
+  {
+   "n": 374,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is an exclusion constraint and what can it guarantee?",
+   "a": "<code>EXCLUDE USING gist (room_id WITH =, during WITH &amp;&amp;)</code> guarantees no two rows for the same room have overlapping time ranges — an invariant that is genuinely hard to enforce in application code."
+  },
+  {
+   "n": 375,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is a <code>tsvector</code>?",
+   "a": "The normalised, searchable form of a document: text broken into <strong>lexemes</strong>, stemmed (\"running\" to \"run\"), with stop words removed and positions recorded."
+  },
+  {
+   "n": 376,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is a <code>tsquery</code> and which parser should you use for user input?",
+   "a": "The parsed search expression. Use <code>websearch_to_tsquery</code> for raw user input — it accepts quotes, <code>or</code> and <code>-</code> and never raises a syntax error, unlike <code>to_tsquery</code>."
+  },
+  {
+   "n": 377,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "How do you match a document against a query?",
+   "a": "The <code>@@</code> operator: <code>WHERE search_vector @@ websearch_to_tsquery('english', $1)</code>."
+  },
+  {
+   "n": 378,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "How do you make full-text search fast and self-maintaining?",
+   "a": "Store the tsvector in a <strong>generated column</strong> (Postgres 12+) so it updates itself, and put a GIN index on it."
+  },
+  {
+   "n": 379,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What do <code>ts_rank</code> and <code>ts_headline</code> do?",
+   "a": "<code>ts_rank</code> scores how well a document matches, for ordering results; <code>ts_headline</code> returns a snippet with matched terms highlighted."
+  },
+  {
+   "n": 380,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "Honestly, when is Postgres full-text search not enough?",
+   "a": "When you need sophisticated relevance tuning, fuzzy matching out of the box, faceting at scale, or search-specific scaling independent of the database. It is genuinely good enough to skip Elasticsearch for a large fraction of applications."
+  },
+  {
+   "n": 381,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What does the <code>pg_trgm</code> extension add?",
+   "a": "Trigram similarity — a <code>similarity()</code> function and <code>%</code> operator for fuzzy matching and typo tolerance — and GIN/GiST support that makes <code>LIKE '%foo%'</code> and <code>ILIKE</code> indexable."
+  },
+  {
+   "n": 382,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is a generated column?",
+   "a": "A column whose value is computed from other columns and maintained by the database — ideal for a search vector, a normalised email, or a computed total. Stored since Postgres 12; virtual (non-stored) added in 18."
+  },
+  {
+   "n": 383,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What does <code>date_trunc</code> do and where is it used?",
+   "a": "Truncates a timestamp to a unit — <code>date_trunc('day', created_at)</code> — which is how you bucket time-series data for reports."
+  },
+  {
+   "n": 384,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is <code>generate_series</code> useful for?",
+   "a": "Producing a table of values on demand — a row per day in a range, for example — which is the standard trick for filling gaps so a chart has zeroes rather than missing points."
+  },
+  {
+   "n": 385,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is an <code>interval</code>?",
+   "a": "A duration type supporting arithmetic with timestamps — <code>now() - interval '7 days'</code>. Note that adding a month is calendar-aware, not a fixed number of seconds."
+  },
+  {
+   "n": 386,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is the <code>hstore</code> type and why is it mostly historical?",
+   "a": "A flat string-to-string key-value type predating JSONB. JSONB supersedes it for essentially all new work."
+  },
+  {
+   "n": 387,
+   "c": "node-14",
+   "t": "Node 14 · The types that make Postgres unusual",
+   "q": "What is a composite type?",
+   "a": "A named row type — <code>CREATE TYPE address AS (street text, city text)</code> — usable as a column type or as a function's return type. Powerful, but often better modelled as separate columns or a related table."
+  },
+  {
+   "n": 388,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is a view, and what does it cost at runtime?",
+   "a": "A named query that behaves like a table. It stores nothing — selecting from it inlines its definition into your query — so it is an abstraction with no runtime cost and no caching."
+  },
+  {
+   "n": 389,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What are views genuinely good for?",
+   "a": "Hiding a complicated join behind a name, and exposing a restricted subset of a table to a role that has no permission on the underlying table."
+  },
+  {
+   "n": 390,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "When is a view updatable?",
+   "a": "When it is simple enough for Postgres to map changes back unambiguously — a single table, no aggregates or DISTINCT. Otherwise you need an <code>INSTEAD OF</code> trigger."
+  },
+  {
+   "n": 391,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is a materialized view?",
+   "a": "A view whose result is actually stored on disk and refreshed only when you run <code>REFRESH MATERIALIZED VIEW</code>. It makes an expensive aggregation instant to read at the price of being stale."
+  },
+  {
+   "n": 392,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is the catch with refreshing a materialized view?",
+   "a": "Plain <code>REFRESH</code> takes an exclusive lock, blocking readers for the duration. <code>REFRESH ... CONCURRENTLY</code> does not, but requires a unique index on the view and is slower."
+  },
+  {
+   "n": 393,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is a CTE?",
+   "a": "A common table expression — <code>WITH x AS (...)</code> — that names a subquery, making long queries readable and letting a subquery be referenced more than once."
+  },
+  {
+   "n": 394,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "How did CTE behaviour change in Postgres 12?",
+   "a": "Before 12, every CTE was an <strong>optimisation fence</strong>: always materialised, never inlined, and often exploited as a poor man's hint. From 12, a CTE referenced once and free of side effects is inlined by default; <code>MATERIALIZED</code> and <code>NOT MATERIALIZED</code> force either behaviour."
+  },
+  {
+   "n": 395,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is a recursive CTE for?",
+   "a": "Walking hierarchies and graphs in a single query — category trees, org charts, reachability — with <code>WITH RECURSIVE</code>: a base query UNIONed with a query that references the CTE itself."
+  },
+  {
+   "n": 396,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is a window function?",
+   "a": "A function computing a value across a set of rows related to the current row, <strong>without collapsing the rows</strong> the way GROUP BY does."
+  },
+  {
+   "n": 397,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "How do you get the most recent row per group with a window function?",
+   "a": "<code>ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC)</code> in a subquery, then filter to <code>= 1</code> in the outer query."
+  },
+  {
+   "n": 398,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is the difference between <code>RANK</code> and <code>DENSE_RANK</code>?",
+   "a": "Both assign the same rank to ties; <code>RANK</code> then skips numbers (1,1,3) while <code>DENSE_RANK</code> does not (1,1,2)."
+  },
+  {
+   "n": 399,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What do <code>LAG</code> and <code>LEAD</code> do?",
+   "a": "Return a value from the previous or next row in the window — the direct way to compute deltas, gaps between events, or \"did this change from last time\"."
+  },
+  {
+   "n": 400,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "How do you write a running total?",
+   "a": "<code>SUM(amount) OVER (ORDER BY created_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)</code>."
+  },
+  {
+   "n": 401,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is the difference between PARTITION BY and GROUP BY?",
+   "a": "<code>PARTITION BY</code> divides rows into groups for the window computation while keeping every row in the output; <code>GROUP BY</code> collapses each group into one row."
+  },
+  {
+   "n": 402,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is PL/pgSQL?",
+   "a": "Postgres's procedural language for functions — variables, conditionals, loops, exception handling — executed inside the server."
+  },
+  {
+   "n": 403,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What are the three volatility categories for a function and why do they matter?",
+   "a": "<code>IMMUTABLE</code> (same input always gives same output; required for expression indexes), <code>STABLE</code> (constant within one statement; can be used in index scans), and <code>VOLATILE</code> (the default; the planner can optimise nothing around it)."
+  },
+  {
+   "n": 404,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is the difference between a function and a procedure?",
+   "a": "Procedures, added in Postgres 11, can <code>COMMIT</code> and <code>ROLLBACK</code> internally, which functions cannot. That makes procedures the right tool for a batched backfill loop."
+  },
+  {
+   "n": 405,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is a trigger?",
+   "a": "A function run automatically <code>BEFORE</code> or <code>AFTER</code> an INSERT, UPDATE or DELETE, either per row or per statement."
+  },
+  {
+   "n": 406,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What are triggers genuinely good for?",
+   "a": "Maintaining an <code>updated_at</code> timestamp, writing an audit log, and keeping a denormalised counter or search vector in step."
+  },
+  {
+   "n": 407,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "Why are triggers a bad home for business logic?",
+   "a": "They are invisible at the call site. A developer reading the application code has no way to know that one insert also performed five other actions, and debugging becomes archaeology."
+  },
+  {
+   "n": 408,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is the difference between a BEFORE and an AFTER trigger?",
+   "a": "A <code>BEFORE</code> trigger can modify the row about to be written (by returning a changed <code>NEW</code>) or cancel the operation by returning NULL. An <code>AFTER</code> trigger cannot change the row but sees the final state, which is what you want for auditing."
+  },
+  {
+   "n": 409,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is <code>LISTEN</code>/<code>NOTIFY</code>?",
+   "a": "A lightweight pub/sub built into the server: one session runs <code>LISTEN channel</code>, another runs <code>NOTIFY channel, 'payload'</code>, and the listener is woken."
+  },
+  {
+   "n": 410,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What makes NOTIFY transactionally correct?",
+   "a": "Notifications are delivered at <strong>commit</strong>, so a notification is never sent for a change that rolled back."
+  },
+  {
+   "n": 411,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What are the limits of LISTEN/NOTIFY?",
+   "a": "Payload capped at 8000 bytes, no persistence (a disconnected listener misses the message entirely), and it does not survive PgBouncer transaction pooling. Right for cache invalidation or nudging a worker; wrong when delivery must be guaranteed."
+  },
+  {
+   "n": 412,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "What is row-level security?",
+   "a": "A policy attached to a table (Postgres 9.5+) that implicitly adds a WHERE clause to every query based on the current role or a session setting, making tenant isolation a property of the database rather than of every query."
+  },
+  {
+   "n": 413,
+   "c": "node-15",
+   "t": "Node 15 · Logic inside the database",
+   "q": "Sketch a row-level security policy for multi-tenancy.",
+   "a": "<code>ALTER TABLE items ENABLE ROW LEVEL SECURITY;</code> then <code>CREATE POLICY tenant_isolation ON items USING (tenant_id = current_setting('app.tenant_id')::uuid);</code> with the application setting <code>app.tenant_id</code> per request."
+  },
+  {
+   "n": 414,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What is an extension?",
+   "a": "A packaged bundle of types, functions, operators, index operator classes and sometimes C code, installed into a database with <code>CREATE EXTENSION name</code>."
+  },
+  {
+   "n": 415,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "Why can extensions add genuinely fast new capabilities rather than bolt-ons?",
+   "a": "Because Postgres's type, operator and index frameworks — particularly GiST and GIN — were designed from the Berkeley days to be extended, so an extension can add a new kind of data <em>with</em> a working index for it."
+  },
+  {
+   "n": 416,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "Are extensions installed per server or per database?",
+   "a": "Per database. <code>\\dx</code> lists what is installed in the database you are connected to."
+  },
+  {
+   "n": 417,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What is <code>shared_preload_libraries</code> and which extensions need it?",
+   "a": "A setting listing shared libraries loaded at server startup. Extensions that hook into the server itself — most importantly <code>pg_stat_statements</code>, and also <code>auto_explain</code> and <code>pg_cron</code> — require it, and therefore a restart."
+  },
+  {
+   "n": 418,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What does <code>pg_stat_statements</code> record?",
+   "a": "Every executed query, <strong>normalised</strong> so queries differing only in parameter values group together, with call count, total and mean time, rows returned, and buffer hit/read counts."
+  },
+  {
+   "n": 419,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "Why is pg_stat_statements the single most valuable extension to install?",
+   "a": "Because ordering by total time answers the only question that matters when a database is slow — what is actually consuming this server — and the answer is very often a fast query run ten million times, not the slow one everyone is staring at."
+  },
+  {
+   "n": 420,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What is <code>auto_explain</code>?",
+   "a": "An extension that logs the execution plan of any query exceeding a duration threshold, so you get the plan of the slow production query rather than the plan of your reproduction attempt."
+  },
+  {
+   "n": 421,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What does pgvector add?",
+   "a": "A <code>vector</code> type, distance operators (<code>&lt;-&gt;</code> L2, <code>&lt;=&gt;</code> cosine, <code>&lt;#&gt;</code> inner product), and the IVFFlat and HNSW index types for approximate nearest-neighbour search."
+  },
+  {
+   "n": 422,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What does \"approximate\" mean for a vector index and what tunes it?",
+   "a": "The index may miss some true nearest neighbours in exchange for speed. IVFFlat is tuned by <code>lists</code> at build time and <code>ivfflat.probes</code> at query time; HNSW by <code>m</code> and <code>ef_construction</code> at build and <code>hnsw.ef_search</code> at query."
+  },
+  {
+   "n": 423,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "Why keep embeddings in Postgres rather than a dedicated vector database?",
+   "a": "Because the embedding and the row it describes are written in the same transaction, removing an entire class of consistency problem, and because it is one system to back up, monitor and operate."
+  },
+  {
+   "n": 424,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What does <code>pgcrypto</code> provide?",
+   "a": "Hashing and symmetric/asymmetric encryption functions, and historically <code>gen_random_uuid()</code> before core absorbed it in Postgres 13."
+  },
+  {
+   "n": 425,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What is PostGIS?",
+   "a": "The geospatial extension — geometry and geography types, spatial indexing on GiST, and a very large function library. It is so complete that it is a major reason organisations choose Postgres at all."
+  },
+  {
+   "n": 426,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What is TimescaleDB for?",
+   "a": "Time-series workloads: automatic partitioning into \"hypertables\", columnar compression of older chunks, and continuous aggregates."
+  },
+  {
+   "n": 427,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What is Citus?",
+   "a": "An extension that distributes tables across multiple Postgres nodes — sharding, delivered as an extension rather than a fork."
+  },
+  {
+   "n": 428,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What is <code>postgres_fdw</code>?",
+   "a": "A foreign data wrapper making tables on another Postgres server queryable as if local, with a whole family of siblings for MySQL, files, S3 and REST APIs."
+  },
+  {
+   "n": 429,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What is <code>pg_repack</code> for?",
+   "a": "Removing table and index bloat online, without the <code>ACCESS EXCLUSIVE</code> lock that makes <code>VACUUM FULL</code> an outage."
+  },
+  {
+   "n": 430,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What is <code>pg_cron</code>?",
+   "a": "An extension that runs scheduled SQL inside the database on a cron expression — useful for refreshing materialized views or pruning old rows without external infrastructure."
+  },
+  {
+   "n": 431,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What is the strategic argument for \"just use Postgres\"?",
+   "a": "Search, geospatial, vector similarity, time-series, job queues and pub/sub can all live in one system with one backup story, one transactional boundary and one operational burden — until scale genuinely forces specialisation."
+  },
+  {
+   "n": 432,
+   "c": "node-16",
+   "t": "Node 16 · Extensions",
+   "q": "What limits extensions on managed Postgres?",
+   "a": "The provider allows only a fixed list, and anything requiring <code>shared_preload_libraries</code> or superuser cannot be added by you. Checking the supported-extensions list is part of choosing a provider."
+  },
+  {
+   "n": 433,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What is <code>pg_stat_activity</code>?",
+   "a": "One row per connection showing the current query, when it started, the connection <code>state</code>, and what it is waiting on. It is always the first place to look during an incident."
+  },
+  {
+   "n": 434,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What are the important values of <code>state</code>?",
+   "a": "<code>active</code> (running a query), <code>idle</code> (connected, doing nothing — fine), and <code>idle in transaction</code> (inside an open transaction doing nothing — the dangerous one)."
+  },
+  {
+   "n": 435,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "Write the query for \"everything running longer than a minute\".",
+   "a": "<code>SELECT pid, now() - query_start AS dur, state, query FROM pg_stat_activity WHERE state = 'active' AND now() - query_start &gt; interval '1 minute' ORDER BY dur DESC;</code>"
+  },
+  {
+   "n": 436,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What do <code>wait_event_type</code> and <code>wait_event</code> tell you?",
+   "a": "Why a backend is not running — <code>Lock</code> (waiting on another transaction), <code>IO</code> (reading from storage), <code>LWLock</code> (internal contention), <code>Client</code> (waiting on the application to send or receive)."
+  },
+  {
+   "n": 437,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What does <code>pg_stat_user_tables</code> give you?",
+   "a": "Per table: sequential versus index scan counts, rows inserted/updated/deleted, live and dead tuple estimates, and <code>last_autovacuum</code> / <code>last_autoanalyze</code>."
+  },
+  {
+   "n": 438,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "How do you spot a table that needs an index from pg_stat_user_tables?",
+   "a": "A high <code>seq_scan</code> count with a large <code>seq_tup_read</code> and a low <code>idx_scan</code> on a table that is not tiny."
+  },
+  {
+   "n": 439,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What does <code>pg_stat_database</code> give you?",
+   "a": "Per database: commits and rollbacks, blocks hit versus read (cache hit ratio), deadlock count, temp files written, and conflicts on standbys."
+  },
+  {
+   "n": 440,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "How do you compute the cache hit ratio and what is a good value?",
+   "a": "<code>blks_hit / (blks_hit + blks_read)</code>. Below roughly 99% on an OLTP workload suggests <code>shared_buffers</code> is too small for the working set — though the OS cache means the real picture is kinder than the number suggests."
+  },
+  {
+   "n": 441,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What is the highest-value logging setting?",
+   "a": "<code>log_min_duration_statement</code> — log every statement slower than, say, 500 ms. It turns \"the site feels slow\" into a list of specific queries."
+  },
+  {
+   "n": 442,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What do <code>log_lock_waits</code>, <code>log_temp_files</code> and <code>log_checkpoints</code> catch?",
+   "a": "Lock waits longer than <code>deadlock_timeout</code>, sorts and hashes spilling to disk (a <code>work_mem</code> signal), and checkpoint frequency and duration (a <code>max_wal_size</code> signal)."
+  },
+  {
+   "n": 443,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What is <code>shared_buffers</code> conventionally set to?",
+   "a": "About 25% of system RAM. Much higher gives diminishing returns because the OS page cache is also caching the same files."
+  },
+  {
+   "n": 444,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What is <code>effective_cache_size</code> conventionally set to, and what does it allocate?",
+   "a": "50–75% of RAM, and it allocates <strong>nothing</strong>. It only informs the planner how much caching to assume, which changes how attractive repeated index access looks."
+  },
+  {
+   "n": 445,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What is <code>maintenance_work_mem</code> for?",
+   "a": "VACUUM, index builds and ALTER TABLE. It can safely be far larger than <code>work_mem</code> — hundreds of megabytes to a gigabyte — because few maintenance operations run at once."
+  },
+  {
+   "n": 446,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "How do you change a setting without editing a file?",
+   "a": "<code>ALTER SYSTEM SET random_page_cost = 1.1;</code> then <code>SELECT pg_reload_conf();</code> — it writes <code>postgresql.auto.conf</code>. Some settings still require a restart."
+  },
+  {
+   "n": 447,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "How do you tell whether a setting needs a restart?",
+   "a": "<code>SELECT name, setting, context, pending_restart FROM pg_settings WHERE name = '...'</code>. The <code>context</code> column says <code>postmaster</code> (restart), <code>sighup</code> (reload), or <code>user</code> (per-session)."
+  },
+  {
+   "n": 448,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "Why are Postgres's defaults so conservative?",
+   "a": "So it starts on any machine, including tiny ones. An untuned production server runs with 128 MB of buffers and 4 MB of work memory on a box with 64 GB of RAM — tuning is not exotic, it is the first hour of operating one."
+  },
+  {
+   "n": 449,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What is <code>pg_stat_user_indexes</code> used for?",
+   "a": "Finding indexes with <code>idx_scan = 0</code> (unused, pure write cost) and comparing <code>idx_scan</code> against <code>idx_tup_fetch</code> to see how selective each index actually is in practice."
+  },
+  {
+   "n": 450,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "How do you find the largest tables in a database?",
+   "a": "<code>SELECT relname, pg_size_pretty(pg_total_relation_size(relid)) FROM pg_catalog.pg_statio_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 20;</code>"
+  },
+  {
+   "n": 451,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What is the checklist when someone says \"the database is slow\"?",
+   "a": "Check <code>pg_stat_activity</code> for long-running and blocked queries; check <code>pg_stat_statements</code> ordered by total time; check connection count against <code>max_connections</code>; check <code>n_dead_tup</code> and last autovacuum; check disk and the logs for checkpoints and temp files."
+  },
+  {
+   "n": 452,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What is the difference between \"the database is slow\" and \"the pool is exhausted\"?",
+   "a": "They look identical from the application — requests hang. One is fixed in the database, the other in the application. This is why pool waiting-count belongs in your metrics."
+  },
+  {
+   "n": 453,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What should you monitor continuously on a production Postgres?",
+   "a": "Connection count, longest transaction age, replication lag, dead tuple counts and autovacuum recency, cache hit ratio, disk usage including <code>pg_wal</code>, deadlock rate, and the top queries by total time."
+  },
+  {
+   "n": 454,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What is <code>track_io_timing</code>?",
+   "a": "A setting that makes Postgres measure actual time spent in I/O, which is what fills in the timing numbers in <code>EXPLAIN (ANALYZE, BUFFERS)</code> and <code>pg_stat_statements</code>. Worth enabling; the overhead is small on modern systems."
+  },
+  {
+   "n": 455,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "Why does query timing in your application exceed the database's reported time?",
+   "a": "Network round trips, driver overhead, waiting for a connection from the pool, and result-set parsing. Postgres reports execution time, not end-to-end latency."
+  },
+  {
+   "n": 456,
+   "c": "node-17",
+   "t": "Node 17 · Observability and configuration",
+   "q": "What is the single best habit for keeping a database healthy?",
+   "a": "Look at <code>pg_stat_statements</code> ordered by total time once a week. Almost every emerging problem shows up there before it becomes an incident."
+  },
+  {
+   "n": 457,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is a logical backup?",
+   "a": "<code>pg_dump</code> — a dump of SQL statements or a custom-format archive that recreates the data. Portable across versions and architectures, restorable table by table, and slow to restore at scale because everything is re-inserted and every index rebuilt."
+  },
+  {
+   "n": 458,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is a physical backup?",
+   "a": "<code>pg_basebackup</code> (or pgBackRest, WAL-G) — a byte-level copy of the data directory. Restores fast, but only to a compatible major version and architecture."
+  },
+  {
+   "n": 459,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is <code>pg_dumpall</code> for?",
+   "a": "Dumping cluster-wide objects that <code>pg_dump</code> does not include — roles, tablespaces, and global grants. A logical backup strategy needs both."
+  },
+  {
+   "n": 460,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is point-in-time recovery?",
+   "a": "Restoring a physical base backup and then replaying archived WAL up to a chosen timestamp, giving you the database exactly as it was one second before a bad <code>DELETE</code>."
+  },
+  {
+   "n": 461,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What does PITR require to be set up in advance?",
+   "a": "Continuous <strong>WAL archiving</strong> — an <code>archive_command</code> (or an archive library) copying each completed WAL segment to durable storage — plus periodic base backups."
+  },
+  {
+   "n": 462,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is the rule that outranks every backup strategy?",
+   "a": "A backup you have not restored is not a backup. Restore drills are the only evidence the process works."
+  },
+  {
+   "n": 463,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What are RPO and RTO?",
+   "a": "<strong>Recovery Point Objective</strong> — how much data you can afford to lose. <strong>Recovery Time Objective</strong> — how long you can afford to be down. They determine your backup frequency and your replication topology, and should be stated numbers."
+  },
+  {
+   "n": 464,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is streaming replication?",
+   "a": "A primary streams its WAL to one or more standbys which continuously replay it, producing byte-identical copies. Introduced in Postgres 9.0."
+  },
+  {
+   "n": 465,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is a hot standby?",
+   "a": "A standby that serves read-only queries while replaying, giving high availability and read scaling from the same mechanism."
+  },
+  {
+   "n": 466,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is replication lag and why does it matter to application code?",
+   "a": "How far behind the standby is. Under default asynchronous replication it can be milliseconds or, under load, seconds — so an application that writes to the primary and immediately reads from a replica may not see its own write."
+  },
+  {
+   "n": 467,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is the read-your-writes problem?",
+   "a": "A user saves something, is redirected, the read goes to a lagging replica, and their change appears not to have happened. It is why routing reads to replicas is an application-visible decision, not a transparent optimisation."
+  },
+  {
+   "n": 468,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What does synchronous replication change?",
+   "a": "With <code>synchronous_commit = on</code> plus <code>synchronous_standby_names</code>, the primary waits for a standby to acknowledge before returning COMMIT — eliminating the lag window and data loss on failover, at the cost of commit latency."
+  },
+  {
+   "n": 469,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is the danger of synchronous replication with a single standby?",
+   "a": "If that standby dies, the primary has nobody to wait for and <strong>stops accepting writes</strong>. Production setups use quorum settings (<code>ANY 1 (s1, s2)</code>) rather than a single required standby."
+  },
+  {
+   "n": 470,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "How do you measure replication lag?",
+   "a": "On the primary, <code>pg_stat_replication</code> shows write/flush/replay LSN positions per standby; on the standby, <code>pg_last_xact_replay_timestamp()</code> compared to now."
+  },
+  {
+   "n": 471,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is a replication slot?",
+   "a": "A named marker on the primary recording how far a standby has consumed, so the primary retains the WAL that standby still needs. Powerful and dangerous: an abandoned slot retains WAL forever and fills the disk."
+  },
+  {
+   "n": 472,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is the standby query conflict problem?",
+   "a": "A long query on a standby can need rows that WAL replay is about to remove. Postgres either cancels the query or delays replay. <code>hot_standby_feedback = on</code> tells the primary to hold vacuum back for the standby — fixing the queries and reintroducing bloat on the primary."
+  },
+  {
+   "n": 473,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is failover, and does Postgres do it for you?",
+   "a": "Promoting a standby when the primary dies. Postgres does <strong>not</strong> do this itself; you need Patroni, repmgr, or a managed provider."
+  },
+  {
+   "n": 474,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is split brain and why does failover need fencing?",
+   "a": "Two nodes both believing they are primary, accepting divergent writes. Avoiding it requires consensus and fencing the old primary — which is one honest reason to pay for managed Postgres."
+  },
+  {
+   "n": 475,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is logical replication and how does it differ from streaming replication?",
+   "a": "It decodes the WAL into row-level changes and publishes them per table, via <code>CREATE PUBLICATION</code> and <code>CREATE SUBSCRIPTION</code> (Postgres 10+). Being logical rather than byte-level, it works <strong>across major versions</strong> and can replicate a subset of tables into a target with tables of its own."
+  },
+  {
+   "n": 476,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is the standard use for logical replication?",
+   "a": "Near-zero-downtime major version upgrades, and change-data-capture feeds into analytics systems or Kafka."
+  },
+  {
+   "n": 477,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is declarative partitioning?",
+   "a": "Splitting one logical table into many physical ones by range, list or hash (Postgres 10+). The parent holds no data; Postgres routes inserts and <strong>prunes</strong> partitions the query cannot need."
+  },
+  {
+   "n": 478,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What are the genuine wins of partitioning?",
+   "a": "Dropping old data becomes an instant <code>DROP TABLE</code> instead of a huge <code>DELETE</code>; vacuum, index builds and statistics operate on manageable pieces; and queries filtered on the partition key touch far less data."
+  },
+  {
+   "n": 479,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What does partitioning cost you?",
+   "a": "Every unique constraint must include the partition key, plans get larger with many partitions, and queries that do not filter on the partition key must touch all of them. It is not a general performance fix — for most tables a good index is better."
+  },
+  {
+   "n": 480,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is sharding and when is it the right answer?",
+   "a": "Splitting data across separate servers, either with Citus or in the application. It is the right answer only after vertical scaling, read replicas, partitioning and query fixes are genuinely exhausted — which is much later than most people assume."
+  },
+  {
+   "n": 481,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What do you give up with managed Postgres?",
+   "a": "Superuser, arbitrary <code>shared_preload_libraries</code>, and extensions outside the provider's list. You gain backups, failover, patching and monitoring."
+  },
+  {
+   "n": 482,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What does \"RDS Multi-AZ\" actually mean?",
+   "a": "Synchronous physical replication to a standby in another availability zone, with automatic failover. The standby is not readable in the classic Multi-AZ configuration."
+  },
+  {
+   "n": 483,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is different about Neon and Aurora architecturally?",
+   "a": "They separate storage from compute, so compute can scale to zero or scale out independently, and features like instant database branching become possible."
+  },
+  {
+   "n": 484,
+   "c": "node-18",
+   "t": "Node 18 · Backups, replication and scale",
+   "q": "What is the difference between vertical scaling and read replicas as a first response to load?",
+   "a": "Vertical scaling helps every workload and requires no application change; read replicas help only read-heavy workloads and force you to reason about staleness. Vertical first is usually correct."
+  },
+  {
+   "n": 485,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "What is a driver?",
+   "a": "The library that speaks Postgres's wire protocol from your language. In Node the two real choices are <code>pg</code> (the long-standing standard, with <code>pg.Pool</code>) and <code>postgres.js</code> (newer, faster, tagged-template API)."
+  },
+  {
+   "n": 486,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "Why does the <code>pg</code> driver return <code>bigint</code> and <code>numeric</code> as strings?",
+   "a": "Because they do not fit safely in a JavaScript number — precision would be silently lost. You must convert deliberately, which is the correct default."
+  },
+  {
+   "n": 487,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "What does the driver do with a Postgres <code>date</code> or <code>timestamp</code>?",
+   "a": "Converts it to a JavaScript <code>Date</code>, interpreted in the server or client timezone depending on the type, which is a common source of off-by-one-day bugs. Many teams configure the driver to return dates as strings."
+  },
+  {
+   "n": 488,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "How do you write a parameterised query in node-postgres?",
+   "a": "<code>client.query('SELECT * FROM users WHERE email = $1', [email])</code>. Postgres numbers parameters <code>$1, $2</code> rather than using <code>?</code>."
+  },
+  {
+   "n": 489,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "Why is string concatenation into SQL the vulnerability?",
+   "a": "Because user input becomes part of the parsed query text, so a value can become syntax — closing a quote and appending <code>OR 1=1</code> or a second statement. Parameters are transmitted separately and never parsed as SQL."
+  },
+  {
+   "n": 490,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "How do you safely handle a dynamic ORDER BY column from a user?",
+   "a": "Validate it against an allow-list of permitted column names and map to a literal in your code. Identifiers cannot be parameterised."
+  },
+  {
+   "n": 491,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "Write the correct shape of a transaction in application code.",
+   "a": "Acquire a client from the pool, <code>BEGIN</code>, do the work, <code>COMMIT</code>; in <code>catch</code>, <code>ROLLBACK</code>; in <code>finally</code>, <strong>release the client</strong>."
+  },
+  {
+   "n": 492,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "What happens if you forget to release a pooled client?",
+   "a": "You leak a connection. Leak enough and the pool is exhausted, requests queue forever, and the application deadlocks against itself with no error visible on the database side."
+  },
+  {
+   "n": 493,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "Why must you never await a slow external call inside a transaction?",
+   "a": "It pins a connection, holds every lock the transaction has taken, and blocks the vacuum horizon for the whole duration. Do the HTTP call or the LLM completion outside the transaction."
+  },
+  {
+   "n": 494,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "What is the N+1 query problem?",
+   "a": "Fetching a list of N rows and then issuing one query per row for a related record — 101 round trips where one join or one <code>WHERE id = ANY($1)</code> would do."
+  },
+  {
+   "n": 495,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "How does each ORM let you avoid N+1?",
+   "a": "Prisma's <code>include</code>/<code>select</code> for eager loading; Drizzle's relational query API or an explicit join. The skill is knowing to look for it, which means seeing the generated SQL."
+  },
+  {
+   "n": 496,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "What is the single fastest way to learn what your ORM is doing?",
+   "a": "Turn on query logging for a day and read the SQL it generates for your real endpoints. Every ORM has the switch."
+  },
+  {
+   "n": 497,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "What is the professional stance on ORMs?",
+   "a": "Use the ORM for the large majority of queries that are trivial, drop to raw parameterised SQL for the ones that matter, and always be able to see the generated SQL."
+  },
+  {
+   "n": 498,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "Why can an ORM produce a much slower query than the obvious hand-written one?",
+   "a": "It may select every column (including TOASTed ones), add unnecessary joins or subqueries to satisfy its object model, or generate a shape the planner handles worse than the direct equivalent."
+  },
+  {
+   "n": 499,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "Which errors must an application retry, and how?",
+   "a": "SQLSTATE <code>40001</code> (serialization failure) and <code>40P01</code> (deadlock detected) — retry the <strong>whole transaction</strong> with exponential backoff and a bounded attempt count."
+  },
+  {
+   "n": 500,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "What makes a retry unsafe?",
+   "a": "Side effects outside the database. If the transaction sent an email or charged a card, replaying it repeats that. Retries require the work to be idempotent or the external effect to be moved outside."
+  },
+  {
+   "n": 501,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "What is an idempotency key and where does it live?",
+   "a": "A client-supplied unique token stored in a table with a unique constraint, so a repeated request finds the existing row instead of doing the work twice. It is how you make an API endpoint safely retryable."
+  },
+  {
+   "n": 502,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "Why should <code>statement_timeout</code> be set at the application role level?",
+   "a": "So no query from the application can run forever regardless of what any individual developer remembered, while admin sessions retain the ability to run long maintenance."
+  },
+  {
+   "n": 503,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "What should you expose in metrics to distinguish database problems from pool problems?",
+   "a": "The pool's in-use and waiting counts, plus the database's connection count and longest transaction age. Without them, \"slow\" is indistinguishable from \"starved\"."
+  },
+  {
+   "n": 504,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "What is connection churn and why does it matter?",
+   "a": "Opening and closing connections repeatedly rather than reusing pooled ones. Each cycle costs a fork and authentication, and it shows up as high CPU on the database with no expensive queries."
+  },
+  {
+   "n": 505,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "What is the right way to run a large read that would exhaust memory in Node?",
+   "a": "A cursor or streaming query (<code>pg-cursor</code>, or <code>postgres.js</code>'s streaming API), fetching in batches — never <code>SELECT</code> of ten million rows into an array."
+  },
+  {
+   "n": 506,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "Why do prepared statements sometimes break behind a pooler and what is the fix?",
+   "a": "In transaction pooling mode the next statement may land on a different backend that has never seen the prepared statement. The fix is disabling server-side prepares in the driver."
+  },
+  {
+   "n": 507,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "What does a healthy database access layer look like in one sentence?",
+   "a": "One pool created at startup with a small max, every query parameterised, transactions short and free of external calls, timeouts set, serialization and deadlock errors retried, and the generated SQL visible."
+  },
+  {
+   "n": 508,
+   "c": "node-19",
+   "t": "Node 19 · The application boundary",
+   "q": "Which Postgres problems will you personally cause most often?",
+   "a": "Not planner problems — N+1 queries, leaked connections, transactions held open across network calls, and missing indexes on foreign keys. Almost all of them live in application code, not in the database."
+  }
+ ]
+}

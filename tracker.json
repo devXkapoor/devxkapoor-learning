@@ -7,6 +7,7 @@
         "linux-filesystem-permissions-processes",
         "git",
         "github-platform",
+        "computer-networking",
         "http",
         "dns",
         "json",
@@ -240,6 +241,11 @@
       "updated": "2026-08-29"
     },
     "http": {
+      "state": "in-progress",
+      "started": "2026-09-02",
+      "updated": "2026-09-02"
+    },
+    "computer-networking": {
       "state": "in-progress",
       "started": "2026-09-02",
       "updated": "2026-09-02"

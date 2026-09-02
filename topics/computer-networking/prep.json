@@ -1,0 +1,907 @@
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What happens, end to end, when you type a URL into a browser and press enter?",
+   "a": "The browser parses the URL, resolves the hostname via DNS, opens a TCP connection to the resulting address on port 443, performs a TLS handshake and validates the certificate, sends an HTTP request, and receives a response. Then it parses the HTML and repeats the whole process for every subresource, reusing connections where it can. Every layer of the stack is in that sentence, which is why the question is asked."
+  },
+  {
+   "n": 2,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Explain TCP versus UDP.",
+   "a": "TCP gives you a connection with reliable, ordered, deduplicated delivery, at the cost of a handshake round trip and head-of-line blocking when a packet is lost. UDP gives you addressed datagrams and nothing else. You pick UDP when late data is worse than missing data — voice, video, games — or when you intend to build your own reliability, which is what QUIC does."
+  },
+  {
+   "n": 3,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Describe the TCP three-way handshake.",
+   "a": "The client sends SYN with its initial sequence number, the server replies SYN-ACK acknowledging that and carrying its own, and the client replies ACK. One and a half round trips before any data. The sequence number exchange is also what makes off-path injection hard."
+  },
+  {
+   "n": 4,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the difference between an IP address and a MAC address?",
+   "a": "A MAC is burned into the hardware and only meaningful on the local network; an IP describes where the machine currently sits in the global topology. A packet's IP addresses stay the same end to end while the MAC addresses are rewritten at every single hop."
+  },
+  {
+   "n": 5,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "How does DNS resolution work?",
+   "a": "Your machine asks a configured recursive resolver. If it has no cached answer it asks a root server which nameservers handle the TLD, asks those which are authoritative for the domain, and asks those for the record. Everything is cached along the way for the record's TTL, which is why DNS scales and why changes are not instant."
+  },
+  {
+   "n": 6,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What does HTTPS actually give you?",
+   "a": "Confidentiality, so the path cannot read the traffic; integrity, so tampering breaks the connection instead of going unnoticed; and authentication, so you have evidence the server holds a certificate valid for that hostname. It does not tell you the operator is trustworthy or the application is secure."
+  },
+  {
+   "n": 7,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a port and why do we need them?",
+   "a": "A 16-bit number identifying which program on a machine the traffic is for. Without it an IP address gets you to the machine and no further, and a machine running a web server, a database and SSH would have no way to sort incoming data."
+  },
+  {
+   "n": 8,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the difference between HTTP/1.1, HTTP/2 and HTTP/3?",
+   "a": "1.1 is text and handles one exchange at a time per connection. 2 is binary and multiplexes many streams over one connection, but still suffers TCP head-of-line blocking when a packet is lost. 3 runs on QUIC over UDP so loss stalls only its own stream, and folds the TLS handshake in for a one-round-trip setup. The semantics are identical across all three."
+  },
+  {
+   "n": 9,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a load balancer and what does it need to do besides distribute?",
+   "a": "It spreads requests across identical backends, but the part that matters is health checking — probing backends and removing failing ones so a dead instance becomes invisible instead of an outage. It also usually terminates TLS and preserves the client IP via X-Forwarded-For."
+  },
+  {
+   "n": 10,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Explain what a reverse proxy is.",
+   "a": "A server in front of your application that terminates the client connection — handling TLS, static files, compression, buffering slow clients — and forwards the rest inward. It is called reverse because a forward proxy fronts clients and this one fronts servers."
+  },
+  {
+   "n": 11,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is NAT and why does it exist?",
+   "a": "IPv4 addresses ran out, so private ranges are reused everywhere and a router rewrites the source address and port of outbound packets to its own public address, keeping a table so replies can be rewritten back. It is why devices behind a router share one public address and cannot be reached from outside unless a mapping is created first."
+  },
+  {
+   "n": 12,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the difference between latency and bandwidth?",
+   "a": "Latency is the delay for one trip, bandwidth is capacity per second. They are independent — adding bandwidth does not shorten a path, and latency is bounded below by the speed of light in fibre. Throughput, what you actually get, is roughly TCP window size divided by round-trip time."
+  },
+  {
+   "n": 13,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a socket?",
+   "a": "The programming interface to a network connection. A server binds an address and port, listens to create a queue of incoming connections, and accepts to pull one off and get a socket dedicated to that client. A client just connects and gets assigned an ephemeral source port automatically."
+  },
+  {
+   "n": 14,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What does statelessness mean in HTTP, and how do sessions work then?",
+   "a": "The protocol does not require the server to remember previous requests. Sessions are an application-level mechanism layered on top: the server issues a cookie or token and the client returns it on each request, which is what carries identity across otherwise independent exchanges."
+  },
+  {
+   "n": 15,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Why is DNS considered a caching system as much as a database?",
+   "a": "Because every answer carries a TTL and every resolver on the path may cache it. That is what keeps the root and authoritative servers from being consulted billions of times a second — and it is also why a record change propagates over the TTL rather than instantly."
+  },
+  {
+   "n": 16,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is head-of-line blocking and where does it appear?",
+   "a": "When one item at the front of a queue blocks everything behind it. TCP has it because in-order delivery holds back data after a lost segment. HTTP/1.1 has it because a connection handles one exchange at a time. HTTP/2 fixed the HTTP-level version and inherited TCP's, which is why HTTP/3 replaced the transport."
+  },
+  {
+   "n": 17,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is the difference between 'connection refused' and 'connection timed out'?",
+   "a": "Refused means you reached the host and it sent a TCP reset, almost always because nothing is listening on that port. Timed out means your packets disappeared, which almost always means a firewall or security group is dropping them silently. Different causes, different fixes."
+  },
+  {
+   "n": 18,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How does TCP achieve reliability on an unreliable network?",
+   "a": "Every byte is numbered. The receiver acknowledges the highest contiguous point received, so gaps, duplicates and reordering are all detectable. The sender buffers unacknowledged data with a timer and retransmits when the acknowledgement does not arrive."
+  },
+  {
+   "n": 19,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is TCP congestion control and why does it matter?",
+   "a": "Nobody tells a sender how much capacity a shared path has, so it probes: grow the sending window until loss appears, cut sharply, grow again. It is why the internet does not collapse under load, and it is why a healthy busy link shows some packet loss rather than none."
+  },
+  {
+   "n": 20,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is flow control and how is it different from congestion control?",
+   "a": "Flow control protects the receiver using an advertised window of free buffer space; congestion control protects the shared network by inferring capacity from loss. Both limit the sender, for entirely different reasons."
+  },
+  {
+   "n": 21,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How does a certificate prove identity?",
+   "a": "It binds a public key to a set of hostnames and is signed by a CA. The client checks the signature chains to a root in its trust store, that the certificate covers the hostname requested, and that it has not expired. Without that check, encryption would just protect your conversation with an attacker."
+  },
+  {
+   "n": 22,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is SNI and why does it matter?",
+   "a": "The client states the hostname it wants in the clear at the start of the TLS handshake, so one IP can host many HTTPS sites with different certificates. It is also what network filters read to decide what to block, and forgetting it in openssl gives you the wrong certificate and a confusing error."
+  },
+  {
+   "n": 23,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How would you debug 'the site is slow'?",
+   "a": "Get a timing breakdown first — <code>curl -w</code> splits DNS, TCP connect, TLS handshake, time to first byte and total. That tells you which layer owns the time. Guessing before that is the most expensive mistake, because slow DNS, slow connect and a slow query all feel identical from outside."
+  },
+  {
+   "n": 24,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why do we use connection pooling?",
+   "a": "Because every new TCP connection costs a round trip, plus another for TLS, and clients can exhaust their ephemeral port range under high connection churn. Pooling amortises setup and bounds concurrency against the backend at the same time."
+  },
+  {
+   "n": 25,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is a CDN and why does it help?",
+   "a": "Caches in many cities. Requests land at the nearest edge, so round-trip time and the TLS handshake happen locally instead of across the world, the origin sees a fraction of the traffic, and floods are absorbed at the edge."
+  },
+  {
+   "n": 26,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "When would you use WebSockets and when SSE?",
+   "a": "SSE when data flows one way, server to client — notifications, progress, streaming LLM tokens. It is plain HTTP, passes through proxies, and reconnects automatically with resumption. WebSockets when both sides genuinely need to send freely, accepting a stateful connection, manual reconnection and awkward authentication."
+  },
+  {
+   "n": 27,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you scale a WebSocket or SSE feature past one server?",
+   "a": "With a shared pub/sub layer, usually Redis. A user is connected to one instance while an event may arrive at another, so every instance subscribes to the relevant channels and pushes to its own connected clients. Without it, messages silently reach only some users."
+  },
+  {
+   "n": 28,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What are the private IP ranges?",
+   "a": "<code>10.0.0.0/8</code>, <code>172.16.0.0/12</code> and <code>192.168.0.0/16</code>. They are non-routable on the public internet, which is exactly why everyone can use them at once."
+  },
+  {
+   "n": 29,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What does a subnet mask do?",
+   "a": "It states how many leading bits of the address identify the network. <code>/24</code> or <code>255.255.255.0</code> both say 24 bits, giving 256 addresses of which 254 are assignable. A machine uses it to decide whether a destination is local or needs the gateway."
+  },
+  {
+   "n": 30,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is the difference between an L4 and an L7 load balancer?",
+   "a": "L4 forwards TCP connections blind — fast, works for any protocol, no request-level decisions. L7 parses HTTP, so it can route by host or path, retry a failed request elsewhere, and terminate TLS. Databases go through L4, web traffic through L7."
+  },
+  {
+   "n": 31,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What does <code>0.0.0.0</code> mean when binding?",
+   "a": "Listen on every interface. Contrast <code>127.0.0.1</code>, which is loopback only and reachable solely from the same machine — the single most common reason a containerised service is unreachable despite the port being published."
+  },
+  {
+   "n": 32,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is an idempotent request and why does the network make it matter?",
+   "a": "One that has the same effect applied once or several times. It matters because a client that times out cannot tell whether the request was processed, so safe retries require idempotency — which is why GET, PUT and DELETE are defined as idempotent and POST is not."
+  },
+  {
+   "n": 33,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why does a mobile client lose its connection when switching from Wi-Fi to cellular, and what fixes it?",
+   "a": "Its IP address changes, so the TCP 4-tuple identifying the connection no longer exists and the connection dies. QUIC fixes it with a connection ID independent of addresses, so HTTP/3 survives the switch."
+  },
+  {
+   "n": 34,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is DHCP?",
+   "a": "How a machine joining a network gets its address. It broadcasts a request, a server offers an address plus subnet prefix, gateway and DNS resolvers, and the machine takes a time-limited lease. Broadcast is what makes the initial ask possible at all."
+  },
+  {
+   "n": 35,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why can two containers on the same host both listen on port 3000?",
+   "a": "Because each container has its own isolated network stack with its own interfaces and its own port space. Port numbers are only unique within a stack."
+  },
+  {
+   "n": 36,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is ARP and when is it used?",
+   "a": "Address Resolution Protocol. When a destination IP is on the local network, the machine broadcasts asking who owns it and caches the MAC in the reply. It is only used for local destinations — anything else goes to the gateway."
+  },
+  {
+   "n": 37,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is MTU, and how does it break things?",
+   "a": "The largest frame a link can carry, usually 1500 bytes. When a path has a smaller MTU somewhere and the error message is blocked, oversized packets are silently dropped. The signature is unmistakable: small requests work, large payloads hang forever."
+  },
+  {
+   "n": 38,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is TIME_WAIT and should you tune it away?",
+   "a": "The two-minute state a closing socket holds so stray packets from the old connection cannot be mistaken for a new one on the same address pair. Thousands of them on a busy server is normal. The fix for any real problem it causes is connection reuse, not shortening the timer."
+  },
+  {
+   "n": 39,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is BGP and why should a backend engineer care?",
+   "a": "The protocol by which independent networks announce which address ranges they can reach. You care because it is what makes anycast work, and because a BGP misconfiguration somewhere else in the world can make your service unreachable from a whole region."
+  },
+  {
+   "n": 40,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is anycast?",
+   "a": "Announcing the same IP address from many locations and letting routing deliver each user to the nearest one. It is how public DNS resolvers and large CDNs are fast everywhere without any client-side logic."
+  },
+  {
+   "n": 41,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is forward secrecy?",
+   "a": "Using an ephemeral key exchange so the session key is never transmitted and is discarded after use. An attacker who records traffic today and steals the private key later still cannot decrypt it. It is mandatory in TLS 1.3."
+  },
+  {
+   "n": 42,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is mTLS and where is it used?",
+   "a": "Mutual TLS — the client also presents a certificate, so both sides are authenticated cryptographically. It is common between internal services and in service meshes, and essentially never used by browsers, which authenticate users at the application layer instead."
+  },
+  {
+   "n": 43,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is a Unix domain socket and why choose one?",
+   "a": "A socket addressed by a filesystem path, usable only between processes on the same machine. It skips the network stack entirely so it is faster, and it cannot be reached remotely, which is a security property as much as a performance one."
+  },
+  {
+   "n": 44,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is a VLAN?",
+   "a": "A way of splitting one physical switch into several independent broadcast domains, so machines on the same hardware behave as though they were on separate networks."
+  },
+  {
+   "n": 45,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is the PROXY protocol?",
+   "a": "A small header prepended to a TCP stream by a load balancer carrying the original client address and port. It is how a non-HTTP service learns the real client IP, since there is no X-Forwarded-For to use."
+  },
+  {
+   "n": 46,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is DNSSEC and what does it not do?",
+   "a": "It cryptographically signs DNS records so a forged answer can be detected. It does not encrypt the query — that is DoH or DoT — and it does not tell you the machine at that address is the legitimate service, which is TLS's job."
+  },
+  {
+   "n": 47,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is a SYN flood and how is it defended against?",
+   "a": "Many SYNs with no completing ACK, filling the queue of half-open connections. SYN cookies defend by encoding the connection state into the sequence number so no queue entry is needed until the handshake completes."
+  },
+  {
+   "n": 48,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is Nagle's algorithm and why do RPC clients disable it?",
+   "a": "It delays small sends to coalesce them and reduce overhead. For request/response workloads that delay is pure added latency, so clients set <code>TCP_NODELAY</code>."
+  },
+  {
+   "n": 49,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is the link-local address range and what does seeing one mean?",
+   "a": "<code>169.254.0.0/16</code>. A machine assigns itself one when it cannot reach a DHCP server, so seeing it means the machine never got a real address — a dead DHCP server or a dead link, not a routing issue."
+  },
+  {
+   "n": 50,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "Why is <code>169.254.169.254</code> significant?",
+   "a": "It is the cloud instance metadata endpoint, reachable from every VM, exposing instance configuration and sometimes credentials. It is the classic target of SSRF attacks, which is why outbound request validation matters in any service that fetches user-supplied URLs."
+  },
+  {
+   "n": 51,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your API works from your laptop but times out from the production server. Walk me through it.",
+   "a": "Timeout rather than refused means packets are being dropped, so I suspect policy before code. I would check egress rules and security groups on the production side, whether the target is in a private network, and whether a proxy environment variable is set on one machine and not the other. Then resolve the name on both machines to confirm they are even reaching the same address."
+  },
+  {
+   "n": 52,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "You deploy, and users report intermittent 502s. Where do you look?",
+   "a": "Intermittent points at one backend out of several, or at timing. I would check whether the load balancer's health check is real or just a port probe, whether connection draining is configured so in-flight requests finish during the rollout, and whether the proxy's upstream timeout is shorter than the application's slowest legitimate response."
+  },
+  {
+   "n": 53,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A background worker's database connections die after an idle period, but only in production.",
+   "a": "A stateful device on the path — a cloud NAT gateway, a load balancer or a firewall — is evicting idle connection entries on a timeout, and both ends still believe the connection is open. The fix is a keepalive or pool idle timeout shorter than that device's, plus retry on a dead connection."
+  },
+  {
+   "n": 54,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "You changed a DNS record an hour ago and half your users still hit the old server.",
+   "a": "Resolvers that cached the old answer are serving it for the remaining TTL, and some clients cache beyond it. There is nothing to do but wait it out and keep the old server running. The lesson for next time is lowering the TTL a day in advance of the change."
+  },
+  {
+   "n": 55,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A file upload endpoint works for small files and hangs for large ones.",
+   "a": "That is the MTU signature. Something on the path has a smaller MTU — often an overlay network or a VPN — and the fragmentation-needed ICMP message is being blocked, so oversized packets vanish silently. I would test by lowering the MTU on the sending interface and seeing whether it starts working."
+  },
+  {
+   "n": 56,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your service starts refusing outbound connections under load with no obvious error.",
+   "a": "Ephemeral port exhaustion. High rates of short-lived outbound connections consume the source port range faster than TIME_WAIT releases it. I would confirm with a TIME_WAIT count, then fix it by pooling connections rather than by tuning kernel timers."
+  },
+  {
+   "n": 57,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "HTTPS works in the browser but your Node service gets a certificate error against the same host.",
+   "a": "Different trust stores. Most often the server is not sending the intermediate certificates and the browser happens to have them cached while Node does not, or a corporate TLS-inspecting proxy is in the path and its root is not trusted by Node. Check the chain with <code>openssl s_client</code> before touching any code."
+  },
+  {
+   "n": 58,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Everything is healthy but a whole region of users cannot reach you.",
+   "a": "That points below your infrastructure — a routing or BGP problem, a DNS answer that differs by geography, or a CDN point of presence in trouble. I would resolve the name from that region, compare the address to what I expect, and traceroute from there before assuming anything in my own stack is wrong."
+  },
+  {
+   "n": 59,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A container can reach the internet but cannot reach another container by name.",
+   "a": "Name resolution inside the container network. Either they are not on the same user-defined network — the default bridge has no name resolution — or the service name is wrong. I would exec in and resolve the name, then try the address directly to separate DNS from connectivity."
+  },
+  {
+   "n": 60,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your app logs show every request coming from the same IP address.",
+   "a": "It is behind a proxy or load balancer that replaces the source address, and the app is not reading <code>X-Forwarded-For</code>. Anything based on client IP — rate limiting, geolocation, audit logs — is currently wrong, and the header must be trusted only where your own infrastructure added it."
+  },
+  {
+   "n": 61,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "SSE works locally and delivers nothing in production until the stream ends.",
+   "a": "The reverse proxy is buffering the response. Nginx buffers by default, so the client sees nothing until completion. Disable buffering for that route and confirm no other intermediary is doing the same."
+  },
+  {
+   "n": 62,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "After a rolling deploy, all your real-time clients disconnect at once and hammer the server reconnecting.",
+   "a": "Persistent connections all terminate when instances are replaced, and synchronised reconnection produces a thundering herd. The fixes are staggering instance replacement, jittered client backoff, and making reconnection cheap through resumable state rather than a full rebuild."
+  },
+  {
+   "n": 63,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A request occasionally takes exactly 5 seconds, otherwise it is fast.",
+   "a": "A suspiciously round number means a timeout and retry somewhere, not variable work. Common culprits are a DNS resolver timing out on an IPv6 lookup before falling back, or a connection attempt to a dead instance timing out before the client retries another."
+  },
+  {
+   "n": 64,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "You can ping the server but cannot connect to the service port.",
+   "a": "ICMP is permitted and TCP to that port is not, or nothing is listening. Refused means the host answered — check the process is bound and to the right interface. Timed out means a firewall rule, so check ingress on the host and in the cloud security group."
+  },
+  {
+   "n": 65,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "An API integration fails only from your CI runner.",
+   "a": "CI usually runs in a different network with different egress rules and often behind a proxy. I would check whether the runner requires <code>HTTPS_PROXY</code>, whether the destination allowlists source IPs, and whether the runner's image has an outdated CA bundle."
+  },
+  {
+   "n": 66,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "When would you not use a CDN?",
+   "a": "For genuinely per-user dynamic content with no cacheable fraction, where the edge adds a hop without saving anything. Also where the operational cost of correct cache invalidation exceeds the benefit — a small internal tool with local users gains little and gains a new failure mode."
+  },
+  {
+   "n": 67,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "TCP or UDP for a service you are designing — how do you decide?",
+   "a": "Ask whether stale data is useful. If a late retransmission is still worth having, TCP, and take the reliability for free. If the value of data decays fast, or you would rather handle loss yourself with application-specific logic, UDP — accepting that you now own ordering, retries and congestion behaviour."
+  },
+  {
+   "n": 68,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Polling versus SSE versus WebSockets — argue the choice.",
+   "a": "Polling is fine when updates are rare and latency tolerance is high; it costs nothing structurally. SSE is the default for server-to-client streams because it is ordinary HTTP with automatic reconnection. WebSockets only when the client genuinely needs to push, because you pay for a stateful connection, manual reconnection and harder scaling."
+  },
+  {
+   "n": 69,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Sticky sessions versus shared session storage.",
+   "a": "Sticky sessions are a quick fix that entrenches per-instance state, so a restart logs users out and load distribution is uneven. Shared storage in Redis or a database costs one lookup per request and makes instances interchangeable, which is what you actually want for deploys and autoscaling."
+  },
+  {
+   "n": 70,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Should you terminate TLS at the load balancer or at the application?",
+   "a": "At the load balancer for almost everything — centralised certificate management, offloaded handshakes, and L7 routing requires it. Terminate at the application, or re-encrypt behind the balancer, when the internal network is not trusted or compliance requires end-to-end encryption."
+  },
+  {
+   "n": 71,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "HTTP/2 or HTTP/1.1 with many connections?",
+   "a": "HTTP/2 on any reasonably clean network, because multiplexing and header compression are a real win. On a lossy mobile path, several HTTP/1.1 connections can beat it, since one lost packet stalls every HTTP/2 stream on the shared TCP connection. HTTP/3 removes the dilemma."
+  },
+  {
+   "n": 72,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "IPv6 now or later?",
+   "a": "Support it where it is free — cloud load balancers and CDNs give dual-stack with a checkbox. Do not rebuild internal addressing for it without a reason. The practical thing is to make sure your clients handle a name resolving to both without hanging when one path is broken."
+  },
+  {
+   "n": 73,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "When is a service mesh worth its complexity?",
+   "a": "When you have enough services that mTLS, retries, timeouts and traffic shifting become policy you cannot maintain per-application. Below that scale it is significant operational cost and an extra failure mode for problems a reverse proxy and good library defaults already solve."
+  },
+  {
+   "n": 74,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Long-lived connections versus request/response — what are you actually trading?",
+   "a": "Latency and server push, against statefulness. Persistent connections make every deploy, every scale event and every load balancer decision harder, and they consume resources while idle. Request/response is stateless and trivially horizontal but cannot notify."
+  },
+  {
+   "n": 75,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Retry aggressively or fail fast?",
+   "a": "Retry idempotent operations with exponential backoff and jitter, and fail fast on non-idempotent ones unless you have an idempotency key. Aggressive undifferentiated retries turn a partial outage into a full one, because the retries themselves become the load."
+  },
+  {
+   "n": 76,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "qbank talks to Postgres and Redis. Describe what happens at the network layer when it opens a database connection.",
+   "a": "It resolves the host, opens a TCP connection to port 5432, and speaks the Postgres wire protocol on that stream. The pool keeps those connections open specifically to avoid paying the handshake per query, and the pool's idle timeout has to be shorter than any NAT or firewall idle timeout on the path or connections die silently."
+  },
+  {
+   "n": 77,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "qbank calls the Anthropic API. What is happening on the wire, and where can it fail?",
+   "a": "DNS resolution, a TCP connection to port 443, a TLS handshake validating the certificate, then an HTTP request with a large JSON body and a streamed response. Failure points are DNS, egress rules blocking outbound HTTPS, a proxy in a corporate or CI network, an expired CA bundle, and timeouts — the response can take far longer than a normal API call, so a default client timeout will cut it off."
+  },
+  {
+   "n": 78,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "If qbank streams model output to the browser, which mechanism should it use and why?",
+   "a": "Server-Sent Events. The flow is entirely server to client, it is plain HTTP so it works through the existing proxy and load balancer without special configuration, browsers reconnect automatically, and event IDs give a path to resuming. WebSockets would add bidirectionality nobody needs plus reconnection and auth work."
+  },
+  {
+   "n": 79,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "BullMQ workers talk to Redis. What network properties does that depend on?",
+   "a": "A long-lived TCP connection per client, on port 6379, where blocking commands keep a connection occupied while waiting. Because those connections are idle from the network's point of view, they are exactly the kind that NAT and firewall idle timeouts kill — which is why Redis clients ship keepalive and reconnect logic."
+  },
+  {
+   "n": 80,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How would you explain the MCP server in qbank in network terms?",
+   "a": "It is a protocol over a transport — either standard input and output to a local process, or HTTP to a remote one. The networking question is which transport it uses, because a local one has no network concerns at all while a remote one inherits everything: DNS, TLS, authentication, timeouts and egress policy."
+  },
+  {
+   "n": 81,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "If you deployed infralens behind a reverse proxy, what would you have to get right?",
+   "a": "TLS termination and certificate renewal at the proxy; forwarding the client IP and scheme so the application does not think every request is local plain HTTP; upstream timeouts longer than the slowest legitimate response; and buffering disabled on any streaming route."
+  },
+  {
+   "n": 82,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "You containerised your app and it is unreachable despite publishing the port. What did you probably do?",
+   "a": "Bound the server to <code>127.0.0.1</code> inside the container. Published ports NAT to the container's bridge address, and nothing is listening there. Binding <code>0.0.0.0</code> fixes it — and it is a mistake worth admitting because everybody makes it once."
+  },
+  {
+   "n": 83,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How would you describe the network boundary between your frontend and backend to an interviewer?",
+   "a": "The browser makes HTTPS requests to a different origin than the page was served from, which means CORS applies, cookies need explicit credentials handling and appropriate SameSite settings, and preflight requests add a round trip for anything beyond a simple request. Those are all consequences of the browser's origin model sitting on top of ordinary HTTP."
+  },
+  {
+   "n": 84,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "What in your own projects would you now describe differently, having learned this?",
+   "a": "Concretely: that the connection pool exists because of handshake cost and port exhaustion rather than as a generic best practice; that streaming should be SSE for a specific reason; and that the container port mapping is NAT rather than magic. Those were configuration I copied, and they are now things I can derive."
+  },
+  {
+   "n": 85,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "An interviewer asks what part of your stack you understand least well at the network layer. What is an honest answer?",
+   "a": "That my projects were built with defaults I did not choose deliberately — pool sizes, timeouts, retry behaviour. I can now explain what each of those settings is protecting against, which is a different thing from having tuned them under real load, and I would not claim the second."
+  },
+  {
+   "n": 86,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why do we have layers at all?",
+   "a": "So that a change in one place does not force changes everywhere. Because IP does not care what carries it, you can move from Ethernet to Wi-Fi to cellular without touching an application; because HTTP does not care about routing, you can debug a request without thinking about voltage."
+  },
+  {
+   "n": 87,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why does TCP exist rather than every application handling loss itself?",
+   "a": "Because the problem is identical for almost everyone, subtle to get right, and the solution needs careful congestion behaviour to be a good citizen on a shared network. Solving it once, correctly, in the transport is the reason the internet works under load."
+  },
+  {
+   "n": 88,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why does DNS exist rather than distributing an address list?",
+   "a": "Because addresses change independently of the services they point at, and a central list could neither scale nor be updated. Delegated naming lets each organisation control its own records, and caching makes the whole thing cheap enough to run globally."
+  },
+  {
+   "n": 89,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why does NAT exist and why is it a problem?",
+   "a": "It exists because IPv4 addresses ran out and NAT let many devices share one. It is a problem because it makes machines unreachable from outside, adds stateful devices with idle timeouts on every path, and forces peer-to-peer applications into hole punching and relay servers."
+  },
+  {
+   "n": 90,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why did HTTP/2 need to exist?",
+   "a": "Because HTTP/1.1 handles one exchange at a time per connection, so a page with many resources either serialised them or opened many connections, each paying its own handshakes. Multiplexing over one connection removed that, and header compression removed a lot of repeated bytes."
+  },
+  {
+   "n": 91,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why did QUIC have to be built on UDP?",
+   "a": "Because middleboxes — NAT devices and firewalls — pass TCP and UDP and drop anything else. A genuinely new transport protocol would be undeployable on the real internet, so QUIC hides inside UDP that everything already forwards."
+  },
+  {
+   "n": 92,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why do we need TLS rather than just encrypting the payload ourselves?",
+   "a": "Because encryption without authentication is worthless — an interceptor can supply their own key. TLS provides the certificate machinery that ties a key to a hostname, plus integrity and forward secrecy, and it is the part nobody should implement themselves."
+  },
+  {
+   "n": 93,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why do CDNs make such a large difference when bandwidth keeps getting cheaper?",
+   "a": "Because the constraint is latency, not bandwidth, and latency is bounded by distance. Moving content physically closer is the only thing that removes round-trip time, and every extra round trip costs the same floor regardless of how fast the link is."
+  },
+  {
+   "n": 94,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why is container networking not a new subject?",
+   "a": "Because it is the same concepts implemented in software — a bridge is a switch, port publishing is NAT, service names are DNS, a Kubernetes Service is a load balancer, a network policy is a firewall. Nothing in it is new; it only looks new if you never learned the physical version."
+  },
+  {
+   "n": 95,
+   "c": "why",
+   "t": "Why it exists",
+   "q": "Why does everyone say the network is unreliable when it mostly works?",
+   "a": "Because 'mostly' is the problem. Failures are rare, silent and partial — a dropped packet, a stale DNS answer, a half-open connection — so systems that assume success work fine until they do not, and then fail in ways that are hard to reproduce."
+  },
+  {
+   "n": 96,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "Explain the bandwidth-delay product and its practical consequence.",
+   "a": "It is the amount of data in flight needed to keep a path fully utilised: bandwidth multiplied by round-trip time. If the TCP window is smaller than that, throughput is capped at window over RTT no matter how much bandwidth exists, which is why a single connection across a continent underuses a fast link."
+  },
+  {
+   "n": 97,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "What actually happens inside a switch when it receives a frame for an unknown address?",
+   "a": "It floods the frame out every port except the ingress one, and learns the correct port from the reply's source address. That learning is why switches need no configuration, and flooding is why a broadcast storm can saturate an entire network."
+  },
+  {
+   "n": 98,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "Why is longest-prefix match the routing rule?",
+   "a": "Because it allows general routes and specific exceptions to coexist without ordering rules. A default route covers everything, a /16 narrows a region, and a /24 overrides both for one network — all in a table where entry order is irrelevant."
+  },
+  {
+   "n": 99,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "What is the difference between a TCP ACK and application-level acknowledgement, and why does it matter?",
+   "a": "A TCP ACK means the bytes reached the receiving machine's buffer, not that the application read them, and certainly not that it processed them. A process that crashes after the ACK loses the work silently, which is why durable systems need application acknowledgement and idempotent handlers."
+  },
+  {
+   "n": 100,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "Explain path MTU discovery and its common failure.",
+   "a": "The sender marks packets do-not-fragment and shrinks when a router replies that fragmentation is needed. It fails when networks block ICMP indiscriminately, so the reply never arrives and the sender keeps sending packets that vanish — the classic large-payload hang."
+  },
+  {
+   "n": 101,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "What is an overlay network and what does it cost?",
+   "a": "A virtual network spanning hosts, where container traffic is encapsulated inside host-to-host packets so containers on different machines share one flat address space. It costs encapsulation overhead and a reduced effective MTU, which is why MTU misconfiguration is a common cluster problem."
+  },
+  {
+   "n": 102,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "How does a stateful firewall differ from a stateless one, operationally?",
+   "a": "A stateful one tracks flows, so permitting an outbound connection automatically permits its replies. A stateless one evaluates every packet independently, so return traffic needs its own explicit rule — which is exactly the trap in cloud subnet ACLs versus instance security groups."
+  },
+  {
+   "n": 103,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "Why does anycast work for UDP and stateless services more easily than for TCP?",
+   "a": "Because routing can shift mid-flow and send subsequent packets to a different location, which breaks a stateful TCP connection whose state lives at the original site. Short stateless exchanges like DNS tolerate that trivially, so anycast for TCP requires stable routing or connection-aware infrastructure."
+  },
+  {
+   "n": 104,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "What is the difference between liveness and readiness, and what goes wrong when they are confused?",
+   "a": "Liveness answers whether to restart the process; readiness answers whether to send it traffic. Using a dependency check for liveness means a transient database outage restarts every instance simultaneously, turning a degraded service into a total one."
+  },
+  {
+   "n": 105,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "Where does request smuggling come from, conceptually?",
+   "a": "From two servers disagreeing about where a request ends — one honouring Content-Length, the other Transfer-Encoding. It is the framing problem from the physical layer reappearing as a security vulnerability, and it is why proxies must normalise rather than forward ambiguous requests."
+  },
+  {
+   "n": 106,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "How would you reason about the cost of a chatty API across a WAN?",
+   "a": "Every dependent call costs a full round trip that no amount of bandwidth removes. Ten sequential calls at 200 ms is two seconds of pure waiting, so the fix is batching, parallelising independent calls, or moving the work closer to the data — not a faster link."
+  },
+  {
+   "n": 107,
+   "c": "plumbing",
+   "t": "Plumbing (senior)",
+   "q": "What does a connection ID buy QUIC beyond surviving network changes?",
+   "a": "It decouples connection identity from the address, which also helps behind NAT rebinding and makes load balancing possible without relying on the 4-tuple. The cost is that infrastructure must understand QUIC to route it, which is why adoption lagged behind the specification."
+  },
+  {
+   "n": 108,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What timeouts should an HTTP client set, and why more than one?",
+   "a": "Connect, TLS handshake, time to first byte, and total. One overall timeout hides which stage failed and lets a slow handshake consume the whole budget. Separate limits also let you retry safely — a connect failure is retryable in a way a partially consumed response is not."
+  },
+  {
+   "n": 109,
+   "c": "config",
+   "t": "Configuration",
+   "q": "How do you size a connection pool?",
+   "a": "From concurrency and latency, not intuition: roughly the request rate multiplied by average service time gives the connections in use. Then bound it below what the backend can handle, because an oversized pool moves the queue from your process into the database where it is far more damaging."
+  },
+  {
+   "n": 110,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What keepalive settings matter on a long-lived connection?",
+   "a": "An interval shorter than the shortest idle timeout on the path — NAT gateways, load balancers and firewalls all have one, often 60 to 350 seconds. Also a maximum idle lifetime in the pool so a connection is recycled before anything else silently drops it."
+  },
+  {
+   "n": 111,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What must a reverse proxy be configured to forward, at minimum?",
+   "a": "The original host, the client IP via <code>X-Forwarded-For</code>, and the original scheme via <code>X-Forwarded-Proto</code>. Without them the application logs the proxy's address, builds wrong absolute URLs, and may redirect-loop trying to upgrade an already-HTTPS request."
+  },
+  {
+   "n": 112,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What does a load balancer's idle timeout interact with?",
+   "a": "The upstream's own keepalive timeout. If the backend closes an idle connection first, the balancer can send a request onto a connection the backend is closing and produce a sporadic 502. The backend's timeout should be longer than the balancer's."
+  },
+  {
+   "n": 113,
+   "c": "config",
+   "t": "Configuration",
+   "q": "Which DNS TTL would you set for a record you might need to change quickly?",
+   "a": "Low — 60 seconds or less — accepting more lookups, for anything you might need to fail over. High, hours or a day, for stable records where lookup volume matters. And drop a high TTL well before any planned change."
+  },
+  {
+   "n": 114,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What do you configure so a deploy does not drop in-flight requests?",
+   "a": "Connection draining at the load balancer, a readiness check that fails before the process stops accepting, and a shutdown routine that stops accepting new connections while finishing existing ones. Removing the instance from rotation must happen before the process dies, not with it."
+  },
+  {
+   "n": 115,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What does <code>SO_REUSEADDR</code> do and why is it usually on?",
+   "a": "It lets a server bind an address while an old socket for it is still in TIME_WAIT, so a restart is immediate rather than blocked for two minutes. Nearly every framework sets it by default for exactly that reason."
+  },
+  {
+   "n": 116,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What limits how many connections a server process can hold?",
+   "a": "The file descriptor limit, memory per connection, and the accept backlog. Any of the three produces a ceiling that looks arbitrary — a server refusing connections at a suspiciously round number is usually the descriptor limit."
+  },
+  {
+   "n": 117,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What is the minimum you configure for a public HTTPS endpoint?",
+   "a": "A certificate with automated renewal, TLS 1.2 or above with modern ciphers, HSTS, correct SNI for multi-tenancy, and a redirect from plain HTTP. Plus monitoring on certificate expiry, because it is the single most predictable outage there is."
+  },
+  {
+   "n": 118,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "A name resolves successfully but connecting hangs, only on some machines.",
+   "a": "Likely an AAAA record with broken IPv6 connectivity on those machines. The client prefers IPv6, the packets go nowhere, and it hangs until it falls back. Forcing IPv4 confirms it in one command."
+  },
+  {
+   "n": 119,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Two services agree on everything and one still sees truncated bodies.",
+   "a": "A framing disagreement — a proxy rewriting Content-Length, a chunked response being mishandled, or a client not reading until end of stream. Reliability at the transport layer guarantees the bytes; it guarantees nothing about both sides agreeing where the message ends."
+  },
+  {
+   "n": 120,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why might traceroute show 100% loss at hop 4 while the destination responds perfectly?",
+   "a": "Because that router rate-limits or refuses to generate ICMP replies about itself while forwarding traffic normally. Loss at an intermediate hop only matters if it persists at every subsequent hop."
+  },
+  {
+   "n": 121,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "A record was created five minutes ago and still returns NXDOMAIN.",
+   "a": "Negative caching. The resolver cached the fact that the name did not exist, for a duration set by the zone's SOA record, and will keep returning that until it expires. Querying too early is what created the problem."
+  },
+  {
+   "n": 122,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "A service works over HTTP and fails over HTTPS with no certificate error.",
+   "a": "Suspect something that only applies to the encrypted path: a proxy that does not support the required TLS version, a missing intermediate certificate that some clients tolerate, or an SNI mismatch causing the wrong certificate to be served on a shared address."
+  },
+  {
+   "n": 123,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Requests succeed but responses arrive out of order relative to when they were sent.",
+   "a": "Perfectly normal with HTTP/2 or any multiplexed transport, and with concurrent HTTP/1.1 connections. Response order is not a guarantee anywhere above the single-connection level, so any code relying on it is wrong regardless of what it observes today."
+  },
+  {
+   "n": 124,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "An internal service is reachable by IP and not by name inside a cluster.",
+   "a": "A search-domain or DNS policy issue. Unqualified names get suffixes appended in order, so the name may be resolving somewhere unexpected or not at all. Resolving the fully qualified name directly separates the two possibilities immediately."
+  },
+  {
+   "n": 125,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Your load test plateaus well below the expected throughput with no errors and low CPU.",
+   "a": "Look for a window or concurrency limit rather than capacity: TCP window against a high RTT, a connection pool ceiling, or a proxy's worker limit. A plateau with idle resources is almost always a bound somebody configured."
+  },
+  {
+   "n": 126,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "A client behind a corporate network cannot use your WebSocket endpoint.",
+   "a": "A proxy that does not support the upgrade, or one that terminates idle connections aggressively. It is the standard reason a product offers an SSE or long-polling fallback rather than relying on WebSockets alone."
+  },
+  {
+   "n": 127,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Two containers can reach each other on one host and not across hosts.",
+   "a": "They are on a host-local bridge rather than an overlay network, so there is no path between hosts. Either attach them to a network that spans hosts, or expose the service through a published port and reach it by host address."
+  },
+  {
+   "n": 128,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "A cached CDN response is stale even after you purged it.",
+   "a": "Something else in the chain cached it — an intermediate resolver serving an old address, a browser cache honouring a long max-age, or a second CDN layer. Purging one layer does not purge the ones you forgot about, which is why immutable filenames beat purging."
+  },
+  {
+   "n": 129,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "You see connections in CLOSE_WAIT accumulating. Whose bug is it?",
+   "a": "Yours. The peer closed and your application has not called close on its side, so the socket and its descriptor are leaked. Unlike TIME_WAIT, which is protocol-normal, CLOSE_WAIT accumulation is a genuine defect in your code."
+  }
+ ]
+}

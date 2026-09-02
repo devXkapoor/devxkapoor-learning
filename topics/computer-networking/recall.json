@@ -1,0 +1,2139 @@
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "node-0",
+   "t": "Node 0 · Two computers, no way to speak",
+   "q": "Two computers sit on a desk with no cable between them. What can a program on one read from the other?",
+   "a": "Nothing. There is no shared memory, no shared disk and no instruction that reaches across. Every byte that moves between them has to be physically carried by something, and until a wire exists that something is a human with a USB stick."
+  },
+  {
+   "n": 2,
+   "c": "node-0",
+   "t": "Node 0 · Two computers, no way to speak",
+   "q": "What is 'sneakernet' and what specifically can it not do?",
+   "a": "Copying data onto removable media and physically walking it to the other machine. It moves bytes correctly but every round trip costs a walk, so anything interactive — ask a question, use the answer to decide the next question — is impossible, and it does not scale to many participants at all."
+  },
+  {
+   "n": 3,
+   "c": "node-0",
+   "t": "Node 0 · Two computers, no way to speak",
+   "q": "Moving bytes is only half the problem. What is the other half?",
+   "a": "Agreeing what the bytes <em>mean</em>. Two programs that have never spoken share no vocabulary, so a received pile of bytes could be a request, a reply, a greeting or garbage. Every node in this topic is either about moving bytes further or about agreeing what they mean."
+  },
+  {
+   "n": 4,
+   "c": "node-0",
+   "t": "Node 0 · Two computers, no way to speak",
+   "q": "Define a protocol, precisely.",
+   "a": "A written-down agreement between two programs about what bytes they will send, in what order, and what each one means. Nothing enforces it — there is no protocol police. If both sides implement the agreement they can talk; if one gets it wrong the failure is usually silent and confusing rather than loud."
+  },
+  {
+   "n": 5,
+   "c": "node-0",
+   "t": "Node 0 · Two computers, no way to speak",
+   "q": "Why is 'no protocol police' worth saying out loud?",
+   "a": "Because it explains the shape of nearly every networking bug. A mismatch does not raise an exception at some central authority; one side simply sends bytes the other side interprets differently, and you find out through a hang, a truncated body, or data that looks subtly wrong."
+  },
+  {
+   "n": 6,
+   "c": "node-0",
+   "t": "Node 0 · Two computers, no way to speak",
+   "q": "Name the two independent problems that every later node is solving.",
+   "a": "Reach — getting bytes physically further, to more machines, more reliably. And meaning — agreeing on structure so the receiver knows what it has. Almost every node solves a bit of both at once."
+  },
+  {
+   "n": 7,
+   "c": "node-0",
+   "t": "Node 0 · Two computers, no way to speak",
+   "q": "Why is 'the network is unreliable' the first thing distributed systems people say?",
+   "a": "Because everything above the wire is built on a substrate that makes no promises, and every guarantee you enjoy — ordering, delivery, identity — is manufactured by some layer that could be misconfigured or absent. Naming the assumption early stops you trusting a guarantee you never actually have."
+  },
+  {
+   "n": 8,
+   "c": "node-0",
+   "t": "Node 0 · Two computers, no way to speak",
+   "q": "What does 'layering' buy you as an engineer?",
+   "a": "The ability to reason about one responsibility without holding the others. You can debug an HTTP problem without thinking about voltage, and change from Ethernet to Wi-Fi without touching a line of application code."
+  },
+  {
+   "n": 9,
+   "c": "node-1",
+   "t": "Node 1 · A wire, and turning bits into signal",
+   "q": "A copper wire does not carry ones and zeros. What does it carry?",
+   "a": "Voltage — an electrical pressure that varies over time. The sender raises or lowers it, the receiver measures it. Fibre substitutes light pulses and radio substitutes electromagnetic waves, but the principle is identical: a physical quantity that changes, sampled at the far end."
+  },
+  {
+   "n": 10,
+   "c": "node-1",
+   "t": "Node 1 · A wire, and turning bits into signal",
+   "q": "Why can't the receiver just sample the wire whenever it likes?",
+   "a": "Because it needs to sample once per bit-time, and no two crystals oscillate at exactly the same rate. Sample slightly fast and one bit reads as two; slightly slow and two read as one. The two sides must agree on bit rate <em>and</em> the receiver must continuously re-sync against the sender."
+  },
+  {
+   "n": 11,
+   "c": "node-1",
+   "t": "Node 1 · A wire, and turning bits into signal",
+   "q": "What is line encoding and what problem does it solve?",
+   "a": "A scheme for representing bits as voltage transitions such that the signal is guaranteed to change often enough for the receiver to lock onto the sender's rhythm from the signal itself. It is why a cable has a rated speed, and why a marginal cable produces corruption rather than a clean stop."
+  },
+  {
+   "n": 12,
+   "c": "node-1",
+   "t": "Node 1 · A wire, and turning bits into signal",
+   "q": "Why does a continuous voltage on a wire need framing?",
+   "a": "Because a stream of bits has no punctuation. Given <code>0110100001101001</code> there is nothing in the signal saying where one message ends and the next begins. Both sides agree on a frame: a recognisable start pattern, header fields, a body and an end."
+  },
+  {
+   "n": 13,
+   "c": "node-1",
+   "t": "Node 1 · A wire, and turning bits into signal",
+   "q": "Framing gets solved more than once in this landscape. Where else?",
+   "a": "At least three more times: TCP has to be re-framed by whatever runs on it, HTTP draws boundaries with <code>Content-Length</code> or chunked encoding, and WebSockets adds its own frame header. Any layer that delivers an unpunctuated stream forces the layer above it to punctuate."
+  },
+  {
+   "n": 14,
+   "c": "node-1",
+   "t": "Node 1 · A wire, and turning bits into signal",
+   "q": "What does a checksum in a frame actually give you?",
+   "a": "Detection, not recovery. The sender computes a number from the frame contents, the receiver recomputes it; a mismatch means the frame is damaged and gets discarded. You learn that data was corrupted — but the data is now simply missing, and nothing at this layer replaces it."
+  },
+  {
+   "n": 15,
+   "c": "node-1",
+   "t": "Node 1 · A wire, and turning bits into signal",
+   "q": "What is a CRC and why is it used rather than a simple sum?",
+   "a": "A cyclic redundancy check — Ethernet uses a 32-bit one. It is chosen because it reliably catches the error patterns wires actually produce, especially bursts of adjacent flipped bits, which a naive additive checksum can miss."
+  },
+  {
+   "n": 16,
+   "c": "node-1",
+   "t": "Node 1 · A wire, and turning bits into signal",
+   "q": "Corruption is converted into what, by the time it reaches you?",
+   "a": "Loss. A corrupted frame fails its check and is thrown away, so the application sees nothing rather than garbage. That is a real guarantee worth stating precisely: you will not silently receive wrong bytes, but you will silently receive no bytes."
+  },
+  {
+   "n": 17,
+   "c": "node-1",
+   "t": "Node 1 · A wire, and turning bits into signal",
+   "q": "Why does one cable per pair of machines fail as a design?",
+   "a": "It is combinatorial. Three machines need three cables, ten machines fully connected need forty-five, a hundred need 4,950. It is unusable before you leave the room."
+  },
+  {
+   "n": 18,
+   "c": "node-1",
+   "t": "Node 1 · A wire, and turning bits into signal",
+   "q": "Why does fibre beat copper for long distances?",
+   "a": "Light in glass suffers far less attenuation and no electromagnetic interference, so the signal survives much further before it needs regeneration. The propagation speed is similar — about two thirds of light in vacuum — so it does not reduce latency proportionally."
+  },
+  {
+   "n": 19,
+   "c": "node-1",
+   "t": "Node 1 · A wire, and turning bits into signal",
+   "q": "Is Wi-Fi a shared medium or a switched one, and what follows?",
+   "a": "Shared. Devices on the same channel contend for airtime, so throughput falls as more devices become active and collisions are avoided by listening before transmitting rather than detected after. It is why Wi-Fi degrades under crowding in a way wired Ethernet does not."
+  },
+  {
+   "n": 20,
+   "c": "node-1",
+   "t": "Node 1 · A wire, and turning bits into signal",
+   "q": "What is full-duplex and why is it normal now?",
+   "a": "Both directions transmitting simultaneously on separate paths. It is normal because a switched network gives each machine its own link, so there is no shared medium to contend for — which is exactly what eliminated collisions."
+  },
+  {
+   "n": 21,
+   "c": "node-2",
+   "t": "Node 2 · Many machines: MAC, Ethernet, switches",
+   "q": "The moment more than two machines share a medium, what new question appears?",
+   "a": "Who is this frame for? With two machines the answer was implicit. With three it must be stated explicitly in the frame, which is the entire reason addresses exist."
+  },
+  {
+   "n": 22,
+   "c": "node-2",
+   "t": "Node 2 · Many machines: MAC, Ethernet, switches",
+   "q": "What is a MAC address and how is it structured?",
+   "a": "A six-byte identifier burned into a network interface at manufacture, written as twelve hex digits like <code>a4:83:e7:2c:19:0f</code>. The first three bytes identify the manufacturer, the last three are that manufacturer's serial number for the device."
+  },
+  {
+   "n": 23,
+   "c": "node-2",
+   "t": "Node 2 · Many machines: MAC, Ethernet, switches",
+   "q": "How does a machine decide whether a received frame is for it?",
+   "a": "It compares the frame's destination MAC to its own and drops the frame if they differ. That comparison is the whole of Ethernet addressing — there is no negotiation and no acknowledgement."
+  },
+  {
+   "n": 24,
+   "c": "node-2",
+   "t": "Node 2 · Many machines: MAC, Ethernet, switches",
+   "q": "What is a collision, and why does modern wired Ethernet essentially never have one?",
+   "a": "On a genuinely shared cable, two simultaneous transmitters produce overlapping voltages and mutual garbage — a collision, handled by both backing off a random interval and retrying. Switches replaced the shared cable with one cable per machine, so simultaneous transmissions no longer overlap."
+  },
+  {
+   "n": 25,
+   "c": "node-2",
+   "t": "Node 2 · Many machines: MAC, Ethernet, switches",
+   "q": "How does a switch learn where machines are, given nobody configures it?",
+   "a": "By watching source addresses. A frame arriving on port 3 from <code>aa:bb:...</code> teaches it that <code>aa:bb:...</code> is on port 3. It writes that into a table and from then on sends frames for that address out port 3 only."
+  },
+  {
+   "n": 26,
+   "c": "node-2",
+   "t": "Node 2 · Many machines: MAC, Ethernet, switches",
+   "q": "What does a switch do with a frame for an address it has not learned yet?",
+   "a": "Floods it out every port except the one it arrived on. The reply teaches it the correct port, so the flooding happens once per address rather than continuously."
+  },
+  {
+   "n": 27,
+   "c": "node-2",
+   "t": "Node 2 · Many machines: MAC, Ethernet, switches",
+   "q": "What is the broadcast MAC address and why does it matter?",
+   "a": "<code>ff:ff:ff:ff:ff:ff</code>. A switch always floods it out every port, so it is how a machine that knows nothing can ask a question of the whole local network. Several protocols depend on it, ARP most importantly."
+  },
+  {
+   "n": 28,
+   "c": "node-2",
+   "t": "Node 2 · Many machines: MAC, Ethernet, switches",
+   "q": "Define a broadcast domain.",
+   "a": "The set of machines that receive each other's broadcast frames. It is the honest technical definition of 'the same local network', and it is what a router separates."
+  },
+  {
+   "n": 29,
+   "c": "node-2",
+   "t": "Node 2 · Many machines: MAC, Ethernet, switches",
+   "q": "Why can MAC addressing never scale to the whole internet?",
+   "a": "Because MAC addresses are flat and effectively random — nothing in <code>a4:83:e7:2c:19:0f</code> indicates where in the world that device is. Delivery would require every intermediate device to have memorised the exact location of every device on the planet. No table could hold it."
+  },
+  {
+   "n": 30,
+   "c": "node-2",
+   "t": "Node 2 · Many machines: MAC, Ethernet, switches",
+   "q": "A switch and a router both forward traffic. What is the difference in one line?",
+   "a": "A switch forwards frames inside one local network using learned flat addresses; a router forwards packets between different networks using hierarchical addresses and a routing table of prefixes."
+  },
+  {
+   "n": 31,
+   "c": "node-2",
+   "t": "Node 2 · Many machines: MAC, Ethernet, switches",
+   "q": "What is a VLAN, in one sentence?",
+   "a": "A way of splitting one physical switch into several independent broadcast domains, so machines on the same hardware behave as if they were on separate networks."
+  },
+  {
+   "n": 32,
+   "c": "node-2",
+   "t": "Node 2 · Many machines: MAC, Ethernet, switches",
+   "q": "How does a machine learn its own IP address on a network it just joined?",
+   "a": "DHCP. It broadcasts a request, a DHCP server offers an address plus the subnet prefix, default gateway and DNS resolvers, and the machine accepts a lease. Broadcast from Node 2 is what makes the initial ask possible."
+  },
+  {
+   "n": 33,
+   "c": "node-2",
+   "t": "Node 2 · Many machines: MAC, Ethernet, switches",
+   "q": "Why does DHCP hand out a lease rather than a permanent address?",
+   "a": "Because addresses are a finite pool and devices come and go. A lease expires and can be reclaimed, which is also why a machine's address can change after being off for a while."
+  },
+  {
+   "n": 34,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "What structural property makes global addressing possible?",
+   "a": "Hierarchy. A hierarchical address lets a device forward correctly while knowing only a general direction — 'anything for that region goes this way' — rather than the exact location of the destination. Postal sorting works the same way."
+  },
+  {
+   "n": 35,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "What is an IPv4 address, underneath the dotted notation?",
+   "a": "A single 32-bit number, written as four 8-bit pieces in decimal for readability. <code>142.250.183.14</code> is one number, not four."
+  },
+  {
+   "n": 36,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "State the key difference between a MAC address and an IP address.",
+   "a": "A MAC is a property of the hardware and never changes; an IP is assigned based on where the machine currently sits in the network topology. Move a laptop from home to a café and the MAC is identical while the IP is completely different — which is exactly what makes routing possible."
+  },
+  {
+   "n": 37,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "What does <code>/24</code> mean in <code>192.168.1.7/24</code>?",
+   "a": "The first 24 bits identify the network and the remaining 8 identify the host within it. So the network is <code>192.168.1.0</code> and there are 256 addresses in it."
+  },
+  {
+   "n": 38,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "How many addresses are in a /16, a /22 and a /28?",
+   "a": "65,536; 1,024; and 16. Each additional bit of prefix halves the block — the host part is <code>32 - prefix</code> bits, so the count is <code>2^(32-prefix)</code>."
+  },
+  {
+   "n": 39,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "What is a subnet mask and how does it relate to CIDR notation?",
+   "a": "The same statement in an older format. <code>255.255.255.0</code> sets the first 24 bits, which is exactly what <code>/24</code> says. Both describe which bits are the network part."
+  },
+  {
+   "n": 40,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "Walk the decision a machine makes before sending to an IP address.",
+   "a": "It applies its own prefix to both its address and the destination. If the network parts match, the destination is local — send a frame directly, after learning its MAC. If they differ, the destination is elsewhere — send the frame to the default gateway instead."
+  },
+  {
+   "n": 41,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "What is ARP and when is it used?",
+   "a": "Address Resolution Protocol. When a machine has a local IP address and needs the matching MAC, it broadcasts 'whoever has <code>192.168.1.7</code>, tell me your MAC', caches the reply, and uses it to address the frame. It is only used for destinations on the local network."
+  },
+  {
+   "n": 42,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "What is a default gateway?",
+   "a": "The router a machine sends everything to when the destination is not on its own subnet. It is the door out of the local network, and its address is part of the machine's basic IP configuration."
+  },
+  {
+   "n": 43,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "What is in a routing table and how is an entry chosen?",
+   "a": "Destination prefixes, each mapped to an outgoing interface and next hop, plus a default entry. The router picks the <em>most specific</em> match — a /24 entry beats a /16 beats the default — which is called longest-prefix match."
+  },
+  {
+   "n": 44,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "Describe the whole forwarding algorithm of the internet in two sentences.",
+   "a": "Every router knows only 'for this range of addresses, go that way', plus a default for everything else. Each hop moves the packet closer until some router is directly attached to the destination's own network and delivers it as a frame."
+  },
+  {
+   "n": 45,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "An IP packet travels ten hops. What changes at each hop and what does not?",
+   "a": "The Ethernet frame is stripped and rewritten at every hop, so the source and destination MAC change ten times. The IP addresses in the packet stay the same the entire way. IP is end-to-end identity; the link layer is local delivery."
+  },
+  {
+   "n": 46,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "Why is 'the packet is placed inside a frame' a better mental image than 'the packet becomes a frame'?",
+   "a": "Because the packet survives unchanged and is rewrapped repeatedly. Encapsulation is nesting, not conversion — which is why you can reason about the IP layer independently of what link technology any given hop uses."
+  },
+  {
+   "n": 47,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "What is the difference between the network address and the broadcast address of a subnet?",
+   "a": "In a /24 like <code>192.168.1.0/24</code>, <code>192.168.1.0</code> names the network itself and <code>192.168.1.255</code> is the local broadcast address. Neither is assignable to a host, which is why a /24 has 254 usable addresses rather than 256."
+  },
+  {
+   "n": 48,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "How many usable host addresses does a /30 have, and where is that used?",
+   "a": "Two. It is the classic size for a point-to-point link between two routers, where only the two ends need addresses."
+  },
+  {
+   "n": 49,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "What is BGP, at the level you need it?",
+   "a": "The protocol by which independent networks tell each other which address prefixes they can reach. It is what makes the internet a network of networks rather than one administered system, and it is what anycast exploits."
+  },
+  {
+   "n": 50,
+   "c": "node-3",
+   "t": "Node 3 · IP, subnets and routers",
+   "q": "Why is longest-prefix match the rule rather than first match?",
+   "a": "Because it lets a general route coexist with specific exceptions. A default route can cover everything while a /24 entry overrides it for one particular network, without any ordering discipline in the table."
+  },
+  {
+   "n": 51,
+   "c": "node-4",
+   "t": "Node 4 · Best effort: what IP does not promise",
+   "q": "List IP's four non-promises.",
+   "a": "Packets can be lost, can arrive out of order, can be duplicated, and can be delayed for an unbounded time. That is the complete definition of best-effort delivery."
+  },
+  {
+   "n": 52,
+   "c": "node-4",
+   "t": "Node 4 · Best effort: what IP does not promise",
+   "q": "Why does a router drop packets, and is it a malfunction?",
+   "a": "Its queue is full because arrivals exceed the outgoing link's capacity. It is designed behaviour, not a fault — dropping is the network's only mechanism for signalling overload, and senders are expected to interpret it that way."
+  },
+  {
+   "n": 53,
+   "c": "node-4",
+   "t": "Node 4 · Best effort: what IP does not promise",
+   "q": "How can two packets sent back to back arrive in the opposite order?",
+   "a": "They can take different paths through the network, and the paths have different lengths and different queueing delays. Nothing in IP requires a consistent path or preserves ordering."
+  },
+  {
+   "n": 54,
+   "c": "node-4",
+   "t": "Node 4 · Best effort: what IP does not promise",
+   "q": "What guarantee <em>does</em> the IP header checksum give you?",
+   "a": "That you will not silently accept a packet whose header was corrupted in transit. Combined with the link-layer CRC, corruption becomes discarding, which the layer above experiences as loss. You get no wrong data, but you also get no replacement."
+  },
+  {
+   "n": 55,
+   "c": "node-4",
+   "t": "Node 4 · Best effort: what IP does not promise",
+   "q": "What is TTL and what problem does it solve?",
+   "a": "A counter in the IP header, commonly starting at 64, that every router decrements by one. At zero the packet is discarded and an error is reported to the sender. It bounds the damage of a routing loop, which would otherwise circulate a packet forever."
+  },
+  {
+   "n": 56,
+   "c": "node-4",
+   "t": "Node 4 · Best effort: what IP does not promise",
+   "q": "What is MTU?",
+   "a": "Maximum transmission unit — the largest frame a link can carry, typically 1500 bytes on Ethernet. A packet too large for the next link is either fragmented or dropped with an error asking the sender to send something smaller."
+  },
+  {
+   "n": 57,
+   "c": "node-4",
+   "t": "Node 4 · Best effort: what IP does not promise",
+   "q": "Small requests work, large ones hang forever. What should you suspect first?",
+   "a": "An MTU problem. The small packets fit every link on the path; the large ones do not, and something in the middle is dropping them without the error message reaching the sender. It is one of the most distinctive failure signatures in networking."
+  },
+  {
+   "n": 58,
+   "c": "node-4",
+   "t": "Node 4 · Best effort: what IP does not promise",
+   "q": "What is ICMP for, and what is it not for?",
+   "a": "It carries network-level error and diagnostic messages — destination unreachable, time exceeded, fragmentation needed. It is not a transport for application data. <code>ping</code> and <code>traceroute</code> are built on it."
+  },
+  {
+   "n": 59,
+   "c": "node-4",
+   "t": "Node 4 · Best effort: what IP does not promise",
+   "q": "Why is 'ping fails' weak evidence that a host is down?",
+   "a": "Because ICMP is very commonly blocked by firewalls and cloud security groups while TCP to the actual service port is permitted. Ping succeeding is strong evidence of reachability; ping failing proves almost nothing."
+  },
+  {
+   "n": 60,
+   "c": "node-4",
+   "t": "Node 4 · Best effort: what IP does not promise",
+   "q": "Why does this node have no new mechanism in it?",
+   "a": "Because its subject is an absence. The reason half of the remaining chain exists is that IP deliberately guarantees almost nothing, and getting that wrong is the single most common way people's model of networking breaks."
+  },
+  {
+   "n": 61,
+   "c": "node-4",
+   "t": "Node 4 · Best effort: what IP does not promise",
+   "q": "What does 'the network is not a pipe' mean concretely?",
+   "a": "Packets are independent and separately routed. There is no channel holding them in order, no reservation of capacity, and no guarantee that two packets sent together experience anything similar."
+  },
+  {
+   "n": 62,
+   "c": "node-4",
+   "t": "Node 4 · Best effort: what IP does not promise",
+   "q": "Why is IP fragmentation avoided in modern networks?",
+   "a": "Because losing one fragment destroys the whole packet, it complicates firewalls, and it costs the router work. Modern practice is path MTU discovery — send with a do-not-fragment flag and shrink when told to."
+  },
+  {
+   "n": 63,
+   "c": "node-4",
+   "t": "Node 4 · Best effort: what IP does not promise",
+   "q": "Why does path MTU discovery break so often?",
+   "a": "Because it depends on ICMP 'fragmentation needed' messages reaching the sender, and many networks block ICMP indiscriminately. The sender then keeps sending oversized packets that are silently dropped — the hang-on-large-payloads signature."
+  },
+  {
+   "n": 64,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "What abstraction does TCP present to an application?",
+   "a": "A connection carrying an ordered, gap-free, exactly-once stream of bytes in each direction — manufactured entirely on top of a substrate that loses, reorders and duplicates."
+  },
+  {
+   "n": 65,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "What do sequence numbers actually enable?",
+   "a": "Three things at once: reassembling segments into the right order regardless of arrival order, recognising a duplicate as a range already received and discarding it, and detecting a gap so later data can be held until the hole is filled."
+  },
+  {
+   "n": 66,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "How does TCP recover from a lost packet?",
+   "a": "The receiver keeps reporting the sequence number it expects next, which implicitly acknowledges everything before it. The sender keeps unacknowledged data in a buffer with a timer; if the acknowledgement does not arrive in time, it sends the data again."
+  },
+  {
+   "n": 67,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "Reliability requires the sender to do something people often forget. What?",
+   "a": "Buffer everything it has sent but not yet had acknowledged. It cannot discard data at the moment it hands it to the network, because it may have to send it again — which is exactly what limits how much can be in flight."
+  },
+  {
+   "n": 68,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "Describe the three-way handshake.",
+   "a": "Client sends <code>SYN</code> with its initial sequence number. Server replies <code>SYN-ACK</code>, acknowledging the client's number and carrying its own. Client replies <code>ACK</code>. Three messages, one and a half round trips, before a single byte of application data can move."
+  },
+  {
+   "n": 69,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "State the two consequences of the handshake you should be able to give instantly.",
+   "a": "Opening a connection costs a full round trip before anything useful moves, which is why connection reuse and pooling matter enormously. And the exchange of random initial sequence numbers makes it hard for an off-path attacker to inject data, since they would have to guess a 32-bit value."
+  },
+  {
+   "n": 70,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "Why is TCP close asymmetric?",
+   "a": "Each direction is closed independently with its own <code>FIN</code>. That allows a half-closed connection where one side has finished sending but is still receiving — which is a legitimate state, not an error."
+  },
+  {
+   "n": 71,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "What is TIME_WAIT and why does it exist?",
+   "a": "After closing, the side that closed first holds the socket for roughly two minutes. It exists so that straggling packets from the old connection cannot be mistaken for data on a new connection reusing the same address and port pair."
+  },
+  {
+   "n": 72,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "A busy server has 30,000 sockets in TIME_WAIT. Is that a leak?",
+   "a": "No, that is normal for a server handling many short-lived connections. It becomes a problem only if it exhausts a resource — typically ephemeral ports on the client side. The fix is connection reuse, not tuning the timeout."
+  },
+  {
+   "n": 73,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "What does a TCP RST mean, and when do you see one?",
+   "a": "Reset: 'there is no connection here, stop'. You get one when you connect to a port nothing is listening on, and 'connection reset by peer' in a stack trace means the other end sent one — often because the process died or a proxy gave up."
+  },
+  {
+   "n": 74,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "Why is 'TCP delivers messages' wrong?",
+   "a": "TCP delivers a byte stream. Writing 100 bytes then 50 bytes may be read as 150 in one go, or as 3 then 147, or any other split. Order and completeness are guaranteed; boundaries are not."
+  },
+  {
+   "n": 75,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "Given that, what must every protocol built on TCP do?",
+   "a": "Define its own message boundaries. That is what <code>Content-Length</code>, chunked transfer encoding, WebSocket frame headers and hand-rolled length prefixes all are — the framing problem from the wire, solved again a layer up."
+  },
+  {
+   "n": 76,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "What is head-of-line blocking, in TCP terms?",
+   "a": "Because TCP delivers bytes in order, a single lost segment forces everything received after it to be held back until the gap is filled. One loss stalls all data behind it, even data that arrived perfectly."
+  },
+  {
+   "n": 77,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "Name the TCP states you are most likely to see in real diagnostics.",
+   "a": "<code>LISTEN</code> for a server socket waiting, <code>ESTABLISHED</code> for an active connection, <code>TIME_WAIT</code> after closing, <code>CLOSE_WAIT</code> when the peer closed and your application has not, and <code>SYN_SENT</code> when a connect attempt has had no reply."
+  },
+  {
+   "n": 78,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "Many sockets stuck in CLOSE_WAIT — what does that indicate?",
+   "a": "Your own application is not closing sockets after the peer closed them. It is a genuine bug in your code, unlike TIME_WAIT which is protocol-normal."
+  },
+  {
+   "n": 79,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "What is a TCP segment versus an IP packet versus an Ethernet frame?",
+   "a": "Names for the same data at different layers of wrapping. The application's bytes become a TCP segment, which is placed in an IP packet, which is placed in an Ethernet frame for each hop."
+  },
+  {
+   "n": 80,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "What is the difference between an acknowledgement and a guarantee of processing?",
+   "a": "An ACK means TCP received the bytes into the receiving machine's buffer. It does not mean the application read them, and it certainly does not mean the application acted on them successfully. Application-level acknowledgement is a separate thing you must build."
+  },
+  {
+   "n": 81,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "Why does that matter for building anything reliable?",
+   "a": "Because a write that was acknowledged by TCP can still be lost if the process crashes before handling it. Exactly-once processing needs idempotency and application-level acknowledgement, not transport reliability."
+  },
+  {
+   "n": 82,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "What is Nagle's algorithm and when does it hurt?",
+   "a": "It delays sending small segments to coalesce them, reducing overhead. It hurts interactive and request/response workloads by adding latency, which is why <code>TCP_NODELAY</code> exists and why most RPC and database clients set it."
+  },
+  {
+   "n": 83,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "What is a SYN flood?",
+   "a": "An attacker sends many SYN packets without completing the handshake, filling the server's queue of half-open connections. SYN cookies defend against it by encoding the state into the sequence number so no queue entry is needed."
+  },
+  {
+   "n": 84,
+   "c": "node-5",
+   "t": "Node 5 · TCP: a reliable ordered stream",
+   "q": "How does a TCP connection detect that the peer machine vanished without closing?",
+   "a": "It does not, quickly. Without keepalives or traffic, a connection to a machine that lost power stays ESTABLISHED indefinitely on your side. Only a write attempt, a keepalive, or an application timeout reveals it."
+  },
+  {
+   "n": 85,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "Flow control and congestion control are often conflated. What does each protect?",
+   "a": "Flow control protects the <em>receiver</em> from being overwhelmed. Congestion control protects the <em>network</em> between them. Different problems, different mechanisms, both present in every TCP connection."
+  },
+  {
+   "n": 86,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "How does flow control work mechanically?",
+   "a": "Every acknowledgement carries a receive window — the number of bytes of free buffer space the receiver has. The sender may never have more unacknowledged data in flight than that window."
+  },
+  {
+   "n": 87,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "What happens if the receiving application stops reading?",
+   "a": "The receive buffer fills, the advertised window shrinks to zero, and the sender stops sending. That is backpressure reaching all the way back to the producer — the same idea as a stream pausing or a job queue applying pressure upstream."
+  },
+  {
+   "n": 88,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "How does a sender discover how much capacity the path has, given nobody tells it?",
+   "a": "Experimentally. It keeps a congestion window, starts small, and grows it as acknowledgements return. Loss is read as evidence of congestion and the window is cut sharply, then grows again more cautiously."
+  },
+  {
+   "n": 89,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "Why is 'slow start' a misleading name?",
+   "a": "Because it doubles the congestion window every round trip — it is exponential growth. It is called slow only relative to immediately blasting at full rate."
+  },
+  {
+   "n": 90,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "Name the congestion control algorithms worth knowing and the one idea that separates them.",
+   "a": "Reno is the classic loss-based scheme, CUBIC is the common modern default, and BBR models the path's bandwidth and delay directly rather than waiting for loss. The distinction is whether loss is the signal or something better is estimated."
+  },
+  {
+   "n": 91,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "Give the formula relating throughput, window and latency.",
+   "a": "Throughput is roughly window size divided by round-trip time. That is the bandwidth-delay product, and it is why a high-bandwidth, high-latency link feels slow unless the window is large."
+  },
+  {
+   "n": 92,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "A single TCP connection between Mumbai and Virginia does not saturate a gigabit link. Why not?",
+   "a": "Because throughput is capped by window over RTT, and the RTT is around 200 ms. Until the window is large enough to keep the pipe full for a whole round trip, the extra bandwidth is unreachable by one connection."
+  },
+  {
+   "n": 93,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "Distinguish bandwidth, latency, RTT and throughput.",
+   "a": "Bandwidth is capacity per second. Latency is delay one way. RTT is there and back. Throughput is what you actually achieve, and it is usually far below bandwidth."
+  },
+  {
+   "n": 94,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "Why does adding bandwidth not reduce latency?",
+   "a": "They are unrelated quantities. Latency is bounded below by the speed of light in fibre — roughly 5 microseconds per kilometre — plus queueing and processing. Money buys capacity; it does not buy a shorter path."
+  },
+  {
+   "n": 95,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "What is the hard floor on an India-to-US-east-coast round trip, and why does it matter?",
+   "a": "Around 200 ms. It matters because it makes 'reduce the number of round trips' the single most reliable performance advice in networked systems, and it is the reason CDNs exist."
+  },
+  {
+   "n": 96,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "What is bufferbloat?",
+   "a": "Routers with very large queues delaying packets instead of dropping them. That hides the congestion signal from TCP, so senders keep pushing and latency becomes terrible while raw bandwidth still looks fine. It is why a big upload can ruin a video call on the same line."
+  },
+  {
+   "n": 97,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "Zero packet loss on a busy link — good sign or suspicious?",
+   "a": "Suspicious. Congestion control deliberately grows until loss appears, so a healthy fully-used path shows some loss. Zero loss usually means the path is nowhere near saturated, or something is buffering rather than dropping."
+  },
+  {
+   "n": 98,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "What is the practical meaning of backpressure in an application?",
+   "a": "Slowing or stopping production because the consumer cannot keep up, rather than buffering without limit. TCP's zero window is the transport-level version; Node streams pausing and a job queue's concurrency limit are the same idea higher up."
+  },
+  {
+   "n": 99,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "Why is unbounded buffering an anti-pattern rather than a kindness?",
+   "a": "Because it converts a throughput problem into a memory problem and a latency problem, and delays the moment the system tells you it is overloaded. Bufferbloat is exactly this mistake made by routers."
+  },
+  {
+   "n": 100,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "What is the single most reliable way to make a networked application faster?",
+   "a": "Reduce the number of round trips. Batch requests, reuse connections, avoid sequential dependent calls, and move the data closer. Everything else is secondary because latency is the constraint you cannot buy away."
+  },
+  {
+   "n": 101,
+   "c": "node-6",
+   "t": "Node 6 · Flow control and congestion control",
+   "q": "What is a chatty protocol and why is it a problem across a WAN?",
+   "a": "One that requires many small sequential exchanges. Each costs a full round trip, so ten dependent calls at 200 ms is two seconds of pure waiting regardless of how fast either machine is."
+  },
+  {
+   "n": 102,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "What problem does a port solve that an IP address cannot?",
+   "a": "An IP address identifies a machine, but a machine runs a web server, a database and an SSH daemon at once. The port is the last piece of addressing: it says which program on that machine the bytes are for."
+  },
+  {
+   "n": 103,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "How large is a port number and where does it live?",
+   "a": "16 bits, so 0 to 65535. It appears in the TCP or UDP header, in both a source and a destination field."
+  },
+  {
+   "n": 104,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "Are well-known port numbers enforced?",
+   "a": "No. <code>80</code>, <code>443</code>, <code>22</code>, <code>5432</code>, <code>6379</code> are conventions so that a client knows where to look without being told. Nothing stops you running a web server on 5432."
+  },
+  {
+   "n": 105,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "What four values uniquely identify a TCP connection?",
+   "a": "Source IP, source port, destination IP, destination port. The 4-tuple. Two connections may share three of the four and still be distinct."
+  },
+  {
+   "n": 106,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "Ten browser tabs connect to the same server on port 443. How are they kept apart?",
+   "a": "Each gets a different randomly assigned source port on the client, so each 4-tuple is unique. The server's IP and port are identical across all ten."
+  },
+  {
+   "n": 107,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "Can one server on one port hold 100,000 simultaneous connections?",
+   "a": "Yes. The server's own address and port are the same for all of them; it distinguishes connections by the client IP and client port halves of the 4-tuple. The limit is memory and file descriptors, not ports."
+  },
+  {
+   "n": 108,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "Walk the server-side socket sequence.",
+   "a": "Bind to an address and port, claiming it. Listen, which creates a queue of incoming connection attempts. Then accept repeatedly, each call pulling one completed connection off that queue and returning a <em>new</em> socket dedicated to that client."
+  },
+  {
+   "n": 109,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "What is the difference between a listening socket and a connection socket?",
+   "a": "They are different objects. The listening socket never carries application data; it only produces new sockets. Each accepted connection socket carries the bytes for exactly one client."
+  },
+  {
+   "n": 110,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "What is the backlog?",
+   "a": "The queue of connections that have completed the handshake but which the application has not yet accepted. If the application is slow to accept and the queue fills, further connection attempts are refused or dropped."
+  },
+  {
+   "n": 111,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "What does the client side of the socket API do?",
+   "a": "Calls connect to an address and port. The operating system assigns it a free source port automatically — an ephemeral port — and performs the handshake. From then on both sides simply read and write bytes."
+  },
+  {
+   "n": 112,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "What is <code>server.listen(3000)</code> in Node.js actually doing?",
+   "a": "Bind plus listen. Every <code>connection</code> event afterwards corresponds to an accept returning a new socket. Frameworks bury this, but being able to say it is exactly this sequence is a real differentiator."
+  },
+  {
+   "n": 113,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "What is ephemeral port exhaustion and who suffers from it?",
+   "a": "The client. A machine has a limited range of ephemeral source ports, commonly around 28,000 usable, and each is held through TIME_WAIT after close. A service making very high rates of short-lived outbound connections can genuinely run out and start failing to connect."
+  },
+  {
+   "n": 114,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "What is the correct fix for ephemeral port exhaustion?",
+   "a": "Connection reuse — an HTTP keep-alive agent, or a database connection pool. Both exist precisely so that N requests do not mean N connections."
+  },
+  {
+   "n": 115,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "What is the difference between binding to <code>127.0.0.1</code> and <code>0.0.0.0</code>?",
+   "a": "<code>127.0.0.1</code> is the loopback interface, reachable only from the same machine. <code>0.0.0.0</code> means every interface, so the service is reachable from the network. Binding loopback by accident is one of the most common deployment failures there is."
+  },
+  {
+   "n": 116,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "'Address already in use' — what does it actually mean?",
+   "a": "Something is already <em>listening</em> on that address and port. It does not mean there are active connections; it means the bind failed because the listening slot is taken."
+  },
+  {
+   "n": 117,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "Which port ranges are conventionally reserved and for what?",
+   "a": "0 to 1023 are well-known ports, historically requiring elevated privileges to bind on Unix. 1024 to 49151 are registered. 49152 and up are the usual ephemeral range for client source ports."
+  },
+  {
+   "n": 118,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "Why does binding to port 80 sometimes require root, and how is that avoided?",
+   "a": "Because ports below 1024 are privileged on Unix. It is avoided by running the application on a high port behind a reverse proxy, or by granting a specific capability rather than running the whole process as root."
+  },
+  {
+   "n": 119,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "What is <code>SO_REUSEADDR</code> for?",
+   "a": "Allowing a bind to succeed while an old socket for the same address is still in TIME_WAIT. It is why a server can restart immediately instead of waiting two minutes, and it is set by default by most frameworks."
+  },
+  {
+   "n": 120,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "What is a Unix domain socket and when would you use one?",
+   "a": "A socket addressed by a filesystem path rather than an IP and port, usable only between processes on the same machine. It avoids the whole network stack, so it is faster and cannot be reached remotely — commonly used for a database or a proxy talking to a local process."
+  },
+  {
+   "n": 121,
+   "c": "node-7",
+   "t": "Node 7 · Ports and sockets",
+   "q": "What does 'file descriptor limit' have to do with connection count?",
+   "a": "Every socket consumes a file descriptor, and processes have a limit. A server intended to hold tens of thousands of connections must have that limit raised or it will start failing to accept at an arbitrary-looking number."
+  },
+  {
+   "n": 122,
+   "c": "node-8",
+   "t": "Node 8 · UDP",
+   "q": "What is in a UDP datagram header?",
+   "a": "Source port, destination port, length and checksum. That is all. UDP is IP with ports added and nothing else."
+  },
+  {
+   "n": 123,
+   "c": "node-8",
+   "t": "Node 8 · UDP",
+   "q": "List everything UDP does not do.",
+   "a": "No handshake, no acknowledgements, no retransmission, no ordering, no duplicate suppression, no flow control, no congestion control."
+  },
+  {
+   "n": 124,
+   "c": "node-8",
+   "t": "Node 8 · UDP",
+   "q": "Why would a voice call prefer UDP over TCP?",
+   "a": "Audio from 300 ms ago is worthless — retransmitting it delivers a moment that has already passed. Worse, TCP would hold back all the audio that arrived <em>after</em> the loss until the gap was filled, turning a small glitch into a freeze."
+  },
+  {
+   "n": 125,
+   "c": "node-8",
+   "t": "Node 8 · UDP",
+   "q": "Why does DNS use UDP?",
+   "a": "A query and its response are each one small packet, and the client can simply ask again if nothing comes back. A three-way handshake would triple the cost of every lookup for no benefit."
+  },
+  {
+   "n": 126,
+   "c": "node-8",
+   "t": "Node 8 · UDP",
+   "q": "Why do online games use UDP for position updates?",
+   "a": "Because updates supersede each other. A lost position is corrected by the next one a fraction of a second later; retransmitting the stale one would be pure cost."
+  },
+  {
+   "n": 127,
+   "c": "node-8",
+   "t": "Node 8 · UDP",
+   "q": "Correct the statement 'UDP is unreliable TCP'.",
+   "a": "UDP is the transport where you choose which guarantees you want. In-order delivery is a cost as well as a benefit. Anything on UDP that needs reliability implements it itself, tailored to the application — which is exactly what QUIC does."
+  },
+  {
+   "n": 128,
+   "c": "node-8",
+   "t": "Node 8 · UDP",
+   "q": "Why is UDP the workhorse of amplification attacks?",
+   "a": "It has no connection state and no handshake, so the source address is trivially forged. An attacker sends a small query with the victim's address as source, and the server sends a much larger reply to the victim."
+  },
+  {
+   "n": 129,
+   "c": "node-8",
+   "t": "Node 8 · UDP",
+   "q": "When would you deliberately choose UDP for metrics or logging?",
+   "a": "When losing a sample is cheaper than slowing the application down. A blocking, retrying metrics client can become a source of latency in the code it is meant to observe."
+  },
+  {
+   "n": 130,
+   "c": "node-8",
+   "t": "Node 8 · UDP",
+   "q": "Is a UDP datagram boundary preserved?",
+   "a": "Yes — unlike TCP, one send produces one receive of exactly that size. UDP has message semantics, which is occasionally the actual reason to choose it."
+  },
+  {
+   "n": 131,
+   "c": "node-8",
+   "t": "Node 8 · UDP",
+   "q": "What happens if a UDP datagram is larger than the path MTU?",
+   "a": "It is fragmented at the IP layer, and losing any fragment loses the whole datagram. This is why practical UDP protocols keep datagrams small — DNS traditionally capped at 512 bytes for exactly this reason."
+  },
+  {
+   "n": 132,
+   "c": "node-8",
+   "t": "Node 8 · UDP",
+   "q": "When does DNS fall back to TCP?",
+   "a": "When the response is too large for the UDP limit in use, the server sets a truncation flag and the client retries over TCP. Zone transfers also use TCP."
+  },
+  {
+   "n": 133,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "How many IPv4 addresses exist, and what happened?",
+   "a": "About 4.3 billion — 2 to the 32. There are far more devices than that, and the addresses ran out; the last large blocks were allocated in 2011."
+  },
+  {
+   "n": 134,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "Name the three private IPv4 ranges.",
+   "a": "<code>10.0.0.0/8</code>, <code>172.16.0.0/12</code> and <code>192.168.0.0/16</code>. They are non-routable on the public internet, so everyone may use them internally at the same time."
+  },
+  {
+   "n": 135,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "Why is it safe for millions of networks to use 192.168.1.0/24 simultaneously?",
+   "a": "Because no router on the internet will forward a packet addressed to a private range. The addresses are only meaningful inside the network that uses them."
+  },
+  {
+   "n": 136,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "Explain what NAT does to an outbound packet.",
+   "a": "The router rewrites the source IP from the private address to its own public address, and rewrites the source port to a unique number it picks. It records the mapping so it can reverse the rewrite on the reply."
+  },
+  {
+   "n": 137,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "How does a reply find its way back to the right internal machine?",
+   "a": "The router looks up the destination port of the incoming packet in its NAT table, finds the internal address and port it was mapped from, rewrites the destination back, and forwards it inward."
+  },
+  {
+   "n": 138,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "Why can a machine behind NAT start conversations but not receive them?",
+   "a": "Because the mapping is created by an outbound packet. An unsolicited inbound packet matches no table entry, so the router has no idea which internal machine it is for and drops it."
+  },
+  {
+   "n": 139,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "What is port forwarding?",
+   "a": "A manually configured, permanent NAT entry: traffic arriving at a chosen public port is always mapped to a specific internal address and port. It is how you expose a home server without an outbound packet having created the mapping first."
+  },
+  {
+   "n": 140,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "Why do ngrok and Cloudflare Tunnel work at all, given NAT?",
+   "a": "Your machine makes an <em>outbound</em> connection to a public relay, which creates the NAT mapping. Inbound traffic then rides backwards along that already-established connection, so nothing ever has to initiate a connection toward you."
+  },
+  {
+   "n": 141,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "What is NAT hole punching and where do you meet it?",
+   "a": "A technique where two machines behind NAT each send outbound packets to create mappings, coordinated by a public helper server, so they can then reach each other directly. STUN and TURN implement it, and every video-calling product depends on it."
+  },
+  {
+   "n": 142,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "A database connection works fine, then silently dies after an hour of idleness. What is the likely cause?",
+   "a": "A stateful device on the path — a NAT router, a cloud NAT gateway or a firewall — evicted the connection entry on an idle timeout. Both endpoints still believe the connection is open; the failure surfaces only when someone finally sends."
+  },
+  {
+   "n": 143,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "What is the standard defence against idle-timeout connection death?",
+   "a": "Keepalives — TCP keepalive packets, or an application-level ping, at an interval shorter than the shortest idle timeout on the path. Connection pools usually expose this as a max-idle or reap setting."
+  },
+  {
+   "n": 144,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "How large is an IPv6 address and how is it written?",
+   "a": "128 bits, written as eight groups of four hex digits, like <code>2001:0db8:0000:0000:0000:0000:0000:0001</code>. A run of all-zero groups collapses to <code>::</code>, giving <code>2001:db8::1</code>."
+  },
+  {
+   "n": 145,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "What is the IPv6 loopback address?",
+   "a": "<code>::1</code> — the equivalent of <code>127.0.0.1</code>."
+  },
+  {
+   "n": 146,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "What is dual-stack, and what failure mode does it create?",
+   "a": "Running IPv4 and IPv6 side by side. The failure mode is a hostname resolving to both, the client preferring the IPv6 address, and IPv6 connectivity being broken or unconfigured — producing a hang that disappears if you force IPv4."
+  },
+  {
+   "n": 147,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "Does IPv6 remove the need for NAT?",
+   "a": "Yes, in principle — there are enough addresses for every device to be globally unique. In practice firewalls still control reachability, so 'globally addressable' does not mean 'globally reachable'."
+  },
+  {
+   "n": 148,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "What is carrier-grade NAT and why does it make life worse?",
+   "a": "An ISP performing NAT on top of your own, so you do not even have a unique public address. Port forwarding becomes impossible, hole punching gets harder, and you share an address's reputation with strangers."
+  },
+  {
+   "n": 149,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "What is the link-local range <code>169.254.0.0/16</code> and what does seeing it mean?",
+   "a": "Addresses a machine assigns itself when it cannot reach a DHCP server. Seeing one means the machine never got a real address — usually a dead DHCP server or an unplugged link, not a routing problem."
+  },
+  {
+   "n": 150,
+   "c": "node-9",
+   "t": "Node 9 · Private addresses and NAT",
+   "q": "Why is <code>169.254.169.254</code> worth recognising specifically?",
+   "a": "It is the cloud instance metadata endpoint on AWS and others — a link-local address every VM can query for its own configuration and credentials. It is also a classic SSRF target, which is why it comes up in security reviews."
+  },
+  {
+   "n": 151,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "What principle does DNS share with IP routing?",
+   "a": "No single participant knows everything; each one knows enough to point you closer. The hierarchy is delegated, exactly as routing is, which is what lets it scale without any central table."
+  },
+  {
+   "n": 152,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "Read <code>api.example.com.</code> in the direction DNS resolves it.",
+   "a": "Right to left. The trailing dot is the root. The root servers know who runs <code>com</code>; the <code>com</code> servers know which nameservers are authoritative for <code>example.com</code>; those know the record for <code>api</code>."
+  },
+  {
+   "n": 153,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "What is the difference between a stub resolver and a recursive resolver?",
+   "a": "Your machine is a stub — it asks one configured resolver and takes the answer. The recursive resolver does the actual work of walking root to TLD to authoritative on your behalf, and caches what it learns."
+  },
+  {
+   "n": 154,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "What do A and AAAA records do?",
+   "a": "A maps a name to an IPv4 address; AAAA maps a name to an IPv6 address. The doubled letters are because an IPv6 address is four times the size."
+  },
+  {
+   "n": 155,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "What is a CNAME and when is it used?",
+   "a": "It makes a name an alias for another name, so resolution continues at the target. It is what a PaaS gives you when it says 'point your domain here' — you alias to their hostname and they can change the underlying addresses freely."
+  },
+  {
+   "n": 156,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "State the two CNAME rules that catch people.",
+   "a": "A CNAME cannot coexist with other records on the same name, and therefore cannot be placed at the apex of a domain, because the apex must carry NS records. Providers work around it with non-standard ALIAS or flattened-CNAME records."
+  },
+  {
+   "n": 157,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "What are MX, TXT and NS records for?",
+   "a": "MX designates the mail servers for a domain. TXT holds arbitrary text, which is how ownership verification and email anti-spoofing records like SPF and DKIM work. NS delegates a zone to a set of authoritative nameservers."
+  },
+  {
+   "n": 158,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "What is a TTL on a DNS record?",
+   "a": "The number of seconds any resolver may cache the answer. It is what makes DNS survivable at internet scale, because the authoritative servers are not consulted for every lookup."
+  },
+  {
+   "n": 159,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "You change an A record. Why is it not live everywhere immediately?",
+   "a": "Every resolver that cached the old value keeps serving it for the remainder of the TTL. If the TTL was 86400, some resolvers may serve the old answer for the next 24 hours no matter what you do."
+  },
+  {
+   "n": 160,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "What is the professional procedure for a DNS migration?",
+   "a": "Lower the TTL well in advance — to 60 seconds a day before. Make the change. Verify. Then raise the TTL again once the new value is stable."
+  },
+  {
+   "n": 161,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "Name two client-side DNS caching behaviours that cause real bugs.",
+   "a": "The JVM historically cached DNS answers forever by default, so an address change never took effect until restart. Node.js does not cache at all by default, so every outbound request pays a resolution cost unless you add a caching agent."
+  },
+  {
+   "n": 162,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "How does returning multiple A records act as load balancing, and what is its weakness?",
+   "a": "A resolver returns several addresses, often rotated, and the client picks one. It distributes load but knows nothing about backend health or capacity, and client caching makes the distribution uneven."
+  },
+  {
+   "n": 163,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "Is DNS authenticated?",
+   "a": "Plain DNS is unencrypted UDP with no signatures, so answers can be observed and forged. DNSSEC adds cryptographic signatures to records; DoH and DoT encrypt the query between you and your resolver."
+  },
+  {
+   "n": 164,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "Does DNSSEC tell you the server you connect to is legitimate?",
+   "a": "No. It tells you the <em>record</em> was not forged. Whether the machine at that address is the real service is TLS's job, and confusing the two is a genuine misconception."
+  },
+  {
+   "n": 165,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "What does <code>dig +trace</code> show that a plain <code>dig</code> does not?",
+   "a": "The full delegation walk from the root down, using the authoritative servers rather than your resolver's cache. It is how you distinguish 'my resolver has a stale answer' from 'the record is genuinely wrong'."
+  },
+  {
+   "n": 166,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "What is a zone, and how does it relate to a domain?",
+   "a": "A zone is the portion of the name hierarchy that one set of authoritative nameservers is responsible for. A domain can be split into several zones by delegating a subdomain to different nameservers with NS records."
+  },
+  {
+   "n": 167,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "What is negative caching?",
+   "a": "Caching the fact that a name does not exist, so repeated lookups for a missing record do not hit the authoritative servers. Its duration comes from the zone's SOA record, which is why a newly created record can appear to be missing for a while after you first queried it too early."
+  },
+  {
+   "n": 168,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "Why does a search domain in resolver configuration sometimes cause surprises?",
+   "a": "Because an unqualified name gets suffixes appended and tried in order, so <code>db</code> may resolve to <code>db.internal.example.com</code>. It is convenient inside a cluster and confusing when a name resolves to something you did not intend."
+  },
+  {
+   "n": 169,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "What is round-robin DNS's interaction with browser and OS caching?",
+   "a": "Clients cache the first answer they get for the TTL and often reuse a single address, so the distribution across a set of A records is much lumpier than the rotation suggests. It is a hint to clients, not a controller."
+  },
+  {
+   "n": 170,
+   "c": "node-10",
+   "t": "Node 10 · DNS",
+   "q": "How does a CDN or global load balancer typically use DNS?",
+   "a": "It returns a CNAME to its own hostname, then answers that name with an address chosen by the user's location and current backend health — putting the routing decision in a system that can change it in seconds rather than in your zone file."
+  },
+  {
+   "n": 171,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "What decisions must every application protocol make?",
+   "a": "How message boundaries are marked, whether it is text or binary, whether either side may speak first, whether state is carried between messages, and how errors are reported."
+  },
+  {
+   "n": 172,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "Describe the shape of an HTTP/1.1 request.",
+   "a": "A start line such as <code>GET /users/7 HTTP/1.1</code>, then headers as <code>Name: value</code> lines, then a blank line, then an optional body. The response is the same with a status line instead."
+  },
+  {
+   "n": 173,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "How does HTTP/1.1 mark message boundaries?",
+   "a": "With <code>Content-Length</code>, or with chunked transfer encoding when the length is not known upfront — each chunk prefixed by its size in hex, terminated by a zero-size chunk."
+  },
+  {
+   "n": 174,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "Why does HTTP need to solve framing at all, given TCP is reliable?",
+   "a": "Because TCP delivers an unpunctuated byte stream. Reliability and ordering say nothing about where one message ends, so HTTP has to draw the boundaries itself."
+  },
+  {
+   "n": 175,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "What does 'HTTP is client-initiated' rule out?",
+   "a": "The server speaking first. It cannot notify a client of anything; it can only answer. That single property is the entire reason long polling, Server-Sent Events and WebSockets exist."
+  },
+  {
+   "n": 176,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "What does 'HTTP is stateless' mean, and why is it not contradicted by sessions?",
+   "a": "The protocol does not require the server to remember anything about previous requests. Cookies and tokens are an explicit application-level mechanism to carry identity across otherwise independent requests — built on top of statelessness, not in conflict with it."
+  },
+  {
+   "n": 177,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "What is HTTP keep-alive and why does it matter so much?",
+   "a": "Reusing one TCP connection for multiple request/response exchanges instead of tearing it down. It is the default in HTTP/1.1, and without it every request pays a fresh three-way handshake and, over HTTPS, a fresh TLS handshake."
+  },
+  {
+   "n": 178,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "What can HTTP/1.1 <em>not</em> do on a single connection?",
+   "a": "Send a second request before the first response has arrived. The connection handles one exchange at a time, which is HTTP-level head-of-line blocking."
+  },
+  {
+   "n": 179,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "Why do browsers open around six connections per host?",
+   "a": "To work around HTTP/1.1's one-exchange-at-a-time limit, so several resources can be fetched concurrently. It is also why the old advice to bundle files, use image sprites and shard assets across domains existed."
+  },
+  {
+   "n": 180,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "Name three other application protocols and what they run on.",
+   "a": "SMTP for mail, SSH for remote shells, and the Postgres wire protocol — all over TCP. Redis's RESP is another, notable for being a very simple text-ish protocol with explicit length prefixes."
+  },
+  {
+   "n": 181,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "What is worth doing once, by hand, to understand HTTP?",
+   "a": "Open a raw TCP connection to port 80 and type a request into it — a start line, a <code>Host</code> header, a blank line — and read the reply. It makes concrete that HTTP is just agreed text on a stream."
+  },
+  {
+   "n": 182,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "What is the <code>Host</code> header for, and why is it mandatory in HTTP/1.1?",
+   "a": "It names the site the request is for, so one server on one address can serve many sites. It is mandatory because without it virtual hosting is impossible — it is the plaintext-HTTP equivalent of SNI."
+  },
+  {
+   "n": 183,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "Why is HTTP being text rather than binary both a strength and a weakness?",
+   "a": "A strength because it is readable, debuggable with a terminal, and easy to implement. A weakness because parsing is ambiguous in edge cases and headers are verbose and repetitive — which is exactly what HTTP/2's binary framing and header compression addressed."
+  },
+  {
+   "n": 184,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "What is request smuggling, at the level of the framing idea?",
+   "a": "An attack exploiting disagreement between two servers about where a request ends — typically one honouring <code>Content-Length</code> and the other <code>Transfer-Encoding</code>. It is the framing problem from Node 1 becoming a security vulnerability."
+  },
+  {
+   "n": 185,
+   "c": "node-11",
+   "t": "Node 11 · Application protocols and HTTP",
+   "q": "Why does an HTTP client need timeouts at more than one level?",
+   "a": "Because connect, TLS handshake, time to first byte and total response are separate failure points. A single overall timeout hides which one failed, and no timeout at all means a hung connection ties up a resource indefinitely."
+  },
+  {
+   "n": 186,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "What three distinct properties does TLS provide?",
+   "a": "Confidentiality — an observer sees only ciphertext. Integrity — modification is detected and the connection fails. Authentication — cryptographic evidence you are talking to the server that owns the name."
+  },
+  {
+   "n": 187,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "Why is encryption without authentication worthless?",
+   "a": "Because an attacker who intercepts the connection can hand you their own key. You would then have a perfectly encrypted conversation with the attacker. Authentication is what makes the encryption meaningful."
+  },
+  {
+   "n": 188,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "What is a certificate?",
+   "a": "A document containing a public key and the set of names it is valid for, signed by a certificate authority. The signature is what lets a client decide whether to believe the association between key and name."
+  },
+  {
+   "n": 189,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "What exactly does a client check when a server presents a certificate?",
+   "a": "That the signature chains up to a root in its own trust store, that the certificate covers the hostname actually requested, and that the current time is within its validity dates. Failing any one aborts the connection."
+  },
+  {
+   "n": 190,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "Why does a self-signed certificate produce a warning?",
+   "a": "Because it provides perfectly good encryption with no authentication — nothing vouches for the key belonging to that name. The warning is precisely about the missing third property."
+  },
+  {
+   "n": 191,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "Describe the TLS handshake in shape.",
+   "a": "The client offers supported versions and cipher suites; the server picks one and sends its certificate; both run a key exchange producing a shared symmetric key an observer cannot derive; all subsequent traffic is encrypted with that symmetric key."
+  },
+  {
+   "n": 192,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "Why is public-key cryptography used only to establish the session key?",
+   "a": "Because it is far too slow for bulk data. Asymmetric operations set up a fast symmetric key, and the symmetric cipher does the actual work."
+  },
+  {
+   "n": 193,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "What is forward secrecy and what does it protect against?",
+   "a": "Using ephemeral Diffie-Hellman so the session key is never transmitted and is discarded afterwards. Recording traffic today and stealing the server's private key next year still does not decrypt it."
+  },
+  {
+   "n": 194,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "What changed in TLS 1.3?",
+   "a": "Standardised in 2018: the handshake dropped to one round trip instead of two, every legacy and weak cipher was removed, and forward secrecy became mandatory. It is what you should assume today."
+  },
+  {
+   "n": 195,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "What is HTTPS, precisely?",
+   "a": "Exactly HTTP inside a TLS connection, on port 443 by convention. HTTP itself is unchanged — no new methods, no new status codes."
+  },
+  {
+   "n": 196,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "What is SNI and why does it exist?",
+   "a": "Server Name Indication: the client states the hostname it wants at the very start of the handshake, in the clear, so a server hosting many sites on one IP knows which certificate to present. It is also the field corporate filters and national firewalls read to decide what to block."
+  },
+  {
+   "n": 197,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "Why is automated certificate renewal mandatory rather than optional?",
+   "a": "Because certificates expire — 90 days with Let's Encrypt — and an expired certificate takes the site down completely for every visitor. 'The site went down on a Sunday' is very often exactly this."
+  },
+  {
+   "n": 198,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "Where does TLS usually terminate, and what follows from that?",
+   "a": "At a load balancer or reverse proxy, not at your application. The traffic behind it may be plain HTTP on a private network, which is why your app sees <code>http</code> in its own request object and must trust <code>X-Forwarded-Proto</code> to know what the client actually used."
+  },
+  {
+   "n": 199,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "Does TLS authenticate the client?",
+   "a": "Not by default. Client certificates exist — mTLS, common between internal services — but a browser does not use them. Browsers authenticate <em>users</em> at the application layer with passwords and cookies, which is a different thing at a different layer."
+  },
+  {
+   "n": 200,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "Does a padlock mean the site is safe?",
+   "a": "No. It means the connection is confidential, unmodified, and that the server holds a valid certificate for that hostname. It says nothing about the operator's honesty or the application's security — a phishing site can have a perfectly valid certificate."
+  },
+  {
+   "n": 201,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "What is a certificate chain and why is it not just one certificate?",
+   "a": "The server's certificate is signed by an intermediate CA, which is signed by a root. Roots are kept offline for safety, so the server must present the intermediates as well — and 'works in curl but not in Java' is very often a missing intermediate."
+  },
+  {
+   "n": 202,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "What is a trust store and where does it come from?",
+   "a": "The set of root CA certificates a client trusts, shipped by the operating system, browser or runtime. Different clients have different stores, which is why one tool accepts a certificate another rejects."
+  },
+  {
+   "n": 203,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "What is certificate revocation and why is it weak in practice?",
+   "a": "A mechanism to declare a certificate invalid before expiry, via CRLs or OCSP. It is weak because clients often fail open when the check is unreachable, which is a large part of why certificate lifetimes were shortened instead."
+  },
+  {
+   "n": 204,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "What is HSTS?",
+   "a": "A response header telling a browser to use HTTPS for this domain for a stated duration, refusing plain HTTP entirely. It closes the window where a first plain-HTTP request could be intercepted and redirected."
+  },
+  {
+   "n": 205,
+   "c": "node-12",
+   "t": "Node 12 · TLS",
+   "q": "Why does TLS make a CDN more valuable, not less?",
+   "a": "Because the handshake costs round trips, and performing it at an edge 10 ms away instead of an origin 200 ms away removes a large fixed cost from every new connection."
+  },
+  {
+   "n": 206,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "What three separate problems does a single server have?",
+   "a": "It is a single point of failure, it has a fixed capacity ceiling, and it is in one physical location far from most users. Load balancing addresses the first two; proximity needs a different mechanism."
+  },
+  {
+   "n": 207,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "What distinguishes an L4 from an L7 load balancer?",
+   "a": "L4 forwards TCP connections without looking inside them — fast, protocol-agnostic, and unable to route by URL or header. L7 terminates the connection, parses HTTP, and can route by path or host, retry on another backend, and terminate TLS."
+  },
+  {
+   "n": 208,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "When would you choose L4 over L7?",
+   "a": "For non-HTTP traffic — a database, a raw TCP service — or when you need the lowest possible overhead and no request-level decisions. Anything needing path-based routing or per-request retries needs L7."
+  },
+  {
+   "n": 209,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "Name the common load distribution policies.",
+   "a": "Round-robin, least-connections, weighted variants of both, and hashing on a request property such as client IP or a cookie."
+  },
+  {
+   "n": 210,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "Why are sticky sessions a design smell?",
+   "a": "Because they only matter if your servers hold per-user state in memory, which breaks the moment one restarts or is replaced. The correct answer is stateless application servers with shared state in a database or Redis."
+  },
+  {
+   "n": 211,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "What makes a load balancer actually resilient rather than just distributive?",
+   "a": "Health checks. It probes each backend periodically and removes failing ones from rotation, which is what turns 'a server died' into 'nothing visible happened'."
+  },
+  {
+   "n": 212,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "What is the difference between a forward and a reverse proxy?",
+   "a": "A forward proxy sits in front of clients and acts on their behalf. A reverse proxy sits in front of servers and acts on theirs — terminating TLS, serving static files, compressing, buffering slow clients, and passing the rest through."
+  },
+  {
+   "n": 213,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "Why does a reverse proxy buffer slow clients?",
+   "a": "So a client on a poor connection does not occupy an application worker for the whole duration of a slow upload or download. The proxy absorbs the slowness and hands the application a complete request quickly."
+  },
+  {
+   "n": 214,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "What do <code>X-Forwarded-For</code> and <code>X-Forwarded-Proto</code> carry, and what breaks without them?",
+   "a": "The original client IP and the original scheme. Without reading them, an application behind a proxy logs the proxy's IP for every user, treats every request as plain HTTP, and gets rate limiting and redirect-to-HTTPS logic wrong."
+  },
+  {
+   "n": 215,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "Why must <code>X-Forwarded-For</code> be treated carefully from a security standpoint?",
+   "a": "It is a client-supplied header. Anything not appended by a proxy you control can be forged, so you must trust only the portion added by your own infrastructure — otherwise a client can spoof any source IP for rate limiting or audit purposes."
+  },
+  {
+   "n": 216,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "What is anycast?",
+   "a": "Announcing the same IP address from many locations worldwide and letting internet routing deliver each user's packets to the nearest one. It is how <code>1.1.1.1</code> is fast from everywhere."
+  },
+  {
+   "n": 217,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "What is GeoDNS and how does it differ from anycast?",
+   "a": "It returns different addresses depending on where the query came from, so proximity is decided at the naming layer rather than the routing layer. It depends on the resolver's location being a good proxy for the user's, which is not always true."
+  },
+  {
+   "n": 218,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "How does a CDN combine the previous ideas?",
+   "a": "Servers in many cities hold cached copies. A request lands at the nearest edge by anycast or GeoDNS; a fresh copy is served immediately, otherwise the edge fetches from origin, caches and serves."
+  },
+  {
+   "n": 219,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "Name the four ways a CDN wins, not just the obvious one.",
+   "a": "Round-trip time drops from hundreds of milliseconds to tens; the TLS handshake happens at the nearby edge instead of across the world; the origin sees a small fraction of total traffic; and a traffic flood is absorbed at the edge rather than reaching you."
+  },
+  {
+   "n": 220,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "Where do CDNs actually get hard?",
+   "a": "Cache correctness — deciding what is cacheable, setting <code>Cache-Control</code> and <code>ETag</code> properly, purging on deploy, and separating long-lived immutable static assets from dynamic HTML that must not be cached publicly."
+  },
+  {
+   "n": 221,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "What is connection draining?",
+   "a": "Letting an instance being removed finish its in-flight requests before it is shut down, rather than cutting connections. It is what makes a deploy invisible to users instead of producing a burst of errors."
+  },
+  {
+   "n": 222,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "Why does a load balancer's health check need to be a real check?",
+   "a": "Because a process that is running but cannot reach its database is not healthy. A check that only confirms the port is open keeps sending traffic to a broken instance — the classic reason an outage persists despite 'all instances healthy'."
+  },
+  {
+   "n": 223,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "What is the difference between a liveness and a readiness check?",
+   "a": "Liveness asks whether the process should be restarted. Readiness asks whether it should receive traffic right now. Conflating them causes restart loops during a slow startup or a transient dependency outage."
+  },
+  {
+   "n": 224,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "What does a load balancer do to your view of client IPs, and how is it solved for non-HTTP traffic?",
+   "a": "It replaces the source address with its own. HTTP solves it with <code>X-Forwarded-For</code>; TCP-level balancers use the PROXY protocol, which prepends the original addresses before the stream begins."
+  },
+  {
+   "n": 225,
+   "c": "node-13",
+   "t": "Node 13 · Load balancers, proxies, CDNs",
+   "q": "Why is the origin still a single point of failure behind a CDN?",
+   "a": "Because a cache miss must be served from origin. A CDN reduces load and absorbs floods for cacheable content, but an origin outage still breaks anything dynamic or uncached unless you configure stale-while-error behaviour."
+  },
+  {
+   "n": 226,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "What did HTTP/2 change and what did it deliberately not change?",
+   "a": "It changed the wire format to binary with multiplexed streams and added header compression. It changed nothing about semantics — methods, status codes and headers mean exactly what they did in 1.1."
+  },
+  {
+   "n": 227,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "What is a stream in HTTP/2?",
+   "a": "One request/response exchange, identified by a stream ID, split into frames that are interleaved with other streams' frames on the same TCP connection. Fifty resources travel over one connection concurrently."
+  },
+  {
+   "n": 228,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "Why does header compression matter more than it sounds?",
+   "a": "Because HTTP requests carry large, highly repetitive header sets — cookies, user agent, accept headers — repeated on every request. HPACK compresses them against a table shared across the connection, removing real bytes from every single request."
+  },
+  {
+   "n": 229,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "What happened to HTTP/2 server push?",
+   "a": "It was specified, implemented, and then effectively abandoned — removed from browsers because it was hard to use correctly and usually wasted bandwidth pushing things the client already had."
+  },
+  {
+   "n": 230,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "State HTTP/2's remaining flaw precisely.",
+   "a": "It removed head-of-line blocking at the HTTP layer while leaving it at the TCP layer. All streams share one TCP connection, and TCP delivers in order, so one lost packet stalls delivery of every stream — including the forty-nine unrelated to the loss."
+  },
+  {
+   "n": 231,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "When can HTTP/2 be worse than several HTTP/1.1 connections?",
+   "a": "On a lossy network such as poor mobile. With separate connections a loss stalls only one; with one multiplexed connection it stalls everything. On a clean network HTTP/2 is a clear win."
+  },
+  {
+   "n": 232,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "Why could HTTP/2's flaw not be fixed inside HTTP?",
+   "a": "Because the problem is in the transport underneath. In-order delivery is TCP's guarantee, and no change to the HTTP layer can opt out of it."
+  },
+  {
+   "n": 233,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "What is QUIC and what does it reimplement?",
+   "a": "A transport protocol built on UDP, standardised alongside HTTP/3 in 2022. It reimplements reliability, ordering and congestion control itself — but per stream, so a lost packet stalls only its own stream."
+  },
+  {
+   "n": 234,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "How many round trips does a QUIC connection setup take, and why?",
+   "a": "One, because the TLS 1.3 handshake is folded into the transport handshake rather than layered on top of a separate TCP handshake. Resumption can be zero round trips."
+  },
+  {
+   "n": 235,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "What is a QUIC connection ID and what does it enable?",
+   "a": "An identifier for the connection that is independent of the 4-tuple. A phone switching from Wi-Fi to mobile data changes its IP address entirely and keeps the connection alive — which under TCP would kill it immediately."
+  },
+  {
+   "n": 236,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "Why is QUIC built on UDP rather than being a genuinely new protocol?",
+   "a": "Because middleboxes — NAT devices and firewalls — understand TCP and UDP and drop everything else. A new IP protocol number would be undeployable on the real internet, so QUIC hides inside UDP, which every middlebox already passes."
+  },
+  {
+   "n": 237,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "What is the recurring villain across nodes 8, 14 and 15?",
+   "a": "Head-of-line blocking. It is why real-time media avoids TCP, why HTTP/2 was only a partial fix, and why HTTP/3 had to replace the transport rather than the application protocol."
+  },
+  {
+   "n": 238,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "How does a client and server agree to use HTTP/2?",
+   "a": "Over TLS, via ALPN — the client lists the protocols it supports in the handshake and the server picks one. It costs no extra round trip because it rides inside the TLS negotiation already happening."
+  },
+  {
+   "n": 239,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "How does a browser discover HTTP/3 support?",
+   "a": "Usually through an <code>Alt-Svc</code> response header advertising it, after connecting over HTTP/2 or 1.1 first. The upgrade takes effect for subsequent connections rather than the current one."
+  },
+  {
+   "n": 240,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "Which HTTP/1.1 performance workarounds became counterproductive under HTTP/2?",
+   "a": "Domain sharding, since it splits traffic across connections that no longer need splitting, and aggressive bundling, since many small cacheable files are now cheap to fetch concurrently."
+  },
+  {
+   "n": 241,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2, HTTP/3 and QUIC",
+   "q": "Why does HTTP/3 change nothing about your application code?",
+   "a": "Because the semantics are identical across all three versions. Methods, headers, status codes and caching behave the same; only the wire encoding and transport differ, and those are handled below your framework."
+  },
+  {
+   "n": 242,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "Why does the server-push problem exist at all?",
+   "a": "Because HTTP in every version is client-initiated request/response. A server that has news has no way to say so; it can only answer a question it was asked."
+  },
+  {
+   "n": 243,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "What is wrong with polling?",
+   "a": "Latency averages half the polling interval, and the overwhelming majority of requests return nothing while still paying the full cost of a request through your whole stack — proxy, auth, handler, database."
+  },
+  {
+   "n": 244,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "How does long polling work and what does it cost?",
+   "a": "The client makes a request and the server simply does not answer until it has something, then the client immediately reissues. Latency becomes near-zero and wasted requests mostly disappear, but every held connection occupies a server resource and idle timeouts can kill it."
+  },
+  {
+   "n": 245,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "What is Server-Sent Events, mechanically?",
+   "a": "The server responds with <code>Content-Type: text/event-stream</code> and never closes the response, writing small text-framed messages as events occur. It is ordinary HTTP throughout."
+  },
+  {
+   "n": 246,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "Name four advantages SSE has over WebSockets.",
+   "a": "It is plain HTTP so it passes through existing proxies and infrastructure; it benefits from HTTP/2 multiplexing; browsers reconnect automatically; and it carries an event ID so a reconnect can resume from where it stopped."
+  },
+  {
+   "n": 247,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "What is the canonical AI-era use of SSE?",
+   "a": "Streaming an LLM response token by token. The flow is entirely server-to-client, the client has nothing to send mid-stream, and automatic reconnection and resumption are genuinely useful."
+  },
+  {
+   "n": 248,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "How does a WebSocket connection start?",
+   "a": "As an ordinary HTTP request carrying <code>Upgrade: websocket</code>. The server replies <code>101 Switching Protocols</code>, and from that point the TCP connection stops speaking HTTP and speaks the WebSocket frame protocol instead."
+  },
+  {
+   "n": 249,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "Why does the WebSocket handshake begin as HTTP?",
+   "a": "So it traverses existing HTTP infrastructure — ports 80 and 443, proxies, load balancers — rather than needing a new port that firewalls would block."
+  },
+  {
+   "n": 250,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "Give the one-line rule for choosing between SSE and WebSockets.",
+   "a": "If data flows one way, server to client, use SSE. If both sides need to send freely, use WebSockets."
+  },
+  {
+   "n": 251,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "What do people pay for by reaching for WebSockets by default?",
+   "a": "A stateful connection outside normal HTTP semantics, with no automatic reconnection, no built-in request/response correlation, awkward authentication, and load balancer configuration they would not otherwise need."
+  },
+  {
+   "n": 252,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "What breaks when you scale a real-time feature to more than one server instance?",
+   "a": "A user is connected to instance A while the event arrives at instance B, which has no way to reach them. You need a shared pub/sub layer — Redis is the usual answer — so every instance can broadcast to its own connected clients."
+  },
+  {
+   "n": 253,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "Why do long-lived connections need application-level pings?",
+   "a": "Because NAT devices, load balancers and proxies evict idle connection state on a timeout, killing the connection silently. A periodic ping keeps the entry alive and also detects a dead peer promptly."
+  },
+  {
+   "n": 254,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "What is the reconnection contract of SSE?",
+   "a": "The browser reconnects automatically after a drop and sends a <code>Last-Event-ID</code> header carrying the last event it saw, so the server can resume from that point — provided the server assigns IDs and can replay."
+  },
+  {
+   "n": 255,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "Why does buffering in a reverse proxy break SSE, and what do you do about it?",
+   "a": "Because the proxy holds the response waiting for it to complete, so nothing reaches the client until the stream ends. You disable buffering for that route — for example <code>X-Accel-Buffering: no</code> with Nginx."
+  },
+  {
+   "n": 256,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "How is a WebSocket authenticated, given the browser API cannot set headers?",
+   "a": "Usually by a cookie sent with the upgrade request, or a token passed in the query string or in a first application-level message after the connection opens. It is genuinely more awkward than an ordinary HTTP request, and a real reason not to choose it casually."
+  },
+  {
+   "n": 257,
+   "c": "node-15",
+   "t": "Node 15 · SSE and WebSockets",
+   "q": "What is the operational cost of one million idle WebSocket connections?",
+   "a": "Memory and file descriptors per connection on the server, plus keepalive traffic, plus the state that makes horizontal scaling and rolling deploys harder — every deploy disconnects everyone at once unless you stagger it."
+  },
+  {
+   "n": 258,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "What does a firewall match on?",
+   "a": "Typically source address, destination address, port and protocol, evaluated against an ordered rule list with a default action at the end."
+  },
+  {
+   "n": 259,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "What does 'stateful' add to a firewall?",
+   "a": "It tracks established connections, so return traffic for a connection it already permitted is allowed without a matching inbound rule. That is what makes 'allow all outbound, deny all inbound' a coherent policy."
+  },
+  {
+   "n": 260,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "Which idea from an earlier node is a stateful firewall's connection table the same as?",
+   "a": "NAT's mapping table. Both are stateful devices in the middle holding per-connection entries, both create entries from the first packet of a flow, and both evict on idle timeout."
+  },
+  {
+   "n": 261,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "Distinguish ingress from egress rules.",
+   "a": "Ingress controls what may reach you; egress controls what you may reach. People configure ingress and forget egress exists, then a service cannot call an external API or reach a package registry during a build."
+  },
+  {
+   "n": 262,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "'Connection refused' versus 'connection timed out' — what does each tell you?",
+   "a": "Refused means something actively rejected you, almost always a TCP RST because nothing is listening on that port. Timed out means packets went into a void, which almost always means a firewall silently dropping them."
+  },
+  {
+   "n": 263,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "Why is that distinction so valuable in debugging?",
+   "a": "Because it separates 'I reached the machine and the service is not there' from 'I never reached the machine at all'. Those have completely different fixes, and the error message alone tells you which."
+  },
+  {
+   "n": 264,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "What are security groups and network ACLs in cloud terms?",
+   "a": "The same firewall idea with vendor names — typically stateful at the instance or interface level, and stateless at the subnet level. The stateless kind requires explicit rules for return traffic, which surprises people."
+  },
+  {
+   "n": 265,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "When does a forward proxy show up in your working life?",
+   "a": "In corporate networks that route all outbound traffic through one for filtering, logging and caching. It is why some environments require <code>HTTP_PROXY</code> and <code>HTTPS_PROXY</code>, and why a tool ignoring those variables fails in an office and works at home."
+  },
+  {
+   "n": 266,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "What is a TLS-inspecting proxy doing?",
+   "a": "Terminating TLS, reading the plaintext, and re-encrypting with a certificate signed by a CA the organisation installed on every managed machine. It is a sanctioned man-in-the-middle by construction."
+  },
+  {
+   "n": 267,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "Why does a corporate laptop sometimes reject certificate chains that work everywhere else?",
+   "a": "Because a TLS-inspecting proxy is presenting its own certificate and the tool does not trust the corporate root. Node's <code>NODE_EXTRA_CA_CERTS</code> exists precisely for this."
+  },
+  {
+   "n": 268,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "State the general lesson of this node in one sentence.",
+   "a": "The network is a policy layer, and a large fraction of 'it works on my machine' is a policy difference rather than a code difference."
+  },
+  {
+   "n": 269,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "Why is an outbound allowlist harder than an inbound one for modern applications?",
+   "a": "Because dependencies resolve to changing sets of addresses behind CDNs and cloud providers. Allowlisting by IP breaks constantly, so egress control usually needs a proxy that can filter by hostname instead."
+  },
+  {
+   "n": 270,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "What is a NAT gateway in cloud terms and why does it exist?",
+   "a": "A managed device that lets instances in a private subnet make outbound connections without being reachable inbound. It is Node 9's NAT sold as a service, and it is a common surprise line item on a cloud bill."
+  },
+  {
+   "n": 271,
+   "c": "node-16",
+   "t": "Node 16 · Firewalls, proxies, middleboxes",
+   "q": "What is a bastion or jump host?",
+   "a": "A single hardened machine that is reachable from outside, through which you reach machines that are not. It shrinks the exposed surface to one auditable entry point."
+  },
+  {
+   "n": 272,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "What is the diagnostic order, and why that order?",
+   "a": "Name, then route, then port, then TLS, then application — because each layer depends on the ones below it, so the first failure you find is the one worth fixing. Guessing which layer is broken is the most expensive mistake in this domain."
+  },
+  {
+   "n": 273,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "What does <code>dig</code> tell you?",
+   "a": "The answer for a name, which record types exist, the TTL remaining, and which server answered. <code>dig +trace</code> walks the delegation from the root, bypassing your resolver's cache."
+  },
+  {
+   "n": 274,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "How does traceroute actually work?",
+   "a": "It sends packets with TTL 1, then 2, then 3. Each successive router decrements the TTL to zero, discards the packet and reports back — so the replies reveal the path hop by hop. It is an elegant abuse of the loop-prevention mechanism."
+  },
+  {
+   "n": 275,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "What does <code>mtr</code> add over traceroute?",
+   "a": "It runs continuously and shows per-hop loss and latency statistics over time, which distinguishes a hop that is genuinely dropping traffic from one that merely deprioritises replying to probes."
+  },
+  {
+   "n": 276,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "Why can a middle hop in traceroute show 100% loss while the destination is fine?",
+   "a": "Because many routers rate-limit or refuse to generate ICMP replies for themselves while forwarding traffic perfectly. Loss at an intermediate hop only matters if it also appears at every hop after it."
+  },
+  {
+   "n": 277,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "How do you test whether a TCP port is open, and nothing else?",
+   "a": "<code>nc -vz host 443</code>, or <code>telnet host 443</code>. It attempts a connection and stops, which cleanly separates a transport or firewall problem from an application problem."
+  },
+  {
+   "n": 278,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "What does <code>openssl s_client -connect host:443 -servername host</code> show you?",
+   "a": "The certificate chain, the negotiated TLS version and cipher, and any validation error. The <code>-servername</code> flag is SNI — omit it on a multi-tenant host and you get the wrong certificate and a very confusing error."
+  },
+  {
+   "n": 279,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "Why is <code>curl -v</code> the highest-value tool on the list?",
+   "a": "It prints the full request and response including headers, plus the DNS, connection and TLS steps as it does them. Most HTTP problems are visible in that output without any further tooling."
+  },
+  {
+   "n": 280,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "What does <code>curl -w</code> give you and when is it the right first move?",
+   "a": "A timing breakdown — DNS lookup, TCP connect, TLS handshake, time to first byte, total. It is the right first move for any 'why is this slow' question, because it tells you which node of the stack the time is in."
+  },
+  {
+   "n": 281,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "What does <code>ss -tulpn</code> answer?",
+   "a": "Which sockets are listening, on which addresses and ports, owned by which process. It answers 'is my server actually bound, and to loopback or all interfaces' and 'what is already using this port'."
+  },
+  {
+   "n": 282,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "How would you count sockets stuck in TIME_WAIT?",
+   "a": "<code>ss -tan state time-wait | wc -l</code>. Useful when investigating whether ephemeral port exhaustion is plausible on a busy client."
+  },
+  {
+   "n": 283,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "When do you escalate to tcpdump or Wireshark?",
+   "a": "When the other tools disagree or when you need ground truth — specifically, to prove whether a packet left the machine at all, or what exactly a peer sent before it reset the connection."
+  },
+  {
+   "n": 284,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "A request is slow. What do you refuse to do before getting the timing breakdown?",
+   "a": "Form a hypothesis. Slow DNS, slow connect, slow TLS and slow application all feel identical from the outside and have entirely different fixes."
+  },
+  {
+   "n": 285,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "What is the first question to ask about any connectivity failure?",
+   "a": "Whether it ever worked, and what changed. A failure that was always broken points at configuration; a failure that started points at a deploy, a certificate expiry, a DNS change or a scaling event."
+  },
+  {
+   "n": 286,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "How do you tell a DNS problem from a connectivity problem in one step?",
+   "a": "Resolve the name, then connect directly to the resulting address. If the address works and the name does not, it is DNS; if neither works, it is below DNS."
+  },
+  {
+   "n": 287,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "What does it mean when a service is reachable from one machine and not another?",
+   "a": "Almost always policy or path, not the service: a firewall or security group rule, a different DNS resolver, a proxy environment variable set in one place, or one machine being inside a private network the other is not."
+  },
+  {
+   "n": 288,
+   "c": "node-17",
+   "t": "Node 17 · Diagnosis",
+   "q": "Why is intermittent failure often a load balancer problem?",
+   "a": "Because a request only fails when it lands on the one unhealthy backend. Consistent failure points at the whole service; a stable failure fraction points at one instance out of N."
+  },
+  {
+   "n": 289,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "What does a container get, network-wise?",
+   "a": "Its own isolated network stack: its own interfaces, its own IP address, its own routing table, and its own view of which ports are in use."
+  },
+  {
+   "n": 290,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "Why can two containers on one host both bind port 3000?",
+   "a": "Because those are two separate network stacks. The port number is only unique within a stack, and neither container is aware of the other's ports."
+  },
+  {
+   "n": 291,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "A Docker bridge network is which earlier concept, in software?",
+   "a": "A switch — Node 2. It forwards frames between attached container interfaces and the host, learning where each address lives, exactly as a physical switch does."
+  },
+  {
+   "n": 292,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "How do containers reach the internet?",
+   "a": "The host performs NAT on their behalf, rewriting the container's private source address to the host's address — Node 9's mechanism, implemented by the container runtime."
+  },
+  {
+   "n": 293,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "What does <code>-p 8080:3000</code> actually install?",
+   "a": "A NAT rule mapping the host's port 8080 to port 3000 inside the container. Without it the container is unreachable from outside, for exactly the reasons NAT makes any private machine unreachable."
+  },
+  {
+   "n": 294,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "A container binds <code>127.0.0.1:3000</code> and the port is published. Why is it still unreachable?",
+   "a": "Because loopback inside the container's own network stack is not the host's loopback and not the bridge interface. The NAT rule forwards to the container's bridge address, where nothing is listening. Bind <code>0.0.0.0</code> instead."
+  },
+  {
+   "n": 295,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "How do containers on a user-defined network reach each other by name?",
+   "a": "Docker runs an internal DNS server that resolves container and service names to their current addresses. It is Node 10's mechanism, scoped to that network."
+  },
+  {
+   "n": 296,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "Why can an app in one container not reach a database at <code>localhost:5432</code>?",
+   "a": "Because <code>localhost</code> inside a container means that container. The database is a different network stack entirely, so you address it by service name — <code>postgres:5432</code> — on the shared network."
+  },
+  {
+   "n": 297,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "What is a Kubernetes Service, in terms of concepts you already have?",
+   "a": "A stable virtual name and address in front of a changing set of pods — a load balancer from Node 13 plus DNS from Node 10, so callers never need to know pod addresses."
+  },
+  {
+   "n": 298,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "What is an Ingress?",
+   "a": "An L7 reverse proxy routing external traffic into the cluster by host and path — Node 13's reverse proxy, expressed as cluster configuration."
+  },
+  {
+   "n": 299,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "What is a Kubernetes network policy?",
+   "a": "Firewall rules between pods — Node 16, scoped to the cluster. Without any policy the default is usually that every pod can reach every other pod."
+  },
+  {
+   "n": 300,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "Why does container networking feel impenetrable to some people and straightforward to others?",
+   "a": "Because it contains nothing new. It is the switch, private addressing, NAT, DNS, load balancing and firewalling from earlier nodes, reimplemented in software. Anyone who never learned the physical version has to learn all of it at once, in disguise."
+  },
+  {
+   "n": 301,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "What is host networking mode and when would you use it?",
+   "a": "The container shares the host's network stack directly — no isolation, no NAT, no port publishing, and port conflicts with the host become possible again. It is used for performance-sensitive or network-inspecting workloads and avoided otherwise."
+  },
+  {
+   "n": 302,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "What is an overlay network?",
+   "a": "A virtual network spanning multiple hosts, where container traffic is encapsulated inside packets between the hosts. It lets containers on different machines behave as if they were on one flat network, at the cost of encapsulation overhead and a smaller effective MTU."
+  },
+  {
+   "n": 303,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "Why do overlay networks make MTU problems more likely?",
+   "a": "Because encapsulation adds header bytes, so the usable payload is smaller than the underlying link's 1500. If that is not configured consistently, large packets get dropped and you see the classic small-requests-work signature."
+  },
+  {
+   "n": 304,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "What is service discovery, and which two earlier nodes does it combine?",
+   "a": "The mechanism by which a caller finds the current address of a service that moves. It is naming from Node 10 plus health-aware selection from Node 13, and every orchestrator provides some version of it."
+  },
+  {
+   "n": 305,
+   "c": "node-18",
+   "t": "Node 18 · Container and cluster networking",
+   "q": "What does <code>host.docker.internal</code> exist for?",
+   "a": "Reaching a service running on the host machine from inside a container, since <code>localhost</code> means the container. It is a convenience name provided by Docker Desktop rather than a general Linux feature."
+  }
+ ]
+}

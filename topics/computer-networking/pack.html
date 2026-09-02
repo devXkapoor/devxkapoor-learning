@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<!--
+  TOPIC PACK TEMPLATE — filled by the topic-mastery skill per topic.
+  Placeholders to replace: computer-networking Computer networking Two computers with no wire share nothing &mdash; and every layer after that, from frames to IP to TCP to TLS to CDNs to container bridges, exists because the layer before it left something specifically broken.
+  <p>Read this top to bottom, in order. It is not a list of things that exist in networking. It is a chain: each node exists because the node before it left something specifically broken, and that broken thing is the whole reason the next node was invented. If you read Node 7 and don't remember why sockets need to exist, go back to Node 6 &mdash; the motivation lives there, not in Node 7.</p>
+
+<p>Depth markers appear inline, attached to specific capabilities. <strong>[EXPLAIN]</strong> means you must be able to build the idea out loud, from nothing, under pressure, with no notes. <strong>[USE]</strong> means you must be able to use it correctly and debug it when it misbehaves, without needing the internals cold. <strong>[AWARE]</strong> means you should know it exists, what problem it solves, and roughly when someone would reach for it.</p>
+
+<h3>Node 0 &mdash; two computers, and no way to say anything to each other</h3>
+
+<p>Put two computers on a desk. Each one has storage, and each one can run programs. Neither one has any idea the other exists. There is no shared anything: no shared memory, no shared disk, no shared clock. A program running on the left machine cannot read a single byte of the right machine's storage, and there is no instruction it can execute that would change that.</p>
+
+<p>So how do you actually move a file from one to the other? You copy it onto a USB stick, walk three feet, and plug it into the other machine. People genuinely did this for years and it has a name &mdash; <em>sneakernet</em> &mdash; because the transport layer was a pair of shoes. And it works, in the narrow sense that the bytes do eventually arrive. What it cannot do is anything interactive. If the left machine wants to ask the right machine a question and use the answer to decide what to ask next, sneakernet is hopeless: every round trip is a walk. If a thousand people want to ask the right machine questions, it is worse than hopeless.</p>
+
+<p>Now notice the second failure, which is subtler and matters more for everything that follows. Even if you had a magic instant-teleport USB stick, you would still have no idea <em>what</em> to put on it. You would hand over a file, and the other machine would receive a pile of bytes with no indication of whether it is a request, an answer, a greeting, or garbage. Two programs that have never spoken before have no shared vocabulary. Moving bytes is only half the problem; <strong>agreeing on what the bytes mean</strong> is the other half, and it never goes away. Every node from here on is either "how do we physically move bytes further" or "what do we agree the bytes mean" &mdash; and usually both at once.</p>
+
+<p>That word, <em>agreement</em>, is the most important word in this topic. A <strong>protocol</strong> [EXPLAIN] is nothing more than a written-down agreement between two programs about what bytes they will send, in what order, and what each one means. There is no protocol police. Nothing enforces it. If both sides implement the agreement, they can talk; if one side gets it wrong, they cannot, and the failure is usually silent and confusing rather than loud.</p>
+
+<p><strong>What's still broken:</strong> the bytes physically cannot get from one machine to the other without a human carrying them. Before any agreement matters, we need a wire.</p>
+
+<h3>Node 1 &mdash; a wire, and the problem of turning bits into something a wire can carry</h3>
+
+<p><strong>The limitation:</strong> there is no physical path between the two machines at all.</p>
+
+<p>Run a copper cable between them. Now there is a physical path &mdash; but a copper wire does not carry ones and zeros. It carries voltage: an electrical pressure that can be higher or lower, and that changes over time. To send a bit, one side raises or lowers the voltage; to receive it, the other side measures the voltage. That is the entire physical foundation of every network on earth, with the wire sometimes swapped for a fibre carrying light pulses or an antenna carrying radio waves.</p>
+
+<p>The moment you try this, three problems appear that will keep reappearing all the way up the chain, so it is worth meeting them here where they are simplest.</p>
+
+<p>The first is <strong>timing</strong>. If I hold the voltage high for what I think is one bit-time and you sample it at a slightly different rate, you will read one high bit as two, or two as one. Both sides need to agree on how fast bits arrive, and &mdash; because no two crystals oscillate at exactly the same rate &mdash; the receiver needs a way to continuously re-sync itself against the sender. Real cables solve this with <strong>line encoding</strong> [AWARE]: schemes that guarantee the voltage changes often enough that the receiver can lock onto the sender's rhythm from the signal itself. You will almost never touch this, but it is why cables have a rated speed and why a bad cable produces corruption rather than a clean failure.</p>
+
+<p>The second is <strong>framing</strong>. Suppose you send me the bits <code>01101000 01101001</code>. Where does one message end and the next begin? A continuous voltage on a wire has no punctuation. So both sides agree on a <strong>frame</strong> [EXPLAIN]: a defined chunk with a recognisable start pattern, some header fields, a body of actual data, and an end. Everything above this node is fundamentally the same trick applied again at a higher level &mdash; you will see framing solved a second time in TCP, a third time in HTTP, and a fourth time in WebSockets, always for the same reason: a stream of bytes with no boundaries is unusable, so you have to draw the boundaries yourself.</p>
+
+<p>The third is <strong>errors</strong>. Electrical noise flips bits. A nearby motor starts, a voltage spike rides along the wire, and a <code>1</code> arrives as a <code>0</code>. The wire will not tell you. So the frame carries a <strong>checksum</strong> [EXPLAIN] &mdash; a number computed from the frame's contents by a fixed formula, appended by the sender, recomputed by the receiver. If the two numbers disagree, the frame is damaged and gets thrown away. Notice what this does and does not give you: it lets you <em>detect</em> corruption and discard the frame, but it does nothing about the fact that the data is now missing. Detection and recovery are different problems, and this node only solves detection. Ethernet uses a 32-bit checksum called a <strong>CRC</strong> (cyclic redundancy check); the exact maths does not matter, the property does &mdash; it reliably catches the kinds of errors wires actually produce.</p>
+
+<p><strong>What you can do at this point:</strong> move a framed, error-checked chunk of bytes from one machine to exactly one other machine over one cable.</p>
+
+<p><strong>What's still broken:</strong> you have two machines and one cable. Add a third machine and you need another cable. Ten machines fully connected needs forty-five cables. This does not scale past a small room, and it is already unusable.</p>
+
+<h3>Node 2 &mdash; more than two machines: addresses, shared wire, and switches</h3>
+
+<p><strong>The limitation:</strong> one cable connects exactly two machines, and cabling every pair is combinatorially impossible.</p>
+
+<p>The fix is to stop giving every pair its own wire and instead let many machines share one connection point. But the instant more than two machines share a medium, a new question appears that never existed before: <strong>who is this frame for?</strong></p>
+
+<p>So every network interface gets a permanent, globally unique identifier burned in at the factory, called a <strong>MAC address</strong> [EXPLAIN] &mdash; six bytes, written as twelve hexadecimal digits like <code>a4:83:e7:2c:19:0f</code>. The first three bytes identify the manufacturer, the last three are that manufacturer's serial number. Every frame now carries two of these in its header: a destination MAC and a source MAC. A machine that receives a frame checks the destination; if it is not its own address, it drops it. That is the whole of <strong>Ethernet</strong> [EXPLAIN] addressing.</p>
+
+<p>Early Ethernet was genuinely one shared cable that every machine tapped into, which meant two machines transmitting simultaneously produced overlapping voltages and mutual garbage &mdash; a <strong>collision</strong>. The protocol handled it by having both senders detect the collision, stop, wait a random interval, and retry. This is why old networking material talks endlessly about collision domains and CSMA/CD [AWARE], and it is why the term "half-duplex" exists. It is almost entirely history now, and you should know it only well enough to recognise it in an old textbook and know it no longer applies.</p>
+
+<p>What replaced it is the <strong>switch</strong> [EXPLAIN], and this is a genuinely important idea. A switch is a box with many ports, one cable per machine. When a frame arrives on port 3 with source MAC <code>aa:bb:...</code>, the switch writes down "MAC <code>aa:bb:...</code> lives on port 3" in a table. When a frame arrives destined for <code>aa:bb:...</code>, it looks up the table and sends it out port 3 <em>only</em>. If it has not learned the address yet, it floods the frame out every port and learns from the reply. So a switch builds its own map of the network purely by watching traffic, with no configuration at all, and once it has learned, machines on different ports can transmit simultaneously without colliding. This is why modern wired networks essentially never collide.</p>
+
+<p>There is one more piece needed to make a network of many machines usable: <strong>broadcast</strong> [USE]. The special destination MAC <code>ff:ff:ff:ff:ff:ff</code> means "everyone on this network." A switch always floods a broadcast out every port. This is how a machine that knows nothing can ask a question of the whole room, and it is load-bearing for several protocols you will meet shortly. The set of machines that receive each other's broadcasts is called a <strong>broadcast domain</strong>, and it is the honest technical definition of "the same local network."</p>
+
+<p><strong>What you can do at this point:</strong> connect every machine in a building so that any one can send a frame to any other by name, without a cable per pair.</p>
+
+<p><strong>What's still broken:</strong> MAC addresses are flat and random. There is no structure in <code>a4:83:e7:2c:19:0f</code> that tells you where in the world that machine is. A switch works by memorising every address it has seen, which is fine for a few hundred machines in a building and completely impossible for a few billion machines on the planet. You cannot build a global network this way &mdash; nothing could hold the table.</p>
+
+<h3>Node 3 &mdash; networks of networks: IP addresses, subnets, and routers</h3>
+
+<p><strong>The limitation:</strong> flat addresses cannot scale globally, because reaching a machine would require every intermediate device to have memorised its exact location.</p>
+
+<p>The solution is to make addresses <strong>hierarchical</strong>, so that a device can make a correct forwarding decision while knowing only a general direction, not an exact destination. This is the single most important structural idea in networking, and it is worth having a non-technical version of it in your head: postal addresses work this way. A sorting office in Delhi does not know where your street is. It knows that anything for Mumbai goes on the Mumbai truck, and Mumbai will figure out the rest. Each hop needs only a coarse map plus a default of "if I do not know, send it upward."</p>
+
+<p>An <strong>IP address</strong> [EXPLAIN] is that hierarchical address. IPv4 writes it as four numbers from 0 to 255 &mdash; <code>192.168.1.7</code>, or <code>142.250.183.14</code> &mdash; which is really just a 32-bit number written in a readable way. Crucially, unlike a MAC address, an IP address is <strong>not</strong> a property of the hardware. It is assigned based on <em>where the machine currently is</em> in the network. Move your laptop from home to a caf&eacute; and its MAC address is identical and its IP address is completely different. That is the point: the address encodes location, which is what makes routing possible.</p>
+
+<p>The hierarchy is drawn by splitting the 32 bits into a <strong>network part</strong> and a <strong>host part</strong>. Which bits are which is stated by a <strong>prefix length</strong> written after a slash: <code>192.168.1.7/24</code> means the first 24 bits (<code>192.168.1</code>) identify the network and the remaining 8 bits identify the host within it. This notation is called <strong>CIDR</strong> [EXPLAIN], and the same thing is sometimes written as a <strong>subnet mask</strong> &mdash; <code>255.255.255.0</code> is exactly the same statement as <code>/24</code>, just in a clumsier format. A <code>/24</code> holds 256 addresses; a <code>/16</code> holds 65,536; a <code>/8</code> holds about 16.7 million. Each extra bit of prefix halves the block. You should be able to do this arithmetic on a whiteboard, because it comes up constantly in cloud configuration and in interviews.</p>
+
+<p>Now the decision procedure, which is the actual mechanism [EXPLAIN]. When a machine wants to send data to an IP address, it asks one question first: <em>is that address inside my own subnet?</em> It answers by applying its own prefix to both addresses and comparing. If yes, the destination is somewhere on the local network, reachable directly by a frame &mdash; the machine only needs the destination's MAC address, which it learns by broadcasting an <strong>ARP</strong> request [USE] meaning "whoever has <code>192.168.1.7</code>, tell me your MAC," and caching the answer. If no, the destination is elsewhere in the world, and the machine sends the frame to its <strong>default gateway</strong> instead: a router whose job is to be the door out.</p>
+
+<p>A <strong>router</strong> [EXPLAIN] is a device with interfaces on two or more networks and a <strong>routing table</strong> &mdash; a list of destination prefixes, each mapped to an outgoing interface and next hop, plus a default entry for everything else. When a packet arrives, the router finds the <em>most specific</em> matching prefix (a <code>/24</code> entry beats a <code>/16</code> entry beats the default) and forwards accordingly. That is it. That is the whole algorithm running the internet: each router knows only "for this range, go that way," and packets get progressively closer until one router is on the destination's actual local network and delivers the final frame.</p>
+
+<p>Notice the layering that just appeared, because it is the answer to a very common interview question. The <strong>IP packet</strong> &mdash; with source and destination IP &mdash; is placed inside an <strong>Ethernet frame</strong> &mdash; with source and destination MAC &mdash; for each individual hop. At every router the frame is stripped off and a new one written for the next hop, with new MAC addresses. The IP addresses stay the same the whole way; the MAC addresses change at every single hop. IP is the end-to-end identity, Ethernet is the local delivery mechanism, and the same packet gets rewrapped dozens of times on its journey.</p>
+
+<p><strong>What you can do at this point:</strong> send a packet to any machine on the planet, given its IP address, and have the network figure out a path.</p>
+
+<p><strong>What's still broken:</strong> "figure out a path" is doing enormous work in that sentence, and none of it is guaranteed. Nothing so far promises the packet arrives.</p>
+
+<h3>Node 4 &mdash; IP's honest contract: best effort, and everything that means</h3>
+
+<p><strong>The limitation:</strong> we can address anything globally, but we have said nothing about reliability &mdash; and it turns out IP deliberately promises almost nothing.</p>
+
+<p>This node has no new mechanism in it. It exists because the <em>absence</em> of guarantees at this layer is the reason half of the remaining chain exists, and because getting this wrong is the single most common way people's mental model of networking breaks.</p>
+
+<p>IP is a <strong>best-effort</strong> service [EXPLAIN]. It will try to deliver your packet. It makes exactly four non-promises, and you should be able to list them:</p>
+
+<ul>
+<li><strong>Packets can be lost.</strong> A router with a full queue drops packets. This is not a malfunction &mdash; it is the designed behaviour when demand exceeds capacity, and it is the network's only way of signalling overload. Lost packets are normal, constant, and expected.</li>
+<li><strong>Packets can arrive out of order.</strong> Two packets sent one after another may take different paths through the network and arrive in the opposite order.</li>
+<li><strong>Packets can be duplicated.</strong> A retransmission somewhere, or a routing loop, can cause the same packet to arrive twice.</li>
+<li><strong>Packets can be delayed arbitrarily.</strong> There is no upper bound on how long a packet may take.</li>
+</ul>
+
+<p>Corruption is partly handled: the IP header has a checksum, and Ethernet has its CRC, so badly damaged packets are discarded &mdash; which converts corruption into loss, not into wrong data. That is a meaningful guarantee and worth stating precisely: you will not silently receive garbage, but you will silently receive <em>nothing</em>.</p>
+
+<p>Two mechanisms in the IP header exist to bound the damage. <strong>TTL</strong> [USE], "time to live," is a number the sender sets (commonly 64) that each router decrements by one; at zero the packet is discarded and an error is reported back. This is what stops a routing loop from circulating a packet forever, and it is the mechanism <code>traceroute</code> abuses cleverly in Node 17. And <strong>MTU</strong> [EXPLAIN], the maximum transmission unit, is the largest frame a link can carry &mdash; typically 1500 bytes on Ethernet. A packet too large for the next link either gets fragmented into pieces or, more commonly today, gets dropped with an error telling the sender to send something smaller. MTU mismatches produce one of the nastiest failure signatures in all of networking: small requests work perfectly, large ones hang forever, because the small ones fit and the large ones are silently discarded by something in the middle. If you ever see "curl works but uploads hang," MTU is on the shortlist.</p>
+
+<p>There is a companion protocol here worth naming: <strong>ICMP</strong> [USE], which carries network-level error and diagnostic messages &mdash; "destination unreachable," "time exceeded," "fragmentation needed." It is not for application data. It is how the network tells you <em>why</em> something failed, and it is what <code>ping</code> and <code>traceroute</code> are built from. It is also frequently blocked by firewalls, which is why "ping does not work" is not evidence that a host is down.</p>
+
+<p><strong>What you can do at this point:</strong> understand exactly what the network guarantees, which is nearly nothing, and therefore understand exactly what your program must handle itself.</p>
+
+<p><strong>What's still broken:</strong> almost every program wants to send a stream of data and have all of it arrive, once each, in order. Best-effort delivery gives none of that. Building that on top of this, in every application, separately, would be insane.</p>
+
+<h3>Node 5 &mdash; TCP: turning a lossy packet service into a reliable ordered stream</h3>
+
+<p><strong>The limitation:</strong> IP loses, reorders and duplicates packets, and every application would otherwise have to solve that itself.</p>
+
+<p><strong>TCP</strong> [EXPLAIN] is the layer that takes best-effort packet delivery and presents an application with something completely different: a <strong>connection</strong> carrying an ordered, gap-free, exactly-once stream of bytes in each direction. Understanding how it manufactures that illusion is one of the highest-value things in this entire topic, because it is asked about constantly and because its failure modes leak into application code you will actually write.</p>
+
+<p><strong>Sequence numbers</strong> are the core trick. TCP treats the data you send as a numbered stream of bytes, and every segment it sends carries the sequence number of its first byte. The receiver can therefore reassemble segments into the right order regardless of arrival order, detect a duplicate (a sequence range it already has) and discard it, and detect a gap (missing sequence range) and hold later data until the hole is filled.</p>
+
+<p><strong>Acknowledgements and retransmission</strong> handle loss. The receiver continuously reports the sequence number it expects next, which implicitly acknowledges everything before it. The sender keeps every byte it has sent but not yet had acknowledged, and starts a timer. If the acknowledgement does not arrive before the timer fires, it sends the data again. That is it &mdash; that is how reliability is built out of an unreliable substrate, and note that it requires the sender to <em>buffer</em> data it has already handed to the network, which matters in Node 6.</p>
+
+<p><strong>The three-way handshake</strong> [EXPLAIN] establishes the connection, and it is the single most-asked mechanism in networking interviews. The client sends a <code>SYN</code> (synchronise) carrying its initial sequence number. The server replies with a <code>SYN-ACK</code>, acknowledging the client's number and carrying its own. The client replies with an <code>ACK</code> of the server's. Three messages, one and a half round trips, and only after that can any application data flow. Two things follow from this that you should be able to say immediately: <strong>opening a TCP connection costs a full round trip before any useful byte moves</strong>, which is why connection reuse and pooling matter so much; and the exchange of initial sequence numbers is what makes it hard for an off-path attacker to inject data into your connection, since they would have to guess a random 32-bit number.</p>
+
+<p><strong>Closing</strong> is asymmetric and is where an interview usually goes next. Each direction is closed independently with a <code>FIN</code>, so a connection can be half-closed &mdash; one side done sending, still receiving. After the final close, the side that closed first sits in a state called <strong>TIME_WAIT</strong> [USE] for roughly two minutes, holding the port, so that any straggling packets from the old connection cannot be mistaken for part of a new one on the same port pair. This is why a busy server can accumulate tens of thousands of sockets in <code>TIME_WAIT</code>, and why that is normal rather than a leak. Meanwhile <code>RST</code> is the abrupt version: a reset, meaning "there is no connection here, stop." A <code>RST</code> is what you get when you connect to a port nothing is listening on, and "connection reset by peer" in a stack trace means the other end sent one.</p>
+
+<p>The abstraction TCP gives you is genuinely a <strong>byte stream, not a message stream</strong> [EXPLAIN], and this is a real source of bugs. If you write 100 bytes and then 50 bytes, the other side may read 150 in one go, or 3 bytes then 147, or any other split. TCP guarantees the <em>order and completeness</em> of the bytes and nothing whatsoever about the boundaries. Framing &mdash; the same problem from Node 1 &mdash; has to be solved <em>again</em> by whatever protocol runs on top. This is exactly why HTTP has a <code>Content-Length</code> header, why WebSockets has its own frame header, and why every hand-rolled TCP protocol reinvents length-prefixing.</p>
+
+<p><strong>What you can do at this point:</strong> write two programs on different continents that exchange data reliably and in order, without either of them containing a single line of retransmission logic.</p>
+
+<p><strong>What's still broken:</strong> the sender can now push data as fast as it likes, and there are two entirely different reasons that is a disaster &mdash; the receiver may not be able to keep up, and the network in between certainly cannot.</p>
+
+<h3>Node 6 &mdash; flow control and congestion control: why your throughput is not your bandwidth</h3>
+
+<p><strong>The limitation:</strong> reliable delivery says nothing about <em>rate</em>, and an unrestrained sender destroys either the receiver or the network.</p>
+
+<p>These are two separate problems with two separate mechanisms, and conflating them is a very common mistake worth getting straight now.</p>
+
+<p><strong>Flow control</strong> [EXPLAIN] protects the <em>receiver</em>. The receiving machine has a limited buffer for data that has arrived but which the application has not read yet. So every TCP acknowledgement also carries a <strong>receive window</strong>: a number saying "I have this many bytes of space left." The sender must never have more unacknowledged data in flight than that window allows. If the application stops reading, the buffer fills, the advertised window shrinks to zero, and the sender stops. This is why a slow consumer eventually applies backpressure all the way to the producer &mdash; a property you will meet again in Node.js streams and in job queues, where it is the same idea under a different name.</p>
+
+<p><strong>Congestion control</strong> [EXPLAIN] protects the <em>network</em>. Nobody tells the sender how much capacity the path has, and the path is shared with everyone else. So TCP discovers it experimentally: it maintains a <strong>congestion window</strong>, starts small, and increases it as acknowledgements come back &mdash; <strong>slow start</strong> doubles it every round trip, which despite the name is exponential and quite fast. When it detects loss, it treats that as evidence of congestion and cuts the window sharply, then grows again more cautiously. This "increase until it breaks, back off, repeat" loop is running in every TCP connection on earth right now, and it is why the internet does not collapse under load. The classic algorithm is <strong>Reno</strong>, the common modern one is <strong>CUBIC</strong>, and Google's <strong>BBR</strong> [AWARE] takes a different approach by modelling the path's bandwidth and delay directly instead of waiting for loss. You do not need the algorithms; you need the shape of the idea.</p>
+
+<p>The consequence you must be able to state, because it explains an enormous amount of real-world performance behaviour: <strong>the amount of data you can have in flight is limited by the window, so your maximum throughput is roughly the window size divided by the round-trip time</strong> [EXPLAIN]. This is the <em>bandwidth-delay product</em>, and it means a link with huge bandwidth and high latency will feel slow unless the window is large. A single TCP connection between Mumbai and Virginia does not saturate a gigabit link, no matter what the link is rated at. Latency, not bandwidth, is what you are usually fighting.</p>
+
+<p>That leads to the distinction to keep permanently: <strong>bandwidth</strong> is capacity per second, <strong>latency</strong> is delay for one trip, <strong>round-trip time</strong> is there and back, and <strong>throughput</strong> is what you actually achieve, which is usually far below bandwidth. Adding bandwidth does not reduce latency; latency is bounded below by the speed of light in fibre, which works out to roughly 5 microseconds per kilometre, and no amount of money changes that. A round trip between India and the US east coast has a hard floor around 200 milliseconds. This single fact is why CDNs exist (Node 13), why chatty protocols are slow, and why "reduce the number of round trips" is the most reliable performance advice in networked systems.</p>
+
+<p>One more real-world phenomenon worth naming: <strong>bufferbloat</strong> [AWARE]. Routers with very large queues delay packets instead of dropping them, which hides the congestion signal from TCP and produces terrible latency while bandwidth looks fine. It is why a large upload can make an unrelated video call unusable on the same connection.</p>
+
+<p><strong>What you can do at this point:</strong> reason about why a transfer is slow, and know whether to look at window size, round trips, or raw capacity.</p>
+
+<p><strong>What's still broken:</strong> all of this describes a connection between two <em>machines</em>. But a machine runs many programs at once, and "deliver these bytes to that computer" is not specific enough to be useful.</p>
+
+<h3>Node 7 &mdash; ports and sockets: the API you actually program against</h3>
+
+<p><strong>The limitation:</strong> an IP address identifies a machine, but a machine runs a web server, a database, and an SSH daemon simultaneously, and IP has no way to say which one a packet is for.</p>
+
+<p>A <strong>port</strong> [EXPLAIN] is a 16-bit number &mdash; 0 to 65535 &mdash; carried in the TCP header, present in both source and destination form. It is the last piece of addressing: the IP address gets the packet to the machine, and the port gets it to the right program on that machine. Certain numbers are conventional rather than enforced: <code>80</code> for HTTP, <code>443</code> for HTTPS, <code>22</code> for SSH, <code>5432</code> for Postgres, <code>6379</code> for Redis, <code>3000</code> and <code>8080</code> for "a dev server, by tradition." Nothing stops you running a web server on <code>5432</code>; the number is a convention so that clients know where to look without being told.</p>
+
+<p>The identity of a connection is therefore not one address but four values: <strong>source IP, source port, destination IP, destination port</strong> [EXPLAIN]. This <strong>4-tuple</strong> is what uniquely identifies a TCP connection, and once you have it, several things that seem confusing become obvious. Ten browser tabs can all connect to the same server on port 443 because each gets a <em>different</em> random source port, making each 4-tuple unique. One server on one port can hold a hundred thousand simultaneous connections, because it is distinguishing them by client IP and client port, not by its own port. And "port already in use" means something is <em>listening</em>, not that connections exist.</p>
+
+<p>The programming interface for all of this is the <strong>socket</strong> [EXPLAIN], and although the exact function names differ by language, the shape is universal and worth memorising because it explains a great deal of framework behaviour. A server <strong>binds</strong> to an address and port, claiming it; <strong>listens</strong>, which creates a queue of incoming connection attempts (the <em>backlog</em>); and then repeatedly <strong>accepts</strong>, which pulls one completed connection off that queue and hands back a new socket dedicated to that one client. Note carefully: the listening socket and the connection socket are different objects. A client, meanwhile, just <strong>connects</strong> to an address and port, and the operating system assigns it a free random source port automatically &mdash; an <em>ephemeral port</em>. From then on both sides simply read and write bytes, and eventually close.</p>
+
+<p>In Node.js, <code>server.listen(3000)</code> is bind-plus-listen, and every <code>connection</code> event is an accept. Frameworks bury this, but it is exactly this sequence underneath, and being able to say so is a real differentiator in an interview.</p>
+
+<p>Two operational consequences of ports that bite people. First, <strong>ephemeral port exhaustion</strong> [USE]: a client machine has a limited range of source ports (commonly around 28,000 usable), and each is held for the <code>TIME_WAIT</code> period after close, so a service making very high rates of short-lived outbound connections can genuinely run out and start failing to connect. The fix is connection reuse &mdash; which is exactly what an HTTP keep-alive agent or a database connection pool is for. Second, <strong>binding to <code>0.0.0.0</code> versus <code>127.0.0.1</code></strong> [USE] decides who can reach you: <code>127.0.0.1</code> is the loopback interface, reachable only from the same machine, while <code>0.0.0.0</code> means every interface. Bind a container's server to <code>127.0.0.1</code> and it will work perfectly inside the container and be completely unreachable from outside, which is one of the most common Docker mistakes there is.</p>
+
+<p><strong>What you can do at this point:</strong> write a real network server and a real client, understand what your framework's <code>listen</code> call is doing, and diagnose port-level failures.</p>
+
+<p><strong>What's still broken:</strong> TCP's guarantees are expensive. The handshake costs a round trip, and its in-order delivery means one lost packet stalls everything behind it. For some applications that is exactly wrong.</p>
+
+<h3>Node 8 &mdash; UDP: when reliability is the wrong default</h3>
+
+<p><strong>The limitation:</strong> TCP makes you pay for ordering and retransmission even when late data is worse than no data.</p>
+
+<p><strong>UDP</strong> [EXPLAIN] is what IP looks like with ports bolted on and nothing else added. A datagram has a source port, destination port, length, checksum, and your data. No handshake, no acknowledgements, no retransmission, no ordering, no congestion control. You send a datagram; it probably arrives; you find out only if the application tells you.</p>
+
+<p>That sounds strictly worse, and for a file transfer it is. But consider a voice call. If a packet of audio from 300 milliseconds ago is lost, retransmitting it is useless &mdash; by the time the copy arrives, that moment of speech has passed, and inserting it would be worse than the small glitch of skipping it. TCP would not only retransmit it, it would <em>hold back all the audio that arrived after it</em> until the gap was filled, turning a tiny glitch into a freeze. This is <strong>head-of-line blocking</strong> [EXPLAIN], and it is the fundamental cost of in-order delivery. For real-time media, it is unacceptable, so real-time media uses UDP.</p>
+
+<p>The same logic covers the other classic uses. <strong>DNS</strong> (Node 10) uses UDP because a query and response are one small packet each and the client can simply ask again &mdash; a handshake would triple the cost of a lookup. Online games use it because position updates supersede each other; a lost update is fixed by the next one. Metrics and logging systems often use it because losing a sample is cheaper than slowing down the application. And QUIC (Node 14) uses UDP as a base layer precisely so it can implement <em>its own</em> better-tuned reliability on top, rather than inheriting TCP's.</p>
+
+<p>The rule to carry: <strong>UDP is not "unreliable TCP," it is "TCP's guarantees are not free, and here is the version where you choose which ones you want."</strong> Anything built on UDP that needs reliability implements it itself, tailored to the application.</p>
+
+<p>One practical note: because UDP has no connection state, it is trivially spoofable and is the workhorse of amplification attacks [AWARE] &mdash; an attacker sends a small query with a forged source address to a server that replies with a large response, aimed at the victim. This is why many UDP services are restricted or rate-limited at the network edge.</p>
+
+<p><strong>What you can do at this point:</strong> choose the right transport for a workload, and explain head-of-line blocking, which is the single concept that keeps recurring for the rest of this chain.</p>
+
+<p><strong>What's still broken:</strong> everything so far assumed every machine has a globally unique, routable IP address. That has not been true for most of the internet's history, and it is definitely not true of your laptop.</p>
+
+<h3>Node 9 &mdash; private addresses, NAT, and why your laptop cannot be reached</h3>
+
+<p><strong>The limitation:</strong> IPv4 has about 4.3 billion addresses, there are far more devices than that, and the addresses ran out.</p>
+
+<p>Certain ranges were reserved as <strong>private</strong> [EXPLAIN] &mdash; <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code>, and <code>192.168.0.0/16</code> &mdash; and declared non-routable on the public internet. Anyone may use them internally, and everyone does. Your home network, your office, your cloud VPC, and the network inside a Docker host are all using the same handful of ranges, simultaneously, all over the world. That is fine precisely because no router on the internet will forward a packet addressed to one.</p>
+
+<p>Which raises the obvious problem: if your laptop is <code>192.168.1.7</code>, how does a reply from a server on the other side of the world reach it? The answer is <strong>NAT</strong> [EXPLAIN], network address translation, performed by your router. When a packet leaves your network, the router rewrites the source IP from <code>192.168.1.7</code> to its own public address, and rewrites the source port to a unique number it picks. It records the mapping in a table: "public port 51234 corresponds to <code>192.168.1.7</code> port 49152." When a reply arrives addressed to public port 51234, it looks up the table, rewrites the destination back, and forwards it inward. Every device behind the router shares one public address, distinguished by port. This one hack is the reason IPv4 survived long past the point where the addresses ran out.</p>
+
+<p>The consequences are large and you meet them constantly. <strong>NAT is fundamentally asymmetric</strong> &mdash; the mapping is created by an outbound packet, so a machine behind NAT can start conversations but cannot receive them. There is no table entry for an unsolicited inbound packet, so it is dropped. Your laptop is not addressable from the internet, and neither is a server in a private subnet. This is why you need <strong>port forwarding</strong> [USE] to expose a home server, why a service in a cloud private subnet needs a load balancer or NAT gateway to be reachable, why peer-to-peer applications need elaborate <strong>hole-punching</strong> techniques [AWARE] with helper servers (STUN/TURN, used by every video call product), and why tools like ngrok and Cloudflare Tunnel exist at all &mdash; they work by having your machine make an <em>outbound</em> connection to a public relay, which then rides that existing connection backwards.</p>
+
+<p>It also means <strong>NAT is a stateful device with a finite table and idle timeouts</strong> [USE]. If a TCP connection sits idle longer than the NAT's timeout, the entry is evicted and the connection is silently dead &mdash; both endpoints still think it is open, and the failure only surfaces when someone finally sends something. This is the true cause of a large fraction of mysterious "the database connection was fine an hour ago" incidents, and it is why TCP keepalives and application-level pings exist.</p>
+
+<p><strong>IPv6</strong> [USE] is the actual fix: 128-bit addresses, written as eight groups of hex like <code>2001:db8::1</code>, in numbers so large that every device on earth can have a globally unique address forever and NAT becomes unnecessary. Adoption is now substantial and mostly runs alongside IPv4 in <em>dual-stack</em> mode. The practical thing to know is the notation, the fact that <code>::</code> is shorthand for a run of zero groups, that <code>::1</code> is the loopback address, and that a program which resolves a name may get an IPv6 address and fail if only IPv4 connectivity works &mdash; a real and confusing failure mode when a hostname resolves to both.</p>
+
+<p><strong>What you can do at this point:</strong> explain why a service is unreachable, design what needs a public address and what does not, and recognise idle-timeout failures.</p>
+
+<p><strong>What's still broken:</strong> everything so far requires you to know a numeric address. Nobody knows numeric addresses, and they change.</p>
+
+<h3>Node 10 &mdash; names: DNS, and the world's largest cache</h3>
+
+<p><strong>The limitation:</strong> humans cannot use IP addresses, and addresses change independently of the service they point at.</p>
+
+<p><strong>DNS</strong> [EXPLAIN] is a globally distributed database that maps names to values, and it is a genuinely beautiful piece of hierarchical design that follows exactly the same principle as IP routing: no single participant knows everything, and each one knows enough to point you closer.</p>
+
+<p>The hierarchy is read right to left. In <code>api.example.com.</code> &mdash; the trailing dot is the invisible root &mdash; the <strong>root</strong> servers know who runs <code>com</code>, the <code>com</code> <strong>TLD</strong> servers know which nameservers are authoritative for <code>example.com</code>, and those <strong>authoritative</strong> nameservers know the actual record for <code>api</code>. Resolving a name from scratch means walking down that chain, which is called <strong>recursive resolution</strong> and is normally done on your behalf by a <strong>resolver</strong> [EXPLAIN] &mdash; your ISP's, or a public one like <code>8.8.8.8</code> or <code>1.1.1.1</code>. Your machine itself is a <em>stub</em> resolver: it asks one configured resolver and takes the answer.</p>
+
+<p>The record types you need cold [USE]: <strong>A</strong> maps a name to an IPv4 address; <strong>AAAA</strong> to an IPv6 address; <strong>CNAME</strong> makes a name an alias for another name, which is what a PaaS gives you when it says "point your domain here"; <strong>MX</strong> designates mail servers; <strong>TXT</strong> holds arbitrary text, which is how domain-ownership verification and email anti-spoofing records work; and <strong>NS</strong> delegates a zone to a set of nameservers. There are two rules about CNAME that catch people constantly: a CNAME cannot coexist with other records on the same name, and therefore you cannot put one at the apex of a domain (<code>example.com</code> itself), because the apex must carry NS records. Providers work around this with non-standard "ALIAS" or "flattened CNAME" records.</p>
+
+<p>The load-bearing concept is <strong>caching and TTL</strong> [EXPLAIN]. Every record is returned with a <strong>time to live</strong> in seconds, and every resolver along the way may cache it for that long. This is what makes DNS survivable at internet scale &mdash; the root servers are not consulted for every lookup, because the answers persist. But it means DNS changes are not instant and cannot be made instant: if a record had a TTL of 86400, some resolver may serve the old answer for the next 24 hours regardless of what you do. The professional move, and a good interview answer, is to <strong>lower the TTL well in advance of a planned migration</strong> &mdash; drop it to 60 seconds a day before, make the change, then raise it again. Also worth knowing: some clients cache beyond the TTL. The JVM historically cached DNS forever by default, and Node.js does not cache at all by default, which is a different problem &mdash; it means every outbound request may pay a resolution cost unless you add a caching agent.</p>
+
+<p>Two more things you will actually meet. <strong>Multiple A records for one name</strong> [USE] is the crudest form of load balancing &mdash; a resolver returns several addresses, often rotated, and the client picks one; it distributes load but knows nothing about health or capacity. And <strong>DNS is not authentication</strong> [EXPLAIN]: the plain protocol is unencrypted UDP with no signatures, so answers can be observed and forged. <strong>DNSSEC</strong> [AWARE] adds cryptographic signatures to records; <strong>DoH</strong> and <strong>DoT</strong> [AWARE] encrypt the query itself against the resolver. None of them tell you the <em>server</em> you eventually connect to is legitimate &mdash; that is Node 12's job, and confusing the two is a genuine misconception.</p>
+
+<p><strong>What you can do at this point:</strong> register a name, point it at a server, understand why a change has not taken effect, and read <code>dig</code> output.</p>
+
+<p><strong>What's still broken:</strong> we can now reach a named machine, reliably, on a chosen port. But two programs that connect still have nothing to say &mdash; we are back at Node 0's second problem, now at the top of a very tall stack.</p>
+
+<h3>Node 11 &mdash; application protocols, and HTTP as the shape of one</h3>
+
+<p><strong>The limitation:</strong> a reliable byte stream to the right program is not a conversation; both sides still need an agreed structure for requests and answers.</p>
+
+<p>An <strong>application protocol</strong> [EXPLAIN] is the agreement layered on top of TCP that says what a message looks like and what it means. Many exist &mdash; SMTP for mail, SSH for remote shells, the Postgres wire protocol, Redis's RESP &mdash; and they share a common set of design decisions worth seeing once, because you will recognise them everywhere afterwards. Each must decide: how are message boundaries marked (remember Node 5 &mdash; TCP will not do it for you); is it text or binary; is it request/response or can either side speak first; is there state carried between messages; and how are errors reported.</p>
+
+<p><strong>HTTP/1.1</strong> [EXPLAIN] answers these in a way that is worth knowing precisely, because it is the protocol you will use most and because its design choices explain almost every performance workaround in web development. It is plain text. A request is a start line (<code>GET /users/7 HTTP/1.1</code>), then headers as <code>Name: value</code> lines, then a blank line, then an optional body. A response is a status line (<code>HTTP/1.1 200 OK</code>), headers, blank line, body. Message boundaries are drawn by the <code>Content-Length</code> header, or by <em>chunked transfer encoding</em> when the length is not known upfront &mdash; each chunk prefixed by its own size, ending with a zero-size chunk. That is framing solved, again, for the third time in this chain.</p>
+
+<p>It is <strong>request/response and client-initiated</strong>: the server cannot speak first, ever. This one property is the reason Node 15 exists. And it is <strong>stateless by design</strong> &mdash; each request is independent and the server is not required to remember anything about previous ones &mdash; which is why cookies and tokens exist as an explicit mechanism to carry identity across otherwise unrelated requests, and why "HTTP is stateless" and "my app has sessions" are not a contradiction.</p>
+
+<p>The relationship between HTTP and TCP is where people get vague, so be precise [EXPLAIN]: HTTP/1.1 sends a request as bytes on a TCP connection and reads the response bytes back. <strong>Keep-alive</strong> is on by default in 1.1, meaning the connection stays open for further requests instead of being torn down &mdash; which matters enormously, because otherwise every request pays a fresh three-way handshake. What 1.1 <em>cannot</em> do is send a second request before the first response arrives; the connection handles one exchange at a time. That is HTTP-level head-of-line blocking, and it is why browsers open six connections per host, and why the old advice to bundle files and use sprites and shard across domains existed at all. All of that is Node 14's problem.</p>
+
+<p>The rest of HTTP &mdash; methods and their semantics, status code families, caching headers, content negotiation &mdash; is its own catalog topic and there is a full <code>http</code> slug for it. What belongs <em>here</em> is the structural understanding: it is a text protocol, framed by length, running over a TCP connection, request/response, client-initiated, stateless.</p>
+
+<p><strong>What you can do at this point:</strong> hand-write an HTTP request into a raw socket and read the reply, which is genuinely worth doing once.</p>
+
+<p><strong>What's still broken:</strong> every byte of that plain-text conversation is visible to every device on the path &mdash; the caf&eacute;'s router, the ISP, every intermediate network &mdash; and any of them can also modify it undetectably.</p>
+
+<h3>Node 12 &mdash; TLS: privacy, integrity, and knowing who you're talking to</h3>
+
+<p><strong>The limitation:</strong> everything up to here is transmitted in the clear and can be read or altered by anything on the path.</p>
+
+<p><strong>TLS</strong> [EXPLAIN] wraps a TCP connection in a layer that provides three distinct properties, and separating them is the whole point of understanding it:</p>
+
+<ul>
+<li><strong>Confidentiality</strong> &mdash; an observer sees only ciphertext.</li>
+<li><strong>Integrity</strong> &mdash; modification in transit is detected and the connection fails rather than silently delivering altered data.</li>
+<li><strong>Authentication</strong> &mdash; you have cryptographic evidence you are talking to the server the name belongs to.</li>
+</ul>
+
+<p>The third is the hard one, and it is where most explanations go fuzzy. Encryption alone is worthless without it: if an attacker can intercept your connection and hand you <em>their</em> key, you will have a beautifully encrypted conversation with the attacker. So TLS uses <strong>certificates</strong> [EXPLAIN]. A certificate is a document containing a public key and a set of names it is valid for, signed by a <strong>certificate authority</strong>. Your machine ships with a store of a few hundred CA certificates it trusts. When a server presents its certificate, your client checks that the signature chains up to one of those trusted roots, that the certificate covers the hostname you actually asked for, and that it is within its validity dates. Only then does it proceed. This is why a self-signed certificate produces a browser warning &mdash; it is perfectly good encryption with no authentication.</p>
+
+<p>The handshake, in shape rather than detail [EXPLAIN]: the client offers the versions and cipher suites it supports; the server picks one and sends its certificate; the two run a key exchange that produces a shared symmetric key that an observer cannot derive even having watched every byte; and from then on all traffic is encrypted with that fast symmetric key. Public-key cryptography is used only to establish the session key, because it is far too slow for bulk data. Modern key exchange uses ephemeral Diffie-Hellman, which gives <strong>forward secrecy</strong> [AWARE]: recording the traffic today and stealing the server's private key next year still does not decrypt it, because the session key was never transmitted and no longer exists.</p>
+
+<p>The costs and version facts to keep straight [USE]. TLS 1.2 needs two extra round trips on top of the TCP handshake; <strong>TLS 1.3</strong>, standardised in 2018, cuts that to one and removes every legacy cipher, and is what you should assume today. <strong>HTTPS is exactly HTTP inside TLS</strong>, on port 443 by convention, with no changes to HTTP itself. <strong>SNI</strong> &mdash; server name indication [EXPLAIN] &mdash; is the client stating the hostname it wants at the very start of the handshake, in the clear, which is what allows one IP address to host many HTTPS sites; it is also the field corporate filters and national firewalls read to decide what to block. Certificates expire, typically in 90 days with Let's Encrypt, which is why automated renewal is mandatory rather than optional and why "the site went down on a Sunday" is so often an expired certificate.</p>
+
+<p>Two structural points people confuse. <strong>TLS terminates somewhere</strong>, and it is usually not your application: a load balancer or reverse proxy decrypts, and the traffic behind it may be plain HTTP inside a private network. That is why your app sees <code>http://</code> in its own request objects and must trust <code>X-Forwarded-Proto</code> to know what the client actually used. And <strong>TLS authenticates the server to the client by default</strong> &mdash; client certificates exist (<strong>mTLS</strong> [AWARE], common between internal services) but are not what a browser does; browsers authenticate <em>users</em> at the application layer, with passwords and cookies, which is a completely separate thing at a completely different layer.</p>
+
+<p><strong>What you can do at this point:</strong> explain what a padlock actually proves, debug a certificate failure, and know exactly which of the three properties is missing in a given misconfiguration.</p>
+
+<p><strong>What's still broken:</strong> the connection is now secure and correct, and it goes to one machine. One machine can fail, can be overwhelmed, and is physically far from most of your users &mdash; and Node 6 already established that distance is latency you cannot buy your way out of.</p>
+
+<h3>Node 13 &mdash; more than one server: load balancers, reverse proxies, anycast and CDNs</h3>
+
+<p><strong>The limitation:</strong> a single server is a single point of failure, a fixed capacity ceiling, and a fixed physical location.</p>
+
+<p>Put several identical servers behind one entry point. That entry point is a <strong>load balancer</strong> [EXPLAIN], and the first real decision is what layer it operates at. An <strong>L4</strong> load balancer forwards TCP connections without looking inside them &mdash; fast, protocol-agnostic, and unable to make decisions based on URL or headers. An <strong>L7</strong> load balancer terminates the connection, parses HTTP, and can route by path or host, retry a failed request on another backend, and handle TLS termination. Most web traffic goes through L7; databases and raw TCP services go through L4.</p>
+
+<p>Distribution policy [USE] is usually round-robin, least-connections, or a hash of some request property. That last one gives you <strong>sticky sessions</strong> &mdash; the same client consistently reaching the same backend &mdash; which sounds convenient and is a design smell: it means your servers hold per-user state in memory, which breaks as soon as one restarts. The correct answer is almost always <strong>stateless application servers</strong> with shared state in a database or Redis, which is exactly why interviewers ask about sticky sessions. <strong>Health checks</strong> [USE] are what make the whole thing work: the balancer periodically probes each backend and removes failing ones, which is what turns "a server died" into "nothing happened."</p>
+
+<p>A <strong>reverse proxy</strong> [EXPLAIN] is the same machinery viewed differently &mdash; Nginx or Caddy sitting in front of your application, terminating TLS, serving static files, compressing responses, buffering slow clients so they do not tie up application workers, and passing the rest through. It is called <em>reverse</em> because a forward proxy sits in front of <em>clients</em> on their behalf; a reverse proxy sits in front of <em>servers</em> on theirs. The header set this introduces matters practically: <code>X-Forwarded-For</code> carries the original client IP, <code>X-Forwarded-Proto</code> the original scheme, and an application behind a proxy that does not read them will log the proxy's IP for every user and think every request is plain HTTP.</p>
+
+<p>Now the location problem, which is the more interesting half. Load balancing gives you capacity and resilience, but every user still crosses the same distance. <strong>Anycast</strong> [AWARE] attacks this at the routing layer: the same IP address is announced from many locations worldwide, and BGP &mdash; the protocol by which networks tell each other which prefixes they can reach &mdash; naturally delivers each user's packets to the nearest one. This is how <code>1.1.1.1</code> is fast from everywhere. <strong>GeoDNS</strong> achieves something similar at the naming layer by returning different addresses depending on where the query came from.</p>
+
+<p>A <strong>CDN</strong> [EXPLAIN] combines both with caching. Servers in hundreds of cities hold copies of your content; a user's request lands at the nearest edge; if that edge has a fresh copy it answers immediately, and if not it fetches from your origin, caches it, and serves it. The wins compound: the round-trip time drops from 200 milliseconds to 10, the TLS handshake happens at the edge rather than across the world, your origin sees a small fraction of the traffic, and a flood of requests is absorbed by the edge rather than reaching you. Cache correctness &mdash; <code>Cache-Control</code>, <code>ETag</code>, purging, and the difference between static assets and dynamic HTML &mdash; is where CDNs actually get hard, and it has its own catalog topic.</p>
+
+<p><strong>What you can do at this point:</strong> design a system that survives a server failing and does not make every user pay a transcontinental round trip.</p>
+
+<p><strong>What's still broken:</strong> we have optimised the network path thoroughly, but the protocol riding on it is still HTTP/1.1, which can only carry one exchange at a time per connection.</p>
+
+<h3>Node 14 &mdash; HTTP/2 and HTTP/3: fixing head-of-line blocking, twice</h3>
+
+<p><strong>The limitation:</strong> HTTP/1.1 handles one request at a time per connection, so a page needing fifty resources either serialises them or opens many connections, each paying its own handshakes.</p>
+
+<p><strong>HTTP/2</strong> [USE], standardised in 2015 and derived from Google's SPDY, changes the framing and nothing about the semantics. Methods, status codes, and headers mean exactly what they did. What changes is that the protocol becomes <strong>binary</strong> and gains <strong>streams</strong>: one TCP connection carries many independent, interleaved request/response exchanges, each identified by a stream ID and split into frames. Fifty resources now travel over one connection, concurrently. It also adds <strong>header compression</strong> (HPACK), which matters more than it sounds &mdash; HTTP requests carry large, highly repetitive header sets, and compressing them against a shared table removes real bytes from every request. <strong>Server push</strong> was part of the spec and has been effectively abandoned; it is worth knowing only so you can say it was removed from browsers, which is a nice signal of currency.</p>
+
+<p>And then the flaw, which is the entire reason HTTP/3 exists [EXPLAIN]. HTTP/2 removed head-of-line blocking at the <em>HTTP</em> layer, but all those streams still ride a single <em>TCP</em> connection, and TCP guarantees in-order delivery of the whole byte stream. So one lost packet stalls TCP's delivery to the application &mdash; and therefore stalls <strong>every</strong> stream, including the forty-nine that had nothing to do with the lost packet. On a clean network HTTP/2 is a clear win; on a lossy mobile network it can be worse than several parallel HTTP/1.1 connections. You cannot fix this from inside HTTP, because the problem is in the transport underneath.</p>
+
+<p><strong>HTTP/3</strong> [USE], standardised in 2022, fixes it by replacing the transport. It runs on <strong>QUIC</strong> [EXPLAIN], which is a new transport protocol built on top of <strong>UDP</strong> &mdash; precisely the choice Node 8 set up. QUIC reimplements reliability, ordering, and congestion control itself, but <em>per stream</em>, so a lost packet stalls only the stream it belonged to. It also folds the TLS 1.3 handshake into the transport handshake, so a connection is established in one round trip instead of TCP's handshake plus TLS's, and can be zero round trips on resumption. And it identifies connections by a <strong>connection ID</strong> rather than the 4-tuple, so a phone switching from Wi-Fi to mobile data keeps its connection alive despite its IP address changing completely &mdash; which under TCP would kill it.</p>
+
+<p>Why UDP rather than a genuinely new protocol? Because of Node 9's world. Middleboxes &mdash; NAT devices, firewalls &mdash; understand TCP and UDP and drop everything else. A new transport protocol would be undeployable on the real internet. So QUIC hides inside UDP, which every middlebox already passes.</p>
+
+<p><strong>What you can do at this point:</strong> explain why a protocol version changed, what it fixed, and what it did not &mdash; and recognise that the recurring villain across Nodes 8, 14 and 15 is always head-of-line blocking.</p>
+
+<p><strong>What's still broken:</strong> all three HTTP versions are still client-initiated request/response. A server that has news for the client has no way to say so.</p>
+
+<h3>Node 15 &mdash; when the server needs to speak first: polling, SSE and WebSockets</h3>
+
+<p><strong>The limitation:</strong> HTTP in every version requires the client to ask, so a server with new data must wait to be asked.</p>
+
+<p>The naive answer is <strong>polling</strong> [USE]: the client asks every few seconds. It works and it is terrible &mdash; latency averages half the interval, and the overwhelming majority of requests return nothing while still paying full request cost across your whole stack.</p>
+
+<p><strong>Long polling</strong> [USE] improves it: the client makes a request and the server simply does not answer until it has something, holding the connection open, then the client immediately reissues. Latency becomes near-zero and wasted requests mostly disappear. The costs are that every held connection occupies a server resource, and intermediaries and NAT devices may time out an idle connection (Node 9 again), so you need a periodic no-op response to keep it alive.</p>
+
+<p><strong>Server-Sent Events</strong> [USE] standardises this properly for one-way flow. The server responds with <code>Content-Type: text/event-stream</code> and never closes; it writes small text-framed messages as they occur. It is plain HTTP &mdash; it works through proxies, benefits from HTTP/2 multiplexing, and browsers reconnect automatically with an event ID for resumption. It is the correct default for notifications, live dashboards, progress updates, and &mdash; very relevantly &mdash; <strong>streaming LLM responses token by token</strong>, which is exactly what a qbank-style generation endpoint would use.</p>
+
+<p><strong>WebSockets</strong> [EXPLAIN] give full bidirectional communication. The connection starts as an ordinary HTTP request carrying <code>Upgrade: websocket</code>; the server replies <code>101 Switching Protocols</code>; and from that point the TCP connection stops speaking HTTP entirely and speaks the WebSocket frame protocol instead &mdash; its own binary framing, message boundaries preserved, either side able to send at any moment. That upgrade handshake is why WebSockets traverse HTTP infrastructure, and why proxies and load balancers need explicit configuration to allow it.</p>
+
+<p>The choice, stated as a rule you can give in an interview [USE]: <strong>if data flows one way, from server to client, use SSE; if both sides need to send freely, use WebSockets.</strong> People reach for WebSockets by default and pay for bidirectionality they do not use &mdash; a stateful connection outside normal HTTP semantics, with no automatic reconnection, no built-in request/response correlation, and awkward interaction with load balancers and authentication. And all of these share one structural problem worth naming now, because it is the thing that actually breaks in production: <strong>persistent connections are stateful, and horizontal scaling is not</strong> [EXPLAIN]. If a user is connected to server A and the event arrives at server B, B cannot reach them. You need a shared pub/sub layer &mdash; Redis is the usual answer &mdash; so every server can broadcast to its own connected clients. That is a genuinely good architecture answer and most candidates miss it.</p>
+
+<p><strong>What you can do at this point:</strong> choose and defend a real-time transport, and know what breaks when you run more than one instance of it.</p>
+
+<p><strong>What's still broken:</strong> every mechanism so far assumed packets simply go where they are addressed. In any real network &mdash; corporate, cloud, containerised &mdash; devices in the middle are actively deciding what to allow, and they will be the reason your thing does not work.</p>
+
+<h3>Node 16 &mdash; middleboxes: firewalls, proxies, and the network as a policy layer</h3>
+
+<p><strong>The limitation:</strong> real networks are not neutral pipes; things in the middle inspect, filter, and rewrite traffic, and their rules are invisible from the endpoints.</p>
+
+<p>A <strong>firewall</strong> [EXPLAIN] permits or denies traffic by rule &mdash; typically matching on source address, destination address, port and protocol. A <strong>stateful</strong> firewall additionally tracks established connections, so it can allow return traffic for a connection it permitted outbound without needing a matching inbound rule. That statefulness is why "allow outbound, deny inbound" is a coherent default policy, and it is precisely the same table-of-active-connections idea as NAT in Node 9.</p>
+
+<p>The distinction that matters most operationally is <strong>ingress versus egress</strong> [USE]. Ingress rules control what may reach you; egress rules control what you may reach. Most people configure ingress and forget egress exists &mdash; and then a production service cannot call an external API, or cannot reach a package registry during a build, and the failure looks like a hang rather than a refusal. That difference in failure signature is a genuinely useful diagnostic: a <strong>connection refused</strong> means something actively rejected you (a <code>RST</code>, usually nothing listening); a <strong>timeout</strong> means packets went into a void, which almost always means a firewall silently dropping them. Being able to say that distinction out loud is worth a lot in a debugging interview.</p>
+
+<p>In cloud environments this appears as <strong>security groups</strong> and <strong>network ACLs</strong> [USE] &mdash; the same idea with vendor names, usually stateful at the instance level and stateless at the subnet level. Layered with them are private subnets, NAT gateways for outbound-only access, and VPC peering. The mental model transfers directly from Node 9 and this node; the vocabulary is the only new part.</p>
+
+<p>A <strong>forward proxy</strong> [USE] sits in front of clients: corporate networks route all outbound traffic through one, for filtering, logging, and caching. This is why some environments require <code>HTTP_PROXY</code> and <code>HTTPS_PROXY</code> environment variables, and why a tool that ignores them fails in an office and works at home. <strong>TLS-inspecting proxies</strong> [AWARE] go further &mdash; they terminate TLS, inspect the plaintext, and re-encrypt with a certificate signed by a CA the company has installed on every machine. It is, by construction, a sanctioned man-in-the-middle, and it is why corporate laptops sometimes reject certificate chains that work everywhere else, and why <code>NODE_EXTRA_CA_CERTS</code> exists.</p>
+
+<p>The general lesson, and it is the thing to carry from this node: <strong>the network is a policy layer, and a large fraction of "it works on my machine" is a policy difference, not a code difference.</strong></p>
+
+<p><strong>What you can do at this point:</strong> reason about where a connection is being blocked and by what kind of device, from the shape of the failure.</p>
+
+<p><strong>What's still broken:</strong> you now have a complete model of how it all works. What you do not have is a procedure for finding out which part of it is wrong when something breaks &mdash; which is what the job actually consists of.</p>
+
+<h3>Node 17 &mdash; diagnosis: finding the broken layer</h3>
+
+<p><strong>The limitation:</strong> you understand every layer, but a real failure gives you one symptom and no indication which layer produced it.</p>
+
+<p>The method is to walk the chain in order and stop at the first thing that fails, because every layer depends on the ones below it. Each tool below tests exactly one node of this landscape, which is why this node comes last and not first.</p>
+
+<p><strong>Is the name resolving?</strong> <code>dig example.com</code> [USE] shows the answer, which record types exist, the TTL, and which server answered. <code>dig +trace</code> walks the delegation from the root, which is how you tell "my resolver has a stale cached answer" apart from "the record is genuinely wrong." This tests Node 10.</p>
+
+<p><strong>Is the host reachable at all?</strong> <code>ping</code> [USE] sends ICMP echo requests and reports round-trip times and loss &mdash; but remember from Node 4 that ICMP is frequently blocked, so failure is weak evidence while success is strong evidence. <code>traceroute</code> (or <code>mtr</code>, which is <code>traceroute</code> plus continuous statistics) reveals the path by sending packets with TTL of 1, then 2, then 3, so that each successive router discards one and reports back &mdash; an elegant abuse of the loop-prevention mechanism from Node 4. It shows you where latency appears and where the path dies. This tests Nodes 3 and 4.</p>
+
+<p><strong>Is the port open?</strong> <code>nc -vz host 443</code> or <code>telnet host 443</code> [USE] attempts a TCP connection and nothing more, which cleanly separates a transport problem from an application problem. Note the failure signatures from Node 16: <em>refused</em> means reached and rejected, <em>timed out</em> means dropped. This tests Nodes 5, 7 and 16.</p>
+
+<p><strong>Is TLS working?</strong> <code>openssl s_client -connect host:443 -servername host</code> [USE] shows the certificate chain, the negotiated version and cipher, and validation errors &mdash; the <code>-servername</code> flag being SNI from Node 12, without which a multi-tenant host gives you the wrong certificate and a very confusing error.</p>
+
+<p><strong>Is the application responding correctly?</strong> <code>curl -v</code> [USE] prints the full request and response including headers, and is the single highest-value tool in this list. <code>curl -w</code> reports a timing breakdown &mdash; DNS lookup, TCP connect, TLS handshake, time to first byte, total &mdash; which tells you <em>which node</em> the time is being spent in, and is the fastest way to answer "why is this slow." This tests Node 11.</p>
+
+<p><strong>What is this machine's own socket state?</strong> <code>ss -tulpn</code> [USE] (the modern replacement for <code>netstat</code>) lists listening sockets with their ports and owning process, which answers "is my server actually bound, and to which interface" &mdash; the <code>0.0.0.0</code> versus <code>127.0.0.1</code> question from Node 7 &mdash; and "what is already using this port." <code>ss -tan state time-wait | wc -l</code> counts the <code>TIME_WAIT</code> sockets from Node 5.</p>
+
+<p><strong>What is actually on the wire?</strong> <code>tcpdump</code> [AWARE] captures raw packets; Wireshark reads them with full protocol decoding. This is the ground truth when every other tool disagrees, and the thing worth knowing is that it exists and roughly when you would escalate to it &mdash; when you need to prove whether a packet left the machine at all.</p>
+
+<p>The framework to keep: <strong>name &rarr; route &rarr; port &rarr; TLS &rarr; application</strong>, in that order, and when something is <em>slow</em> rather than broken, get the timing breakdown before forming any hypothesis. Guessing at which layer is slow is the most common and most expensive debugging mistake in this domain.</p>
+
+<p><strong>What's still broken:</strong> all of this describes physical networks. Nearly everything you deploy now runs inside containers and virtual networks, where an entire copy of this stack is simulated in software &mdash; and every one of these concepts appears again, in an unfamiliar costume.</p>
+
+<h3>Node 18 &mdash; virtual networks: containers, orchestrators, and service discovery</h3>
+
+<p><strong>The limitation:</strong> the model so far assumes real machines, real cables, real addresses. Deployment targets are containers and virtual networks where none of that is physically true.</p>
+
+<p>A <strong>container</strong> [USE] gets its own isolated network stack: its own interfaces, its own IP address, its own routing table, its own view of which ports are in use. Two containers on one host can both bind port 3000 without conflict, because those are two different network stacks. Docker connects them with a <strong>bridge network</strong>, which is a switch (Node 2) implemented in software, and hands out addresses from a private range (Node 9), and performs <strong>NAT</strong> for outbound traffic so containers can reach the internet using the host's address.</p>
+
+<p>Which explains, precisely, the things that confuse everyone about Docker networking. <strong>Publishing a port</strong> with <code>-p 8080:3000</code> installs a NAT rule mapping the host's 8080 to the container's 3000 &mdash; the container is otherwise unreachable from outside, for exactly the reasons in Node 9. <strong>A container binding <code>127.0.0.1</code> is unreachable even when published</strong>, because loopback inside the container's own stack is not the host's, and this is one of the most common deployment failures there is (Node 7). <strong>Containers reach each other by name</strong> on a user-defined network, because Docker runs an internal DNS server that resolves container names to their current addresses (Node 10). And <strong><code>localhost</code> inside a container means the container</strong>, which is why an app in one container cannot reach a database in another at <code>localhost:5432</code> and must use the service name instead.</p>
+
+<p>Compose formalises this: services on a shared network, addressed by service name, with only deliberately published ports exposed to the host. Kubernetes [AWARE &mdash; vocabulary, not operation] extends the same ideas: every pod gets its own IP on a flat cluster network; a <strong>Service</strong> is a stable virtual name and address in front of a changing set of pods, which is a load balancer (Node 13) plus DNS (Node 10); an <strong>Ingress</strong> is an L7 reverse proxy routing external traffic by host and path (Node 13); and <strong>network policies</strong> are firewall rules between pods (Node 16). Deliberately do not go deeper here &mdash; this is vocabulary you need to hold a conversation, not a system you need to operate.</p>
+
+<p>And this is where the chain closes. Every concept in this node is a concept from an earlier node, reimplemented in software: the switch from Node 2, the private addressing and NAT from Node 9, the DNS from Node 10, the load balancer from Node 13, the firewall from Node 16. <strong>Container networking is not a new subject.</strong> It is this landscape, virtualised &mdash; which is exactly why it feels impenetrable to people who never learned the physical version, and straightforward to people who did.</p>
+
+<p><strong>What you can do at this point:</strong> debug why one container cannot reach another, why a published port does not work, and read a Kubernetes networking discussion without being lost.</p>
+
+<p><strong>What's still broken:</strong> nothing structural &mdash; the chain is complete. What remains is depth in individual protocols (<code>http</code>, <code>dns</code>, <code>https-tls-concepts</code>, <code>cdns</code>, <code>load-balancing-basics</code> are their own topics) and the applied practice of building on top of all of it.</p>
+
+<h3>Where the chain gets misread</h3>
+
+<p><strong>"The layers are a strict stack that data passes down through."</strong> <em>(Node 3)</em> The layer model is a description of responsibilities, not of code structure. Real implementations blur it constantly &mdash; TLS sits between transport and application without being either, QUIC does transport <em>and</em> security <em>and</em> HTTP framing together, and a NAT device rewrites transport headers while nominally being a network-layer box. Use layers to locate a responsibility, not to predict an architecture.</p>
+
+<p><strong>"A MAC address and an IP address are two names for the same thing."</strong> <em>(Node 3)</em> They are different in kind. A MAC is fixed to the hardware and only meaningful within one local network. An IP describes where a machine currently sits in the global topology and changes when it moves. The MAC changes at every hop of a packet's journey; the IP does not change at all.</p>
+
+<p><strong>"TCP guarantees my message arrives as a message."</strong> <em>(Node 5)</em> TCP guarantees a byte stream. Your 100-byte write may arrive split, or merged with the next one. Every protocol on top must define its own message boundaries &mdash; which is what <code>Content-Length</code>, chunked encoding, WebSocket frames, and length prefixes all are.</p>
+
+<p><strong>"Packet loss means something is broken."</strong> <em>(Node 4, Node 6)</em> Loss is TCP's only congestion signal and is present in every healthy connection. Congestion control deliberately increases sending rate until loss occurs. A connection with zero loss is usually one that is not using the available capacity.</p>
+
+<p><strong>"More bandwidth will make it faster."</strong> <em>(Node 6)</em> Throughput is bounded by window size divided by round-trip time, and latency is bounded below by physics. A high-latency link stays slow no matter how wide it gets. The reliable optimisation is fewer round trips and shorter distance, which is why connection reuse and CDNs work and why bigger pipes often do not.</p>
+
+<p><strong>"UDP is just a worse TCP."</strong> <em>(Node 8)</em> UDP is the transport where <em>you</em> choose which guarantees you want. In-order delivery is a cost as well as a benefit &mdash; for real-time media, holding back fresh data to wait for stale data is exactly wrong. QUIC, which underpins HTTP/3, is built on UDP specifically to reimplement reliability better.</p>
+
+<p><strong>"My laptop has an IP address, so it is reachable from the internet."</strong> <em>(Node 9)</em> It almost certainly has a private address behind NAT, which creates mappings only for outbound connections. Nothing on the internet can initiate a connection to it. This is the reason tunnelling tools, hole-punching, and load balancers in front of private subnets all exist.</p>
+
+<p><strong>"I changed the DNS record, so it is live."</strong> <em>(Node 10)</em> Every resolver that cached the old answer keeps serving it for the remaining TTL, and some clients cache beyond that. The change is live at the authoritative server and propagating everywhere else. Lower the TTL <em>before</em> a migration, not during it.</p>
+
+<p><strong>"HTTPS means the site is safe."</strong> <em>(Node 12)</em> It means the connection is confidential, unmodified, and that the server holds a certificate valid for that hostname. It says nothing about whether the operator is honest, whether the application is secure, or what happens to your data after it arrives. A phishing site can have a perfectly valid certificate.</p>
+
+<p><strong>"HTTP/2 makes everything faster, so head-of-line blocking is solved."</strong> <em>(Node 14)</em> HTTP/2 solved it at the HTTP layer while leaving it at the TCP layer &mdash; one lost packet still stalls every multiplexed stream. That unsolved half is the entire reason HTTP/3 and QUIC exist.</p>
+
+<p><strong>"WebSockets are the way to do real-time."</strong> <em>(Node 15)</em> They are the way to do <em>bidirectional</em> real-time. For server-to-client flow &mdash; notifications, progress, streaming LLM tokens &mdash; Server-Sent Events is plain HTTP, works through existing infrastructure, and reconnects automatically. And neither works across multiple server instances without a shared pub/sub layer.</p>
+
+<p><strong>"Container networking is a separate subject I have not learned."</strong> <em>(Node 18)</em> It is this landscape reimplemented in software. A Docker bridge is Node 2's switch, port publishing is Node 9's NAT, service names are Node 10's DNS, a Kubernetes Service is Node 13's load balancer, and a network policy is Node 16's firewall. There is nothing new in it.</p>
+
+<h3>The chain in one paragraph</h3>
+
+<p>Two computers with no wire between them can share nothing, and even with a wire they would have no agreement about what the bytes mean &mdash; so networking is always both a physical problem and a protocol problem at once. A wire carries voltage, which forces line encoding for timing, frames for boundaries, and checksums for corruption; adding a third machine forces MAC addresses to say who a frame is for, and switches to deliver it efficiently, but flat addresses can never scale globally because nothing could hold the table. Hierarchical IP addresses fix that by encoding <em>location</em>, letting routers forward on a coarse prefix match and a default route, but IP promises only best effort &mdash; packets may be lost, reordered, duplicated or delayed &mdash; so TCP manufactures a reliable ordered stream on top using sequence numbers, acknowledgements, retransmission and a three-way handshake, at the cost of a round trip before any data and head-of-line blocking whenever a packet is lost. Unrestrained sending would destroy the receiver and the network, so flow control uses an advertised window and congestion control probes capacity by growing until loss appears, which makes throughput a function of window over round-trip time and makes latency, not bandwidth, the thing you actually fight. Ports and the four-tuple identify which program on which machine, sockets are the API, and UDP exists for the cases where TCP's guarantees cost more than they are worth. IPv4 ran out, so private ranges plus NAT let everyone share addresses at the price of being unreachable from outside and having connections silently die on idle timeouts. Nobody can use numbers, so DNS maps names to addresses through a delegated hierarchy held together by caching and TTLs. HTTP is then just an agreed text format on a TCP stream &mdash; request/response, client-initiated, stateless, framed by length &mdash; and TLS wraps it to provide confidentiality, integrity and, critically, authentication via a certificate chain. One server is a single point of failure at a fixed distance, so load balancers, reverse proxies, anycast and CDNs add capacity, resilience and proximity; HTTP/2 multiplexes many streams over one connection but leaves TCP's head-of-line blocking, which HTTP/3 fixes by rebuilding the transport as QUIC on top of UDP. HTTP cannot let a server speak first, so SSE and WebSockets exist, both of which break across multiple instances without shared pub/sub. Real networks are policy layers full of firewalls and proxies where the difference between <em>refused</em> and <em>timed out</em> tells you which one you hit, diagnosis means walking name &rarr; route &rarr; port &rarr; TLS &rarr; application and stopping at the first failure, and container and Kubernetes networking is this entire chain reimplemented in software, with a bridge for the switch, NAT for port publishing, an internal DNS for service names, and a Service for the load balancer.</p>
+ — the landscape content, hand-authored HTML (prose + <h3> subsections)
+  This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
+  elaboration.json live alongside it and are fetched at runtime — do not inline
+  that data here.
+
+  Tabs: Landscape (this file) | Recall (topics/<slug>/recall.json, teaching deck,
+  ordered by landscape node) | Prep (topics/<slug>/prep.json, interview/scenario
+  bank) | Elaboration (topics/<slug>/elaboration.json, deep-dive write-ups).
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Computer networking — devxkapoor mastery track</title>
+<link rel="manifest" href="../../manifest.webmanifest">
+<meta name="theme-color" content="#080d16">
+<link rel="apple-touch-icon" href="../../assets/icons/icon-192.png">
+<link rel="stylesheet" href="../../assets/styles.css?v=5c109ddfa6">
+<script src="../../assets/globals.js?v=58a0eb29e6"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="brand" href="../../index.html">devxkapoor<strong>/mastery-track</strong></a>
+  <div class="right">
+    <nav>
+      <a href="../../index.html">topics</a>
+      <a href="../../recall.html">recall</a>
+      <a href="../../search.html">search</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle"></button>
+  </div>
+</header>
+
+<div class="wrap">
+  <h1>Computer networking</h1>
+  <p class="lede">Two computers with no wire share nothing &mdash; and every layer after that, from frames to IP to TCP to TLS to CDNs to container bridges, exists because the layer before it left something specifically broken.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="landscape">Landscape</button>
+    <button class="tab-btn" data-tab="recall">Recall</button>
+    <button class="tab-btn" data-tab="prep">Prep</button>
+    <button class="tab-btn" data-tab="elaboration">Elaboration</button>
+    <button class="tab-btn" data-tab="discuss">Discuss</button>
+  </div>
+
+  <div id="tab-landscape">
+    <div class="prose">
+      <p>Read this top to bottom, in order. It is not a list of things that exist in networking. It is a chain: each node exists because the node before it left something specifically broken, and that broken thing is the whole reason the next node was invented. If you read Node 7 and don't remember why sockets need to exist, go back to Node 6 &mdash; the motivation lives there, not in Node 7.</p>
+
+<p>Depth markers appear inline, attached to specific capabilities. <strong>[EXPLAIN]</strong> means you must be able to build the idea out loud, from nothing, under pressure, with no notes. <strong>[USE]</strong> means you must be able to use it correctly and debug it when it misbehaves, without needing the internals cold. <strong>[AWARE]</strong> means you should know it exists, what problem it solves, and roughly when someone would reach for it.</p>
+
+<h3>Node 0 &mdash; two computers, and no way to say anything to each other</h3>
+
+<p>Put two computers on a desk. Each one has storage, and each one can run programs. Neither one has any idea the other exists. There is no shared anything: no shared memory, no shared disk, no shared clock. A program running on the left machine cannot read a single byte of the right machine's storage, and there is no instruction it can execute that would change that.</p>
+
+<p>So how do you actually move a file from one to the other? You copy it onto a USB stick, walk three feet, and plug it into the other machine. People genuinely did this for years and it has a name &mdash; <em>sneakernet</em> &mdash; because the transport layer was a pair of shoes. And it works, in the narrow sense that the bytes do eventually arrive. What it cannot do is anything interactive. If the left machine wants to ask the right machine a question and use the answer to decide what to ask next, sneakernet is hopeless: every round trip is a walk. If a thousand people want to ask the right machine questions, it is worse than hopeless.</p>
+
+<p>Now notice the second failure, which is subtler and matters more for everything that follows. Even if you had a magic instant-teleport USB stick, you would still have no idea <em>what</em> to put on it. You would hand over a file, and the other machine would receive a pile of bytes with no indication of whether it is a request, an answer, a greeting, or garbage. Two programs that have never spoken before have no shared vocabulary. Moving bytes is only half the problem; <strong>agreeing on what the bytes mean</strong> is the other half, and it never goes away. Every node from here on is either "how do we physically move bytes further" or "what do we agree the bytes mean" &mdash; and usually both at once.</p>
+
+<p>That word, <em>agreement</em>, is the most important word in this topic. A <strong>protocol</strong> [EXPLAIN] is nothing more than a written-down agreement between two programs about what bytes they will send, in what order, and what each one means. There is no protocol police. Nothing enforces it. If both sides implement the agreement, they can talk; if one side gets it wrong, they cannot, and the failure is usually silent and confusing rather than loud.</p>
+
+<p><strong>What's still broken:</strong> the bytes physically cannot get from one machine to the other without a human carrying them. Before any agreement matters, we need a wire.</p>
+
+<h3>Node 1 &mdash; a wire, and the problem of turning bits into something a wire can carry</h3>
+
+<p><strong>The limitation:</strong> there is no physical path between the two machines at all.</p>
+
+<p>Run a copper cable between them. Now there is a physical path &mdash; but a copper wire does not carry ones and zeros. It carries voltage: an electrical pressure that can be higher or lower, and that changes over time. To send a bit, one side raises or lowers the voltage; to receive it, the other side measures the voltage. That is the entire physical foundation of every network on earth, with the wire sometimes swapped for a fibre carrying light pulses or an antenna carrying radio waves.</p>
+
+<p>The moment you try this, three problems appear that will keep reappearing all the way up the chain, so it is worth meeting them here where they are simplest.</p>
+
+<p>The first is <strong>timing</strong>. If I hold the voltage high for what I think is one bit-time and you sample it at a slightly different rate, you will read one high bit as two, or two as one. Both sides need to agree on how fast bits arrive, and &mdash; because no two crystals oscillate at exactly the same rate &mdash; the receiver needs a way to continuously re-sync itself against the sender. Real cables solve this with <strong>line encoding</strong> [AWARE]: schemes that guarantee the voltage changes often enough that the receiver can lock onto the sender's rhythm from the signal itself. You will almost never touch this, but it is why cables have a rated speed and why a bad cable produces corruption rather than a clean failure.</p>
+
+<p>The second is <strong>framing</strong>. Suppose you send me the bits <code>01101000 01101001</code>. Where does one message end and the next begin? A continuous voltage on a wire has no punctuation. So both sides agree on a <strong>frame</strong> [EXPLAIN]: a defined chunk with a recognisable start pattern, some header fields, a body of actual data, and an end. Everything above this node is fundamentally the same trick applied again at a higher level &mdash; you will see framing solved a second time in TCP, a third time in HTTP, and a fourth time in WebSockets, always for the same reason: a stream of bytes with no boundaries is unusable, so you have to draw the boundaries yourself.</p>
+
+<p>The third is <strong>errors</strong>. Electrical noise flips bits. A nearby motor starts, a voltage spike rides along the wire, and a <code>1</code> arrives as a <code>0</code>. The wire will not tell you. So the frame carries a <strong>checksum</strong> [EXPLAIN] &mdash; a number computed from the frame's contents by a fixed formula, appended by the sender, recomputed by the receiver. If the two numbers disagree, the frame is damaged and gets thrown away. Notice what this does and does not give you: it lets you <em>detect</em> corruption and discard the frame, but it does nothing about the fact that the data is now missing. Detection and recovery are different problems, and this node only solves detection. Ethernet uses a 32-bit checksum called a <strong>CRC</strong> (cyclic redundancy check); the exact maths does not matter, the property does &mdash; it reliably catches the kinds of errors wires actually produce.</p>
+
+<p><strong>What you can do at this point:</strong> move a framed, error-checked chunk of bytes from one machine to exactly one other machine over one cable.</p>
+
+<p><strong>What's still broken:</strong> you have two machines and one cable. Add a third machine and you need another cable. Ten machines fully connected needs forty-five cables. This does not scale past a small room, and it is already unusable.</p>
+
+<h3>Node 2 &mdash; more than two machines: addresses, shared wire, and switches</h3>
+
+<p><strong>The limitation:</strong> one cable connects exactly two machines, and cabling every pair is combinatorially impossible.</p>
+
+<p>The fix is to stop giving every pair its own wire and instead let many machines share one connection point. But the instant more than two machines share a medium, a new question appears that never existed before: <strong>who is this frame for?</strong></p>
+
+<p>So every network interface gets a permanent, globally unique identifier burned in at the factory, called a <strong>MAC address</strong> [EXPLAIN] &mdash; six bytes, written as twelve hexadecimal digits like <code>a4:83:e7:2c:19:0f</code>. The first three bytes identify the manufacturer, the last three are that manufacturer's serial number. Every frame now carries two of these in its header: a destination MAC and a source MAC. A machine that receives a frame checks the destination; if it is not its own address, it drops it. That is the whole of <strong>Ethernet</strong> [EXPLAIN] addressing.</p>
+
+<p>Early Ethernet was genuinely one shared cable that every machine tapped into, which meant two machines transmitting simultaneously produced overlapping voltages and mutual garbage &mdash; a <strong>collision</strong>. The protocol handled it by having both senders detect the collision, stop, wait a random interval, and retry. This is why old networking material talks endlessly about collision domains and CSMA/CD [AWARE], and it is why the term "half-duplex" exists. It is almost entirely history now, and you should know it only well enough to recognise it in an old textbook and know it no longer applies.</p>
+
+<p>What replaced it is the <strong>switch</strong> [EXPLAIN], and this is a genuinely important idea. A switch is a box with many ports, one cable per machine. When a frame arrives on port 3 with source MAC <code>aa:bb:...</code>, the switch writes down "MAC <code>aa:bb:...</code> lives on port 3" in a table. When a frame arrives destined for <code>aa:bb:...</code>, it looks up the table and sends it out port 3 <em>only</em>. If it has not learned the address yet, it floods the frame out every port and learns from the reply. So a switch builds its own map of the network purely by watching traffic, with no configuration at all, and once it has learned, machines on different ports can transmit simultaneously without colliding. This is why modern wired networks essentially never collide.</p>
+
+<p>There is one more piece needed to make a network of many machines usable: <strong>broadcast</strong> [USE]. The special destination MAC <code>ff:ff:ff:ff:ff:ff</code> means "everyone on this network." A switch always floods a broadcast out every port. This is how a machine that knows nothing can ask a question of the whole room, and it is load-bearing for several protocols you will meet shortly. The set of machines that receive each other's broadcasts is called a <strong>broadcast domain</strong>, and it is the honest technical definition of "the same local network."</p>
+
+<p><strong>What you can do at this point:</strong> connect every machine in a building so that any one can send a frame to any other by name, without a cable per pair.</p>
+
+<p><strong>What's still broken:</strong> MAC addresses are flat and random. There is no structure in <code>a4:83:e7:2c:19:0f</code> that tells you where in the world that machine is. A switch works by memorising every address it has seen, which is fine for a few hundred machines in a building and completely impossible for a few billion machines on the planet. You cannot build a global network this way &mdash; nothing could hold the table.</p>
+
+<h3>Node 3 &mdash; networks of networks: IP addresses, subnets, and routers</h3>
+
+<p><strong>The limitation:</strong> flat addresses cannot scale globally, because reaching a machine would require every intermediate device to have memorised its exact location.</p>
+
+<p>The solution is to make addresses <strong>hierarchical</strong>, so that a device can make a correct forwarding decision while knowing only a general direction, not an exact destination. This is the single most important structural idea in networking, and it is worth having a non-technical version of it in your head: postal addresses work this way. A sorting office in Delhi does not know where your street is. It knows that anything for Mumbai goes on the Mumbai truck, and Mumbai will figure out the rest. Each hop needs only a coarse map plus a default of "if I do not know, send it upward."</p>
+
+<p>An <strong>IP address</strong> [EXPLAIN] is that hierarchical address. IPv4 writes it as four numbers from 0 to 255 &mdash; <code>192.168.1.7</code>, or <code>142.250.183.14</code> &mdash; which is really just a 32-bit number written in a readable way. Crucially, unlike a MAC address, an IP address is <strong>not</strong> a property of the hardware. It is assigned based on <em>where the machine currently is</em> in the network. Move your laptop from home to a caf&eacute; and its MAC address is identical and its IP address is completely different. That is the point: the address encodes location, which is what makes routing possible.</p>
+
+<p>The hierarchy is drawn by splitting the 32 bits into a <strong>network part</strong> and a <strong>host part</strong>. Which bits are which is stated by a <strong>prefix length</strong> written after a slash: <code>192.168.1.7/24</code> means the first 24 bits (<code>192.168.1</code>) identify the network and the remaining 8 bits identify the host within it. This notation is called <strong>CIDR</strong> [EXPLAIN], and the same thing is sometimes written as a <strong>subnet mask</strong> &mdash; <code>255.255.255.0</code> is exactly the same statement as <code>/24</code>, just in a clumsier format. A <code>/24</code> holds 256 addresses; a <code>/16</code> holds 65,536; a <code>/8</code> holds about 16.7 million. Each extra bit of prefix halves the block. You should be able to do this arithmetic on a whiteboard, because it comes up constantly in cloud configuration and in interviews.</p>
+
+<p>Now the decision procedure, which is the actual mechanism [EXPLAIN]. When a machine wants to send data to an IP address, it asks one question first: <em>is that address inside my own subnet?</em> It answers by applying its own prefix to both addresses and comparing. If yes, the destination is somewhere on the local network, reachable directly by a frame &mdash; the machine only needs the destination's MAC address, which it learns by broadcasting an <strong>ARP</strong> request [USE] meaning "whoever has <code>192.168.1.7</code>, tell me your MAC," and caching the answer. If no, the destination is elsewhere in the world, and the machine sends the frame to its <strong>default gateway</strong> instead: a router whose job is to be the door out.</p>
+
+<p>A <strong>router</strong> [EXPLAIN] is a device with interfaces on two or more networks and a <strong>routing table</strong> &mdash; a list of destination prefixes, each mapped to an outgoing interface and next hop, plus a default entry for everything else. When a packet arrives, the router finds the <em>most specific</em> matching prefix (a <code>/24</code> entry beats a <code>/16</code> entry beats the default) and forwards accordingly. That is it. That is the whole algorithm running the internet: each router knows only "for this range, go that way," and packets get progressively closer until one router is on the destination's actual local network and delivers the final frame.</p>
+
+<p>Notice the layering that just appeared, because it is the answer to a very common interview question. The <strong>IP packet</strong> &mdash; with source and destination IP &mdash; is placed inside an <strong>Ethernet frame</strong> &mdash; with source and destination MAC &mdash; for each individual hop. At every router the frame is stripped off and a new one written for the next hop, with new MAC addresses. The IP addresses stay the same the whole way; the MAC addresses change at every single hop. IP is the end-to-end identity, Ethernet is the local delivery mechanism, and the same packet gets rewrapped dozens of times on its journey.</p>
+
+<p><strong>What you can do at this point:</strong> send a packet to any machine on the planet, given its IP address, and have the network figure out a path.</p>
+
+<p><strong>What's still broken:</strong> "figure out a path" is doing enormous work in that sentence, and none of it is guaranteed. Nothing so far promises the packet arrives.</p>
+
+<h3>Node 4 &mdash; IP's honest contract: best effort, and everything that means</h3>
+
+<p><strong>The limitation:</strong> we can address anything globally, but we have said nothing about reliability &mdash; and it turns out IP deliberately promises almost nothing.</p>
+
+<p>This node has no new mechanism in it. It exists because the <em>absence</em> of guarantees at this layer is the reason half of the remaining chain exists, and because getting this wrong is the single most common way people's mental model of networking breaks.</p>
+
+<p>IP is a <strong>best-effort</strong> service [EXPLAIN]. It will try to deliver your packet. It makes exactly four non-promises, and you should be able to list them:</p>
+
+<ul>
+<li><strong>Packets can be lost.</strong> A router with a full queue drops packets. This is not a malfunction &mdash; it is the designed behaviour when demand exceeds capacity, and it is the network's only way of signalling overload. Lost packets are normal, constant, and expected.</li>
+<li><strong>Packets can arrive out of order.</strong> Two packets sent one after another may take different paths through the network and arrive in the opposite order.</li>
+<li><strong>Packets can be duplicated.</strong> A retransmission somewhere, or a routing loop, can cause the same packet to arrive twice.</li>
+<li><strong>Packets can be delayed arbitrarily.</strong> There is no upper bound on how long a packet may take.</li>
+</ul>
+
+<p>Corruption is partly handled: the IP header has a checksum, and Ethernet has its CRC, so badly damaged packets are discarded &mdash; which converts corruption into loss, not into wrong data. That is a meaningful guarantee and worth stating precisely: you will not silently receive garbage, but you will silently receive <em>nothing</em>.</p>
+
+<p>Two mechanisms in the IP header exist to bound the damage. <strong>TTL</strong> [USE], "time to live," is a number the sender sets (commonly 64) that each router decrements by one; at zero the packet is discarded and an error is reported back. This is what stops a routing loop from circulating a packet forever, and it is the mechanism <code>traceroute</code> abuses cleverly in Node 17. And <strong>MTU</strong> [EXPLAIN], the maximum transmission unit, is the largest frame a link can carry &mdash; typically 1500 bytes on Ethernet. A packet too large for the next link either gets fragmented into pieces or, more commonly today, gets dropped with an error telling the sender to send something smaller. MTU mismatches produce one of the nastiest failure signatures in all of networking: small requests work perfectly, large ones hang forever, because the small ones fit and the large ones are silently discarded by something in the middle. If you ever see "curl works but uploads hang," MTU is on the shortlist.</p>
+
+<p>There is a companion protocol here worth naming: <strong>ICMP</strong> [USE], which carries network-level error and diagnostic messages &mdash; "destination unreachable," "time exceeded," "fragmentation needed." It is not for application data. It is how the network tells you <em>why</em> something failed, and it is what <code>ping</code> and <code>traceroute</code> are built from. It is also frequently blocked by firewalls, which is why "ping does not work" is not evidence that a host is down.</p>
+
+<p><strong>What you can do at this point:</strong> understand exactly what the network guarantees, which is nearly nothing, and therefore understand exactly what your program must handle itself.</p>
+
+<p><strong>What's still broken:</strong> almost every program wants to send a stream of data and have all of it arrive, once each, in order. Best-effort delivery gives none of that. Building that on top of this, in every application, separately, would be insane.</p>
+
+<h3>Node 5 &mdash; TCP: turning a lossy packet service into a reliable ordered stream</h3>
+
+<p><strong>The limitation:</strong> IP loses, reorders and duplicates packets, and every application would otherwise have to solve that itself.</p>
+
+<p><strong>TCP</strong> [EXPLAIN] is the layer that takes best-effort packet delivery and presents an application with something completely different: a <strong>connection</strong> carrying an ordered, gap-free, exactly-once stream of bytes in each direction. Understanding how it manufactures that illusion is one of the highest-value things in this entire topic, because it is asked about constantly and because its failure modes leak into application code you will actually write.</p>
+
+<p><strong>Sequence numbers</strong> are the core trick. TCP treats the data you send as a numbered stream of bytes, and every segment it sends carries the sequence number of its first byte. The receiver can therefore reassemble segments into the right order regardless of arrival order, detect a duplicate (a sequence range it already has) and discard it, and detect a gap (missing sequence range) and hold later data until the hole is filled.</p>
+
+<p><strong>Acknowledgements and retransmission</strong> handle loss. The receiver continuously reports the sequence number it expects next, which implicitly acknowledges everything before it. The sender keeps every byte it has sent but not yet had acknowledged, and starts a timer. If the acknowledgement does not arrive before the timer fires, it sends the data again. That is it &mdash; that is how reliability is built out of an unreliable substrate, and note that it requires the sender to <em>buffer</em> data it has already handed to the network, which matters in Node 6.</p>
+
+<p><strong>The three-way handshake</strong> [EXPLAIN] establishes the connection, and it is the single most-asked mechanism in networking interviews. The client sends a <code>SYN</code> (synchronise) carrying its initial sequence number. The server replies with a <code>SYN-ACK</code>, acknowledging the client's number and carrying its own. The client replies with an <code>ACK</code> of the server's. Three messages, one and a half round trips, and only after that can any application data flow. Two things follow from this that you should be able to say immediately: <strong>opening a TCP connection costs a full round trip before any useful byte moves</strong>, which is why connection reuse and pooling matter so much; and the exchange of initial sequence numbers is what makes it hard for an off-path attacker to inject data into your connection, since they would have to guess a random 32-bit number.</p>
+
+<p><strong>Closing</strong> is asymmetric and is where an interview usually goes next. Each direction is closed independently with a <code>FIN</code>, so a connection can be half-closed &mdash; one side done sending, still receiving. After the final close, the side that closed first sits in a state called <strong>TIME_WAIT</strong> [USE] for roughly two minutes, holding the port, so that any straggling packets from the old connection cannot be mistaken for part of a new one on the same port pair. This is why a busy server can accumulate tens of thousands of sockets in <code>TIME_WAIT</code>, and why that is normal rather than a leak. Meanwhile <code>RST</code> is the abrupt version: a reset, meaning "there is no connection here, stop." A <code>RST</code> is what you get when you connect to a port nothing is listening on, and "connection reset by peer" in a stack trace means the other end sent one.</p>
+
+<p>The abstraction TCP gives you is genuinely a <strong>byte stream, not a message stream</strong> [EXPLAIN], and this is a real source of bugs. If you write 100 bytes and then 50 bytes, the other side may read 150 in one go, or 3 bytes then 147, or any other split. TCP guarantees the <em>order and completeness</em> of the bytes and nothing whatsoever about the boundaries. Framing &mdash; the same problem from Node 1 &mdash; has to be solved <em>again</em> by whatever protocol runs on top. This is exactly why HTTP has a <code>Content-Length</code> header, why WebSockets has its own frame header, and why every hand-rolled TCP protocol reinvents length-prefixing.</p>
+
+<p><strong>What you can do at this point:</strong> write two programs on different continents that exchange data reliably and in order, without either of them containing a single line of retransmission logic.</p>
+
+<p><strong>What's still broken:</strong> the sender can now push data as fast as it likes, and there are two entirely different reasons that is a disaster &mdash; the receiver may not be able to keep up, and the network in between certainly cannot.</p>
+
+<h3>Node 6 &mdash; flow control and congestion control: why your throughput is not your bandwidth</h3>
+
+<p><strong>The limitation:</strong> reliable delivery says nothing about <em>rate</em>, and an unrestrained sender destroys either the receiver or the network.</p>
+
+<p>These are two separate problems with two separate mechanisms, and conflating them is a very common mistake worth getting straight now.</p>
+
+<p><strong>Flow control</strong> [EXPLAIN] protects the <em>receiver</em>. The receiving machine has a limited buffer for data that has arrived but which the application has not read yet. So every TCP acknowledgement also carries a <strong>receive window</strong>: a number saying "I have this many bytes of space left." The sender must never have more unacknowledged data in flight than that window allows. If the application stops reading, the buffer fills, the advertised window shrinks to zero, and the sender stops. This is why a slow consumer eventually applies backpressure all the way to the producer &mdash; a property you will meet again in Node.js streams and in job queues, where it is the same idea under a different name.</p>
+
+<p><strong>Congestion control</strong> [EXPLAIN] protects the <em>network</em>. Nobody tells the sender how much capacity the path has, and the path is shared with everyone else. So TCP discovers it experimentally: it maintains a <strong>congestion window</strong>, starts small, and increases it as acknowledgements come back &mdash; <strong>slow start</strong> doubles it every round trip, which despite the name is exponential and quite fast. When it detects loss, it treats that as evidence of congestion and cuts the window sharply, then grows again more cautiously. This "increase until it breaks, back off, repeat" loop is running in every TCP connection on earth right now, and it is why the internet does not collapse under load. The classic algorithm is <strong>Reno</strong>, the common modern one is <strong>CUBIC</strong>, and Google's <strong>BBR</strong> [AWARE] takes a different approach by modelling the path's bandwidth and delay directly instead of waiting for loss. You do not need the algorithms; you need the shape of the idea.</p>
+
+<p>The consequence you must be able to state, because it explains an enormous amount of real-world performance behaviour: <strong>the amount of data you can have in flight is limited by the window, so your maximum throughput is roughly the window size divided by the round-trip time</strong> [EXPLAIN]. This is the <em>bandwidth-delay product</em>, and it means a link with huge bandwidth and high latency will feel slow unless the window is large. A single TCP connection between Mumbai and Virginia does not saturate a gigabit link, no matter what the link is rated at. Latency, not bandwidth, is what you are usually fighting.</p>
+
+<p>That leads to the distinction to keep permanently: <strong>bandwidth</strong> is capacity per second, <strong>latency</strong> is delay for one trip, <strong>round-trip time</strong> is there and back, and <strong>throughput</strong> is what you actually achieve, which is usually far below bandwidth. Adding bandwidth does not reduce latency; latency is bounded below by the speed of light in fibre, which works out to roughly 5 microseconds per kilometre, and no amount of money changes that. A round trip between India and the US east coast has a hard floor around 200 milliseconds. This single fact is why CDNs exist (Node 13), why chatty protocols are slow, and why "reduce the number of round trips" is the most reliable performance advice in networked systems.</p>
+
+<p>One more real-world phenomenon worth naming: <strong>bufferbloat</strong> [AWARE]. Routers with very large queues delay packets instead of dropping them, which hides the congestion signal from TCP and produces terrible latency while bandwidth looks fine. It is why a large upload can make an unrelated video call unusable on the same connection.</p>
+
+<p><strong>What you can do at this point:</strong> reason about why a transfer is slow, and know whether to look at window size, round trips, or raw capacity.</p>
+
+<p><strong>What's still broken:</strong> all of this describes a connection between two <em>machines</em>. But a machine runs many programs at once, and "deliver these bytes to that computer" is not specific enough to be useful.</p>
+
+<h3>Node 7 &mdash; ports and sockets: the API you actually program against</h3>
+
+<p><strong>The limitation:</strong> an IP address identifies a machine, but a machine runs a web server, a database, and an SSH daemon simultaneously, and IP has no way to say which one a packet is for.</p>
+
+<p>A <strong>port</strong> [EXPLAIN] is a 16-bit number &mdash; 0 to 65535 &mdash; carried in the TCP header, present in both source and destination form. It is the last piece of addressing: the IP address gets the packet to the machine, and the port gets it to the right program on that machine. Certain numbers are conventional rather than enforced: <code>80</code> for HTTP, <code>443</code> for HTTPS, <code>22</code> for SSH, <code>5432</code> for Postgres, <code>6379</code> for Redis, <code>3000</code> and <code>8080</code> for "a dev server, by tradition." Nothing stops you running a web server on <code>5432</code>; the number is a convention so that clients know where to look without being told.</p>
+
+<p>The identity of a connection is therefore not one address but four values: <strong>source IP, source port, destination IP, destination port</strong> [EXPLAIN]. This <strong>4-tuple</strong> is what uniquely identifies a TCP connection, and once you have it, several things that seem confusing become obvious. Ten browser tabs can all connect to the same server on port 443 because each gets a <em>different</em> random source port, making each 4-tuple unique. One server on one port can hold a hundred thousand simultaneous connections, because it is distinguishing them by client IP and client port, not by its own port. And "port already in use" means something is <em>listening</em>, not that connections exist.</p>
+
+<p>The programming interface for all of this is the <strong>socket</strong> [EXPLAIN], and although the exact function names differ by language, the shape is universal and worth memorising because it explains a great deal of framework behaviour. A server <strong>binds</strong> to an address and port, claiming it; <strong>listens</strong>, which creates a queue of incoming connection attempts (the <em>backlog</em>); and then repeatedly <strong>accepts</strong>, which pulls one completed connection off that queue and hands back a new socket dedicated to that one client. Note carefully: the listening socket and the connection socket are different objects. A client, meanwhile, just <strong>connects</strong> to an address and port, and the operating system assigns it a free random source port automatically &mdash; an <em>ephemeral port</em>. From then on both sides simply read and write bytes, and eventually close.</p>
+
+<p>In Node.js, <code>server.listen(3000)</code> is bind-plus-listen, and every <code>connection</code> event is an accept. Frameworks bury this, but it is exactly this sequence underneath, and being able to say so is a real differentiator in an interview.</p>
+
+<p>Two operational consequences of ports that bite people. First, <strong>ephemeral port exhaustion</strong> [USE]: a client machine has a limited range of source ports (commonly around 28,000 usable), and each is held for the <code>TIME_WAIT</code> period after close, so a service making very high rates of short-lived outbound connections can genuinely run out and start failing to connect. The fix is connection reuse &mdash; which is exactly what an HTTP keep-alive agent or a database connection pool is for. Second, <strong>binding to <code>0.0.0.0</code> versus <code>127.0.0.1</code></strong> [USE] decides who can reach you: <code>127.0.0.1</code> is the loopback interface, reachable only from the same machine, while <code>0.0.0.0</code> means every interface. Bind a container's server to <code>127.0.0.1</code> and it will work perfectly inside the container and be completely unreachable from outside, which is one of the most common Docker mistakes there is.</p>
+
+<p><strong>What you can do at this point:</strong> write a real network server and a real client, understand what your framework's <code>listen</code> call is doing, and diagnose port-level failures.</p>
+
+<p><strong>What's still broken:</strong> TCP's guarantees are expensive. The handshake costs a round trip, and its in-order delivery means one lost packet stalls everything behind it. For some applications that is exactly wrong.</p>
+
+<h3>Node 8 &mdash; UDP: when reliability is the wrong default</h3>
+
+<p><strong>The limitation:</strong> TCP makes you pay for ordering and retransmission even when late data is worse than no data.</p>
+
+<p><strong>UDP</strong> [EXPLAIN] is what IP looks like with ports bolted on and nothing else added. A datagram has a source port, destination port, length, checksum, and your data. No handshake, no acknowledgements, no retransmission, no ordering, no congestion control. You send a datagram; it probably arrives; you find out only if the application tells you.</p>
+
+<p>That sounds strictly worse, and for a file transfer it is. But consider a voice call. If a packet of audio from 300 milliseconds ago is lost, retransmitting it is useless &mdash; by the time the copy arrives, that moment of speech has passed, and inserting it would be worse than the small glitch of skipping it. TCP would not only retransmit it, it would <em>hold back all the audio that arrived after it</em> until the gap was filled, turning a tiny glitch into a freeze. This is <strong>head-of-line blocking</strong> [EXPLAIN], and it is the fundamental cost of in-order delivery. For real-time media, it is unacceptable, so real-time media uses UDP.</p>
+
+<p>The same logic covers the other classic uses. <strong>DNS</strong> (Node 10) uses UDP because a query and response are one small packet each and the client can simply ask again &mdash; a handshake would triple the cost of a lookup. Online games use it because position updates supersede each other; a lost update is fixed by the next one. Metrics and logging systems often use it because losing a sample is cheaper than slowing down the application. And QUIC (Node 14) uses UDP as a base layer precisely so it can implement <em>its own</em> better-tuned reliability on top, rather than inheriting TCP's.</p>
+
+<p>The rule to carry: <strong>UDP is not "unreliable TCP," it is "TCP's guarantees are not free, and here is the version where you choose which ones you want."</strong> Anything built on UDP that needs reliability implements it itself, tailored to the application.</p>
+
+<p>One practical note: because UDP has no connection state, it is trivially spoofable and is the workhorse of amplification attacks [AWARE] &mdash; an attacker sends a small query with a forged source address to a server that replies with a large response, aimed at the victim. This is why many UDP services are restricted or rate-limited at the network edge.</p>
+
+<p><strong>What you can do at this point:</strong> choose the right transport for a workload, and explain head-of-line blocking, which is the single concept that keeps recurring for the rest of this chain.</p>
+
+<p><strong>What's still broken:</strong> everything so far assumed every machine has a globally unique, routable IP address. That has not been true for most of the internet's history, and it is definitely not true of your laptop.</p>
+
+<h3>Node 9 &mdash; private addresses, NAT, and why your laptop cannot be reached</h3>
+
+<p><strong>The limitation:</strong> IPv4 has about 4.3 billion addresses, there are far more devices than that, and the addresses ran out.</p>
+
+<p>Certain ranges were reserved as <strong>private</strong> [EXPLAIN] &mdash; <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code>, and <code>192.168.0.0/16</code> &mdash; and declared non-routable on the public internet. Anyone may use them internally, and everyone does. Your home network, your office, your cloud VPC, and the network inside a Docker host are all using the same handful of ranges, simultaneously, all over the world. That is fine precisely because no router on the internet will forward a packet addressed to one.</p>
+
+<p>Which raises the obvious problem: if your laptop is <code>192.168.1.7</code>, how does a reply from a server on the other side of the world reach it? The answer is <strong>NAT</strong> [EXPLAIN], network address translation, performed by your router. When a packet leaves your network, the router rewrites the source IP from <code>192.168.1.7</code> to its own public address, and rewrites the source port to a unique number it picks. It records the mapping in a table: "public port 51234 corresponds to <code>192.168.1.7</code> port 49152." When a reply arrives addressed to public port 51234, it looks up the table, rewrites the destination back, and forwards it inward. Every device behind the router shares one public address, distinguished by port. This one hack is the reason IPv4 survived long past the point where the addresses ran out.</p>
+
+<p>The consequences are large and you meet them constantly. <strong>NAT is fundamentally asymmetric</strong> &mdash; the mapping is created by an outbound packet, so a machine behind NAT can start conversations but cannot receive them. There is no table entry for an unsolicited inbound packet, so it is dropped. Your laptop is not addressable from the internet, and neither is a server in a private subnet. This is why you need <strong>port forwarding</strong> [USE] to expose a home server, why a service in a cloud private subnet needs a load balancer or NAT gateway to be reachable, why peer-to-peer applications need elaborate <strong>hole-punching</strong> techniques [AWARE] with helper servers (STUN/TURN, used by every video call product), and why tools like ngrok and Cloudflare Tunnel exist at all &mdash; they work by having your machine make an <em>outbound</em> connection to a public relay, which then rides that existing connection backwards.</p>
+
+<p>It also means <strong>NAT is a stateful device with a finite table and idle timeouts</strong> [USE]. If a TCP connection sits idle longer than the NAT's timeout, the entry is evicted and the connection is silently dead &mdash; both endpoints still think it is open, and the failure only surfaces when someone finally sends something. This is the true cause of a large fraction of mysterious "the database connection was fine an hour ago" incidents, and it is why TCP keepalives and application-level pings exist.</p>
+
+<p><strong>IPv6</strong> [USE] is the actual fix: 128-bit addresses, written as eight groups of hex like <code>2001:db8::1</code>, in numbers so large that every device on earth can have a globally unique address forever and NAT becomes unnecessary. Adoption is now substantial and mostly runs alongside IPv4 in <em>dual-stack</em> mode. The practical thing to know is the notation, the fact that <code>::</code> is shorthand for a run of zero groups, that <code>::1</code> is the loopback address, and that a program which resolves a name may get an IPv6 address and fail if only IPv4 connectivity works &mdash; a real and confusing failure mode when a hostname resolves to both.</p>
+
+<p><strong>What you can do at this point:</strong> explain why a service is unreachable, design what needs a public address and what does not, and recognise idle-timeout failures.</p>
+
+<p><strong>What's still broken:</strong> everything so far requires you to know a numeric address. Nobody knows numeric addresses, and they change.</p>
+
+<h3>Node 10 &mdash; names: DNS, and the world's largest cache</h3>
+
+<p><strong>The limitation:</strong> humans cannot use IP addresses, and addresses change independently of the service they point at.</p>
+
+<p><strong>DNS</strong> [EXPLAIN] is a globally distributed database that maps names to values, and it is a genuinely beautiful piece of hierarchical design that follows exactly the same principle as IP routing: no single participant knows everything, and each one knows enough to point you closer.</p>
+
+<p>The hierarchy is read right to left. In <code>api.example.com.</code> &mdash; the trailing dot is the invisible root &mdash; the <strong>root</strong> servers know who runs <code>com</code>, the <code>com</code> <strong>TLD</strong> servers know which nameservers are authoritative for <code>example.com</code>, and those <strong>authoritative</strong> nameservers know the actual record for <code>api</code>. Resolving a name from scratch means walking down that chain, which is called <strong>recursive resolution</strong> and is normally done on your behalf by a <strong>resolver</strong> [EXPLAIN] &mdash; your ISP's, or a public one like <code>8.8.8.8</code> or <code>1.1.1.1</code>. Your machine itself is a <em>stub</em> resolver: it asks one configured resolver and takes the answer.</p>
+
+<p>The record types you need cold [USE]: <strong>A</strong> maps a name to an IPv4 address; <strong>AAAA</strong> to an IPv6 address; <strong>CNAME</strong> makes a name an alias for another name, which is what a PaaS gives you when it says "point your domain here"; <strong>MX</strong> designates mail servers; <strong>TXT</strong> holds arbitrary text, which is how domain-ownership verification and email anti-spoofing records work; and <strong>NS</strong> delegates a zone to a set of nameservers. There are two rules about CNAME that catch people constantly: a CNAME cannot coexist with other records on the same name, and therefore you cannot put one at the apex of a domain (<code>example.com</code> itself), because the apex must carry NS records. Providers work around this with non-standard "ALIAS" or "flattened CNAME" records.</p>
+
+<p>The load-bearing concept is <strong>caching and TTL</strong> [EXPLAIN]. Every record is returned with a <strong>time to live</strong> in seconds, and every resolver along the way may cache it for that long. This is what makes DNS survivable at internet scale &mdash; the root servers are not consulted for every lookup, because the answers persist. But it means DNS changes are not instant and cannot be made instant: if a record had a TTL of 86400, some resolver may serve the old answer for the next 24 hours regardless of what you do. The professional move, and a good interview answer, is to <strong>lower the TTL well in advance of a planned migration</strong> &mdash; drop it to 60 seconds a day before, make the change, then raise it again. Also worth knowing: some clients cache beyond the TTL. The JVM historically cached DNS forever by default, and Node.js does not cache at all by default, which is a different problem &mdash; it means every outbound request may pay a resolution cost unless you add a caching agent.</p>
+
+<p>Two more things you will actually meet. <strong>Multiple A records for one name</strong> [USE] is the crudest form of load balancing &mdash; a resolver returns several addresses, often rotated, and the client picks one; it distributes load but knows nothing about health or capacity. And <strong>DNS is not authentication</strong> [EXPLAIN]: the plain protocol is unencrypted UDP with no signatures, so answers can be observed and forged. <strong>DNSSEC</strong> [AWARE] adds cryptographic signatures to records; <strong>DoH</strong> and <strong>DoT</strong> [AWARE] encrypt the query itself against the resolver. None of them tell you the <em>server</em> you eventually connect to is legitimate &mdash; that is Node 12's job, and confusing the two is a genuine misconception.</p>
+
+<p><strong>What you can do at this point:</strong> register a name, point it at a server, understand why a change has not taken effect, and read <code>dig</code> output.</p>
+
+<p><strong>What's still broken:</strong> we can now reach a named machine, reliably, on a chosen port. But two programs that connect still have nothing to say &mdash; we are back at Node 0's second problem, now at the top of a very tall stack.</p>
+
+<h3>Node 11 &mdash; application protocols, and HTTP as the shape of one</h3>
+
+<p><strong>The limitation:</strong> a reliable byte stream to the right program is not a conversation; both sides still need an agreed structure for requests and answers.</p>
+
+<p>An <strong>application protocol</strong> [EXPLAIN] is the agreement layered on top of TCP that says what a message looks like and what it means. Many exist &mdash; SMTP for mail, SSH for remote shells, the Postgres wire protocol, Redis's RESP &mdash; and they share a common set of design decisions worth seeing once, because you will recognise them everywhere afterwards. Each must decide: how are message boundaries marked (remember Node 5 &mdash; TCP will not do it for you); is it text or binary; is it request/response or can either side speak first; is there state carried between messages; and how are errors reported.</p>
+
+<p><strong>HTTP/1.1</strong> [EXPLAIN] answers these in a way that is worth knowing precisely, because it is the protocol you will use most and because its design choices explain almost every performance workaround in web development. It is plain text. A request is a start line (<code>GET /users/7 HTTP/1.1</code>), then headers as <code>Name: value</code> lines, then a blank line, then an optional body. A response is a status line (<code>HTTP/1.1 200 OK</code>), headers, blank line, body. Message boundaries are drawn by the <code>Content-Length</code> header, or by <em>chunked transfer encoding</em> when the length is not known upfront &mdash; each chunk prefixed by its own size, ending with a zero-size chunk. That is framing solved, again, for the third time in this chain.</p>
+
+<p>It is <strong>request/response and client-initiated</strong>: the server cannot speak first, ever. This one property is the reason Node 15 exists. And it is <strong>stateless by design</strong> &mdash; each request is independent and the server is not required to remember anything about previous ones &mdash; which is why cookies and tokens exist as an explicit mechanism to carry identity across otherwise unrelated requests, and why "HTTP is stateless" and "my app has sessions" are not a contradiction.</p>
+
+<p>The relationship between HTTP and TCP is where people get vague, so be precise [EXPLAIN]: HTTP/1.1 sends a request as bytes on a TCP connection and reads the response bytes back. <strong>Keep-alive</strong> is on by default in 1.1, meaning the connection stays open for further requests instead of being torn down &mdash; which matters enormously, because otherwise every request pays a fresh three-way handshake. What 1.1 <em>cannot</em> do is send a second request before the first response arrives; the connection handles one exchange at a time. That is HTTP-level head-of-line blocking, and it is why browsers open six connections per host, and why the old advice to bundle files and use sprites and shard across domains existed at all. All of that is Node 14's problem.</p>
+
+<p>The rest of HTTP &mdash; methods and their semantics, status code families, caching headers, content negotiation &mdash; is its own catalog topic and there is a full <code>http</code> slug for it. What belongs <em>here</em> is the structural understanding: it is a text protocol, framed by length, running over a TCP connection, request/response, client-initiated, stateless.</p>
+
+<p><strong>What you can do at this point:</strong> hand-write an HTTP request into a raw socket and read the reply, which is genuinely worth doing once.</p>
+
+<p><strong>What's still broken:</strong> every byte of that plain-text conversation is visible to every device on the path &mdash; the caf&eacute;'s router, the ISP, every intermediate network &mdash; and any of them can also modify it undetectably.</p>
+
+<h3>Node 12 &mdash; TLS: privacy, integrity, and knowing who you're talking to</h3>
+
+<p><strong>The limitation:</strong> everything up to here is transmitted in the clear and can be read or altered by anything on the path.</p>
+
+<p><strong>TLS</strong> [EXPLAIN] wraps a TCP connection in a layer that provides three distinct properties, and separating them is the whole point of understanding it:</p>
+
+<ul>
+<li><strong>Confidentiality</strong> &mdash; an observer sees only ciphertext.</li>
+<li><strong>Integrity</strong> &mdash; modification in transit is detected and the connection fails rather than silently delivering altered data.</li>
+<li><strong>Authentication</strong> &mdash; you have cryptographic evidence you are talking to the server the name belongs to.</li>
+</ul>
+
+<p>The third is the hard one, and it is where most explanations go fuzzy. Encryption alone is worthless without it: if an attacker can intercept your connection and hand you <em>their</em> key, you will have a beautifully encrypted conversation with the attacker. So TLS uses <strong>certificates</strong> [EXPLAIN]. A certificate is a document containing a public key and a set of names it is valid for, signed by a <strong>certificate authority</strong>. Your machine ships with a store of a few hundred CA certificates it trusts. When a server presents its certificate, your client checks that the signature chains up to one of those trusted roots, that the certificate covers the hostname you actually asked for, and that it is within its validity dates. Only then does it proceed. This is why a self-signed certificate produces a browser warning &mdash; it is perfectly good encryption with no authentication.</p>
+
+<p>The handshake, in shape rather than detail [EXPLAIN]: the client offers the versions and cipher suites it supports; the server picks one and sends its certificate; the two run a key exchange that produces a shared symmetric key that an observer cannot derive even having watched every byte; and from then on all traffic is encrypted with that fast symmetric key. Public-key cryptography is used only to establish the session key, because it is far too slow for bulk data. Modern key exchange uses ephemeral Diffie-Hellman, which gives <strong>forward secrecy</strong> [AWARE]: recording the traffic today and stealing the server's private key next year still does not decrypt it, because the session key was never transmitted and no longer exists.</p>
+
+<p>The costs and version facts to keep straight [USE]. TLS 1.2 needs two extra round trips on top of the TCP handshake; <strong>TLS 1.3</strong>, standardised in 2018, cuts that to one and removes every legacy cipher, and is what you should assume today. <strong>HTTPS is exactly HTTP inside TLS</strong>, on port 443 by convention, with no changes to HTTP itself. <strong>SNI</strong> &mdash; server name indication [EXPLAIN] &mdash; is the client stating the hostname it wants at the very start of the handshake, in the clear, which is what allows one IP address to host many HTTPS sites; it is also the field corporate filters and national firewalls read to decide what to block. Certificates expire, typically in 90 days with Let's Encrypt, which is why automated renewal is mandatory rather than optional and why "the site went down on a Sunday" is so often an expired certificate.</p>
+
+<p>Two structural points people confuse. <strong>TLS terminates somewhere</strong>, and it is usually not your application: a load balancer or reverse proxy decrypts, and the traffic behind it may be plain HTTP inside a private network. That is why your app sees <code>http://</code> in its own request objects and must trust <code>X-Forwarded-Proto</code> to know what the client actually used. And <strong>TLS authenticates the server to the client by default</strong> &mdash; client certificates exist (<strong>mTLS</strong> [AWARE], common between internal services) but are not what a browser does; browsers authenticate <em>users</em> at the application layer, with passwords and cookies, which is a completely separate thing at a completely different layer.</p>
+
+<p><strong>What you can do at this point:</strong> explain what a padlock actually proves, debug a certificate failure, and know exactly which of the three properties is missing in a given misconfiguration.</p>
+
+<p><strong>What's still broken:</strong> the connection is now secure and correct, and it goes to one machine. One machine can fail, can be overwhelmed, and is physically far from most of your users &mdash; and Node 6 already established that distance is latency you cannot buy your way out of.</p>
+
+<h3>Node 13 &mdash; more than one server: load balancers, reverse proxies, anycast and CDNs</h3>
+
+<p><strong>The limitation:</strong> a single server is a single point of failure, a fixed capacity ceiling, and a fixed physical location.</p>
+
+<p>Put several identical servers behind one entry point. That entry point is a <strong>load balancer</strong> [EXPLAIN], and the first real decision is what layer it operates at. An <strong>L4</strong> load balancer forwards TCP connections without looking inside them &mdash; fast, protocol-agnostic, and unable to make decisions based on URL or headers. An <strong>L7</strong> load balancer terminates the connection, parses HTTP, and can route by path or host, retry a failed request on another backend, and handle TLS termination. Most web traffic goes through L7; databases and raw TCP services go through L4.</p>
+
+<p>Distribution policy [USE] is usually round-robin, least-connections, or a hash of some request property. That last one gives you <strong>sticky sessions</strong> &mdash; the same client consistently reaching the same backend &mdash; which sounds convenient and is a design smell: it means your servers hold per-user state in memory, which breaks as soon as one restarts. The correct answer is almost always <strong>stateless application servers</strong> with shared state in a database or Redis, which is exactly why interviewers ask about sticky sessions. <strong>Health checks</strong> [USE] are what make the whole thing work: the balancer periodically probes each backend and removes failing ones, which is what turns "a server died" into "nothing happened."</p>
+
+<p>A <strong>reverse proxy</strong> [EXPLAIN] is the same machinery viewed differently &mdash; Nginx or Caddy sitting in front of your application, terminating TLS, serving static files, compressing responses, buffering slow clients so they do not tie up application workers, and passing the rest through. It is called <em>reverse</em> because a forward proxy sits in front of <em>clients</em> on their behalf; a reverse proxy sits in front of <em>servers</em> on theirs. The header set this introduces matters practically: <code>X-Forwarded-For</code> carries the original client IP, <code>X-Forwarded-Proto</code> the original scheme, and an application behind a proxy that does not read them will log the proxy's IP for every user and think every request is plain HTTP.</p>
+
+<p>Now the location problem, which is the more interesting half. Load balancing gives you capacity and resilience, but every user still crosses the same distance. <strong>Anycast</strong> [AWARE] attacks this at the routing layer: the same IP address is announced from many locations worldwide, and BGP &mdash; the protocol by which networks tell each other which prefixes they can reach &mdash; naturally delivers each user's packets to the nearest one. This is how <code>1.1.1.1</code> is fast from everywhere. <strong>GeoDNS</strong> achieves something similar at the naming layer by returning different addresses depending on where the query came from.</p>
+
+<p>A <strong>CDN</strong> [EXPLAIN] combines both with caching. Servers in hundreds of cities hold copies of your content; a user's request lands at the nearest edge; if that edge has a fresh copy it answers immediately, and if not it fetches from your origin, caches it, and serves it. The wins compound: the round-trip time drops from 200 milliseconds to 10, the TLS handshake happens at the edge rather than across the world, your origin sees a small fraction of the traffic, and a flood of requests is absorbed by the edge rather than reaching you. Cache correctness &mdash; <code>Cache-Control</code>, <code>ETag</code>, purging, and the difference between static assets and dynamic HTML &mdash; is where CDNs actually get hard, and it has its own catalog topic.</p>
+
+<p><strong>What you can do at this point:</strong> design a system that survives a server failing and does not make every user pay a transcontinental round trip.</p>
+
+<p><strong>What's still broken:</strong> we have optimised the network path thoroughly, but the protocol riding on it is still HTTP/1.1, which can only carry one exchange at a time per connection.</p>
+
+<h3>Node 14 &mdash; HTTP/2 and HTTP/3: fixing head-of-line blocking, twice</h3>
+
+<p><strong>The limitation:</strong> HTTP/1.1 handles one request at a time per connection, so a page needing fifty resources either serialises them or opens many connections, each paying its own handshakes.</p>
+
+<p><strong>HTTP/2</strong> [USE], standardised in 2015 and derived from Google's SPDY, changes the framing and nothing about the semantics. Methods, status codes, and headers mean exactly what they did. What changes is that the protocol becomes <strong>binary</strong> and gains <strong>streams</strong>: one TCP connection carries many independent, interleaved request/response exchanges, each identified by a stream ID and split into frames. Fifty resources now travel over one connection, concurrently. It also adds <strong>header compression</strong> (HPACK), which matters more than it sounds &mdash; HTTP requests carry large, highly repetitive header sets, and compressing them against a shared table removes real bytes from every request. <strong>Server push</strong> was part of the spec and has been effectively abandoned; it is worth knowing only so you can say it was removed from browsers, which is a nice signal of currency.</p>
+
+<p>And then the flaw, which is the entire reason HTTP/3 exists [EXPLAIN]. HTTP/2 removed head-of-line blocking at the <em>HTTP</em> layer, but all those streams still ride a single <em>TCP</em> connection, and TCP guarantees in-order delivery of the whole byte stream. So one lost packet stalls TCP's delivery to the application &mdash; and therefore stalls <strong>every</strong> stream, including the forty-nine that had nothing to do with the lost packet. On a clean network HTTP/2 is a clear win; on a lossy mobile network it can be worse than several parallel HTTP/1.1 connections. You cannot fix this from inside HTTP, because the problem is in the transport underneath.</p>
+
+<p><strong>HTTP/3</strong> [USE], standardised in 2022, fixes it by replacing the transport. It runs on <strong>QUIC</strong> [EXPLAIN], which is a new transport protocol built on top of <strong>UDP</strong> &mdash; precisely the choice Node 8 set up. QUIC reimplements reliability, ordering, and congestion control itself, but <em>per stream</em>, so a lost packet stalls only the stream it belonged to. It also folds the TLS 1.3 handshake into the transport handshake, so a connection is established in one round trip instead of TCP's handshake plus TLS's, and can be zero round trips on resumption. And it identifies connections by a <strong>connection ID</strong> rather than the 4-tuple, so a phone switching from Wi-Fi to mobile data keeps its connection alive despite its IP address changing completely &mdash; which under TCP would kill it.</p>
+
+<p>Why UDP rather than a genuinely new protocol? Because of Node 9's world. Middleboxes &mdash; NAT devices, firewalls &mdash; understand TCP and UDP and drop everything else. A new transport protocol would be undeployable on the real internet. So QUIC hides inside UDP, which every middlebox already passes.</p>
+
+<p><strong>What you can do at this point:</strong> explain why a protocol version changed, what it fixed, and what it did not &mdash; and recognise that the recurring villain across Nodes 8, 14 and 15 is always head-of-line blocking.</p>
+
+<p><strong>What's still broken:</strong> all three HTTP versions are still client-initiated request/response. A server that has news for the client has no way to say so.</p>
+
+<h3>Node 15 &mdash; when the server needs to speak first: polling, SSE and WebSockets</h3>
+
+<p><strong>The limitation:</strong> HTTP in every version requires the client to ask, so a server with new data must wait to be asked.</p>
+
+<p>The naive answer is <strong>polling</strong> [USE]: the client asks every few seconds. It works and it is terrible &mdash; latency averages half the interval, and the overwhelming majority of requests return nothing while still paying full request cost across your whole stack.</p>
+
+<p><strong>Long polling</strong> [USE] improves it: the client makes a request and the server simply does not answer until it has something, holding the connection open, then the client immediately reissues. Latency becomes near-zero and wasted requests mostly disappear. The costs are that every held connection occupies a server resource, and intermediaries and NAT devices may time out an idle connection (Node 9 again), so you need a periodic no-op response to keep it alive.</p>
+
+<p><strong>Server-Sent Events</strong> [USE] standardises this properly for one-way flow. The server responds with <code>Content-Type: text/event-stream</code> and never closes; it writes small text-framed messages as they occur. It is plain HTTP &mdash; it works through proxies, benefits from HTTP/2 multiplexing, and browsers reconnect automatically with an event ID for resumption. It is the correct default for notifications, live dashboards, progress updates, and &mdash; very relevantly &mdash; <strong>streaming LLM responses token by token</strong>, which is exactly what a qbank-style generation endpoint would use.</p>
+
+<p><strong>WebSockets</strong> [EXPLAIN] give full bidirectional communication. The connection starts as an ordinary HTTP request carrying <code>Upgrade: websocket</code>; the server replies <code>101 Switching Protocols</code>; and from that point the TCP connection stops speaking HTTP entirely and speaks the WebSocket frame protocol instead &mdash; its own binary framing, message boundaries preserved, either side able to send at any moment. That upgrade handshake is why WebSockets traverse HTTP infrastructure, and why proxies and load balancers need explicit configuration to allow it.</p>
+
+<p>The choice, stated as a rule you can give in an interview [USE]: <strong>if data flows one way, from server to client, use SSE; if both sides need to send freely, use WebSockets.</strong> People reach for WebSockets by default and pay for bidirectionality they do not use &mdash; a stateful connection outside normal HTTP semantics, with no automatic reconnection, no built-in request/response correlation, and awkward interaction with load balancers and authentication. And all of these share one structural problem worth naming now, because it is the thing that actually breaks in production: <strong>persistent connections are stateful, and horizontal scaling is not</strong> [EXPLAIN]. If a user is connected to server A and the event arrives at server B, B cannot reach them. You need a shared pub/sub layer &mdash; Redis is the usual answer &mdash; so every server can broadcast to its own connected clients. That is a genuinely good architecture answer and most candidates miss it.</p>
+
+<p><strong>What you can do at this point:</strong> choose and defend a real-time transport, and know what breaks when you run more than one instance of it.</p>
+
+<p><strong>What's still broken:</strong> every mechanism so far assumed packets simply go where they are addressed. In any real network &mdash; corporate, cloud, containerised &mdash; devices in the middle are actively deciding what to allow, and they will be the reason your thing does not work.</p>
+
+<h3>Node 16 &mdash; middleboxes: firewalls, proxies, and the network as a policy layer</h3>
+
+<p><strong>The limitation:</strong> real networks are not neutral pipes; things in the middle inspect, filter, and rewrite traffic, and their rules are invisible from the endpoints.</p>
+
+<p>A <strong>firewall</strong> [EXPLAIN] permits or denies traffic by rule &mdash; typically matching on source address, destination address, port and protocol. A <strong>stateful</strong> firewall additionally tracks established connections, so it can allow return traffic for a connection it permitted outbound without needing a matching inbound rule. That statefulness is why "allow outbound, deny inbound" is a coherent default policy, and it is precisely the same table-of-active-connections idea as NAT in Node 9.</p>
+
+<p>The distinction that matters most operationally is <strong>ingress versus egress</strong> [USE]. Ingress rules control what may reach you; egress rules control what you may reach. Most people configure ingress and forget egress exists &mdash; and then a production service cannot call an external API, or cannot reach a package registry during a build, and the failure looks like a hang rather than a refusal. That difference in failure signature is a genuinely useful diagnostic: a <strong>connection refused</strong> means something actively rejected you (a <code>RST</code>, usually nothing listening); a <strong>timeout</strong> means packets went into a void, which almost always means a firewall silently dropping them. Being able to say that distinction out loud is worth a lot in a debugging interview.</p>
+
+<p>In cloud environments this appears as <strong>security groups</strong> and <strong>network ACLs</strong> [USE] &mdash; the same idea with vendor names, usually stateful at the instance level and stateless at the subnet level. Layered with them are private subnets, NAT gateways for outbound-only access, and VPC peering. The mental model transfers directly from Node 9 and this node; the vocabulary is the only new part.</p>
+
+<p>A <strong>forward proxy</strong> [USE] sits in front of clients: corporate networks route all outbound traffic through one, for filtering, logging, and caching. This is why some environments require <code>HTTP_PROXY</code> and <code>HTTPS_PROXY</code> environment variables, and why a tool that ignores them fails in an office and works at home. <strong>TLS-inspecting proxies</strong> [AWARE] go further &mdash; they terminate TLS, inspect the plaintext, and re-encrypt with a certificate signed by a CA the company has installed on every machine. It is, by construction, a sanctioned man-in-the-middle, and it is why corporate laptops sometimes reject certificate chains that work everywhere else, and why <code>NODE_EXTRA_CA_CERTS</code> exists.</p>
+
+<p>The general lesson, and it is the thing to carry from this node: <strong>the network is a policy layer, and a large fraction of "it works on my machine" is a policy difference, not a code difference.</strong></p>
+
+<p><strong>What you can do at this point:</strong> reason about where a connection is being blocked and by what kind of device, from the shape of the failure.</p>
+
+<p><strong>What's still broken:</strong> you now have a complete model of how it all works. What you do not have is a procedure for finding out which part of it is wrong when something breaks &mdash; which is what the job actually consists of.</p>
+
+<h3>Node 17 &mdash; diagnosis: finding the broken layer</h3>
+
+<p><strong>The limitation:</strong> you understand every layer, but a real failure gives you one symptom and no indication which layer produced it.</p>
+
+<p>The method is to walk the chain in order and stop at the first thing that fails, because every layer depends on the ones below it. Each tool below tests exactly one node of this landscape, which is why this node comes last and not first.</p>
+
+<p><strong>Is the name resolving?</strong> <code>dig example.com</code> [USE] shows the answer, which record types exist, the TTL, and which server answered. <code>dig +trace</code> walks the delegation from the root, which is how you tell "my resolver has a stale cached answer" apart from "the record is genuinely wrong." This tests Node 10.</p>
+
+<p><strong>Is the host reachable at all?</strong> <code>ping</code> [USE] sends ICMP echo requests and reports round-trip times and loss &mdash; but remember from Node 4 that ICMP is frequently blocked, so failure is weak evidence while success is strong evidence. <code>traceroute</code> (or <code>mtr</code>, which is <code>traceroute</code> plus continuous statistics) reveals the path by sending packets with TTL of 1, then 2, then 3, so that each successive router discards one and reports back &mdash; an elegant abuse of the loop-prevention mechanism from Node 4. It shows you where latency appears and where the path dies. This tests Nodes 3 and 4.</p>
+
+<p><strong>Is the port open?</strong> <code>nc -vz host 443</code> or <code>telnet host 443</code> [USE] attempts a TCP connection and nothing more, which cleanly separates a transport problem from an application problem. Note the failure signatures from Node 16: <em>refused</em> means reached and rejected, <em>timed out</em> means dropped. This tests Nodes 5, 7 and 16.</p>
+
+<p><strong>Is TLS working?</strong> <code>openssl s_client -connect host:443 -servername host</code> [USE] shows the certificate chain, the negotiated version and cipher, and validation errors &mdash; the <code>-servername</code> flag being SNI from Node 12, without which a multi-tenant host gives you the wrong certificate and a very confusing error.</p>
+
+<p><strong>Is the application responding correctly?</strong> <code>curl -v</code> [USE] prints the full request and response including headers, and is the single highest-value tool in this list. <code>curl -w</code> reports a timing breakdown &mdash; DNS lookup, TCP connect, TLS handshake, time to first byte, total &mdash; which tells you <em>which node</em> the time is being spent in, and is the fastest way to answer "why is this slow." This tests Node 11.</p>
+
+<p><strong>What is this machine's own socket state?</strong> <code>ss -tulpn</code> [USE] (the modern replacement for <code>netstat</code>) lists listening sockets with their ports and owning process, which answers "is my server actually bound, and to which interface" &mdash; the <code>0.0.0.0</code> versus <code>127.0.0.1</code> question from Node 7 &mdash; and "what is already using this port." <code>ss -tan state time-wait | wc -l</code> counts the <code>TIME_WAIT</code> sockets from Node 5.</p>
+
+<p><strong>What is actually on the wire?</strong> <code>tcpdump</code> [AWARE] captures raw packets; Wireshark reads them with full protocol decoding. This is the ground truth when every other tool disagrees, and the thing worth knowing is that it exists and roughly when you would escalate to it &mdash; when you need to prove whether a packet left the machine at all.</p>
+
+<p>The framework to keep: <strong>name &rarr; route &rarr; port &rarr; TLS &rarr; application</strong>, in that order, and when something is <em>slow</em> rather than broken, get the timing breakdown before forming any hypothesis. Guessing at which layer is slow is the most common and most expensive debugging mistake in this domain.</p>
+
+<p><strong>What's still broken:</strong> all of this describes physical networks. Nearly everything you deploy now runs inside containers and virtual networks, where an entire copy of this stack is simulated in software &mdash; and every one of these concepts appears again, in an unfamiliar costume.</p>
+
+<h3>Node 18 &mdash; virtual networks: containers, orchestrators, and service discovery</h3>
+
+<p><strong>The limitation:</strong> the model so far assumes real machines, real cables, real addresses. Deployment targets are containers and virtual networks where none of that is physically true.</p>
+
+<p>A <strong>container</strong> [USE] gets its own isolated network stack: its own interfaces, its own IP address, its own routing table, its own view of which ports are in use. Two containers on one host can both bind port 3000 without conflict, because those are two different network stacks. Docker connects them with a <strong>bridge network</strong>, which is a switch (Node 2) implemented in software, and hands out addresses from a private range (Node 9), and performs <strong>NAT</strong> for outbound traffic so containers can reach the internet using the host's address.</p>
+
+<p>Which explains, precisely, the things that confuse everyone about Docker networking. <strong>Publishing a port</strong> with <code>-p 8080:3000</code> installs a NAT rule mapping the host's 8080 to the container's 3000 &mdash; the container is otherwise unreachable from outside, for exactly the reasons in Node 9. <strong>A container binding <code>127.0.0.1</code> is unreachable even when published</strong>, because loopback inside the container's own stack is not the host's, and this is one of the most common deployment failures there is (Node 7). <strong>Containers reach each other by name</strong> on a user-defined network, because Docker runs an internal DNS server that resolves container names to their current addresses (Node 10). And <strong><code>localhost</code> inside a container means the container</strong>, which is why an app in one container cannot reach a database in another at <code>localhost:5432</code> and must use the service name instead.</p>
+
+<p>Compose formalises this: services on a shared network, addressed by service name, with only deliberately published ports exposed to the host. Kubernetes [AWARE &mdash; vocabulary, not operation] extends the same ideas: every pod gets its own IP on a flat cluster network; a <strong>Service</strong> is a stable virtual name and address in front of a changing set of pods, which is a load balancer (Node 13) plus DNS (Node 10); an <strong>Ingress</strong> is an L7 reverse proxy routing external traffic by host and path (Node 13); and <strong>network policies</strong> are firewall rules between pods (Node 16). Deliberately do not go deeper here &mdash; this is vocabulary you need to hold a conversation, not a system you need to operate.</p>
+
+<p>And this is where the chain closes. Every concept in this node is a concept from an earlier node, reimplemented in software: the switch from Node 2, the private addressing and NAT from Node 9, the DNS from Node 10, the load balancer from Node 13, the firewall from Node 16. <strong>Container networking is not a new subject.</strong> It is this landscape, virtualised &mdash; which is exactly why it feels impenetrable to people who never learned the physical version, and straightforward to people who did.</p>
+
+<p><strong>What you can do at this point:</strong> debug why one container cannot reach another, why a published port does not work, and read a Kubernetes networking discussion without being lost.</p>
+
+<p><strong>What's still broken:</strong> nothing structural &mdash; the chain is complete. What remains is depth in individual protocols (<code>http</code>, <code>dns</code>, <code>https-tls-concepts</code>, <code>cdns</code>, <code>load-balancing-basics</code> are their own topics) and the applied practice of building on top of all of it.</p>
+
+<h3>Where the chain gets misread</h3>
+
+<p><strong>"The layers are a strict stack that data passes down through."</strong> <em>(Node 3)</em> The layer model is a description of responsibilities, not of code structure. Real implementations blur it constantly &mdash; TLS sits between transport and application without being either, QUIC does transport <em>and</em> security <em>and</em> HTTP framing together, and a NAT device rewrites transport headers while nominally being a network-layer box. Use layers to locate a responsibility, not to predict an architecture.</p>
+
+<p><strong>"A MAC address and an IP address are two names for the same thing."</strong> <em>(Node 3)</em> They are different in kind. A MAC is fixed to the hardware and only meaningful within one local network. An IP describes where a machine currently sits in the global topology and changes when it moves. The MAC changes at every hop of a packet's journey; the IP does not change at all.</p>
+
+<p><strong>"TCP guarantees my message arrives as a message."</strong> <em>(Node 5)</em> TCP guarantees a byte stream. Your 100-byte write may arrive split, or merged with the next one. Every protocol on top must define its own message boundaries &mdash; which is what <code>Content-Length</code>, chunked encoding, WebSocket frames, and length prefixes all are.</p>
+
+<p><strong>"Packet loss means something is broken."</strong> <em>(Node 4, Node 6)</em> Loss is TCP's only congestion signal and is present in every healthy connection. Congestion control deliberately increases sending rate until loss occurs. A connection with zero loss is usually one that is not using the available capacity.</p>
+
+<p><strong>"More bandwidth will make it faster."</strong> <em>(Node 6)</em> Throughput is bounded by window size divided by round-trip time, and latency is bounded below by physics. A high-latency link stays slow no matter how wide it gets. The reliable optimisation is fewer round trips and shorter distance, which is why connection reuse and CDNs work and why bigger pipes often do not.</p>
+
+<p><strong>"UDP is just a worse TCP."</strong> <em>(Node 8)</em> UDP is the transport where <em>you</em> choose which guarantees you want. In-order delivery is a cost as well as a benefit &mdash; for real-time media, holding back fresh data to wait for stale data is exactly wrong. QUIC, which underpins HTTP/3, is built on UDP specifically to reimplement reliability better.</p>
+
+<p><strong>"My laptop has an IP address, so it is reachable from the internet."</strong> <em>(Node 9)</em> It almost certainly has a private address behind NAT, which creates mappings only for outbound connections. Nothing on the internet can initiate a connection to it. This is the reason tunnelling tools, hole-punching, and load balancers in front of private subnets all exist.</p>
+
+<p><strong>"I changed the DNS record, so it is live."</strong> <em>(Node 10)</em> Every resolver that cached the old answer keeps serving it for the remaining TTL, and some clients cache beyond that. The change is live at the authoritative server and propagating everywhere else. Lower the TTL <em>before</em> a migration, not during it.</p>
+
+<p><strong>"HTTPS means the site is safe."</strong> <em>(Node 12)</em> It means the connection is confidential, unmodified, and that the server holds a certificate valid for that hostname. It says nothing about whether the operator is honest, whether the application is secure, or what happens to your data after it arrives. A phishing site can have a perfectly valid certificate.</p>
+
+<p><strong>"HTTP/2 makes everything faster, so head-of-line blocking is solved."</strong> <em>(Node 14)</em> HTTP/2 solved it at the HTTP layer while leaving it at the TCP layer &mdash; one lost packet still stalls every multiplexed stream. That unsolved half is the entire reason HTTP/3 and QUIC exist.</p>
+
+<p><strong>"WebSockets are the way to do real-time."</strong> <em>(Node 15)</em> They are the way to do <em>bidirectional</em> real-time. For server-to-client flow &mdash; notifications, progress, streaming LLM tokens &mdash; Server-Sent Events is plain HTTP, works through existing infrastructure, and reconnects automatically. And neither works across multiple server instances without a shared pub/sub layer.</p>
+
+<p><strong>"Container networking is a separate subject I have not learned."</strong> <em>(Node 18)</em> It is this landscape reimplemented in software. A Docker bridge is Node 2's switch, port publishing is Node 9's NAT, service names are Node 10's DNS, a Kubernetes Service is Node 13's load balancer, and a network policy is Node 16's firewall. There is nothing new in it.</p>
+
+<h3>The chain in one paragraph</h3>
+
+<p>Two computers with no wire between them can share nothing, and even with a wire they would have no agreement about what the bytes mean &mdash; so networking is always both a physical problem and a protocol problem at once. A wire carries voltage, which forces line encoding for timing, frames for boundaries, and checksums for corruption; adding a third machine forces MAC addresses to say who a frame is for, and switches to deliver it efficiently, but flat addresses can never scale globally because nothing could hold the table. Hierarchical IP addresses fix that by encoding <em>location</em>, letting routers forward on a coarse prefix match and a default route, but IP promises only best effort &mdash; packets may be lost, reordered, duplicated or delayed &mdash; so TCP manufactures a reliable ordered stream on top using sequence numbers, acknowledgements, retransmission and a three-way handshake, at the cost of a round trip before any data and head-of-line blocking whenever a packet is lost. Unrestrained sending would destroy the receiver and the network, so flow control uses an advertised window and congestion control probes capacity by growing until loss appears, which makes throughput a function of window over round-trip time and makes latency, not bandwidth, the thing you actually fight. Ports and the four-tuple identify which program on which machine, sockets are the API, and UDP exists for the cases where TCP's guarantees cost more than they are worth. IPv4 ran out, so private ranges plus NAT let everyone share addresses at the price of being unreachable from outside and having connections silently die on idle timeouts. Nobody can use numbers, so DNS maps names to addresses through a delegated hierarchy held together by caching and TTLs. HTTP is then just an agreed text format on a TCP stream &mdash; request/response, client-initiated, stateless, framed by length &mdash; and TLS wraps it to provide confidentiality, integrity and, critically, authentication via a certificate chain. One server is a single point of failure at a fixed distance, so load balancers, reverse proxies, anycast and CDNs add capacity, resilience and proximity; HTTP/2 multiplexes many streams over one connection but leaves TCP's head-of-line blocking, which HTTP/3 fixes by rebuilding the transport as QUIC on top of UDP. HTTP cannot let a server speak first, so SSE and WebSockets exist, both of which break across multiple instances without shared pub/sub. Real networks are policy layers full of firewalls and proxies where the difference between <em>refused</em> and <em>timed out</em> tells you which one you hit, diagnosis means walking name &rarr; route &rarr; port &rarr; TLS &rarr; application and stopping at the first failure, and container and Kubernetes networking is this entire chain reimplemented in software, with a bridge for the switch, NAT for port publishing, an internal DNS for service names, and a Service for the load balancer.</p>
+
+    </div>
+  </div>
+
+  <div id="tab-recall" style="display:none">
+    <div class="card-list" id="recallCards"></div>
+  </div>
+
+  <div id="tab-prep" style="display:none">
+    <div class="card-list" id="prepCards"></div>
+  </div>
+
+  <div id="tab-elaboration" style="display:none">
+    <div class="card-list" id="elabCards"></div>
+  </div>
+
+  <div id="tab-discuss" style="display:none">
+    <div class="card-list" id="discussCards"></div>
+  </div>
+</div>
+
+<footer class="site-footer">devxkapoor-learning · computer-networking · built with Claude</footer>
+
+<script>
+DK.wireThemeToggle(document.getElementById("themeToggle"));
+
+const TABS = ["landscape", "recall", "prep", "elaboration", "discuss"];
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    TABS.forEach(t => {
+      document.getElementById("tab-" + t).style.display = (t === btn.dataset.tab) ? "block" : "none";
+    });
+  });
+});
+
+// Landscape: split the flat prose into collapsible nodes, closed by default,
+// so 19 nodes read as a navigable list instead of one continuous wall.
+(function () {
+  const prose = document.querySelector("#tab-landscape .prose");
+  if (!prose) return;
+  const n = DK.makeSectionsCollapsible(prose, { startOpen: false });
+  DK.addCopyButtons(prose);
+  DK.decorateBlocks(prose);
+  if (n) DK.addExpandControls(document.getElementById("tab-landscape"), prose, n + " nodes");
+})();
+
+// If the URL has a #anchor (e.g. from search.html), jump straight to the elaboration tab.
+if (window.location.hash) {
+  document.querySelector('.tab-btn[data-tab="elaboration"]').click();
+}
+
+function renderCards(container, cards, bank) {
+  DK.renderDeck(container, cards, { bank, topic: "computer-networking", showTopic: false });
+}
+
+(async function () {
+  const recall = await DK.fetchJSON("topics/computer-networking/recall.json");
+  const recallEl = document.getElementById("recallCards");
+  if (recall && recall.cards && recall.cards.length) {
+    renderCards(recallEl, recall.cards, "recall");
+  } else {
+    recallEl.innerHTML = "<p class='empty-note'>Recall questions land here once this topic's build gets underway.</p>";
+  }
+
+  const prep = await DK.fetchJSON("topics/computer-networking/prep.json");
+  const prepEl = document.getElementById("prepCards");
+  if (prep && prep.cards && prep.cards.length) {
+    renderCards(prepEl, prep.cards, "prep");
+  } else {
+    prepEl.innerHTML = "<p class='empty-note'>Interview and scenario prep lands here once this topic's build gets underway.</p>";
+  }
+
+  const discuss = await DK.fetchJSON("topics/computer-networking/discuss.json");
+  const discussEl = document.getElementById("discussCards");
+  if (discuss && discuss.pieces && discuss.pieces.length) {
+    discuss.pieces.forEach(pc => {
+      const block = document.createElement("details");
+      block.className = "el-block";
+      block.id = pc.anchor || "";
+      block.innerHTML =
+        `<summary class="node-summary">` +
+          `<span class="node-chevron">${DK.ICON.chevron}</span>` +
+          `<span class="node-title">${pc.title}</span>` +
+          (pc.resolves ? `<span class="node-count">${pc.resolves.length} doubts</span>` : "") +
+        `</summary>` +
+        `<div class="node-body"><div class="prose">${pc.content}</div></div>`;
+      discussEl.appendChild(block);
+    });
+    discussEl.querySelectorAll(".el-block .prose").forEach(pr => {
+      DK.makeSectionsCollapsible(pr, { startOpen: false, level: "sub" });
+      DK.addCopyButtons(pr);
+    });
+    DK.decorateBlocks(discussEl);
+    DK.addExpandControls(document.getElementById("tab-discuss"), discussEl,
+      discuss.pieces.length + " resolutions");
+  } else {
+    discussEl.innerHTML = "<p class='empty-note'>Resolutions to your follow-up questions land here.</p>";
+  }
+
+  const elab = await DK.fetchJSON("topics/computer-networking/elaboration.json");
+  const elabEl = document.getElementById("elabCards");
+  if (elab && elab.sections && elab.sections.length) {
+    elab.sections.forEach(s => {
+      const block = document.createElement("details");
+      block.className = "el-block";
+      block.id = s.anchor || "";
+      block.innerHTML =
+        `<summary class="node-summary">` +
+          `<span class="node-chevron">${DK.ICON.chevron}</span>` +
+          `<span class="node-title">${s.title}</span>` +
+        `</summary>` +
+        `<div class="node-body"><div class="prose">${s.content}</div></div>`;
+      elabEl.appendChild(block);
+    });
+    elabEl.querySelectorAll(".el-block .prose").forEach(pr => {
+      // Sub-sections start closed too: opening a node shouldn't dump its
+      // entire subtree on you at once.
+      DK.makeSectionsCollapsible(pr, { startOpen: false, level: "sub" });
+      DK.addCopyButtons(pr);
+    });
+    DK.decorateBlocks(elabEl);
+    DK.addExpandControls(document.getElementById("tab-elaboration"), elabEl,
+      elab.sections.length + " sections");
+    DK.revealHash();
+  } else {
+    elabEl.innerHTML = "<p class='empty-note'>The deep-dive write-up for this topic hasn't been started yet — it'll fill in section by section as we go.</p>";
+  }
+})();
+</script>
+
+</body>
+</html>

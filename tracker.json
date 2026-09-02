@@ -35,6 +35,7 @@
       "topics": [
         "nodejs-runtime",
         "browser-runtime",
+        "browsers",
         "npm-ecosystem-semver"
       ]
     },
@@ -246,6 +247,11 @@
       "updated": "2026-09-02"
     },
     "computer-networking": {
+      "state": "in-progress",
+      "started": "2026-09-02",
+      "updated": "2026-09-02"
+    },
+    "browsers": {
       "state": "in-progress",
       "started": "2026-09-02",
       "updated": "2026-09-02"

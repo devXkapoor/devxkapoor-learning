@@ -1,0 +1,802 @@
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What happens, step by step, when you type a URL and press enter?",
+   "a": "The browser parses the URL, resolves the hostname through DNS to an IP, opens a TCP connection to port 443, performs a TLS handshake in which ALPN picks HTTP/2, then sends a request with a method, path, <code>Host</code> or <code>:authority</code>, cookies and accept headers. The server responds with a status line, headers and a body; the browser parses the HTML and fires further requests for subresources, many of which are answered from cache without touching the network."
+  },
+  {
+   "n": 2,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the difference between GET and POST?",
+   "a": "GET retrieves and is safe, idempotent and cacheable, with its parameters in the URL where they land in history, logs and referrers. POST submits data to be processed, is neither safe nor idempotent, carries a body, and is not cached. The real difference is the contract, not the location of the data."
+  },
+  {
+   "n": 3,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Explain the HTTP status code classes.",
+   "a": "First digit is the class: 1xx informational, 2xx success, 3xx redirection, 4xx the caller got it wrong, 5xx the server broke. The 4xx/5xx split is the useful one because it says whether retrying the same request can ever help."
+  },
+  {
+   "n": 4,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the difference between 401 and 403?",
+   "a": "401 means unauthenticated — we do not know who you are, so authenticate and try again, and the response should carry <code>WWW-Authenticate</code>. 403 means authenticated but not permitted; retrying with the same credentials will never work."
+  },
+  {
+   "n": 5,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Why is HTTP called stateless, and how do sessions work then?",
+   "a": "The protocol keeps nothing between requests, so each one must carry everything needed. State is carried in the request itself — a cookie holding a session identifier the server looks up, or a signed token carrying the claims. Statelessness is what lets any server answer any request."
+  },
+  {
+   "n": 6,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is CORS and why does it exist?",
+   "a": "A browser mechanism that lets a server opt in to letting a page from another origin read its responses. It exists because the same-origin policy stops script reading cross-origin responses, and legitimate applications with a separate API host need an exception."
+  },
+  {
+   "n": 7,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is an origin?",
+   "a": "Scheme, host and port together. All three must match; <code>https://x.com</code> and <code>http://x.com</code> are different origins, as are two different ports on localhost."
+  },
+  {
+   "n": 8,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "How does HTTP caching work?",
+   "a": "Two mechanisms. Freshness: <code>Cache-Control: max-age</code> lets a copy be reused with no request at all. Validation: the client sends back an <code>ETag</code> as <code>If-None-Match</code> and the server can reply <code>304</code> with no body. <code>Vary</code> tells shared caches which request headers change the answer."
+  },
+  {
+   "n": 9,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is HTTPS actually doing?",
+   "a": "Running the same HTTP inside a TLS-encrypted stream on port 443. TLS provides confidentiality, integrity and — through certificates signed by a trusted authority — authentication that you are talking to the host you asked for."
+  },
+  {
+   "n": 10,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a cookie and how is it set?",
+   "a": "A name/value pair the server sends with <code>Set-Cookie</code>; the browser stores it and attaches it to every matching subsequent request automatically. The attributes that matter are <code>Secure</code>, <code>HttpOnly</code> and <code>SameSite</code>."
+  },
+  {
+   "n": 11,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is idempotency and which methods are idempotent?",
+   "a": "Doing it repeatedly leaves the same state as doing it once. GET, HEAD, OPTIONS, PUT and DELETE are idempotent; POST and PATCH are not. It matters because only idempotent requests can be safely retried after a timeout."
+  },
+  {
+   "n": 12,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the difference between PUT and PATCH?",
+   "a": "PUT replaces the entire resource with the representation you send; PATCH applies a partial change. That is why PUT is idempotent and PATCH usually is not."
+  },
+  {
+   "n": 13,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What does a 502 mean and what would you check?",
+   "a": "A gateway got an invalid response from upstream. I would check whether the application crashed, whether it closed the connection, and whether keep-alive timeouts are misordered between the proxy and the app — that last one produces intermittent 502s with a clean application log."
+  },
+  {
+   "n": 14,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Explain HTTP/1.1 versus HTTP/2.",
+   "a": "The semantics are identical. HTTP/2 replaces text framing with binary frames on multiplexed streams, so many requests share one connection without head-of-line blocking, and compresses headers with HPACK. It makes HTTP/1.1-era tricks like domain sharding counterproductive."
+  },
+  {
+   "n": 15,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a redirect and which code would you use?",
+   "a": "A 3xx with a <code>Location</code> header. 301 permanent and cached hard, 302 temporary, 303 to force a GET after a POST, 307 and 308 to preserve the method and body. I default to 308 or 307 unless I specifically want the method changed."
+  },
+  {
+   "n": 16,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How would you design a REST API for a resource?",
+   "a": "Plural noun paths, methods for verbs: <code>GET /invoices</code>, <code>POST /invoices</code> returning 201 with <code>Location</code>, <code>GET /invoices/41</code>, <code>PUT</code> or <code>PATCH</code> to update, <code>DELETE</code> returning 204. Cursor pagination, a consistent error body, <code>ETag</code> plus <code>If-Match</code> on updates, and 429 with <code>Retry-After</code> for limits."
+  },
+  {
+   "n": 17,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you make a POST safe to retry?",
+   "a": "An idempotency key supplied by the client as a header. The server stores the key with the result of the first attempt, in the same transaction as the effect, and returns the stored result for any later request with the same key."
+  },
+  {
+   "n": 18,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you prevent two users overwriting each other's edit?",
+   "a": "Conditional requests. Send an <code>ETag</code> with the resource; require <code>If-Match</code> on the update; return <code>412 Precondition Failed</code> if it no longer matches. That converts a silent lost update into an explicit conflict the UI can resolve."
+  },
+  {
+   "n": 19,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How would you debug a CORS error?",
+   "a": "Look at the actual headers, not the console text. Check whether there was a preflight, whether the <code>OPTIONS</code> response allowed that method and those headers, whether the allowed origin matches exactly, whether credentials require a specific origin rather than <code>*</code>, and whether a redirect sits in front of the API — preflights do not follow redirects."
+  },
+  {
+   "n": 20,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Cookies or JWT in localStorage for auth — how do you decide?",
+   "a": "An <code>HttpOnly</code>, <code>Secure</code>, <code>SameSite=Lax</code> cookie by default, because XSS cannot read it, and I add CSRF protection. localStorage plus a Bearer header is the choice when the API is consumed cross-origin or by a mobile client, and it trades CSRF immunity for XSS exposure."
+  },
+  {
+   "n": 21,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you implement rate limiting?",
+   "a": "A counter per identity in Redis, either a fixed window or a sliding window, checked in middleware. Return 429 with <code>Retry-After</code> and limit headers. The identity must be the authenticated user where possible, and only a proxy-verified IP otherwise, because <code>X-Forwarded-For</code> is client-controlled."
+  },
+  {
+   "n": 22,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How would you implement file upload?",
+   "a": "Multipart for small files with a size limit enforced before buffering. For large ones, a pre-signed URL so the file goes straight to object storage and never transits my application, or a resumable protocol using range semantics."
+  },
+  {
+   "n": 23,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you stream a response to a client?",
+   "a": "Chunked framing under the hood — in Node, write to the response as data arrives rather than buffering. For an event feed, SSE with <code>text/event-stream</code>. Disable proxy buffering for that route or nothing arrives until the end."
+  },
+  {
+   "n": 24,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How would you version an API?",
+   "a": "A version segment in the path, because it is visible in logs, trivially testable in a browser and easy to route on. I would treat additive changes as non-breaking and only version on genuine breaks, keeping the previous version alive with a deprecation window and a <code>Deprecation</code>/<code>Sunset</code> header."
+  },
+  {
+   "n": 25,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What headers would you set for security on a web response?",
+   "a": "<code>Strict-Transport-Security</code>, <code>Content-Security-Policy</code>, <code>X-Content-Type-Options: nosniff</code>, <code>Referrer-Policy</code>, and a restrictive <code>Permissions-Policy</code>. Plus cookies with <code>Secure</code>, <code>HttpOnly</code> and <code>SameSite</code>."
+  },
+  {
+   "n": 26,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is Content-Security-Policy for?",
+   "a": "It tells the browser which sources of script, style, image and connection are allowed, so an injected script from an unexpected origin does not run. It is the main structural mitigation for XSS rather than a filter on inputs."
+  },
+  {
+   "n": 27,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you handle pagination for a large collection?",
+   "a": "Cursor-based: return an opaque cursor for the last item and a next link. Offset pagination drifts as rows are inserted and gets slower the deeper you go, so I only use it where a page-number UI is required."
+  },
+  {
+   "n": 28,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How would you design a webhook sender?",
+   "a": "Sign each delivery with an HMAC over the body and a timestamp, include a unique delivery id so receivers can deduplicate, retry with exponential backoff on non-2xx, and expose a delivery log. Assume receivers are slow and occasionally down."
+  },
+  {
+   "n": 29,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is the difference between authentication and authorisation over HTTP?",
+   "a": "Authentication establishes identity and is carried by a cookie or an <code>Authorization</code> header, failing with 401. Authorisation decides what that identity may do and fails with 403. They are separate layers and confusing them produces both security holes and unhelpful errors."
+  },
+  {
+   "n": 30,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do you handle a long-running job triggered over HTTP?",
+   "a": "Return 202 immediately with a status URL, enqueue the work, and let the client poll that URL or receive a webhook. Holding the request open ties up a connection and will be killed by some proxy's timeout anyway."
+  },
+  {
+   "n": 31,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is the N+1 problem at the HTTP layer?",
+   "a": "A client fetching a list and then one request per item. The fixes are an endpoint that returns the expansion inline, a batch endpoint, or an <code>include</code> parameter — and over HTTP/2 the cost is lower than it used to be but not zero."
+  },
+  {
+   "n": 32,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is HTTP request smuggling?",
+   "a": "An attack exploiting a proxy and an origin disagreeing about where a request ends — typically through conflicting <code>Content-Length</code> and <code>Transfer-Encoding</code> headers — so attacker bytes are prepended to the next user's request on a shared connection."
+  },
+  {
+   "n": 33,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is HPACK and what problem does it solve?",
+   "a": "HTTP/2's header compression. Browsers repeat several hundred bytes of identical headers on every request; HPACK uses a static and a dynamic table so a repeated header becomes an index, often one byte."
+  },
+  {
+   "n": 34,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "Explain head-of-line blocking at both layers.",
+   "a": "At the HTTP/1.1 layer, responses must return in request order, so a slow one blocks ready ones — which is why pipelining failed. HTTP/2 fixes that, but TCP still delivers in order, so a lost packet blocks all multiplexed streams. QUIC fixes that by recovering loss per stream."
+  },
+  {
+   "n": 35,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is SNI and what does it leak?",
+   "a": "The hostname sent in the clear during the TLS ClientHello so a server can pick the right certificate. It means an observer learns which site you visit even over HTTPS; Encrypted Client Hello exists to close that."
+  },
+  {
+   "n": 36,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is connection migration in QUIC?",
+   "a": "A connection identified by a connection ID rather than an address and port, so changing network from Wi-Fi to cellular keeps the connection alive. TCP cannot do this because its identity is the address four-tuple."
+  },
+  {
+   "n": 37,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is <code>Vary</code> and when have you needed it?",
+   "a": "It adds request headers to a shared cache's key. It is needed whenever the same URL can produce different bytes based on a header — most commonly <code>Accept-Encoding</code>, and <code>Origin</code> when you echo it back for CORS."
+  },
+  {
+   "n": 38,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is an open redirect?",
+   "a": "An endpoint that redirects to a URL taken from user input without validating it against an allow-list, which lets an attacker use your trusted domain as the visible part of a phishing link."
+  },
+  {
+   "n": 39,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is HSTS and what problem does it solve?",
+   "a": "A header telling browsers to use HTTPS for this host for a stated period. It removes the window where a first plain-HTTP request could be intercepted and downgraded before the redirect to HTTPS happens."
+  },
+  {
+   "n": 40,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is a 100-continue and when is it used?",
+   "a": "A client sends <code>Expect: 100-continue</code> before a large body; the server can reject on the headers alone, or answer 100 to invite the upload. It saves uploading a body that was going to be refused."
+  },
+  {
+   "n": 41,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What are hop-by-hop headers?",
+   "a": "Headers that apply to one link only and must be stripped by each intermediary rather than forwarded — <code>Connection</code>, <code>Transfer-Encoding</code>, <code>Upgrade</code>, <code>Keep-Alive</code>. HTTP/2 forbids them entirely."
+  },
+  {
+   "n": 42,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "How does SSE differ from WebSockets?",
+   "a": "SSE is one-directional server-to-client over plain HTTP with automatic reconnection and resumption. WebSockets upgrade away from HTTP into a bidirectional message channel and lose caching, status codes and reconnection. Choose SSE unless the client genuinely needs to push."
+  },
+  {
+   "n": 43,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is a range request used for?",
+   "a": "Fetching part of a resource — <code>Range: bytes=</code> answered with 206. It is what makes download resumption and video seeking work."
+  },
+  {
+   "n": 44,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your deploy shipped but users still see the old CSS. Walk through it.",
+   "a": "Check the response headers on the asset — likely a long <code>max-age</code> on a stable URL. Then check each cache layer: browser, service worker, CDN, reverse proxy. The permanent fix is content-hashed asset filenames with a long immutable max-age and never-cached HTML, so the URL changes when the content does."
+  },
+  {
+   "n": 45,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Intermittent 502s, nothing in the application log. What is your first hypothesis?",
+   "a": "A keep-alive timeout mismatch: the app closes idle connections sooner than the proxy expects, so the proxy occasionally writes into a connection just closed. Fix by making the upstream idle timeout longer than the downstream's."
+  },
+  {
+   "n": 46,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "An API works in Postman but fails in the browser. Diagnose.",
+   "a": "Almost certainly the browser layer, not the server: CORS or a failing preflight, a cookie missing because of <code>SameSite</code> or a missing <code>credentials</code> option, mixed content, or a service worker intercepting. Postman sends no <code>Origin</code> and enforces nothing."
+  },
+  {
+   "n": 47,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Users report being logged out at random. Where do you look?",
+   "a": "Whether sessions are stored in process memory behind multiple instances, whether cookie <code>Domain</code> or <code>Path</code> differs between the pages setting and reading it, whether <code>SameSite=Lax</code> is dropping the cookie on a cross-site return from an identity provider, and whether token expiry is shorter than intended."
+  },
+  {
+   "n": 48,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A file upload works locally and fails in production at about 1 MB. What is it?",
+   "a": "A body size limit at a layer you did not configure — the reverse proxy's client body limit, the load balancer's, or the framework's own. The status is usually 413, and it can be produced before your handler ever runs."
+  },
+  {
+   "n": 49,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your endpoint occasionally charges a customer twice. Explain and fix.",
+   "a": "The client timed out and retried a non-idempotent POST. Fix with a client-supplied idempotency key stored with the result in the same transaction as the charge, so a retry returns the original result instead of charging again."
+  },
+  {
+   "n": 50,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Search engines are indexing your staging site. What do you do?",
+   "a": "Put it behind authentication — that is the real fix. <code>robots.txt</code> is advisory and <code>noindex</code> only works if the page is fetched. Then return 410 or redirect the indexed URLs and request removal."
+  },
+  {
+   "n": 51,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "After adding a CDN, users see other users' account pages. What happened?",
+   "a": "A personalised response was cached by a shared cache — missing <code>Cache-Control: private</code> or <code>no-store</code>, or a <code>Vary</code> that omitted the cookie or auth header. Purge immediately, then mark authenticated responses private."
+  },
+  {
+   "n": 52,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A client reports your API is slow, but your metrics say responses are fast. Where is the gap?",
+   "a": "Your metric probably starts when the handler runs. The gap is DNS, connection and TLS setup, queueing before your process, proxy time, response size and the client's own network. Look at the browser's timing breakdown, and measure at the edge rather than in the handler."
+  },
+  {
+   "n": 53,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Requests from one country are being blocked despite your allow-list. What might be wrong?",
+   "a": "You are probably reading the wrong entry of <code>X-Forwarded-For</code> — either the proxy's own address or a client-supplied fake. Count from the right, trusting exactly as many entries as you have proxies you control."
+  },
+  {
+   "n": 54,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A third-party API you call intermittently times out. What do you change?",
+   "a": "Set an explicit timeout — many clients default to none — retry only idempotent calls with exponential backoff and jitter, cap total attempts, add a circuit breaker so a sustained outage fails fast, and make sure connection pooling is not serialising your calls."
+  },
+  {
+   "n": 55,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your streaming endpoint delivers everything at once at the end. Why?",
+   "a": "A buffering intermediary — nginx's proxy buffering, a CDN, or compression middleware that waits for the whole body. Disable buffering for that route and confirm the response is actually chunked."
+  },
+  {
+   "n": 56,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Certificate expired and the site is down. What is the process failure?",
+   "a": "No automated renewal and no expiry monitoring. The fix is automated issuance with renewal well before expiry, plus an independent alert on days remaining, since the renewal job itself can fail silently."
+  },
+  {
+   "n": 57,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "REST versus GraphQL — how would you choose?",
+   "a": "REST when resources are stable, caching matters and consumers are varied — you get HTTP caching, conditional requests and status codes for free. GraphQL when clients need widely differing shapes of the same data and over-fetching is the real cost; you then give up most HTTP caching and take on query-cost control."
+  },
+  {
+   "n": 58,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Polling versus webhooks?",
+   "a": "Polling is trivial, needs no public endpoint, and its cost scales with frequency. Webhooks are immediate and cheap at rest but require a reachable endpoint, signature verification, duplicate tolerance and a retry story. Poll for low-volume or firewalled cases; webhooks otherwise."
+  },
+  {
+   "n": 59,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "SSE versus WebSockets for a live feed?",
+   "a": "SSE unless the client needs to send. It is plain HTTP, so TLS, auth, proxies and reconnection all come free, and it degrades sensibly. WebSockets are for genuine duplex, and cost you caching, reconnection logic and a separate scaling story."
+  },
+  {
+   "n": 60,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Session cookies versus JWTs?",
+   "a": "Sessions give instant revocation and small cookies at the cost of a lookup per request and shared session storage. JWTs remove the lookup but cannot be revoked before expiry, so they need short lifetimes plus refresh tokens. For a single product I default to sessions; JWTs earn their place across service boundaries."
+  },
+  {
+   "n": 61,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Offset versus cursor pagination?",
+   "a": "Offset allows jumping to a page and is trivial to implement, but drifts under concurrent inserts and degrades on deep pages. Cursor is stable and fast and is what I default to for feeds and APIs; the cost is no random access."
+  },
+  {
+   "n": 62,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Where should you compress — application or edge?",
+   "a": "At the edge in one place. Compressing twice wastes CPU and risks mismatched <code>Content-Encoding</code> handling between hops. Application-level compression makes sense only when there is no proxy."
+  },
+  {
+   "n": 63,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Path versioning versus header versioning?",
+   "a": "Path versioning is visible, cacheable, debuggable in a browser and easy to route on, at the cost of ugly URLs and duplicated routes. Header versioning is cleaner but invisible in logs, easy to omit, and requires <code>Vary</code>. Path usually wins in practice."
+  },
+  {
+   "n": 64,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Long-lived tokens versus short-lived plus refresh?",
+   "a": "Long-lived is simpler but a leak is unbounded until expiry. Short-lived plus refresh bounds the damage and enables revocation, at the cost of a refresh flow, clock handling, and rotation logic. For anything with real user data, short-lived."
+  },
+  {
+   "n": 65,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "When would you deliberately not use HTTP?",
+   "a": "When the interaction is genuinely duplex and high frequency, where WebSockets fit; when the work should outlive the request, where a queue fits; or between internal services where a binary RPC protocol's schema and latency matter more than cacheability and human debuggability."
+  },
+  {
+   "n": 66,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "HTTP/2 everywhere — any reason not to?",
+   "a": "On a lossy network, TCP head-of-line blocking means one lost packet stalls every multiplexed stream, where separate HTTP/1.1 connections degrade more gracefully. And it requires TLS in practice. HTTP/3 is the real answer to that case."
+  },
+  {
+   "n": 67,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Return 200 with an error object, or a 4xx/5xx?",
+   "a": "Use the status code. A 200 with an error body lies to every cache, retry policy, load balancer and monitoring system in the chain, and turns error rates invisible. The body carries the detail; the status carries the class."
+  },
+  {
+   "n": 68,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "In qbank, how does a request actually reach a route handler?",
+   "a": "Be honest about the shape you can defend: a client sends an HTTP request; Fastify parses it, runs hooks in order for parsing, validation and authentication, then dispatches on method and path to a handler; the handler's return value is serialised to JSON with a status code. If you cannot yet trace a specific request end to end in that codebase, that is the gap to close before interviewing on it."
+  },
+  {
+   "n": 69,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "What does your API return on validation failure, and why that status?",
+   "a": "Aim to answer: a 400 for a body that does not parse and 422 for one that parses but is semantically invalid, with a consistent machine-readable error shape. If the current code returns 500 for validation failures, say so and say what you would change — that is a stronger answer than a fiction."
+  },
+  {
+   "n": 70,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How does qbank talk to the Anthropic API over HTTP?",
+   "a": "It is an HTTPS request with an <code>Authorization</code>-style API key header and a JSON body, and forced tool use is expressed inside that body rather than in the protocol. Streaming responses arrive as server-sent events, which is the same mechanism as Node 13. Be able to say which of those your code actually does."
+  },
+  {
+   "n": 71,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How would you add rate limiting to qbank?",
+   "a": "Middleware before the handler, counting per authenticated user in Redis with a sliding window, returning 429 with <code>Retry-After</code> and remaining-quota headers. Redis is already a dependency for BullMQ, so it is a natural place for the counter."
+  },
+  {
+   "n": 72,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Which HTTP concepts is your current work weakest on?",
+   "a": "A good honest answer names one or two specifically — for instance, that both projects were built without deliberate cache headers or conditional requests, so nothing revalidates and every response is fetched in full. Naming a real gap and its fix reads far better than claiming coverage."
+  },
+  {
+   "n": 73,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "How does your front end authenticate against your API?",
+   "a": "Say exactly what it does — cookie or Bearer token, same origin or cross-origin, and therefore whether CORS and CSRF are in play. If it is cross-origin with a cookie, you should be able to name the <code>SameSite</code> and <code>Access-Control-Allow-Credentials</code> implications."
+  },
+  {
+   "n": 74,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "Tell me about a time you debugged an HTTP problem.",
+   "a": "Structure it as symptom, hypothesis, evidence, fix. The strongest version uses evidence from headers — a <code>Cache-Control</code> value, a missing <code>Vary</code>, a preflight response — rather than 'I tried restarting it and it worked'."
+  },
+  {
+   "n": 75,
+   "c": "self_explanation",
+   "t": "Explain your own work",
+   "q": "What would you change about how your projects use HTTP if you rebuilt them?",
+   "a": "Concrete answers: consistent status codes and a single error shape; ETags and conditional requests on read endpoints; idempotency keys on anything that charges or enqueues; explicit timeouts on every outbound call; and cache headers chosen deliberately rather than inherited from defaults."
+  },
+  {
+   "n": 76,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does the Host header exist?",
+   "a": "Because before it, the hostname was used only to find an IP address and then discarded, so one address could serve exactly one site. Putting the name in the request made virtual hosting possible, and made shared hosting and reverse proxies possible with it."
+  },
+  {
+   "n": 77,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why do we have both ETag and Last-Modified?",
+   "a": "Last-Modified came first and is limited to one-second resolution and to things that have a meaningful modification time. ETag is an opaque token the server picks, so it works for generated content and detects changes within the same second."
+  },
+  {
+   "n": 78,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why is the same-origin policy about reading rather than sending?",
+   "a": "Because forbidding sending would break images, scripts, stylesheets and fonts loaded from other hosts — the ordinary structure of the web. Restricting reading is the narrowest rule that still stops one site from harvesting another's data."
+  },
+  {
+   "n": 79,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why did HTTP/2 need to be binary?",
+   "a": "Because text framing requires reading a message to its end to know where it stops, which forces one message at a time. Length-prefixed typed frames labelled with a stream id can be interleaved, which is what multiplexing needs."
+  },
+  {
+   "n": 80,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does HTTP/3 use UDP?",
+   "a": "Not because UDP is desirable, but because TCP is implemented in operating system kernels and middleboxes, so it cannot be changed in any reasonable timeframe. UDP is a minimal base on which the same guarantees can be rebuilt in user space, per stream."
+  },
+  {
+   "n": 81,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why is POST not idempotent by design?",
+   "a": "Because it means 'process this submission', and two submissions are genuinely two events. Making it idempotent would require the protocol to know which submissions are the same, which only the client can know — hence idempotency keys."
+  },
+  {
+   "n": 82,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does CORS have a preflight at all?",
+   "a": "Because before CORS existed, a browser could only send certain request shapes cross-origin, and servers were built assuming that. A preflight asks permission before sending anything a plain HTML form could not have sent, so old servers cannot be attacked with new capabilities."
+  },
+  {
+   "n": 83,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why did HTTP/2 server push fail?",
+   "a": "Because the server does not know what the client already has cached, so it frequently pushed bytes that were thrown away. Preload hints let the client decide, which turned out to be the better division of knowledge."
+  },
+  {
+   "n": 84,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why is the status code three digits with a class in the first?",
+   "a": "So that a client encountering an unknown code can still behave correctly from the class alone. It is forward compatibility built into the number itself."
+  },
+  {
+   "n": 85,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does the fragment never reach the server?",
+   "a": "Because it identifies a location within the retrieved representation, which only the client possesses. The server sent the whole document; choosing where to scroll is not its job."
+  },
+  {
+   "n": 86,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "Walk through what a reverse proxy changes about a request.",
+   "a": "It terminates TLS, so the app sees plain HTTP and needs <code>X-Forwarded-Proto</code>. It replaces the source address, so the client IP moves into <code>X-Forwarded-For</code>. It may rewrite <code>Host</code> and the path, buffer bodies and responses, apply its own timeouts and its own keep-alive policy, and compress. Every one of those is a source of production surprises."
+  },
+  {
+   "n": 87,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "How does connection pooling work for outbound HTTP in Node?",
+   "a": "An agent keeps a pool of sockets per origin and reuses them across requests. Too few and requests queue invisibly; connections held longer than the far end holds them produce resets. Sockets must be capped and idle-expired deliberately rather than left at defaults."
+  },
+  {
+   "n": 88,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "How would you trace one request across five services?",
+   "a": "Generate a trace identifier at the edge if the client did not send one, propagate it in the standardised <code>traceparent</code> header, include it in every log line and every outbound call, and return it to the client so a support ticket can be tied to the exact request."
+  },
+  {
+   "n": 89,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "What is TLS session resumption and why does it matter?",
+   "a": "Reusing keying material from a previous connection so the handshake costs fewer round trips — zero in TLS 1.3's 0-RTT mode. It matters because handshake latency dominates short connections, and it is why the second visit to a site feels faster."
+  },
+  {
+   "n": 90,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "What is happening during 'Waiting (TTFB)' in the network panel?",
+   "a": "The request has been sent and the client is waiting for the first response byte. It includes proxy hops, queueing before your process, your handler's work, and the network time back. A large TTFB with a small download is a server or upstream problem, not a bandwidth one."
+  },
+  {
+   "n": 91,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "How does a load balancer decide an instance is unhealthy?",
+   "a": "A periodic request to a health endpoint, with thresholds for consecutive failures and successes. The endpoint's depth is a design decision: too shallow reports healthy while the database is unreachable, too deep makes a dependency's blip eject every instance at once."
+  },
+  {
+   "n": 92,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "What does 'trust proxy' actually do in a web framework?",
+   "a": "It tells the framework to derive the client's address and scheme from forwarding headers rather than the socket, and how many proxy hops to trust. Enabling it without a hop count lets a client spoof its own address."
+  },
+  {
+   "n": 93,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "How would you implement graceful shutdown of an HTTP server?",
+   "a": "Stop accepting new connections, tell the load balancer you are unhealthy, finish in-flight requests within a deadline, close idle keep-alive connections, then exit. Without this, a deploy turns into a burst of 502s."
+  },
+  {
+   "n": 94,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "What is the difference between a proxy buffering and streaming a response?",
+   "a": "Buffering reads the whole upstream response before forwarding, which protects a slow client from tying up an application worker but destroys streaming. Streaming forwards as bytes arrive. SSE and long downloads need the latter."
+  },
+  {
+   "n": 95,
+   "c": "plumbing",
+   "t": "Plumbing / senior",
+   "q": "How do you protect an endpoint that is expensive to compute?",
+   "a": "Cache the result with an explicit key, use conditional requests so repeat callers get 304s, rate limit per identity, and consider making it asynchronous with 202 plus a status resource if the work is genuinely long."
+  },
+  {
+   "n": 96,
+   "c": "config",
+   "t": "Configuration",
+   "q": "Which headers configure caching, and what would you set for a hashed static asset?",
+   "a": "<code>Cache-Control: public, max-age=31536000, immutable</code> — one year, never revalidated — because the filename changes whenever the content does."
+  },
+  {
+   "n": 97,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What would you set for an HTML page in a single-page app?",
+   "a": "<code>Cache-Control: no-cache</code>, so it is stored but revalidated every time. The HTML names the hashed assets, so it must never be stale."
+  },
+  {
+   "n": 98,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What would you set for an authenticated API response?",
+   "a": "<code>Cache-Control: private, no-store</code> for anything sensitive, and at minimum <code>private</code> so no shared cache retains it. Add <code>Vary: Authorization</code> if any caching is permitted at all."
+  },
+  {
+   "n": 99,
+   "c": "config",
+   "t": "Configuration",
+   "q": "Give a safe default cookie configuration for a session.",
+   "a": "<code>Secure; HttpOnly; SameSite=Lax; Path=/</code>, no <code>Domain</code> unless subdomains genuinely need it, and a <code>Max-Age</code> matching your session policy. The <code>__Host-</code> prefix enforces most of that."
+  },
+  {
+   "n": 100,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What CORS configuration would you write for a front end at app.example.com calling api.example.com with cookies?",
+   "a": "<code>Access-Control-Allow-Origin: https://app.example.com</code> echoed exactly, <code>Access-Control-Allow-Credentials: true</code>, the methods and headers you actually accept, a sensible <code>Access-Control-Max-Age</code>, and <code>Vary: Origin</code> on every response."
+  },
+  {
+   "n": 101,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What timeouts would you set on an outbound HTTP call?",
+   "a": "A connection timeout of a couple of seconds, an overall request timeout tied to your own request budget, a retry cap, and jittered backoff. Never rely on a client's default, which in several libraries is unlimited."
+  },
+  {
+   "n": 102,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What is <code>X-Content-Type-Options: nosniff</code> for?",
+   "a": "It stops browsers from guessing a response's type from its content, which otherwise lets an uploaded file that claims to be text be executed as script."
+  },
+  {
+   "n": 103,
+   "c": "config",
+   "t": "Configuration",
+   "q": "How do you configure a proxy for SSE?",
+   "a": "Disable response buffering and gzip for that route, set a long read timeout, and ensure keep-alive idle timeouts exceed your heartbeat interval."
+  },
+  {
+   "n": 104,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What happens if a response has both <code>Content-Length</code> and <code>Transfer-Encoding: chunked</code>?",
+   "a": "Per spec <code>Transfer-Encoding</code> wins and <code>Content-Length</code> must be ignored, but because implementations historically differed, this is the setup for request smuggling — modern servers increasingly reject the message outright."
+  },
+  {
+   "n": 105,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Can you set a cookie on a redirect response?",
+   "a": "Yes. <code>Set-Cookie</code> is honoured on a 3xx, which is exactly how login flows attach a session before sending you onward."
+  },
+  {
+   "n": 106,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What happens to the request body across a 301?",
+   "a": "With 301 or 302 most clients turn a POST into a GET and drop the body. 307 and 308 preserve both. This asymmetry is a common cause of a POST silently becoming a GET behind an HTTPS redirect."
+  },
+  {
+   "n": 107,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Does a HEAD response need a Content-Length?",
+   "a": "It should carry the headers a GET would, including <code>Content-Length</code>, even though no body follows. That is precisely what makes HEAD useful for checking size."
+  },
+  {
+   "n": 108,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What happens if two <code>Set-Cookie</code> headers set the same name with different paths?",
+   "a": "Both cookies exist, and both are sent when the path matches — with no indication of which is which. This is a genuinely nasty source of stale-session bugs, since the server sees two values for one name."
+  },
+  {
+   "n": 109,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Can a 204 have a <code>Content-Length</code>?",
+   "a": "It must not have a body, and sending a non-zero length is a protocol error some clients will hang on. The same applies to 304."
+  },
+  {
+   "n": 110,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What does a client do with an unknown status code, say 599?",
+   "a": "Treat it by its class — 5xx, therefore a server error, therefore potentially retryable. That is exactly what the class digit is for."
+  },
+  {
+   "n": 111,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What if the <code>Host</code> header does not match any configured site?",
+   "a": "The server serves its default virtual host, which is why an unconfigured domain pointed at your IP shows someone else's site — and why host-header injection can poison absolute URLs generated from it."
+  },
+  {
+   "n": 112,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Is <code>Content-Type</code> required on a request with a body?",
+   "a": "Not by the protocol, but a server has no way to parse the body without it and will typically reject with 400 or 415 Unsupported Media Type."
+  },
+  {
+   "n": 113,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "What happens when a client disconnects mid-response?",
+   "a": "The write fails and the server sees a broken pipe or reset. Work already committed is not undone, which is why a cancelled request can still have charged a card — another argument for idempotency keys."
+  },
+  {
+   "n": 114,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Can HTTP headers contain non-ASCII characters?",
+   "a": "Not safely. Header values are effectively ASCII; non-ASCII must be encoded, which is why <code>Content-Disposition</code> has a separate <code>filename*</code> parameter with an explicit encoding for international filenames."
+  }
+ ]
+}

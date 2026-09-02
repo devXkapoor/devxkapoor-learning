@@ -1,0 +1,2405 @@
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "node-0",
+   "t": "Node 0 · Before HTTP",
+   "q": "Before HTTP existed, what were the actual options for reading a document stored on another organisation's machine?",
+   "a": "An account and a login on that machine, FTP with its own credentials and its own connection model, Gopher's menu system, a proprietary institutional system, or physical media in the post. Each was a different protocol needing a different client."
+  },
+  {
+   "n": 2,
+   "c": "node-0",
+   "t": "Node 0 · Before HTTP",
+   "q": "What specific problem did Tim Berners-Lee's 1989 CERN proposal identify?",
+   "a": "Not slow transfer, but the absence of any universal way to <em>point at</em> a thing on another machine so that software could follow the pointer. Cross-machine references had to be sentences telling a human what to do."
+  },
+  {
+   "n": 3,
+   "c": "node-0",
+   "t": "Node 0 · Before HTTP",
+   "q": "The pre-HTTP problem splits into two separable missing pieces. What are they?",
+   "a": "A universal naming scheme that identifies a machine and a thing on it worldwide, and a request format simple enough that anyone can implement a server for it — a naming scheme is worthless if only one vendor answers."
+  },
+  {
+   "n": 4,
+   "c": "node-0",
+   "t": "Node 0 · Before HTTP",
+   "q": "Why does having N protocols and M clients fail, beyond mere inconvenience?",
+   "a": "It makes linking impossible. A reference from a document on one system to a document on another cannot be expressed in a form any single piece of software can resolve, so documents cannot form a web."
+  },
+  {
+   "n": 5,
+   "c": "node-0",
+   "t": "Node 0 · Before HTTP",
+   "q": "Was the URL or the protocol the bigger invention?",
+   "a": "Arguably the URL. The protocol is a few lines of text; the URL is what lets one document contain a machine-followable reference to another, which is what makes a web rather than a collection of servers."
+  },
+  {
+   "n": 6,
+   "c": "node-0",
+   "t": "Node 0 · Before HTTP",
+   "q": "What does it mean that HTTP is an application-layer protocol?",
+   "a": "It defines only what bytes the two programs write to each other. Getting those bytes across the network reliably and in order is somebody else's job — TCP's, or in HTTP/3 QUIC's."
+  },
+  {
+   "n": 7,
+   "c": "node-0",
+   "t": "Node 0 · Before HTTP",
+   "q": "What did FTP's design make awkward that HTTP deliberately avoided?",
+   "a": "FTP used two separate connections, one for commands and one for data, plus stateful sessions with a login and a current directory. HTTP made every request self-contained over a single connection."
+  },
+  {
+   "n": 8,
+   "c": "node-0",
+   "t": "Node 0 · Before HTTP",
+   "q": "Why does 'one protocol per service' scale badly?",
+   "a": "Every new service needs a new client, and every client needs updating for every service. The cost is the product of the two sets, not the sum."
+  },
+  {
+   "n": 9,
+   "c": "node-0",
+   "t": "Node 0 · Before HTTP",
+   "q": "What is hypertext, and why did it need a network protocol?",
+   "a": "Text containing machine-followable references to other text. Within one machine a file path suffices; across machines you need a way to name a host and fetch from it, which is what HTTP plus URLs provide."
+  },
+  {
+   "n": 10,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "In one sentence, what does TCP give you that HTTP depends on?",
+   "a": "A reliable, ordered stream of bytes between two programs: whatever goes in one end comes out the other in the same order with nothing missing, or the connection fails loudly. TCP has no idea what the bytes mean."
+  },
+  {
+   "n": 11,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "What is a port number, concretely?",
+   "a": "A 16-bit number from 0 to 65535 that labels which listening program on a machine should receive incoming bytes. It is a routing label within one host, nothing more."
+  },
+  {
+   "n": 12,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "Why is HTTP on port 80?",
+   "a": "Because the registry that assigns port numbers assigned 80 to HTTP. There is nothing technically special about the value; 443 for HTTPS and 8080 for development servers are the same kind of convention."
+  },
+  {
+   "n": 13,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "Write out the entire HTTP/0.9 request.",
+   "a": "<code>GET /path</code> followed by a carriage return and line feed. That is the whole request — no version, no headers, no body."
+  },
+  {
+   "n": 14,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "In HTTP/0.9, how does the client know the response has ended?",
+   "a": "The server closes the TCP connection. Connection close is the framing mechanism, which is exactly why it cannot be reused for a second request."
+  },
+  {
+   "n": 15,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "What could an HTTP/0.9 response contain?",
+   "a": "Raw HTML bytes and nothing else. No metadata, no status, no content type."
+  },
+  {
+   "n": 16,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "What is the fatal flaw of connection-close-as-end-of-message?",
+   "a": "It permits exactly one message per connection, and it cannot distinguish a complete response from a connection that died halfway."
+  },
+  {
+   "n": 17,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "Break down <code>http://info.cern.ch/hypertext/TheProject.html</code>.",
+   "a": "<code>http</code> is the protocol to speak, <code>info.cern.ch</code> is the machine to speak to, and <code>/hypertext/TheProject.html</code> is the name of the thing on it. Three separate pieces of information in one string."
+  },
+  {
+   "n": 18,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "Why can HTTP/0.9 not distinguish an error from a document?",
+   "a": "Both arrive as a blob of bytes. A server sending a human-readable &quot;not found&quot; page produces a response indistinguishable in software from a successful one."
+  },
+  {
+   "n": 19,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "What is the smallest complete manual HTTP request you can type today?",
+   "a": "Open a TCP connection to the host on port 80 and send <code>GET / HTTP/1.1</code>, <code>Host: example.com</code>, then a blank line. The <code>Host</code> line and the blank line are both mandatory in 1.1."
+  },
+  {
+   "n": 20,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "Is HTTP tied to TCP?",
+   "a": "Not by definition — it is defined in terms of a reliable ordered byte stream. HTTP/3 proves the point by running over QUIC on UDP instead."
+  },
+  {
+   "n": 21,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "What is the difference between a URL and a URI?",
+   "a": "A URI identifies; a URL identifies by giving a location and a means of access. Everything you type into a browser is a URL; the specifications mostly use URI as the broader term."
+  },
+  {
+   "n": 22,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "Why is HTTP text-based up to version 1.1?",
+   "a": "Deliberate simplicity — it could be implemented, debugged and even typed by hand over a raw connection. That accessibility is a large part of why it spread; binary framing only arrived once the ecosystem was too big to need it."
+  },
+  {
+   "n": 23,
+   "c": "node-1",
+   "t": "Node 1 · One line down a socket",
+   "q": "What tool lets you speak raw HTTP by hand today?",
+   "a": "<code>telnet host 80</code> or <code>openssl s_client -connect host:443</code>, then typing the request lines and a blank line. Useful for proving what the server actually does versus what a library does."
+  },
+  {
+   "n": 24,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "Give the general shape of any HTTP message.",
+   "a": "A start line, then zero or more header lines of the form <code>Name: value</code>, then a blank line, then optionally a body. That shape has not changed since 1996; HTTP/2 and /3 only encode it differently."
+  },
+  {
+   "n": 25,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "What is the single mechanism separating headers from body?",
+   "a": "The blank line — a CRLF on its own. Everything before it is metadata, everything after is content."
+  },
+  {
+   "n": 26,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "What is in a request start line?",
+   "a": "The method, the request target, and the protocol version: <code>GET /index.html HTTP/1.1</code>."
+  },
+  {
+   "n": 27,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "What is in a response start line?",
+   "a": "The version, the status code, and a human-readable reason phrase: <code>HTTP/1.1 404 Not Found</code>. The reason phrase carries no meaning for software and is dropped entirely in HTTP/2."
+  },
+  {
+   "n": 28,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "Why is the status code three digits with a meaningful first digit?",
+   "a": "So a client that has never heard of a specific code can still act correctly on it from the class alone. A client seeing 418 knows it is a 4xx and therefore its own fault, even knowing nothing else."
+  },
+  {
+   "n": 29,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "Name the five status classes and what each means.",
+   "a": "1xx informational and rare; 2xx success; 3xx redirection, go elsewhere; 4xx client error, the request was wrong; 5xx server error, the request was fine but the server broke."
+  },
+  {
+   "n": 30,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "Why is the 4xx/5xx distinction the most useful in the protocol?",
+   "a": "It tells the caller whether retrying the identical request could ever help. A 4xx will fail identically forever; a 5xx may succeed on retry."
+  },
+  {
+   "n": 31,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "Which single header turned HTTP from a hypertext protocol into a general transport?",
+   "a": "<code>Content-Type</code>. Once a response can declare it is <code>image/png</code> or <code>application/json</code>, HTTP can carry anything, and every API you have ever called depends on it."
+  },
+  {
+   "n": 32,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "What is a MIME type and where else do you meet the term?",
+   "a": "A two-part type/subtype label such as <code>text/html</code> or <code>application/json</code>. It originated in email (Multipurpose Internet Mail Extensions) and HTTP borrowed it."
+  },
+  {
+   "n": 33,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "Why has HTTP survived thirty years without being replaced?",
+   "a": "Header extensibility. Anyone can add a header, and both sides ignore ones they do not recognise, so the protocol grows without a version bump. Nearly every feature after 1.0 arrived as new headers."
+  },
+  {
+   "n": 34,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "What was RFC 1945 and what is unusual about it?",
+   "a": "The 1996 HTTP/1.0 specification. It was informational rather than a standard — it largely documented what implementers had already started doing rather than prescribing new behaviour."
+  },
+  {
+   "n": 35,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "Are header names case-sensitive?",
+   "a": "No. <code>Content-Type</code> and <code>content-type</code> are the same header. HTTP/2 goes further and requires them to be lowercase on the wire."
+  },
+  {
+   "n": 36,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "Can a header appear more than once?",
+   "a": "Yes for headers defined as lists — they combine, comma-separated. <code>Set-Cookie</code> is the awkward exception that must be repeated rather than combined, which is why many HTTP libraries have a special case for it."
+  },
+  {
+   "n": 37,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "What does a <code>204</code> mean and what must it not contain?",
+   "a": "No Content — the request succeeded and there is deliberately no body. It must not have one, which makes it the right answer to a successful DELETE."
+  },
+  {
+   "n": 38,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "Why does the reason phrase not matter?",
+   "a": "Nothing should ever parse it. It is free text for humans, servers may write whatever they like, and HTTP/2 removed it from the wire entirely."
+  },
+  {
+   "n": 39,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "Why do custom headers no longer conventionally start with <code>X-</code>?",
+   "a": "RFC 6648 in 2012 deprecated the convention, because such headers frequently become standard and then carry a permanently misleading prefix. Use a meaningful name instead."
+  },
+  {
+   "n": 40,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "What is a trailer?",
+   "a": "A header sent <em>after</em> the body in a chunked message, used for values only known once the body is complete, such as a checksum. Support is patchy."
+  },
+  {
+   "n": 41,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "What does a <code>100 Continue</code> do?",
+   "a": "It answers a client that sent <code>Expect: 100-continue</code> asking whether to bother uploading a large body. The server can reject on the headers alone and save the upload."
+  },
+  {
+   "n": 42,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "Which status code should a server return for an unhandled exception, and which should it not?",
+   "a": "500 Internal Server Error. It should not return 200 with an error object in the body, because every cache, retry policy and monitor in the chain then believes it succeeded."
+  },
+  {
+   "n": 43,
+   "c": "node-2",
+   "t": "Node 2 · Headers and status codes",
+   "q": "Is there a limit on header size?",
+   "a": "Not in the specification, but every server imposes one — commonly 8 KB total. Exceeding it gives <code>431 Request Header Fields Too Large</code>, or a bare 400, and oversized cookies are the usual cause."
+  },
+  {
+   "n": 44,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "What does the method actually express?",
+   "a": "The client's intent regarding the resource at that address — retrieve it, replace it, remove it, submit something to it."
+  },
+  {
+   "n": 45,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "Define safe.",
+   "a": "A method is safe if issuing it is not supposed to change anything. <code>GET</code>, <code>HEAD</code> and <code>OPTIONS</code> are safe."
+  },
+  {
+   "n": 46,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "Define idempotent, precisely.",
+   "a": "Performing it many times leaves the world in the same state as performing it once. Note this is about resulting state, not about the responses being identical — a second <code>DELETE</code> may return 404 and still be idempotent."
+  },
+  {
+   "n": 47,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "Which common methods are idempotent but not safe?",
+   "a": "<code>PUT</code> and <code>DELETE</code>. They change things, but repeating them changes nothing further."
+  },
+  {
+   "n": 48,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "Which methods are neither safe nor idempotent?",
+   "a": "<code>POST</code> and <code>PATCH</code>. Two identical POSTs are two orders."
+  },
+  {
+   "n": 49,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "Why must GET be safe, in terms of software you have never met?",
+   "a": "Caches store GETs, browsers prefetch links, crawlers follow every link they find, and accelerators fetch pages in the background. All of that behaviour assumes a GET does nothing, and a GET that deletes will eventually be triggered by a machine."
+  },
+  {
+   "n": 50,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "Describe the classic incident that proves the point about GET.",
+   "a": "An admin panel whose delete actions were ordinary links. A browser accelerator that prefetched links in the background walked the panel and deleted the site's content. Nobody clicked anything."
+  },
+  {
+   "n": 51,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "What is <code>HEAD</code> for?",
+   "a": "A <code>GET</code> with the body omitted — you get the status and headers only. Useful to check existence, size, or freshness without transferring the content."
+  },
+  {
+   "n": 52,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "Difference between <code>PUT</code> and <code>PATCH</code>?",
+   "a": "<code>PUT</code> replaces the whole thing at that address with what you sent; <code>PATCH</code> applies a partial modification. That is why PUT is idempotent and PATCH generally is not — an increment applied twice differs from once."
+  },
+  {
+   "n": 53,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "What is <code>OPTIONS</code> for, and where does it become critical?",
+   "a": "Asking what is permitted at that address. It becomes critical as the CORS preflight, where the browser uses it to ask permission before sending a real cross-origin request."
+  },
+  {
+   "n": 54,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "Why does idempotency matter specifically on network failure?",
+   "a": "If a response never arrives you cannot tell whether the server processed the request. If the method is idempotent you can simply send it again; if it is not, you are stuck between double-charging and losing the operation."
+  },
+  {
+   "n": 55,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "Why does a slow checkout button double-charge people?",
+   "a": "Because <code>POST</code> is not idempotent. The user does not see a response, clicks again, and the server has no way to know it is the same logical operation — which is what idempotency keys exist to fix."
+  },
+  {
+   "n": 56,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "Can <code>GET</code> have a request body?",
+   "a": "The specification does not forbid it but says it has no defined semantics, and proxies, caches and servers may drop it. In practice it does not work reliably — use query parameters or POST."
+  },
+  {
+   "n": 57,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "What is <code>CONNECT</code> for?",
+   "a": "Asking a proxy to open a raw tunnel to a host, which is how a browser sends HTTPS through an HTTP proxy — the proxy forwards encrypted bytes it cannot read."
+  },
+  {
+   "n": 58,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "What is <code>TRACE</code> and why is it usually disabled?",
+   "a": "It echoes the received request back for diagnostics. It is normally turned off because it can be abused to read headers, including cookies, in a class of attack called cross-site tracing."
+  },
+  {
+   "n": 59,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "If a client sends a method your endpoint does not support, what should you return?",
+   "a": "<code>405 Method Not Allowed</code>, along with an <code>Allow</code> header listing the methods that are supported."
+  },
+  {
+   "n": 60,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "Should <code>DELETE</code> on something already deleted return 404 or 204?",
+   "a": "Either is defensible. 404 is literal; 204 makes the client's retry logic simpler by treating the desired end state as achieved. Pick one and document it."
+  },
+  {
+   "n": 61,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "Why can a POST not be made idempotent by the server alone?",
+   "a": "Because the server cannot tell a retry from a genuine second request — they are byte-identical. Only the client can distinguish them, which is why the idempotency key must come from the client."
+  },
+  {
+   "n": 62,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "Where should a search with a very long query go — GET or POST?",
+   "a": "GET is semantically right and cacheable, but URLs have practical length limits around 2000 characters in some clients. The pragmatic answer is POST with a documented deviation, or POST that creates a saved search resource and redirects to it."
+  },
+  {
+   "n": 63,
+   "c": "node-3",
+   "t": "Node 3 · Methods and their promises",
+   "q": "What is the <code>Allow</code> header?",
+   "a": "A response header listing the methods supported at that address, sent with a 405 and in response to an <code>OPTIONS</code> request."
+  },
+  {
+   "n": 64,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "What is framing and why does it exist?",
+   "a": "The rules for determining where one message ends. Without it a connection carrying more than one message is unparseable, so framing is the prerequisite for persistent connections."
+  },
+  {
+   "n": 65,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "What are HTTP's two real framing mechanisms?",
+   "a": "<code>Content-Length</code>, which states the body size up front, and <code>Transfer-Encoding: chunked</code>, which sends the body as sized chunks terminated by a zero-length chunk."
+  },
+  {
+   "n": 66,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "Content-Length counts what unit, and why does this catch people out?",
+   "a": "Bytes, not characters. In UTF-8 an accented letter is two bytes and an emoji is typically four, so a ten-character string can be a twenty-byte body."
+  },
+  {
+   "n": 67,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "What happens if Content-Length is larger than the body actually sent?",
+   "a": "The receiver waits for bytes that never arrive. The symptom is a request or response that simply hangs until a timeout, with no error message."
+  },
+  {
+   "n": 68,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "What happens if Content-Length is smaller than the body?",
+   "a": "The receiver stops early and treats the remaining bytes as the start of the next message, which then fails to parse — or, on a shared connection, is misattributed."
+  },
+  {
+   "n": 69,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "Describe the chunked encoding format.",
+   "a": "For each chunk: a line with the chunk size in hexadecimal, then that many bytes, then CRLF. A chunk of size zero ends the message, optionally followed by trailer headers."
+  },
+  {
+   "n": 70,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "When must you use chunked rather than Content-Length?",
+   "a": "When you do not know the total size before you start sending — a response generated on the fly, proxied from elsewhere, or streamed from a database or a model."
+  },
+  {
+   "n": 71,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "Why is chunked encoding the foundation of streaming?",
+   "a": "It lets the server start sending bytes before it knows how many there will be, so a browser can begin rendering, or a client can begin displaying tokens, while the response is still being produced."
+  },
+  {
+   "n": 72,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "What is HTTP request smuggling, in one sentence?",
+   "a": "An attack exploiting two machines in a chain disagreeing about where a request ends, so bytes the front machine treats as body are treated by the back machine as the start of a new request."
+  },
+  {
+   "n": 73,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "What creates the disagreement that enables smuggling?",
+   "a": "A request carrying both <code>Content-Length</code> and <code>Transfer-Encoding</code>, or an ambiguous form of one of them, where the proxy resolves the conflict differently from the origin server."
+  },
+  {
+   "n": 74,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "Why is smuggling severe rather than merely odd?",
+   "a": "The smuggled request is prepended to the <em>next</em> user's request on that shared connection, so an attacker can capture or poison another person's traffic."
+  },
+  {
+   "n": 75,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "Which framing wins if both headers are present, per spec?",
+   "a": "<code>Transfer-Encoding</code> takes precedence and <code>Content-Length</code> must be ignored — and modern servers are increasingly expected to reject the request outright rather than choose."
+  },
+  {
+   "n": 76,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "Does a <code>304</code> or a <code>204</code> response have a body?",
+   "a": "No. Neither may carry one, and a Content-Length on them is meaningless — which is itself a framing rule receivers must know."
+  },
+  {
+   "n": 77,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "A client sends a body but no <code>Content-Length</code> and no chunked encoding. What should happen?",
+   "a": "The server should treat it as having no body, or reject the request. There is no framing, so anything else is guessing."
+  },
+  {
+   "n": 78,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "Why does an upload sometimes hang forever with no error?",
+   "a": "Almost always framing: a declared length larger than what was sent, so the receiver waits for bytes that never come until a timeout fires."
+  },
+  {
+   "n": 79,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "Does HTTP/2 use chunked transfer-encoding?",
+   "a": "No — it is forbidden. Framing is inherent in HTTP/2's DATA frames and the END_STREAM flag, so the header is unnecessary and its presence is a protocol error."
+  },
+  {
+   "n": 80,
+   "c": "node-4",
+   "t": "Node 4 · Framing",
+   "q": "What is <code>Content-Length: 0</code> used for?",
+   "a": "Declaring explicitly that there is no body — common on POST or DELETE requests with no payload, and clearer to intermediaries than omitting the header."
+  },
+  {
+   "n": 81,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "Why is opening a TCP connection expensive in latency terms?",
+   "a": "The three-way handshake costs one full round trip before a single byte of HTTP can be written. On a 100 ms link that is 100 ms of nothing, paid per connection."
+  },
+  {
+   "n": 82,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "What did persistent connections change?",
+   "a": "The connection stays open after a response, so the next request reuses it and pays no handshake. In HTTP/1.1 this is the default; <code>Connection: close</code> opts out."
+  },
+  {
+   "n": 83,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "Why did framing have to be solved before persistent connections were possible?",
+   "a": "Because with the connection staying open, connection-close can no longer mark the end of a message. Without <code>Content-Length</code> or chunking a persistent connection is unparseable."
+  },
+  {
+   "n": 84,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "What is pipelining?",
+   "a": "Sending several requests down a connection without waiting for the earlier responses, to remove the per-request round trip."
+  },
+  {
+   "n": 85,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "Why did pipelining fail?",
+   "a": "Responses must return in request order, so a slow first response blocks every ready response behind it — head-of-line blocking. Broken proxies made it worse, and browsers disabled it."
+  },
+  {
+   "n": 86,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "Define head-of-line blocking.",
+   "a": "A situation where the item at the front of an ordered queue prevents everything behind it from being delivered, even though those items are ready."
+  },
+  {
+   "n": 87,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "How did browsers work around HTTP/1.1's serialisation?",
+   "a": "By opening roughly six parallel TCP connections per hostname, so six requests could be in flight to one host at a time."
+  },
+  {
+   "n": 88,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "What was domain sharding and why is it now an anti-pattern?",
+   "a": "Serving assets from several hostnames to multiply the six-connection limit. Under HTTP/2 one connection multiplexes everything, so extra hosts only add DNS lookups and TLS handshakes."
+  },
+  {
+   "n": 89,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "Why did the <code>Host</code> header have to become mandatory?",
+   "a": "Because the hostname was previously used only to resolve an IP address and then discarded, so a server on one address could serve only one site. <code>Host</code> puts the intended site into the request itself."
+  },
+  {
+   "n": 90,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "What is virtual hosting?",
+   "a": "Serving many different domains from one server and one IP address, choosing which site to serve by reading the <code>Host</code> header."
+  },
+  {
+   "n": 91,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "You point a domain at a server's IP and get someone else's site. Why?",
+   "a": "The server is virtual-hosting and has no configuration matching your <code>Host</code> value, so it serves its default site. The routing is by name, not by address."
+  },
+  {
+   "n": 92,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "Which RFCs define HTTP/1.1 over time?",
+   "a": "RFC 2068 in 1997, RFC 2616 in 1999, split into RFCs 7230 to 7235 in 2014, and reorganised into RFCs 9110 to 9112 in 2022 — the current set, which separates semantics from wire format."
+  },
+  {
+   "n": 93,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "Why does splitting semantics from wire format in RFC 9110/9112 matter?",
+   "a": "Because HTTP/2 and /3 share the semantics and differ only in encoding. Separating the documents makes explicit that methods, status codes and headers are version-independent."
+  },
+  {
+   "n": 94,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "What is the <code>Connection</code> header for besides <code>close</code>?",
+   "a": "It is hop-by-hop: it names headers that apply to this connection only and must be stripped by a proxy rather than forwarded. It is forbidden in HTTP/2 entirely."
+  },
+  {
+   "n": 95,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "Distinguish hop-by-hop from end-to-end headers.",
+   "a": "End-to-end headers travel to the final recipient. Hop-by-hop headers — <code>Connection</code>, <code>Transfer-Encoding</code>, <code>Upgrade</code>, <code>Keep-Alive</code> — apply only to a single link and must be removed by each intermediary."
+  },
+  {
+   "n": 96,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "What is the <code>Keep-Alive</code> header?",
+   "a": "A hop-by-hop hint carrying parameters such as timeout and max requests for a persistent connection. It is advisory, and HTTP/2 forbids it."
+  },
+  {
+   "n": 97,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "Why does the six-connections-per-host limit exist at all?",
+   "a": "To avoid a single page overwhelming a server or a home connection. It was a deliberate politeness constraint, and it is what made request count a dominant performance factor for years."
+  },
+  {
+   "n": 98,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "What is the difference between a connection and a request in HTTP/1.1?",
+   "a": "A connection is the TCP channel; a request is one message exchange on it. Persistent connections mean the two counts diverge, which is the whole point."
+  },
+  {
+   "n": 99,
+   "c": "node-5",
+   "t": "Node 5 · HTTP/1.1 and Host",
+   "q": "Why must a proxy strip the <code>Connection</code> header before forwarding?",
+   "a": "It is hop-by-hop — it describes this link only. Forwarding it lets a client control the proxy's behaviour toward the origin, which is one route into smuggling attacks."
+  },
+  {
+   "n": 100,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "What are HTTP caching's two strategies, and why must they not be confused?",
+   "a": "Freshness, where the response may be reused without asking at all, and validation, where the cache asks cheaply whether its copy is still good. Freshness saves the whole round trip; validation only saves the body."
+  },
+  {
+   "n": 101,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "Give the main <code>Cache-Control</code> response directives.",
+   "a": "<code>max-age</code> (seconds reusable), <code>s-maxage</code> (same, shared caches only), <code>public</code>/<code>private</code>, <code>no-cache</code> (store but revalidate), <code>no-store</code> (never store), <code>immutable</code>, and <code>stale-while-revalidate</code>."
+  },
+  {
+   "n": 102,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "What does <code>no-cache</code> actually mean?",
+   "a": "Store this, but revalidate with the origin before every reuse. It does not mean do not cache — that is <code>no-store</code>."
+  },
+  {
+   "n": 103,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "What does <code>private</code> stop?",
+   "a": "A shared cache such as a CDN or corporate proxy from storing the response. It is what prevents one user's account page from being served to another."
+  },
+  {
+   "n": 104,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "Why is <code>Expires</code> worse than <code>max-age</code>?",
+   "a": "It gives an absolute date, so it depends on the client's and server's clocks agreeing. <code>max-age</code> is a relative duration and is immune to clock skew."
+  },
+  {
+   "n": 105,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "What are the two validators and how do they differ?",
+   "a": "<code>Last-Modified</code>, a timestamp with one-second resolution, sent back as <code>If-Modified-Since</code>; and <code>ETag</code>, an opaque token often derived from content, sent back as <code>If-None-Match</code>. ETag is exact; Last-Modified cannot distinguish two changes in the same second."
+  },
+  {
+   "n": 106,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "What exactly is a <code>304 Not Modified</code>?",
+   "a": "A response with headers and no body, telling the client its cached copy is still valid. The round trip still happens; the payload does not move."
+  },
+  {
+   "n": 107,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "What is the difference between a strong and a weak ETag?",
+   "a": "A strong ETag means byte-for-byte identical. A weak one, prefixed <code>W/</code>, means semantically equivalent — useful when trivial differences such as a timestamp comment should not count as a change. Range requests require strong ETags."
+  },
+  {
+   "n": 108,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "What does <code>Vary</code> do and what breaks without it?",
+   "a": "It adds request headers to the cache key. Without <code>Vary: Accept-Encoding</code> a shared cache can serve a gzipped body to a client that cannot decompress it; without <code>Vary: Accept-Language</code> it serves the wrong language."
+  },
+  {
+   "n": 109,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "Why is <code>Vary: User-Agent</code> usually a mistake?",
+   "a": "User-Agent strings are almost unique, so the cache key fragments into thousands of variants and the cache hit rate collapses to nearly zero."
+  },
+  {
+   "n": 110,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "Where do HTTP caches physically live?",
+   "a": "In the browser, in a forward proxy on a corporate network, in a CDN edge node, and in a reverse proxy in front of your application. Each honours the same headers."
+  },
+  {
+   "n": 111,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "Why is fingerprinting a filename better than short max-age?",
+   "a": "Because the URL changes exactly when the content does, so you can cache for a year and still ship instantly. Freshness costs nothing; revalidation still costs a round trip per asset."
+  },
+  {
+   "n": 112,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "Explain the fingerprinting pattern's two halves.",
+   "a": "Assets get content-hashed names and a one-year immutable <code>max-age</code>. The HTML that references them is never cached, so a new deploy changes the HTML, which points at new asset URLs."
+  },
+  {
+   "n": 113,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "Why can a CSS fix on GitHub Pages appear not to have shipped?",
+   "a": "Pages serves assets with a ten-minute freshness lifetime at a fixed URL, so browsers that already have a copy will not ask again for up to ten minutes. Stamping a content hash into the link changes the URL and defeats it."
+  },
+  {
+   "n": 114,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "What is <code>stale-while-revalidate</code>?",
+   "a": "It lets a cache serve a slightly stale copy immediately while fetching a fresh one in the background, so the user never waits on revalidation."
+  },
+  {
+   "n": 115,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "Are <code>POST</code> responses cacheable?",
+   "a": "In principle yes if explicitly marked, but in practice essentially no cache does it. Treat only <code>GET</code> and <code>HEAD</code> as cacheable."
+  },
+  {
+   "n": 116,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "What is cache poisoning?",
+   "a": "Getting a shared cache to store a response that then gets served to other users — typically by exploiting an unkeyed input, meaning a header that changes the response but is not listed in <code>Vary</code>."
+  },
+  {
+   "n": 117,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "Your API returns stale data after a deploy. What is the checklist?",
+   "a": "Whether the response set <code>Cache-Control</code> at all; whether a CDN applied its own default; whether <code>Vary</code> omits a header that changes the response; and whether the client itself is caching a fresh-for-N-seconds copy."
+  },
+  {
+   "n": 118,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "What is the difference between a private and a shared cache in practice?",
+   "a": "A private cache serves exactly one user, so it may hold personalised responses. A shared cache serves many, so anything user-specific must be marked <code>private</code> or it leaks."
+  },
+  {
+   "n": 119,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "Why is <code>Cache-Control: no-store</code> appropriate for a bank statement?",
+   "a": "Because even a private on-disk cache leaves the content readable to anyone with access to the device afterwards. <code>no-store</code> asks that it never be written down."
+  },
+  {
+   "n": 120,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "What does <code>must-revalidate</code> add?",
+   "a": "It forbids serving a stale copy when the origin cannot be reached. Without it a cache may serve stale content during an outage; with it, the client gets an error instead."
+  },
+  {
+   "n": 121,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "You deploy but users see the old JavaScript. Name the layers to check in order.",
+   "a": "The browser's own cache, a service worker, the CDN edge cache, the reverse proxy cache, and finally whether the HTML that names the asset was itself cached and still points at the old URL."
+  },
+  {
+   "n": 122,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "Is an ETag required to be a hash?",
+   "a": "No — it is opaque to the client. A version number or a modification timestamp works, provided it changes whenever the bytes do and never collides."
+  },
+  {
+   "n": 123,
+   "c": "node-6",
+   "t": "Node 6 · Caching",
+   "q": "Why can two servers behind a load balancer break ETags?",
+   "a": "If each computes the tag differently — from an inode or a local timestamp rather than from content — the same resource yields different tags on each server, so revalidation almost never succeeds."
+  },
+  {
+   "n": 124,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "Who exactly can read plain HTTP on the way past?",
+   "a": "The local Wi-Fi router, a captive portal, the internet provider, every transit network between the two endpoints, and anyone else attached to the same local network."
+  },
+  {
+   "n": 125,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "Name the three properties TLS provides and what each means.",
+   "a": "Confidentiality — nobody in between can read it. Integrity — nobody can alter it undetected. Authentication — you are talking to the host you asked for."
+  },
+  {
+   "n": 126,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "Why is encryption without authentication not enough?",
+   "a": "You would have a perfectly private conversation with the wrong party. An interceptor could terminate your connection, present its own key, and read everything."
+  },
+  {
+   "n": 127,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "Where does TLS sit relative to HTTP and TCP?",
+   "a": "Between them. TCP carries bytes, TLS encrypts a stream of them, and unchanged HTTP is written into that encrypted stream."
+  },
+  {
+   "n": 128,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "Is HTTPS a different protocol from HTTP?",
+   "a": "No. It is the identical protocol — same methods, headers and status codes — carried inside TLS, on port 443 by convention instead of 80."
+  },
+  {
+   "n": 129,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "Sketch the TLS handshake.",
+   "a": "ClientHello with supported versions, cipher suites and the target hostname; ServerHello with the chosen parameters plus the certificate; a key exchange; then both sides derive shared symmetric keys and everything after is symmetrically encrypted."
+  },
+  {
+   "n": 130,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "Why switch to symmetric encryption after the handshake?",
+   "a": "Public-key operations are orders of magnitude slower. Asymmetric cryptography is used only to agree on a shared secret; the bulk data is encrypted with fast symmetric ciphers."
+  },
+  {
+   "n": 131,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "What is in a certificate?",
+   "a": "The server's public key, the hostnames it is valid for, validity dates, the issuing authority, and that authority's signature over the whole thing."
+  },
+  {
+   "n": 132,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "How does a browser decide to trust a certificate?",
+   "a": "It follows the signature chain up to a root certificate in the store it ships with, and checks that the hostname matches what was requested and that the dates are current. All three must pass."
+  },
+  {
+   "n": 133,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "What does <code>NET::ERR_CERT_COMMON_NAME_INVALID</code> tell you?",
+   "a": "The certificate is validly signed but does not list the hostname you asked for — often a shared IP serving the wrong certificate, or a missing SAN entry."
+  },
+  {
+   "n": 134,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "What changed in TLS 1.3, released in 2018?",
+   "a": "One round trip instead of two, a stripped-down list of cipher suites with the weak ones removed, and 0-RTT resumption for repeat connections."
+  },
+  {
+   "n": 135,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "What is the caveat with 0-RTT?",
+   "a": "0-RTT data can be captured and replayed by an attacker, so it must carry only safe, idempotent requests — never a purchase."
+  },
+  {
+   "n": 136,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "What is SNI and why is it necessary?",
+   "a": "Server Name Indication carries the requested hostname in the ClientHello so a server hosting many sites can present the right certificate. It is needed because the server must choose a certificate before encryption exists."
+  },
+  {
+   "n": 137,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "What does SNI leak?",
+   "a": "The hostname you are visiting is visible on the wire even over HTTPS. The path, headers and content are not. Encrypted Client Hello exists to close this gap."
+  },
+  {
+   "n": 138,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "What is HSTS?",
+   "a": "A response header instructing browsers to use HTTPS for this host for a stated duration, refusing plain HTTP entirely. It closes the window where a first plain request could be intercepted and redirected."
+  },
+  {
+   "n": 139,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "What is mixed content?",
+   "a": "An HTTPS page loading a subresource over plain HTTP. Browsers block active mixed content such as scripts outright, because a script fetched insecurely can rewrite the whole secure page."
+  },
+  {
+   "n": 140,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "Why is HTTPS now the default when it used to be considered slow?",
+   "a": "Free automated certificates from Let's Encrypt from 2016, TLS 1.3's single round trip, hardware acceleration for the ciphers, and browsers making HTTP/2 available only over TLS."
+  },
+  {
+   "n": 141,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "What is ALPN?",
+   "a": "An extension in the TLS handshake where client and server agree which application protocol to speak — <code>h2</code> or <code>http/1.1</code> — with no extra round trip."
+  },
+  {
+   "n": 142,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "Why does an expired certificate break the site rather than merely warn?",
+   "a": "Because expiry is one of the three checks that establish authentication. A browser cannot distinguish an expired legitimate certificate from a stolen one being reused, so it fails closed."
+  },
+  {
+   "n": 143,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "What is a certificate chain?",
+   "a": "The path from the server's certificate through one or more intermediate authority certificates to a root in the client's trust store. A server must send the intermediates; forgetting them is the classic 'works in my browser, fails in curl' bug."
+  },
+  {
+   "n": 144,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "Why does a site work in Chrome but fail in a server-side HTTP client?",
+   "a": "Often a missing intermediate certificate. Browsers cache intermediates from earlier visits and can fetch them; a plain client cannot, so it sees a broken chain."
+  },
+  {
+   "n": 145,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "What is perfect forward secrecy?",
+   "a": "Session keys derived so that compromising the server's long-term private key later does not let an attacker decrypt previously recorded traffic. TLS 1.3 makes it mandatory."
+  },
+  {
+   "n": 146,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "Does HTTPS hide which site you are visiting?",
+   "a": "No. DNS lookups and the SNI field in the ClientHello expose the hostname. It hides the path, headers, cookies and content."
+  },
+  {
+   "n": 147,
+   "c": "node-7",
+   "t": "Node 7 · HTTPS and TLS",
+   "q": "What is certificate pinning and why is it risky?",
+   "a": "Requiring a specific certificate or key rather than any valid chain. It defeats a compromised authority, but a rotation mistake locks out every client, which is why browser-level pinning was withdrawn."
+  },
+  {
+   "n": 148,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "What does it mean that HTTP is stateless?",
+   "a": "The protocol keeps nothing between requests. Each request must carry everything needed to understand it; the server remembers nothing about the connection it arrived on."
+  },
+  {
+   "n": 149,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "Why is statelessness a feature rather than an oversight?",
+   "a": "Because any server can answer any request. That is what makes load balancing, rolling restarts and horizontal scaling possible at all."
+  },
+  {
+   "n": 150,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "How does a cookie work, mechanically?",
+   "a": "The server sends <code>Set-Cookie: name=value</code> in a response, the browser stores it, and it attaches <code>Cookie: name=value</code> to every subsequent matching request automatically, without the page doing anything."
+  },
+  {
+   "n": 151,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "List the cookie attributes that matter and what each does.",
+   "a": "<code>Domain</code> and <code>Path</code> scope where it is sent; <code>Expires</code>/<code>Max-Age</code> set lifetime; <code>Secure</code> restricts to HTTPS; <code>HttpOnly</code> hides it from JavaScript; <code>SameSite</code> controls whether it rides along on cross-site requests."
+  },
+  {
+   "n": 152,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "What is a session cookie?",
+   "a": "One with neither <code>Expires</code> nor <code>Max-Age</code>, so the browser discards it when the browsing session ends."
+  },
+  {
+   "n": 153,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "Precisely what does <code>HttpOnly</code> prevent?",
+   "a": "Reading the cookie through <code>document.cookie</code>. It means an injected script cannot exfiltrate the session, though it can still make authenticated requests from the page."
+  },
+  {
+   "n": 154,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "What are the three SameSite values?",
+   "a": "<code>Strict</code>, never sent on a cross-site request; <code>Lax</code>, sent only on top-level navigations such as clicking a link, which is Chrome's default since 2020; and <code>None</code>, always sent, which additionally requires <code>Secure</code>."
+  },
+  {
+   "n": 155,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "Why does <code>SameSite=None</code> require <code>Secure</code>?",
+   "a": "Because a cookie that travels on every cross-site request is the most exposed kind, so browsers refuse to carry it over plain HTTP where anyone on the path could capture it."
+  },
+  {
+   "n": 156,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "Can a cookie set on <code>a.example.com</code> be read by <code>b.example.com</code>?",
+   "a": "Only if it was set with <code>Domain=example.com</code>, which widens it to the parent and all subdomains. Without that it is host-only."
+  },
+  {
+   "n": 157,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "Compare a session ID with a self-contained token.",
+   "a": "A session ID is a random opaque string requiring a server-side lookup — cheap to revoke, costs a lookup per request. A self-contained token carries signed claims, so no lookup is needed, but it cannot be revoked before it expires."
+  },
+  {
+   "n": 158,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "How do real systems handle the JWT revocation problem?",
+   "a": "Short-lived access tokens, typically minutes, paired with a long-lived refresh token that <em>is</em> checked against storage — so a revocation takes effect within one access-token lifetime."
+  },
+  {
+   "n": 159,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "Is a JWT encrypted?",
+   "a": "No, by default it is signed, not encrypted. The payload is base64url and anyone holding the token can read every claim in it. Never put secrets in one."
+  },
+  {
+   "n": 160,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "What does <code>Authorization: Basic</code> contain?",
+   "a": "Base64 of <code>username:password</code>. Base64 is a reversible encoding with no key, so this is effectively plain text and is only acceptable over TLS."
+  },
+  {
+   "n": 161,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "What is a Bearer token?",
+   "a": "A credential where mere possession grants access — <code>Authorization: Bearer &lt;token&gt;</code>. There is no proof of identity beyond holding the string, so leaking it is total compromise."
+  },
+  {
+   "n": 162,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "Why is a Bearer token in a header structurally immune to CSRF?",
+   "a": "Because nothing attaches it automatically. A hostile page can cause a request to be sent but cannot cause your token to be attached to it."
+  },
+  {
+   "n": 163,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "Cookie versus <code>localStorage</code> for a token — what is the real trade?",
+   "a": "A cookie with <code>HttpOnly</code> survives XSS but is attached automatically, so it needs CSRF defences. <code>localStorage</code> is immune to CSRF but readable by any injected script, so XSS steals it outright."
+  },
+  {
+   "n": 164,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "What is <code>WWW-Authenticate</code> for?",
+   "a": "It accompanies a <code>401</code> and names the authentication scheme the server expects, such as <code>Basic realm=&quot;api&quot;</code> or <code>Bearer</code>. It is what makes a 401 actionable rather than merely negative."
+  },
+  {
+   "n": 165,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "What is session fixation?",
+   "a": "An attacker gets a victim to authenticate under a session identifier the attacker already knows. The defence is to issue a brand-new session identifier at the moment of login."
+  },
+  {
+   "n": 166,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "What is the cookie size limit and why does it matter?",
+   "a": "Roughly 4 KB per cookie and a limited number per domain. Since cookies are sent on every request to that host, large cookies tax every request, including static assets."
+  },
+  {
+   "n": 167,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "Why serve static assets from a cookieless domain, historically?",
+   "a": "Because cookies for the main domain would otherwise be uploaded with every image request. HTTP/2 header compression made this optimisation largely obsolete."
+  },
+  {
+   "n": 168,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "How do you delete a cookie?",
+   "a": "Send <code>Set-Cookie</code> with the same name, path and domain, and an expiry in the past. There is no delete operation, and mismatching the path or domain silently creates or clears a different cookie."
+  },
+  {
+   "n": 169,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "What is the <code>__Host-</code> cookie prefix?",
+   "a": "A name prefix browsers enforce: the cookie must be <code>Secure</code>, have no <code>Domain</code>, and have <code>Path=/</code>. It guarantees a subdomain cannot overwrite it."
+  },
+  {
+   "n": 170,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "Why is a sticky-session load balancer a smell?",
+   "a": "It reintroduces server-side state into a stateless protocol, so a restart drops sessions and scaling is uneven. Shared session storage or self-contained tokens avoid it."
+  },
+  {
+   "n": 171,
+   "c": "node-8",
+   "t": "Node 8 · Cookies, sessions and tokens",
+   "q": "What does a refresh token buy you?",
+   "a": "The ability to keep sessions long-lived while access tokens stay short-lived, so revocation takes effect quickly and a leaked access token expires on its own."
+  },
+  {
+   "n": 172,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Define an origin.",
+   "a": "The triple of scheme, host and port. All three must match for two URLs to share an origin."
+  },
+  {
+   "n": 173,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Are <code>http://x.com</code> and <code>https://x.com</code> the same origin?",
+   "a": "No — the scheme differs. Nor are <code>localhost:3000</code> and <code>localhost:8080</code>, nor <code>app.x.com</code> and <code>api.x.com</code>."
+  },
+  {
+   "n": 174,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "State the same-origin policy precisely.",
+   "a": "Script on one origin may <em>send</em> a request to another origin, but may not <em>read</em> the response unless that origin permits it. It restricts reading, not sending."
+  },
+  {
+   "n": 175,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Why can it not restrict sending?",
+   "a": "Because then no page could load an image, a stylesheet, a font or a script from another host, and the web as built would stop working."
+  },
+  {
+   "n": 176,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "What is a simple request in CORS terms?",
+   "a": "A <code>GET</code>, <code>HEAD</code>, or <code>POST</code> whose <code>Content-Type</code> is one of the form-ish types, with no custom headers. It is sent without a preflight because a plain HTML form could have sent it anyway."
+  },
+  {
+   "n": 177,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "What triggers a preflight?",
+   "a": "Any method beyond GET/HEAD/POST, a <code>Content-Type</code> such as <code>application/json</code>, or any header the CORS spec does not consider safe — including <code>Authorization</code> or a custom <code>X-</code> header."
+  },
+  {
+   "n": 178,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "What is in a preflight request?",
+   "a": "An <code>OPTIONS</code> request carrying <code>Origin</code>, <code>Access-Control-Request-Method</code>, and <code>Access-Control-Request-Headers</code>, asking permission before the real request is sent."
+  },
+  {
+   "n": 179,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "What must the preflight response contain?",
+   "a": "<code>Access-Control-Allow-Origin</code>, <code>Access-Control-Allow-Methods</code>, <code>Access-Control-Allow-Headers</code> covering what was asked, and <code>Access-Control-Allow-Credentials</code> if credentials are involved. <code>Access-Control-Max-Age</code> caches the answer."
+  },
+  {
+   "n": 180,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Why can you not use <code>*</code> with credentials?",
+   "a": "Because it would let any site on the internet make authenticated requests and read the responses. With <code>Access-Control-Allow-Credentials: true</code> the allowed origin must be one specific origin."
+  },
+  {
+   "n": 181,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "If you echo the request's Origin back, what else must you send?",
+   "a": "<code>Vary: Origin</code>. Otherwise a shared cache stores the response with one origin's permission header and serves it to a different origin."
+  },
+  {
+   "n": 182,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Is CORS a security mechanism for your server?",
+   "a": "No. It protects browser users from pages reading data they should not. curl, a backend, a mobile app and any script ignore it entirely. Authentication and authorisation protect the server."
+  },
+  {
+   "n": 183,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "A request fails with a CORS error. Did the server process it?",
+   "a": "For a simple request, almost certainly yes — the server ran the handler and returned a response, and the browser then refused to expose it. Only a preflight failure stops the real request from being sent."
+  },
+  {
+   "n": 184,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Why can the page's JavaScript not read the real error status on a CORS failure?",
+   "a": "Because the browser withholds the entire response, including the status code, precisely so a hostile page cannot probe another origin by observing responses."
+  },
+  {
+   "n": 185,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "What is <code>Access-Control-Expose-Headers</code> for?",
+   "a": "By default the page can read only a handful of response headers. This lists additional ones — a pagination count or a rate-limit header — that the browser should expose."
+  },
+  {
+   "n": 186,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Explain CSRF in one sentence.",
+   "a": "A page on another site causes your browser to make a state-changing request to a site you are logged into, and the browser attaches your cookies automatically."
+  },
+  {
+   "n": 187,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Does the attacker need to read the response for CSRF to succeed?",
+   "a": "No. The damage is the side effect. Same-origin policy stops them reading the reply, but the transfer already happened."
+  },
+  {
+   "n": 188,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Name the three CSRF defences.",
+   "a": "<code>SameSite</code> cookies, which is why the default moved to <code>Lax</code>; an unguessable CSRF token in the request body or a header, which a foreign page cannot obtain; and checking the <code>Origin</code> header on state-changing requests."
+  },
+  {
+   "n": 189,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Why does <code>SameSite=Lax</code> not fully solve CSRF?",
+   "a": "Because it still permits cookies on top-level GET navigations. Any state-changing endpoint reachable by GET remains exposed — another reason GET must be safe."
+  },
+  {
+   "n": 190,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Why does adding a proxy in development make CORS errors vanish?",
+   "a": "Because the browser then talks only to one origin. The proxy makes the cross-origin call server-side, where CORS does not apply."
+  },
+  {
+   "n": 191,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Why is <code>Origin</code> sent but <code>Referer</code> unreliable for security checks?",
+   "a": "<code>Origin</code> is sent on cross-origin and state-changing requests specifically for this purpose and contains no path. <code>Referer</code> is often stripped by privacy settings and referrer policies, so absence is meaningless."
+  },
+  {
+   "n": 192,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Does the same-origin policy apply to cookies?",
+   "a": "No — cookies use their own scoping by domain and path, which is broader. This mismatch is precisely why CSRF exists as a distinct problem."
+  },
+  {
+   "n": 193,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "What happens if a preflight returns a 3xx redirect?",
+   "a": "It fails. Redirects are not followed on preflight requests, so a proxy or an HTTPS redirect in front of your API silently breaks CORS."
+  },
+  {
+   "n": 194,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Why do CORS errors so often appear only in production?",
+   "a": "Development typically runs everything on one origin or behind a dev proxy. Splitting the front end and API onto different hosts in production is the first time the browser has a cross-origin request to police."
+  },
+  {
+   "n": 195,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "Is <code>Access-Control-Allow-Origin: *</code> on a public read-only API dangerous?",
+   "a": "Not inherently — the data is public and credentials cannot be used with a wildcard. It becomes dangerous the moment the endpoint starts returning anything user-specific."
+  },
+  {
+   "n": 196,
+   "c": "node-9",
+   "t": "Node 9 · Origins, CORS and CSRF",
+   "q": "What is a CORS preflight cache and what invalidates it?",
+   "a": "<code>Access-Control-Max-Age</code> tells the browser how long to reuse a preflight result for that origin, method and header set. Browsers cap it, and any change to the request shape needs a fresh preflight."
+  },
+  {
+   "n": 197,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "Distinguish a resource from a representation.",
+   "a": "A resource is the abstract thing — invoice 41. A representation is one concrete rendering of it as bytes: JSON, PDF, or an HTML page. One address can have several."
+  },
+  {
+   "n": 198,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "What is content negotiation?",
+   "a": "The client stating its preferences with <code>Accept</code> headers and the server choosing a representation and declaring the choice with the matching <code>Content-</code> header."
+  },
+  {
+   "n": 199,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "What is a q-value?",
+   "a": "A weight from 0 to 1 in an <code>Accept</code> list expressing relative preference, defaulting to 1. <code>text/html, application/json;q=0.8</code> prefers HTML but will take JSON."
+  },
+  {
+   "n": 200,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "Which <code>Accept</code> header pairs with which response header?",
+   "a": "<code>Accept</code> with <code>Content-Type</code>, <code>Accept-Language</code> with <code>Content-Language</code>, <code>Accept-Encoding</code> with <code>Content-Encoding</code>. And each one you negotiate on must appear in <code>Vary</code>."
+  },
+  {
+   "n": 201,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "What should a server return when it cannot satisfy the Accept header?",
+   "a": "<code>406 Not Acceptable</code> — though in practice many servers ignore the constraint and return their default representation instead."
+  },
+  {
+   "n": 202,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "Why does <code>charset=utf-8</code> matter on a Content-Type?",
+   "a": "Because bytes are not text until you know the encoding. Without it, a browser may guess the wrong one and render every non-ASCII character as mojibake."
+  },
+  {
+   "n": 203,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "How much does compression actually save?",
+   "a": "On text — HTML, CSS, JavaScript, JSON — typically 70 to 90 percent. That is why it is essentially always enabled."
+  },
+  {
+   "n": 204,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "gzip versus Brotli?",
+   "a": "Brotli, from 2016, compresses text better, especially at high settings for static files, and is supported everywhere current. gzip remains the universal fallback."
+  },
+  {
+   "n": 205,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "Why not compress a JPEG or an MP4?",
+   "a": "They are already compressed. You spend CPU on both ends and typically end up with a slightly larger file."
+  },
+  {
+   "n": 206,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "Distinguish <code>Content-Encoding</code> from <code>Transfer-Encoding</code>.",
+   "a": "<code>Content-Encoding</code> is a property of the content itself and survives end to end, so the client must decompress it. <code>Transfer-Encoding</code> concerns framing on a single hop and can be removed by any intermediary."
+  },
+  {
+   "n": 207,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "What does <code>Content-Disposition: attachment; filename=&quot;report.csv&quot;</code> do?",
+   "a": "Tells the browser to download the response rather than display it, and suggests the filename to save it as."
+  },
+  {
+   "n": 208,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "How does a range request work?",
+   "a": "The client sends <code>Range: bytes=1000-1999</code>; the server replies <code>206 Partial Content</code> with a <code>Content-Range</code> header naming the byte span and total size. The server must advertise <code>Accept-Ranges: bytes</code> for a client to try."
+  },
+  {
+   "n": 209,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "What are range requests used for in practice?",
+   "a": "Resuming an interrupted download, and seeking in audio or video without fetching the whole file — dragging a video scrubber issues range requests."
+  },
+  {
+   "n": 210,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "What is <code>416</code>?",
+   "a": "Range Not Satisfiable — the requested byte span lies outside the resource."
+  },
+  {
+   "n": 211,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "Why is negotiating on <code>Accept-Language</code> in a CDN risky?",
+   "a": "Because it multiplies cache entries per URL and, if <code>Vary: Accept-Language</code> is forgotten, serves one visitor's language to another."
+  },
+  {
+   "n": 212,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "How does a server decide between HTML and JSON at the same URL?",
+   "a": "By inspecting <code>Accept</code>. In practice many APIs ignore negotiation and use separate paths or an extension, because negotiation is harder to cache and to debug."
+  },
+  {
+   "n": 213,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "What is <code>Accept-Encoding: identity</code>?",
+   "a": "An explicit request for no compression — useful when debugging or when a client cannot decompress."
+  },
+  {
+   "n": 214,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "Why did some proxies historically strip <code>Accept-Encoding</code>?",
+   "a": "So they could inspect or modify the response, or because they could not handle compressed content. It is why servers should never assume compression happened just because it was offered."
+  },
+  {
+   "n": 215,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "What is a multipart body?",
+   "a": "A body composed of several parts separated by a boundary string named in the <code>Content-Type</code>. It is how file uploads carry both fields and binary files in one request."
+  },
+  {
+   "n": 216,
+   "c": "node-10",
+   "t": "Node 10 · Representation and negotiation",
+   "q": "Why can a large upload need a different framing strategy?",
+   "a": "Buffering the whole body to compute a length is expensive, so uploads are streamed with chunked encoding, and resumable upload protocols use range semantics to continue after a failure."
+  },
+  {
+   "n": 217,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "Give the full anatomy of a URL.",
+   "a": "<code>scheme://userinfo@host:port/path?query#fragment</code>. Scheme is the protocol, host is a domain or IP, port defaults to 80 or 443, path names the thing, query carries parameters, fragment is client-side only."
+  },
+  {
+   "n": 218,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "Which part of a URL is never sent to the server?",
+   "a": "The fragment, after the <code>#</code>. It is purely a client-side instruction — scroll target, or which view a single-page app should show."
+  },
+  {
+   "n": 219,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "Why do some OAuth flows put tokens after the <code>#</code>?",
+   "a": "Because the fragment never reaches the server, so the token cannot appear in access logs, referrer headers or proxy records. Only the page's own JavaScript sees it."
+  },
+  {
+   "n": 220,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "What is percent-encoding and when is it required?",
+   "a": "Escaping a byte as a percent sign plus two hexadecimal digits. It is required whenever a value contains a character with structural meaning in a URL — <code>?</code>, <code>&amp;</code>, <code>#</code>, <code>/</code>, space — or any non-ASCII byte."
+  },
+  {
+   "n": 221,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "How is a non-ASCII character encoded in a URL?",
+   "a": "Encoded to UTF-8 bytes first, then each byte percent-encoded. One accented character typically becomes six characters."
+  },
+  {
+   "n": 222,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "Why is a space sometimes <code>%20</code> and sometimes <code>+</code>?",
+   "a": "In a path it is <code>%20</code>. In the <code>application/x-www-form-urlencoded</code> format used by HTML forms and query strings, a space is <code>+</code>, which is why a literal plus must be escaped as <code>%2B</code>."
+  },
+  {
+   "n": 223,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "Is the structure of a query string specified?",
+   "a": "Only loosely. <code>a=1&amp;b=2</code> is convention; repeated keys, arrays and nested objects are handled differently by every framework, which is why array parameters are a portability trap."
+  },
+  {
+   "n": 224,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "What is punycode?",
+   "a": "An encoding that represents an internationalised domain name in plain ASCII, so <code>münchen.de</code> travels as <code>xn--mnchen-3ya.de</code> for DNS."
+  },
+  {
+   "n": 225,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "Is a URL case-sensitive?",
+   "a": "The scheme and host are not. The path and query usually are, because they are interpreted by the server — most Unix-based servers treat <code>/About</code> and <code>/about</code> as different."
+  },
+  {
+   "n": 226,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "Compare 301 and 302.",
+   "a": "301 is permanent — clients and search engines update their records and browsers cache it hard. 302 is temporary; the original address remains authoritative."
+  },
+  {
+   "n": 227,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "Why is a mistaken 301 dangerous?",
+   "a": "Browsers cache it aggressively, sometimes indefinitely, so users keep being redirected long after the server is fixed. It is the most consequential status code to issue casually."
+  },
+  {
+   "n": 228,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "What problem does 303 solve?",
+   "a": "It says explicitly to follow with a <code>GET</code>. Historic clients turned a redirected POST into a GET regardless of intent; 303 makes that behaviour deliberate rather than accidental."
+  },
+  {
+   "n": 229,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "Explain Post/Redirect/Get.",
+   "a": "After processing a POST, respond with a redirect rather than a page. The browser then performs a GET, so refreshing or going back re-runs a harmless retrieval instead of resubmitting the form."
+  },
+  {
+   "n": 230,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "What do 307 and 308 preserve?",
+   "a": "The method and the body — 307 temporarily, 308 permanently. They exist precisely because 302 and 301 were ambiguous about this in practice."
+  },
+  {
+   "n": 231,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "Which header carries the redirect target?",
+   "a": "<code>Location</code>."
+  },
+  {
+   "n": 232,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "What is an open redirect and why is it a real vulnerability?",
+   "a": "An endpoint that redirects to a URL taken from user input without validation. It lends your domain's credibility to a phishing link, since the visible link is genuinely yours."
+  },
+  {
+   "n": 233,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "How does a client handle a redirect loop?",
+   "a": "It gives up after a fixed number of hops — commonly 20 — and reports a generic error. A frequent cause is an HTTPS redirect behind a TLS-terminating proxy that hides the original scheme."
+  },
+  {
+   "n": 234,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "Why should a URL be treated as case-sensitive by convention even where a server is not?",
+   "a": "Because caches, analytics and search engines key on the exact string, so two casings of the same page fragment your cache hits and your metrics, and look like duplicate content."
+  },
+  {
+   "n": 235,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "What does a trailing slash change?",
+   "a": "It is a different URL, and for relative link resolution it changes the base — <code>/docs</code> and <code>/docs/</code> resolve relative links differently. Pick one and redirect the other."
+  },
+  {
+   "n": 236,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "What are the length limits on a URL?",
+   "a": "None in the specification, but practical limits exist — historically around 2000 characters for broad browser compatibility, and lower on some proxies and servers."
+  },
+  {
+   "n": 237,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "What is a canonical URL and why does it matter?",
+   "a": "The single address you declare authoritative for a piece of content, so that variants with tracking parameters or different casing are not treated as separate resources by caches or search engines."
+  },
+  {
+   "n": 238,
+   "c": "node-11",
+   "t": "Node 11 · URLs and redirects",
+   "q": "Where does a query parameter belong versus a path segment?",
+   "a": "The path identifies the resource; the query filters, sorts or paginates it. <code>/invoices/41</code> versus <code>/invoices?status=open&amp;page=2</code>."
+  },
+  {
+   "n": 239,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "What is the organising idea usually labelled REST?",
+   "a": "Addresses name things and the method says what you are doing to them. The point is not aesthetics — it is that caching, retries, conditional requests and method semantics only work if the verbs are used honestly."
+  },
+  {
+   "n": 240,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "Why is <code>POST /getUser</code> a genuine problem rather than a style complaint?",
+   "a": "It is not cacheable, it is not safely retryable, and no intermediary can reason about it. You have opted out of everything HTTP provides."
+  },
+  {
+   "n": 241,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "What should a successful create return?",
+   "a": "<code>201 Created</code> with a <code>Location</code> header pointing at the new resource, and usually the created representation in the body."
+  },
+  {
+   "n": 242,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "When is <code>202 Accepted</code> right?",
+   "a": "When you have queued the work rather than completed it. Pair it with a way to check on the outcome — a status URL in the body or in <code>Location</code>."
+  },
+  {
+   "n": 243,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "400 versus 422?",
+   "a": "400 for a malformed request the server could not parse. 422 for a request that parsed fine but is semantically invalid — a well-formed body with a negative quantity."
+  },
+  {
+   "n": 244,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "401 versus 403?",
+   "a": "401 means we do not know who you are; authenticate and try again. 403 means we know exactly who you are and you still may not. 401 should always carry <code>WWW-Authenticate</code>."
+  },
+  {
+   "n": 245,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "404 versus 410?",
+   "a": "404 means no resource here, without commitment. 410 Gone says it existed and was deliberately removed, which tells crawlers and clients to stop asking."
+  },
+  {
+   "n": 246,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "When is 409 Conflict appropriate?",
+   "a": "When the request is valid but conflicts with current state — creating something that already exists, or acting on a resource in the wrong state for that transition."
+  },
+  {
+   "n": 247,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "Explain optimistic concurrency over HTTP.",
+   "a": "The server sends an <code>ETag</code> with the resource; an update must send <code>If-Match</code> with that tag. If the resource changed since, the tag no longer matches and the server returns <code>412 Precondition Failed</code> instead of writing."
+  },
+  {
+   "n": 248,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "What failure does <code>If-Match</code> prevent?",
+   "a": "A lost update: two people load the same record, both save, and the second silently erases the first's edit. It is the same failure transactions solve at the storage layer, solved here at the protocol layer."
+  },
+  {
+   "n": 249,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "What does <code>If-None-Match: *</code> on a POST or PUT achieve?",
+   "a": "Create-only semantics — it succeeds only if the resource does not yet exist, returning 412 if it does."
+  },
+  {
+   "n": 250,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "How does an idempotency key work?",
+   "a": "The client generates a unique key per logical operation and sends it as a header. The server stores the key with the result of the first attempt, and any later request with that key returns the stored result instead of doing the work again."
+  },
+  {
+   "n": 251,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "Where does the idempotency key have to be stored, and why is that subtle?",
+   "a": "Durably, and written in the same transaction as the effect. If the effect commits and the key does not, a retry does the work twice — which is the exact bug the mechanism exists to prevent."
+  },
+  {
+   "n": 252,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "Offset versus cursor pagination?",
+   "a": "Offset is simple and permits jumping to a page, but items shift as data changes and deep offsets get slow. Cursor pagination passes an opaque marker of the last item, giving stable, fast paging with no random access."
+  },
+  {
+   "n": 253,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "What is <code>application/problem+json</code>?",
+   "a": "RFC 9457's standard error body shape — <code>type</code>, <code>title</code>, <code>status</code>, <code>detail</code>, <code>instance</code> — so clients can handle errors consistently instead of parsing your bespoke format."
+  },
+  {
+   "n": 254,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "URL versioning versus header versioning?",
+   "a": "<code>/v1/</code> in the path is ugly but visible, cacheable and trivially debuggable in a browser, and usually wins. A version header is cleaner but invisible in logs and easy to forget, and it needs <code>Vary</code>."
+  },
+  {
+   "n": 255,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "What should a rate-limited response look like?",
+   "a": "<code>429 Too Many Requests</code> with <code>Retry-After</code> giving seconds or a date, plus limit and remaining headers so a well-behaved client can pace itself rather than discover the limit by hitting it."
+  },
+  {
+   "n": 256,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "How should a client react to 429 or 503?",
+   "a": "Honour <code>Retry-After</code> if present; otherwise back off exponentially with random jitter, so a thousand clients do not all retry at the same instant."
+  },
+  {
+   "n": 257,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "Why is exposing database IDs in URLs sometimes a problem?",
+   "a": "Sequential IDs let anyone enumerate your resources and infer volume, and they make missing authorisation checks trivially exploitable. That class of bug is called insecure direct object reference."
+  },
+  {
+   "n": 258,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "How do you design a long-running operation over HTTP?",
+   "a": "Accept the request with 202, return a URL for the operation's status resource, and let the client poll it or receive a webhook. The work outlives the request."
+  },
+  {
+   "n": 259,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "Why should errors avoid leaking internals?",
+   "a": "Stack traces and SQL text in an error body hand an attacker your schema and framework versions. Return a stable machine-readable code plus a correlation id, and keep the detail in your logs."
+  },
+  {
+   "n": 260,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "How does <code>ETag</code> help both caching and concurrency?",
+   "a": "The same token answers two different questions: <code>If-None-Match</code> asks 'may I reuse my copy', and <code>If-Match</code> asks 'is my copy still current enough to write over'. One value, two mechanisms."
+  },
+  {
+   "n": 261,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "What is HATEOAS and is it worth it?",
+   "a": "The REST constraint that responses carry links describing available next actions, so clients navigate rather than hard-code URLs. It is rarely implemented fully; the ideas worth keeping are <code>Location</code> headers and link-bearing pagination."
+  },
+  {
+   "n": 262,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "Why return a total count in a header rather than the body?",
+   "a": "So a client can read it without parsing the payload, and so <code>HEAD</code> can answer it. It requires <code>Access-Control-Expose-Headers</code> for browsers to see it."
+  },
+  {
+   "n": 263,
+   "c": "node-12",
+   "t": "Node 12 · Designing on top of HTTP",
+   "q": "How should a bulk endpoint report partial failure?",
+   "a": "Not with a single 200 or 500. Use <code>207</code>-style per-item results in the body with an overall status that clearly indicates partial success, so the client knows exactly which items to retry."
+  },
+  {
+   "n": 264,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "What is the fundamental limitation of request/response here?",
+   "a": "The server cannot initiate. It can only wait to be asked, so anything it learns cannot be delivered until the client next happens to ask."
+  },
+  {
+   "n": 265,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "Why is polling wasteful in proportion to freshness?",
+   "a": "Because the shorter the interval, the higher the fraction of requests that return nothing new. Wanting one-second freshness means almost every request is pure overhead."
+  },
+  {
+   "n": 266,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "How does long polling work?",
+   "a": "The server holds the request open until it has something to say or a timeout expires, then responds; the client immediately issues another request. It trades held connections for far fewer empty responses."
+  },
+  {
+   "n": 267,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "How does SSE work on the wire?",
+   "a": "The server responds with <code>Content-Type: text/event-stream</code> and never ends the body, writing line-based messages as events occur. It is ordinary HTTP using chunked framing."
+  },
+  {
+   "n": 268,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "What is the SSE message format?",
+   "a": "Lines of <code>data:</code>, optionally <code>event:</code> for a name and <code>id:</code> for a resumption marker, with a blank line terminating each message. A <code>retry:</code> line sets the reconnect delay."
+  },
+  {
+   "n": 269,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "What does <code>EventSource</code> do for you automatically?",
+   "a": "Reconnects when the stream drops, and sends the last received id back as <code>Last-Event-ID</code> so the server can resume from that point."
+  },
+  {
+   "n": 270,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "What are SSE's limits?",
+   "a": "One direction only, server to client; text only; and over HTTP/1.1 it consumes one of the six connections per host, which is far less of a problem over HTTP/2."
+  },
+  {
+   "n": 271,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "Why is SSE the natural fit for streaming an LLM response?",
+   "a": "The traffic is one-directional and token-by-token, and being plain HTTP it inherits TLS, cookies, proxies and authentication unchanged — no separate protocol path to secure and operate."
+  },
+  {
+   "n": 272,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "How does a WebSocket connection start?",
+   "a": "As an ordinary HTTP request with <code>Upgrade: websocket</code> and <code>Connection: Upgrade</code> plus a key header. The server answers <code>101 Switching Protocols</code> and from that point the connection is no longer HTTP."
+  },
+  {
+   "n": 273,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "What do you give up by using WebSockets?",
+   "a": "Caching, status codes, methods, per-message headers, automatic reconnection, and intermediaries' ability to understand the traffic at all. You are building your own protocol on top."
+  },
+  {
+   "n": 274,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "When are WebSockets genuinely the right choice?",
+   "a": "When both sides need to send frequently and with low latency — collaborative editing, multiplayer games, live trading. For a one-directional feed SSE is simpler and more robust."
+  },
+  {
+   "n": 275,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "Why is 101 an unusual status code?",
+   "a": "It is the only widely used 1xx and it means the connection is about to stop being HTTP. Everything after it is framed by another protocol."
+  },
+  {
+   "n": 276,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "What is a webhook?",
+   "a": "The inversion: instead of you polling them, they make an HTTP request to a URL you register. It removes polling entirely at the cost of requiring a public, always-available endpoint."
+  },
+  {
+   "n": 277,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "What must a webhook receiver always do?",
+   "a": "Verify a signature, since the endpoint is public; tolerate duplicates, since senders retry on any doubt; and respond quickly, doing the real work asynchronously so the sender does not time out and retry."
+  },
+  {
+   "n": 278,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "What is the trade between webhooks and polling for a job you started?",
+   "a": "Polling is trivial to build and needs no public endpoint but wastes requests and adds latency. Webhooks are immediate but need public reachability, signature verification, and duplicate handling."
+  },
+  {
+   "n": 279,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "Why do proxies break SSE, and what is the fix?",
+   "a": "Buffering proxies wait for a complete response before forwarding, so events never arrive live. The fix is to disable buffering for that route and, defensively, send periodic comment lines as a heartbeat."
+  },
+  {
+   "n": 280,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "What is a heartbeat in a streaming response and why send one?",
+   "a": "A no-op message sent periodically so intermediaries and load balancers do not consider the idle connection dead and close it. In SSE a line starting with a colon is a comment and serves this purpose."
+  },
+  {
+   "n": 281,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "Can you use SSE with custom headers such as Authorization?",
+   "a": "Not with the browser's built-in <code>EventSource</code>, which supports neither custom headers nor a body. Real applications either use a cookie or use <code>fetch</code> with a streaming reader instead."
+  },
+  {
+   "n": 282,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "How do WebSockets authenticate?",
+   "a": "During the opening HTTP handshake — usually a cookie, since custom headers are not available from the browser's WebSocket API. After the upgrade there is no HTTP left to carry credentials."
+  },
+  {
+   "n": 283,
+   "c": "node-13",
+   "t": "Node 13 · Beyond request/response",
+   "q": "Why does scaling WebSockets differ from scaling HTTP?",
+   "a": "Connections are long-lived and stateful, so a deploy drops every one of them, load balancing is by connection rather than request, and broadcasting requires a shared channel such as Redis pub/sub between instances."
+  },
+  {
+   "n": 284,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "What is the one sentence to hold on to about HTTP/2?",
+   "a": "The semantics did not change at all. Methods, status codes, headers, caching, cookies and CORS are identical; only the encoding on the wire is different."
+  },
+  {
+   "n": 285,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "What is binary framing?",
+   "a": "The connection carries small typed frames — HEADERS, DATA and others — each labelled with a stream identifier, rather than a text message read start to finish."
+  },
+  {
+   "n": 286,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "What is a stream in HTTP/2?",
+   "a": "An independent, numbered, bidirectional sequence of frames within one connection, corresponding to one request and its response."
+  },
+  {
+   "n": 287,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "How does multiplexing remove head-of-line blocking?",
+   "a": "Because every frame is labelled with its stream, frames from different requests can be interleaved arbitrarily and reassembled at the far end, so a slow response no longer holds up ready ones behind it."
+  },
+  {
+   "n": 288,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "Which HTTP/1.1 optimisations become counterproductive under HTTP/2?",
+   "a": "Domain sharding, image sprites, inlining assets as data URIs, and very aggressive bundling — all of which existed to work around the six-connection limit that no longer applies."
+  },
+  {
+   "n": 289,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "What problem does HPACK solve?",
+   "a": "Header repetition. A browser sends the same cookies, user-agent and accept headers on every one of eighty requests — commonly 500 to 800 bytes each, uncompressed under HTTP/1.1."
+  },
+  {
+   "n": 290,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "How does HPACK work?",
+   "a": "A static table of common header names and values, plus a dynamic table of ones already seen on this connection, so a repeated header collapses to a table index — often a single byte."
+  },
+  {
+   "n": 291,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "Why does HPACK require a stateful connection?",
+   "a": "The dynamic table is shared state built up as the connection proceeds, so both ends must process header blocks in order and stay synchronised."
+  },
+  {
+   "n": 292,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "What happened to HTTP/2 server push?",
+   "a": "It was specified and shipped, then found to waste bandwidth pushing resources clients already had cached, and Chrome removed it in 2022. <code>&lt;link rel=&quot;preload&quot;&gt;</code> won instead."
+  },
+  {
+   "n": 293,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "What happened to HTTP/2 stream prioritisation?",
+   "a": "Specified, implemented inconsistently across servers and browsers, and effectively deprecated. It is a good example of a standard being wrong in public."
+  },
+  {
+   "n": 294,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "Does HTTP/2 require TLS?",
+   "a": "The specification permits cleartext h2c, but no browser implements it, so in practice HTTP/2 means HTTPS. Version selection happens via ALPN during the TLS handshake."
+  },
+  {
+   "n": 295,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "How are pseudo-headers different in HTTP/2?",
+   "a": "The start line becomes pseudo-headers — <code>:method</code>, <code>:path</code>, <code>:scheme</code>, <code>:authority</code> — which must come before all normal headers. <code>:authority</code> replaces <code>Host</code>."
+  },
+  {
+   "n": 296,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "What is flow control in HTTP/2?",
+   "a": "Per-stream and per-connection window limits on how much data may be in flight, so one large download cannot starve other streams sharing the connection."
+  },
+  {
+   "n": 297,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "Which RFCs define HTTP/2?",
+   "a": "RFC 7540 in 2015, superseded by RFC 9113 in 2022, which removed the deprecated prioritisation scheme and tightened the text."
+  },
+  {
+   "n": 298,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "Where did HTTP/2 come from?",
+   "a": "Google's SPDY, developed from 2009, which demonstrated multiplexing and header compression in production and was taken as the starting point for the standard."
+  },
+  {
+   "n": 299,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "Your page got faster after moving to a CDN without any code change. Why?",
+   "a": "Most likely HTTP/2 or /3 at the edge: one multiplexed connection instead of six, header compression, TLS 1.3, and termination physically closer to the user."
+  },
+  {
+   "n": 300,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "How do you tell which HTTP version a request actually used?",
+   "a": "The browser network panel has a protocol column showing <code>h2</code> or <code>h3</code>; <code>curl -v</code> shows the negotiated version; and server logs can include it."
+  },
+  {
+   "n": 301,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "Is HTTP/2 always faster?",
+   "a": "No. On a low-latency connection with a lossy link, TCP's in-order delivery means one lost packet stalls all the multiplexed streams — a case where six independent HTTP/1.1 connections can degrade more gracefully."
+  },
+  {
+   "n": 302,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "Does HTTP/2 change how you write a server handler?",
+   "a": "No. Frameworks expose the same request and response objects; the framing is handled below your code. What changes is what you should optimise for."
+  },
+  {
+   "n": 303,
+   "c": "node-14",
+   "t": "Node 14 · HTTP/2",
+   "q": "What is h2c and why is it rare?",
+   "a": "HTTP/2 over cleartext. No browser supports it, so it appears only between internal services — gRPC over plain h2c inside a cluster, for example."
+  },
+  {
+   "n": 304,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "Why could HTTP/2 not fix the remaining head-of-line blocking?",
+   "a": "Because the blocking is TCP's. TCP guarantees in-order delivery, so a lost packet holds back every byte that arrived after it — including bytes belonging to unrelated streams."
+  },
+  {
+   "n": 305,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "What is QUIC?",
+   "a": "A transport protocol built on UDP that provides connections, reliability, ordering per stream, and encryption. HTTP/3 is HTTP's semantics carried over QUIC."
+  },
+  {
+   "n": 306,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "Why build on UDP rather than fix TCP?",
+   "a": "TCP lives in operating system kernels, so a change takes a decade to reach users, and middleboxes on the internet reject unfamiliar TCP options. UDP is a thin base that lets the real work happen in user space."
+  },
+  {
+   "n": 307,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "How does QUIC eliminate head-of-line blocking?",
+   "a": "Streams are first-class in the transport, so loss recovery is per stream. A lost packet stalls only the stream whose bytes it carried; every other stream keeps delivering."
+  },
+  {
+   "n": 308,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "What does building TLS 1.3 into QUIC achieve?",
+   "a": "The transport handshake and the cryptographic handshake happen together, so a new connection costs one round trip and a resumed one can cost zero."
+  },
+  {
+   "n": 309,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "What is connection migration?",
+   "a": "Because a QUIC connection is identified by a connection ID rather than the source address and port, a device that changes network — Wi-Fi to cellular — keeps the same connection instead of it breaking."
+  },
+  {
+   "n": 310,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "Why can TCP not do connection migration?",
+   "a": "A TCP connection is defined by the four-tuple of source and destination addresses and ports. Change the client's address and it is by definition a different connection."
+  },
+  {
+   "n": 311,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "What are QUIC's real costs?",
+   "a": "Higher CPU per byte, because work TCP does in optimised kernel code now runs in application code; and UDP being blocked or throttled on some networks, requiring fallback."
+  },
+  {
+   "n": 312,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "How does a client discover HTTP/3 support?",
+   "a": "Usually the <code>Alt-Svc</code> response header advertising it on a first HTTP/2 connection, or an HTTPS DNS record naming it, after which the client tries QUIC and falls back if it fails."
+  },
+  {
+   "n": 313,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "What replaces HPACK in HTTP/3, and why was a replacement needed?",
+   "a": "QPACK. HPACK's dynamic table assumes strictly ordered delivery, which QUIC deliberately does not provide, so QPACK adds mechanisms to stay correct with out-of-order streams."
+  },
+  {
+   "n": 314,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "Which RFC defines HTTP/3 and when?",
+   "a": "RFC 9114, published in 2021, with QUIC itself in RFC 9000."
+  },
+  {
+   "n": 315,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "Summarise 1.1 to 2 to 3 as one argument.",
+   "a": "1.1 blocks because responses must be ordered on one connection. 2 fixes that with multiplexed framing, which pushes the blocking down into TCP's in-order delivery. 3 replaces the transport so loss recovery is per stream and the blocking is gone."
+  },
+  {
+   "n": 316,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "Is HTTP/3 encrypted optionally?",
+   "a": "No. Encryption is built into QUIC, so there is no unencrypted HTTP/3."
+  },
+  {
+   "n": 317,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "Why do some corporate networks block QUIC?",
+   "a": "Because inspection appliances cannot read it and are built around TCP. Blocking UDP on 443 forces a fallback to HTTP/2, which they can terminate and inspect."
+  },
+  {
+   "n": 318,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "What is 0-RTT and what must never be sent in it?",
+   "a": "Data sent with the very first packet of a resumed connection, before the handshake completes. It is replayable, so only safe idempotent requests may use it."
+  },
+  {
+   "n": 319,
+   "c": "node-15",
+   "t": "Node 15 · HTTP/3 and QUIC",
+   "q": "How does QUIC handle packet loss differently from TCP?",
+   "a": "It acknowledges and retransmits per stream with unique packet numbers, so a retransmission is unambiguous and recovery affects only the affected stream rather than the whole connection."
+  },
+  {
+   "n": 320,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "What does a request to a deployed application typically pass through?",
+   "a": "A CDN or cloud load balancer, then a reverse proxy such as nginx, then the application process. Each hop is its own HTTP conversation, and the mismatches between them cause a lot of incidents."
+  },
+  {
+   "n": 321,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "What is TLS termination and what does it change for your app?",
+   "a": "The proxy decrypts and speaks plain HTTP to your app on a private network. Your app therefore sees <code>http</code> and a non-standard port, and gets absolute URLs and HTTPS redirects wrong unless told otherwise."
+  },
+  {
+   "n": 322,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "What is <code>X-Forwarded-Proto</code> for?",
+   "a": "Telling the application which scheme the original client used, since the connection the app sees is plain HTTP. It is what a framework's trust-proxy setting reads."
+  },
+  {
+   "n": 323,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "Why is the client IP wrong behind a proxy, and how is it recovered?",
+   "a": "The TCP connection originates at the proxy, so the app sees the proxy's address. The original is passed in <code>X-Forwarded-For</code> as a comma-separated chain, or in the standardised <code>Forwarded</code> header."
+  },
+  {
+   "n": 324,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "Why is trusting <code>X-Forwarded-For</code> blindly a security bug?",
+   "a": "It is plain text a client can set. Rate limiting or geo-blocking on the leftmost value is bypassed by sending a fake one. Count from the right, trusting only as many entries as you have proxies you control."
+  },
+  {
+   "n": 325,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "Distinguish 502, 503 and 504.",
+   "a": "502 Bad Gateway: the upstream answered with something invalid, or the connection died. 503 Service Unavailable: there was no healthy upstream to send to. 504 Gateway Timeout: the upstream did not answer in time."
+  },
+  {
+   "n": 326,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "Why does the 502/503/504 distinction matter operationally?",
+   "a": "Each points at a different machine. 504 means look at your application's latency, 502 means look at crashes or connection handling, 503 means look at health checks and capacity."
+  },
+  {
+   "n": 327,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "What is a keep-alive mismatch and what does it look like?",
+   "a": "The upstream closes idle connections sooner than the downstream proxy expects, so the proxy occasionally sends a request into a connection just closed. The symptom is intermittent 502s with nothing in the application log."
+  },
+  {
+   "n": 328,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "What is the rule for keep-alive timeouts across a chain?",
+   "a": "The upstream's idle timeout must be longer than the downstream's, so the side that opened the connection is always the side that closes it."
+  },
+  {
+   "n": 329,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "Why does a connection pool matter for outbound HTTP calls?",
+   "a": "Too small and requests serialise waiting for a free connection; with no expiry, you keep handing work to connections the far end has already closed. Both surface as latency or intermittent resets rather than as clear errors."
+  },
+  {
+   "n": 330,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "Where should compression be applied in a proxied setup?",
+   "a": "Usually at the edge or proxy, and only in one place. Compressing at the app and again at the proxy wastes CPU, and mismatched <code>Content-Encoding</code> handling between hops corrupts responses."
+  },
+  {
+   "n": 331,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "How do you correlate one request across many services?",
+   "a": "A request identifier generated at the edge and logged everywhere — <code>X-Request-Id</code> — or the standardised <code>traceparent</code> header used by distributed tracing systems."
+  },
+  {
+   "n": 332,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "What does <code>curl -v</code> give you that a browser does not?",
+   "a": "The literal request and response headers as sent, with no rendering, no service worker, no cache, and no CORS. It is the fastest way to establish whether a problem is the server's or the browser's."
+  },
+  {
+   "n": 333,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "Why is <code>curl --http1.1</code> a useful debugging flag?",
+   "a": "It forces the version down, so you can tell whether a problem is specific to HTTP/2 framing, header handling, or an intermediary's protocol support."
+  },
+  {
+   "n": 334,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "What does the browser network panel's timing breakdown separate?",
+   "a": "DNS lookup, TCP connect, TLS handshake, request sent, waiting for the first byte, and content download. Knowing which segment dominates tells you whether to look at DNS, the network, or the server."
+  },
+  {
+   "n": 335,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "When do you reach for <code>openssl s_client -connect host:443</code>?",
+   "a": "When the failure is in the TLS layer rather than in HTTP — checking the presented certificate chain, expiry, SNI behaviour and negotiated protocol version."
+  },
+  {
+   "n": 336,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "Why can a request work in curl but fail in the browser?",
+   "a": "The browser adds an <code>Origin</code> header and enforces CORS, sends a preflight, enforces mixed content and cookie attribute rules, and may use a service worker or a cached response. curl does none of that."
+  },
+  {
+   "n": 337,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "Why does a health check endpoint need to be cheap and honest?",
+   "a": "Load balancers call it constantly, and its answer decides whether traffic is sent to an instance. Too expensive and it becomes load; too shallow and it reports healthy while the database is unreachable."
+  },
+  {
+   "n": 338,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "What does a reverse proxy do that a load balancer does not, and vice versa?",
+   "a": "The roles overlap heavily. A reverse proxy fronts one application, handling TLS, caching, compression and routing. A load balancer distributes across many instances with health checking. One product usually does both."
+  },
+  {
+   "n": 339,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "What is the difference between a forward proxy and a reverse proxy?",
+   "a": "A forward proxy acts on behalf of clients and is configured in the client. A reverse proxy acts on behalf of servers and is invisible to clients — they think they are talking to the origin."
+  },
+  {
+   "n": 340,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "Why must timeouts be shorter as you move outward?",
+   "a": "So each layer fails before the layer in front of it gives up, producing a meaningful error rather than a generic gateway timeout, and freeing resources rather than leaving work orphaned."
+  },
+  {
+   "n": 341,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "What does a sudden rise in 499 or client-cancelled requests mean?",
+   "a": "Clients are giving up before your server answers — usually your latency crossing their timeout. It is a leading indicator of a slowdown that your own success metrics may not show."
+  },
+  {
+   "n": 342,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "How do you reproduce a production HTTP bug locally?",
+   "a": "Capture the exact request with <code>curl -v</code> or from a log including headers, then replay it against local and staging. Most 'unreproducible' HTTP bugs are a header the browser sends that your reproduction omits."
+  },
+  {
+   "n": 343,
+   "c": "node-16",
+   "t": "Node 16 · HTTP in production",
+   "q": "Why does a request work from your laptop but fail from a server?",
+   "a": "Different DNS resolution, a missing intermediate certificate in the server's trust chain, an outbound proxy or firewall, or a different HTTP client that handles redirects, keep-alive or TLS versions differently."
+  }
+ ]
+}

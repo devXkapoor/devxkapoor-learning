@@ -1993,7 +1993,145 @@ if (pid == 0) {
 
 <p><strong>What you can do at this point:</strong> explain filesystem layout and extents, explain journaling as a write-ahead log and what <code>data=ordered</code> does and does not protect, write a genuinely safe file update, choose a filesystem for a purpose and say why not NFS for a database, and — most usefully — explain a Docker image entirely in terms of overlayfs, deriving layer caching, image bloat, secret leakage and volume requirements rather than memorising them.</p>
 
-<p><strong>What's still broken:</strong> the filesystem checks permissions, and nothing has said what a permission <em>is</em>, who a user is to the kernel, or why running as root inside a container is dangerous when the container is supposedly isolated. Part VI answers that, and by its end a container will be fully assembled from parts already built.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
+<p><strong>What's still broken:</strong> the filesystem checks permissions, and nothing has said what a permission <em>is</em>, who a user is to the kernel, or why running as root inside a container is dangerous when the container is supposedly isolated. Part VI answers that, and by its end a container will be fully assembled from parts already built.</p>
+
+<h3>PART VI — ISOLATION: WHO YOU ARE, WHAT YOU CAN SEE, WHAT YOU MAY USE</h3>
+
+<p>Five nodes. Identity and permission, then the three mechanisms — namespaces, cgroups, and layered filesystems — that together <em>are</em> a container. Node 28 assembles one from parts entirely already built, with no new concepts, which is the point: a container is not a technology, it is a configuration of the kernel you have been reading about for twenty-seven nodes.</p>
+
+<h3>Node 25 — users, permissions, and capabilities</h3>
+
+<p><strong>The limitation:</strong> the kernel enforces permissions and nothing has said what a permission is or who a user is to the kernel.</p>
+
+<h4>A user is a number</h4>
+
+<p>To the kernel there are no usernames. There is a <strong>UID</strong> — an unsigned integer in the process's credentials (Node 5) — and a set of <strong>GIDs</strong>. Names exist only in <code>/etc/passwd</code> and <code>/etc/group</code>, which are ordinary text files read by ordinary library code in user space to render numbers as names.</p>
+
+<p>This has a consequence that matters enormously for containers, and it is worth stating before anything else: <strong>UID 1000 inside a container and UID 1000 on the host are the same user as far as the kernel is concerned</strong>, unless a user namespace is in play (Node 26). The container's <code>/etc/passwd</code> may call it <code>node</code> and the host's may call it <code>devansh</code>, but a file written by one is owned by the other. That is why a bind-mounted volume shows up with confusing ownership and why files created by a container are sometimes not deletable by you.</p>
+
+<p><strong>UID 0 is <code>root</code></strong>, and historically the kernel's check was literally <code>if (uid == 0) allow;</code> — root bypasses all permission checks.</p>
+
+<h4>The permission bits</h4>
+
+<p>Each inode carries an owner UID, a group GID, and nine bits: read, write and execute, for owner, group, and other. Written as three octal digits — <code>rwx</code> is 7, <code>rw-</code> is 6, <code>r-x</code> is 5. <code>644</code> is owner read-write, everyone else read-only; <code>755</code> adds execute for all, which is what a program or a directory needs.</p>
+
+<p>The check picks <em>one</em> class and stops: if you are the owner, only the owner bits apply — <strong>even if the group bits would grant more</strong>. A file owned by you with mode <code>044</code> is one you cannot read and everyone else can, which is a counter-intuitive result that follows directly from "first match wins".</p>
+
+<p><strong>On directories the three bits mean something different and the difference is the source of much confusion:</strong></p>
+
+<ul>
+<li><strong>r</strong> — you may list the names in it.</li>
+<li><strong>w</strong> — you may create, delete and rename entries in it. <em>Deleting a file is governed by the directory's permissions, not the file's</em>, because deletion is <code>unlink</code>, which edits the directory (Node 21). So you can delete a read-only file you do not own, if you can write its directory.</li>
+<li><strong>x</strong> — "search": you may traverse through it to reach something inside. A directory with <code>x</code> but not <code>r</code> lets you open a file whose exact name you know while preventing you from listing what is there.</li>
+</ul>
+
+<p>Three extra bits sit above the nine. <strong>setuid</strong> makes a program run with the <em>file owner's</em> UID rather than the caller's — this is how <code>passwd</code> lets an ordinary user modify <code>/etc/shadow</code>, and it is a permanent source of privilege-escalation vulnerabilities, since any bug in a setuid-root program is a path to root. <strong>setgid</strong> does the same for groups, and on a directory makes new files inherit the directory's group. The <strong>sticky bit</strong> on a directory restricts deletion to the file's owner, which is why <code>/tmp</code> is <code>1777</code> — world-writable without letting anyone delete anyone else's files.</p>
+
+<p><code>umask</code> is the complement: a mask of bits <em>removed</em> from the mode of newly created files. The common <code>022</code> turns a requested <code>666</code> into <code>644</code>. It is per-process state (Node 5), inherited by children, which is why it is set in a shell profile and why a daemon's umask can surprise you.</p>
+
+<h4>Capabilities: splitting root into pieces</h4>
+
+<p>All-or-nothing root is a poor design. A web server needs to bind port 80 — ports below 1024 are privileged — and nothing else, yet the traditional approach was to start as root, bind, and drop privileges, leaving a window in which a bug is total compromise.</p>
+
+<p>Linux 2.2 (1999) split root's powers into distinct <strong>capabilities</strong>, each grantable independently. The ones worth knowing:</p>
+
+<ul>
+<li><code>CAP_NET_BIND_SERVICE</code> — bind ports below 1024.</li>
+<li><code>CAP_NET_ADMIN</code> — configure interfaces, routes, firewall rules.</li>
+<li><code>CAP_NET_RAW</code> — raw sockets. This is what <code>ping</code> needs, and why <code>ping</code> often fails in a container.</li>
+<li><code>CAP_SYS_ADMIN</code> — an enormous grab-bag including <code>mount</code>. Widely described as "the new root", and granting it is close to granting everything.</li>
+<li><code>CAP_CHOWN</code>, <code>CAP_DAC_OVERRIDE</code> (bypass all file permission checks), <code>CAP_SETUID</code>, <code>CAP_KILL</code>, <code>CAP_SYS_PTRACE</code> (attach a debugger to any process — and therefore read its memory), <code>CAP_SYS_MODULE</code> (load kernel modules, i.e. game over).</li>
+</ul>
+
+<p>Capabilities can also be attached to a file, so a binary gains only what it needs — <code>setcap cap_net_bind_service=+ep /usr/bin/node</code> lets Node bind port 80 with no root anywhere. In practice, in containers, the interesting operation is the opposite: <em>dropping</em> everything and adding back the one thing needed.</p>
+
+<h4>Beyond the bits</h4>
+
+<p><strong>ACLs</strong> (<code>setfacl</code>, <code>getfacl</code>) allow per-user and per-group entries beyond the three classes; a file with an ACL shows a <code>+</code> in <code>ls -l</code>. <strong>SELinux</strong> and <strong>AppArmor</strong> are mandatory access control: policies enforced <em>regardless</em> of the ordinary permissions, and not overridable by the file's owner. SELinux labels every file and process and checks every access against a policy — which is why on Red Hat systems a volume mount into a container needs the <code>:z</code> or <code>:Z</code> suffix to relabel it, and why the failure without it is a permission denied that the permission bits say should have worked.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Containers run as root by default and this is the most common container security failure.</strong> Without a <code>USER</code> instruction, your image's process runs as UID 0. Combined with a bind mount, a container escape, or a kernel vulnerability, that is root on the host. It also means files the container writes into a mounted volume are owned by root, which is the annoyance most people notice first. The fix is three lines, and the reason it is three lines rather than one is this node:</p>
+
+<pre><code>RUN addgroup -g 1001 nodejs &amp;&amp; adduser -u 1001 -G nodejs -s /bin/sh -D nodejs
+USER nodejs
+# and, if you need port 80, do not add a capability — listen on 3000
+# and let the load balancer or Service map 80 to it.
+</code></pre>
+
+<p>In Kubernetes the equivalent is a <code>securityContext</code>, and the set worth knowing as a default is <code>runAsNonRoot: true</code>, <code>runAsUser: 1001</code>, <code>allowPrivilegeEscalation: false</code> (which sets the <code>no_new_privs</code> bit so setuid binaries cannot elevate), <code>readOnlyRootFilesystem: true</code> with an <code>emptyDir</code> mounted where the app genuinely needs to write, <code>capabilities: {drop: [ALL]}</code>, and <code>seccompProfile: RuntimeDefault</code> from Node 4. That list is not a checklist to memorise — every item is one mechanism from this part of the document, turned off.</p>
+
+<p><strong>The port-1024 rule explains a design decision you have seen everywhere.</strong> Node applications listen on 3000, 8000 or 8080 rather than 80, and the reason is that binding below 1024 historically required root. So the pattern is: application on a high port as a non-root user, with nginx, a cloud load balancer, or a Kubernetes Service handling 80 and 443. On modern Linux you can also lower <code>net.ipv4.ip_unprivileged_port_start</code>, and Kubernetes generally sidesteps the issue entirely.</p>
+
+<p><strong>The volume ownership problem, and its real fix.</strong> A container running as UID 1001 writing into a host bind mount owned by UID 1000 gets permission denied, because the kernel compares numbers and does not care what either side's <code>/etc/passwd</code> says. Common workarounds — <code>chmod 777</code>, running as root, an entrypoint that <code>chown</code>s on startup — are all bad. The correct answers are to match the UIDs deliberately (build the image with the host user's UID), to use a named Docker volume rather than a bind mount so the runtime handles ownership, or, in Kubernetes, to set <code>fsGroup</code> in the pod's security context so the volume is group-owned appropriately. The genuinely correct answer is <strong>user namespaces</strong>, which map container UID 0 to an unprivileged host UID, and that is the next node.</p>
+
+<p><strong>File permission bugs in Node.</strong> <code>fs.writeFile</code>'s mode argument is subject to <code>umask</code>, so requesting <code>0o600</code> yields <code>0o600</code> only because umask does not usually clear owner bits — but requesting <code>0o666</code> gives you <code>0o644</code>. Writing a secret or a private key requires an explicit <code>fs.chmod</code> after creation, or opening with the right mode and verifying, and an SSH private key with group-readable permissions is silently rejected by <code>ssh</code>, which is a good habit for other tools to copy.</p>
+
+<p><strong>What you can do at this point:</strong> explain that a user is a number and what that means across a container boundary, read and reason about permission bits including the directory meanings and the first-match rule, explain setuid and the sticky bit, name the capabilities that matter and explain why <code>CAP_SYS_ADMIN</code> is effectively root, and write a correct non-root container security context justifying every field.</p>
+
+<p><strong>What's still broken:</strong> permissions decide what a process may <em>do</em> to things it can see. Nothing yet limits what it can <em>see</em>. A process can list every other process, every mount, every network interface, and every user on the machine. Two customers' workloads on one machine can watch each other, and no permission bit changes that.</p>
+
+<h3>Node 26 — namespaces: giving a process its own view of the machine</h3>
+
+<p><strong>The limitation:</strong> every process can see every other process, every mount, every network interface, and every user on the machine.</p>
+
+<h4>The idea, stated once</h4>
+
+<p>Every global resource the kernel names — the process ID space, the mount tree, network interfaces, the hostname, user IDs, the inter-process communication namespace — is turned from a single global table into a <em>per-process pointer to a table</em>. Processes sharing a pointer see the same table; processes with different pointers see different ones.</p>
+
+<p>That is the whole mechanism. <strong>Namespaces do not restrict what a process may do; they change what exists as far as that process is concerned.</strong> [EXPLAIN] A process in its own PID namespace does not fail to kill PID 4321 on the host — it simply has no PID 4321, because in its numbering there is no such process. The isolation is by construction rather than by check, which is why it is both cheap (no per-access enforcement) and complete for the resources it covers.</p>
+
+<p>Namespaces are per-<em>task</em>, they were added over more than a decade (the mount namespace in 2002, the user namespace only completing in 2013), and a process can be in a different namespace of each kind independently. That independence is what makes Kubernetes pods expressible.</p>
+
+<h4>The seven</h4>
+
+<p><strong>Mount (<code>CLONE_NEWNS</code>, 2002)</strong> — a private copy of the mount tree. The first one, which is why its flag is generically named. Combined with <code>pivot_root</code> (a safer replacement for <code>chroot</code>), this gives a process a completely different filesystem tree: its <code>/</code> is the container image, and the host's filesystem simply is not present in its namespace. This is the "filesystem isolation" half of a container.</p>
+
+<p><strong>PID (<code>CLONE_NEWPID</code>, 2008)</strong> — a private process ID space. The first process created in a new PID namespace becomes <strong>PID 1</strong>, and processes inside cannot see or signal anything outside. They are nested: a process has a PID in its own namespace and a different one in each ancestor, so the host sees your container's PID 1 as, say, PID 28471. Two important behaviours attach to PID 1 (from Node 5, and covered fully in Node 30): signals with default actions are not delivered to it, and it inherits orphans and must reap them.</p>
+
+<p><strong>Network (<code>CLONE_NEWNET</code>, 2009)</strong> — a private set of interfaces, routing tables, firewall rules, and <em>port number space</em>. A new network namespace contains only a loopback device, initially down. To connect it to anything you create a <strong>veth pair</strong> — a virtual cable with two ends — put one end inside and attach the other to a bridge on the host. That is exactly what <code>docker0</code> is, and it is why containers on the default bridge can reach each other and why publishing a port (<code>-p 8080:80</code>) installs a NAT rule via iptables. Because the port space is private, <strong>two containers can both bind port 3000 with no conflict</strong>, which is the single most visible benefit and follows from one sentence of this node.</p>
+
+<p><strong>UTS (<code>CLONE_NEWUTS</code>, 2006)</strong> — a private hostname and domain name. Named for the <code>uname</code> system call's <code>utsname</code> struct. This is why a container's hostname is its container ID.</p>
+
+<p><strong>IPC (<code>CLONE_NEWIPC</code>, 2006)</strong> — private System V message queues, semaphores and shared memory segments, and a private POSIX message queue mount.</p>
+
+<p><strong>User (<code>CLONE_NEWUSER</code>, completed 2013)</strong> — the most consequential and the most complicated. It provides a private UID and GID space with a <em>mapping</em> to the parent's. So UID 0 inside can map to UID 100000 outside. <strong>A process can be root in its namespace with no privilege whatsoever on the host</strong> — which is the correct solution to Node 25's ownership problems and the basis of rootless containers. It is also the only namespace an unprivileged user may create, which is what makes rootless Podman and unprivileged Docker possible. That same property has made it a recurring source of kernel privilege-escalation vulnerabilities, because it exposes a great deal of kernel code to unprivileged callers, and several distributions restrict it by default.</p>
+
+<p><strong>Cgroup (<code>CLONE_NEWCGROUP</code>, 2016)</strong> — hides the process's true position in the cgroup hierarchy, so a container sees its own cgroup as the root.</p>
+
+<h4>The calls, and what is not namespaced</h4>
+
+<p>Three system calls operate on them. <code>clone()</code> with <code>CLONE_NEW*</code> flags creates a process in new namespaces — the same <code>clone()</code> that makes processes and threads (Node 14). <code>unshare()</code> moves the <em>calling</em> process into new ones. <code>setns()</code> joins an existing namespace given a descriptor, and it is what <code>docker exec</code> and <code>kubectl exec</code> do. A namespace exists as long as a process is in it or something holds a descriptor to it, visible as <code>/proc/&lt;pid&gt;/ns/*</code>, and <code>lsns</code> lists them.</p>
+
+<p><strong>What is not namespaced is the important part</strong>, because it defines exactly how much a container is not a virtual machine:</p>
+
+<ul>
+<li><strong>The kernel itself.</strong> One kernel, shared by everything. A kernel vulnerability is a vulnerability for all containers on the machine, and a kernel panic takes them all down. This is the fundamental difference from a virtual machine (Node 29).</li>
+<li><strong>The system clock.</strong> A time namespace exists since Linux 5.6 (2020) but only virtualises the boot-time offset, and container runtimes do not generally use it. You cannot give a container a different wall-clock time.</li>
+<li><strong>Most of <code>/proc/sys</code>.</strong> Kernel parameters are mostly global, which is why some are settable per-container (the namespaced networking ones) and most are not.</li>
+<li><strong>The CPU count and total memory as reported by <code>/proc</code>.</strong> This is a real, practical gap: a container sees the host's <code>/proc/cpuinfo</code> and <code>/proc/meminfo</code>. It is why <code>os.cpus().length</code> lies (Node 7), why the JVM needed explicit container awareness, why <code>nproc</code> is wrong inside a container, and why <code>lscpu</code> shows 64 cores in a pod limited to one. Limits are enforced by cgroups, and cgroups are not what <code>/proc</code> reports.</li>
+</ul>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>A Kubernetes pod is a namespace-sharing decision, and this is the clearest possible definition of one.</strong> [EXPLAIN] Containers in a pod share the <strong>network</strong> and <strong>IPC</strong> namespaces and (usually) the <strong>UTS</strong> namespace, while keeping separate <strong>mount</strong> and <strong>PID</strong> namespaces. Everything about pod behaviour follows mechanically:</p>
+
+<ul>
+<li>They reach each other on <code>localhost</code> — same network namespace.</li>
+<li>They <em>cannot</em> both bind port 8080 — same port space. This is the number one surprise for people who expect containers to be isolated from each other.</li>
+<li>They do not share files unless you mount the same volume into both — separate mount namespaces.</li>
+<li>They cannot see each other's processes unless <code>shareProcessNamespace: true</code> — separate PID namespaces. Setting it is how a debug sidecar can inspect the main container, and how one PID 1 can reap for all of them.</li>
+<li>The pod's network namespace is created and held by an infrastructure container (the <em>pause</em> container) that does nothing but sleep, so the namespace survives individual containers restarting. That is why you see a pause container per pod on a node.</li>
+<li>A sidecar — a service mesh proxy like Envoy — works by being in the same network namespace and having iptables rules redirect the application's traffic through it. The application needs no awareness at all, and this node is why that is possible.</li>
+</ul>
+
+<p><strong>Container networking, all of it, is the network namespace plus routing.</strong> Docker's <code>bridge</code> mode is a veth pair into a bridge with NAT. <code>host</code> mode is simply <em>not</em> creating a network namespace — the container shares the host's, so no NAT, no port mapping, full performance, and no isolation. <code>none</code> creates an empty one. Kubernetes CNI plugins (Calico, Cilium, Flannel) all do the same core work — create a namespace, wire an interface into it, program routes — and differ in how packets get between nodes. When you debug container networking with <code>nsenter -t &lt;pid&gt; -n ip addr</code>, you are entering a namespace explicitly.</p>
+
+<p><strong>Rootless containers are the user namespace.</strong> Podman's default mode, and Docker's rootless mode, create a user namespace mapping your UID to root inside. The container's processes believe they are root, can install packages and bind low ports inside their own namespace, and on the host are your unprivileged user. This removes the entire class of "container escape gives you host root" and is the direction the ecosystem has moved. The costs are real: some workloads need capabilities that do not survive the mapping, and file ownership inside mounted volumes goes through the ID map, which takes getting used to.</p>
+
+<p><strong>What you can do at this point:</strong> explain namespaces as per-process views rather than restrictions, name all seven and what each virtualises, explain precisely what is <em>not</em> namespaced and why that matters for CPU detection and for security, define a Kubernetes pod in terms of shared namespaces and derive its behaviour, and explain rootless containers.</p>
+
+<p><strong>What's still broken:</strong> a namespaced process cannot <em>see</em> the rest of the machine and can still <em>consume</em> all of it. It can allocate every byte of memory, saturate every core, and fill the disk. Isolation of view is not isolation of resources, and multi-tenancy needs both.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
   This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
   elaboration.json live alongside it and are fetched at runtime — do not inline
   that data here.
@@ -4033,6 +4171,144 @@ if (pid == 0) {
 <p><strong>What you can do at this point:</strong> explain filesystem layout and extents, explain journaling as a write-ahead log and what <code>data=ordered</code> does and does not protect, write a genuinely safe file update, choose a filesystem for a purpose and say why not NFS for a database, and — most usefully — explain a Docker image entirely in terms of overlayfs, deriving layer caching, image bloat, secret leakage and volume requirements rather than memorising them.</p>
 
 <p><strong>What's still broken:</strong> the filesystem checks permissions, and nothing has said what a permission <em>is</em>, who a user is to the kernel, or why running as root inside a container is dangerous when the container is supposedly isolated. Part VI answers that, and by its end a container will be fully assembled from parts already built.</p>
+
+<h3>PART VI — ISOLATION: WHO YOU ARE, WHAT YOU CAN SEE, WHAT YOU MAY USE</h3>
+
+<p>Five nodes. Identity and permission, then the three mechanisms — namespaces, cgroups, and layered filesystems — that together <em>are</em> a container. Node 28 assembles one from parts entirely already built, with no new concepts, which is the point: a container is not a technology, it is a configuration of the kernel you have been reading about for twenty-seven nodes.</p>
+
+<h3>Node 25 — users, permissions, and capabilities</h3>
+
+<p><strong>The limitation:</strong> the kernel enforces permissions and nothing has said what a permission is or who a user is to the kernel.</p>
+
+<h4>A user is a number</h4>
+
+<p>To the kernel there are no usernames. There is a <strong>UID</strong> — an unsigned integer in the process's credentials (Node 5) — and a set of <strong>GIDs</strong>. Names exist only in <code>/etc/passwd</code> and <code>/etc/group</code>, which are ordinary text files read by ordinary library code in user space to render numbers as names.</p>
+
+<p>This has a consequence that matters enormously for containers, and it is worth stating before anything else: <strong>UID 1000 inside a container and UID 1000 on the host are the same user as far as the kernel is concerned</strong>, unless a user namespace is in play (Node 26). The container's <code>/etc/passwd</code> may call it <code>node</code> and the host's may call it <code>devansh</code>, but a file written by one is owned by the other. That is why a bind-mounted volume shows up with confusing ownership and why files created by a container are sometimes not deletable by you.</p>
+
+<p><strong>UID 0 is <code>root</code></strong>, and historically the kernel's check was literally <code>if (uid == 0) allow;</code> — root bypasses all permission checks.</p>
+
+<h4>The permission bits</h4>
+
+<p>Each inode carries an owner UID, a group GID, and nine bits: read, write and execute, for owner, group, and other. Written as three octal digits — <code>rwx</code> is 7, <code>rw-</code> is 6, <code>r-x</code> is 5. <code>644</code> is owner read-write, everyone else read-only; <code>755</code> adds execute for all, which is what a program or a directory needs.</p>
+
+<p>The check picks <em>one</em> class and stops: if you are the owner, only the owner bits apply — <strong>even if the group bits would grant more</strong>. A file owned by you with mode <code>044</code> is one you cannot read and everyone else can, which is a counter-intuitive result that follows directly from "first match wins".</p>
+
+<p><strong>On directories the three bits mean something different and the difference is the source of much confusion:</strong></p>
+
+<ul>
+<li><strong>r</strong> — you may list the names in it.</li>
+<li><strong>w</strong> — you may create, delete and rename entries in it. <em>Deleting a file is governed by the directory's permissions, not the file's</em>, because deletion is <code>unlink</code>, which edits the directory (Node 21). So you can delete a read-only file you do not own, if you can write its directory.</li>
+<li><strong>x</strong> — "search": you may traverse through it to reach something inside. A directory with <code>x</code> but not <code>r</code> lets you open a file whose exact name you know while preventing you from listing what is there.</li>
+</ul>
+
+<p>Three extra bits sit above the nine. <strong>setuid</strong> makes a program run with the <em>file owner's</em> UID rather than the caller's — this is how <code>passwd</code> lets an ordinary user modify <code>/etc/shadow</code>, and it is a permanent source of privilege-escalation vulnerabilities, since any bug in a setuid-root program is a path to root. <strong>setgid</strong> does the same for groups, and on a directory makes new files inherit the directory's group. The <strong>sticky bit</strong> on a directory restricts deletion to the file's owner, which is why <code>/tmp</code> is <code>1777</code> — world-writable without letting anyone delete anyone else's files.</p>
+
+<p><code>umask</code> is the complement: a mask of bits <em>removed</em> from the mode of newly created files. The common <code>022</code> turns a requested <code>666</code> into <code>644</code>. It is per-process state (Node 5), inherited by children, which is why it is set in a shell profile and why a daemon's umask can surprise you.</p>
+
+<h4>Capabilities: splitting root into pieces</h4>
+
+<p>All-or-nothing root is a poor design. A web server needs to bind port 80 — ports below 1024 are privileged — and nothing else, yet the traditional approach was to start as root, bind, and drop privileges, leaving a window in which a bug is total compromise.</p>
+
+<p>Linux 2.2 (1999) split root's powers into distinct <strong>capabilities</strong>, each grantable independently. The ones worth knowing:</p>
+
+<ul>
+<li><code>CAP_NET_BIND_SERVICE</code> — bind ports below 1024.</li>
+<li><code>CAP_NET_ADMIN</code> — configure interfaces, routes, firewall rules.</li>
+<li><code>CAP_NET_RAW</code> — raw sockets. This is what <code>ping</code> needs, and why <code>ping</code> often fails in a container.</li>
+<li><code>CAP_SYS_ADMIN</code> — an enormous grab-bag including <code>mount</code>. Widely described as "the new root", and granting it is close to granting everything.</li>
+<li><code>CAP_CHOWN</code>, <code>CAP_DAC_OVERRIDE</code> (bypass all file permission checks), <code>CAP_SETUID</code>, <code>CAP_KILL</code>, <code>CAP_SYS_PTRACE</code> (attach a debugger to any process — and therefore read its memory), <code>CAP_SYS_MODULE</code> (load kernel modules, i.e. game over).</li>
+</ul>
+
+<p>Capabilities can also be attached to a file, so a binary gains only what it needs — <code>setcap cap_net_bind_service=+ep /usr/bin/node</code> lets Node bind port 80 with no root anywhere. In practice, in containers, the interesting operation is the opposite: <em>dropping</em> everything and adding back the one thing needed.</p>
+
+<h4>Beyond the bits</h4>
+
+<p><strong>ACLs</strong> (<code>setfacl</code>, <code>getfacl</code>) allow per-user and per-group entries beyond the three classes; a file with an ACL shows a <code>+</code> in <code>ls -l</code>. <strong>SELinux</strong> and <strong>AppArmor</strong> are mandatory access control: policies enforced <em>regardless</em> of the ordinary permissions, and not overridable by the file's owner. SELinux labels every file and process and checks every access against a policy — which is why on Red Hat systems a volume mount into a container needs the <code>:z</code> or <code>:Z</code> suffix to relabel it, and why the failure without it is a permission denied that the permission bits say should have worked.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Containers run as root by default and this is the most common container security failure.</strong> Without a <code>USER</code> instruction, your image's process runs as UID 0. Combined with a bind mount, a container escape, or a kernel vulnerability, that is root on the host. It also means files the container writes into a mounted volume are owned by root, which is the annoyance most people notice first. The fix is three lines, and the reason it is three lines rather than one is this node:</p>
+
+<pre><code>RUN addgroup -g 1001 nodejs &amp;&amp; adduser -u 1001 -G nodejs -s /bin/sh -D nodejs
+USER nodejs
+# and, if you need port 80, do not add a capability — listen on 3000
+# and let the load balancer or Service map 80 to it.
+</code></pre>
+
+<p>In Kubernetes the equivalent is a <code>securityContext</code>, and the set worth knowing as a default is <code>runAsNonRoot: true</code>, <code>runAsUser: 1001</code>, <code>allowPrivilegeEscalation: false</code> (which sets the <code>no_new_privs</code> bit so setuid binaries cannot elevate), <code>readOnlyRootFilesystem: true</code> with an <code>emptyDir</code> mounted where the app genuinely needs to write, <code>capabilities: {drop: [ALL]}</code>, and <code>seccompProfile: RuntimeDefault</code> from Node 4. That list is not a checklist to memorise — every item is one mechanism from this part of the document, turned off.</p>
+
+<p><strong>The port-1024 rule explains a design decision you have seen everywhere.</strong> Node applications listen on 3000, 8000 or 8080 rather than 80, and the reason is that binding below 1024 historically required root. So the pattern is: application on a high port as a non-root user, with nginx, a cloud load balancer, or a Kubernetes Service handling 80 and 443. On modern Linux you can also lower <code>net.ipv4.ip_unprivileged_port_start</code>, and Kubernetes generally sidesteps the issue entirely.</p>
+
+<p><strong>The volume ownership problem, and its real fix.</strong> A container running as UID 1001 writing into a host bind mount owned by UID 1000 gets permission denied, because the kernel compares numbers and does not care what either side's <code>/etc/passwd</code> says. Common workarounds — <code>chmod 777</code>, running as root, an entrypoint that <code>chown</code>s on startup — are all bad. The correct answers are to match the UIDs deliberately (build the image with the host user's UID), to use a named Docker volume rather than a bind mount so the runtime handles ownership, or, in Kubernetes, to set <code>fsGroup</code> in the pod's security context so the volume is group-owned appropriately. The genuinely correct answer is <strong>user namespaces</strong>, which map container UID 0 to an unprivileged host UID, and that is the next node.</p>
+
+<p><strong>File permission bugs in Node.</strong> <code>fs.writeFile</code>'s mode argument is subject to <code>umask</code>, so requesting <code>0o600</code> yields <code>0o600</code> only because umask does not usually clear owner bits — but requesting <code>0o666</code> gives you <code>0o644</code>. Writing a secret or a private key requires an explicit <code>fs.chmod</code> after creation, or opening with the right mode and verifying, and an SSH private key with group-readable permissions is silently rejected by <code>ssh</code>, which is a good habit for other tools to copy.</p>
+
+<p><strong>What you can do at this point:</strong> explain that a user is a number and what that means across a container boundary, read and reason about permission bits including the directory meanings and the first-match rule, explain setuid and the sticky bit, name the capabilities that matter and explain why <code>CAP_SYS_ADMIN</code> is effectively root, and write a correct non-root container security context justifying every field.</p>
+
+<p><strong>What's still broken:</strong> permissions decide what a process may <em>do</em> to things it can see. Nothing yet limits what it can <em>see</em>. A process can list every other process, every mount, every network interface, and every user on the machine. Two customers' workloads on one machine can watch each other, and no permission bit changes that.</p>
+
+<h3>Node 26 — namespaces: giving a process its own view of the machine</h3>
+
+<p><strong>The limitation:</strong> every process can see every other process, every mount, every network interface, and every user on the machine.</p>
+
+<h4>The idea, stated once</h4>
+
+<p>Every global resource the kernel names — the process ID space, the mount tree, network interfaces, the hostname, user IDs, the inter-process communication namespace — is turned from a single global table into a <em>per-process pointer to a table</em>. Processes sharing a pointer see the same table; processes with different pointers see different ones.</p>
+
+<p>That is the whole mechanism. <strong>Namespaces do not restrict what a process may do; they change what exists as far as that process is concerned.</strong> [EXPLAIN] A process in its own PID namespace does not fail to kill PID 4321 on the host — it simply has no PID 4321, because in its numbering there is no such process. The isolation is by construction rather than by check, which is why it is both cheap (no per-access enforcement) and complete for the resources it covers.</p>
+
+<p>Namespaces are per-<em>task</em>, they were added over more than a decade (the mount namespace in 2002, the user namespace only completing in 2013), and a process can be in a different namespace of each kind independently. That independence is what makes Kubernetes pods expressible.</p>
+
+<h4>The seven</h4>
+
+<p><strong>Mount (<code>CLONE_NEWNS</code>, 2002)</strong> — a private copy of the mount tree. The first one, which is why its flag is generically named. Combined with <code>pivot_root</code> (a safer replacement for <code>chroot</code>), this gives a process a completely different filesystem tree: its <code>/</code> is the container image, and the host's filesystem simply is not present in its namespace. This is the "filesystem isolation" half of a container.</p>
+
+<p><strong>PID (<code>CLONE_NEWPID</code>, 2008)</strong> — a private process ID space. The first process created in a new PID namespace becomes <strong>PID 1</strong>, and processes inside cannot see or signal anything outside. They are nested: a process has a PID in its own namespace and a different one in each ancestor, so the host sees your container's PID 1 as, say, PID 28471. Two important behaviours attach to PID 1 (from Node 5, and covered fully in Node 30): signals with default actions are not delivered to it, and it inherits orphans and must reap them.</p>
+
+<p><strong>Network (<code>CLONE_NEWNET</code>, 2009)</strong> — a private set of interfaces, routing tables, firewall rules, and <em>port number space</em>. A new network namespace contains only a loopback device, initially down. To connect it to anything you create a <strong>veth pair</strong> — a virtual cable with two ends — put one end inside and attach the other to a bridge on the host. That is exactly what <code>docker0</code> is, and it is why containers on the default bridge can reach each other and why publishing a port (<code>-p 8080:80</code>) installs a NAT rule via iptables. Because the port space is private, <strong>two containers can both bind port 3000 with no conflict</strong>, which is the single most visible benefit and follows from one sentence of this node.</p>
+
+<p><strong>UTS (<code>CLONE_NEWUTS</code>, 2006)</strong> — a private hostname and domain name. Named for the <code>uname</code> system call's <code>utsname</code> struct. This is why a container's hostname is its container ID.</p>
+
+<p><strong>IPC (<code>CLONE_NEWIPC</code>, 2006)</strong> — private System V message queues, semaphores and shared memory segments, and a private POSIX message queue mount.</p>
+
+<p><strong>User (<code>CLONE_NEWUSER</code>, completed 2013)</strong> — the most consequential and the most complicated. It provides a private UID and GID space with a <em>mapping</em> to the parent's. So UID 0 inside can map to UID 100000 outside. <strong>A process can be root in its namespace with no privilege whatsoever on the host</strong> — which is the correct solution to Node 25's ownership problems and the basis of rootless containers. It is also the only namespace an unprivileged user may create, which is what makes rootless Podman and unprivileged Docker possible. That same property has made it a recurring source of kernel privilege-escalation vulnerabilities, because it exposes a great deal of kernel code to unprivileged callers, and several distributions restrict it by default.</p>
+
+<p><strong>Cgroup (<code>CLONE_NEWCGROUP</code>, 2016)</strong> — hides the process's true position in the cgroup hierarchy, so a container sees its own cgroup as the root.</p>
+
+<h4>The calls, and what is not namespaced</h4>
+
+<p>Three system calls operate on them. <code>clone()</code> with <code>CLONE_NEW*</code> flags creates a process in new namespaces — the same <code>clone()</code> that makes processes and threads (Node 14). <code>unshare()</code> moves the <em>calling</em> process into new ones. <code>setns()</code> joins an existing namespace given a descriptor, and it is what <code>docker exec</code> and <code>kubectl exec</code> do. A namespace exists as long as a process is in it or something holds a descriptor to it, visible as <code>/proc/&lt;pid&gt;/ns/*</code>, and <code>lsns</code> lists them.</p>
+
+<p><strong>What is not namespaced is the important part</strong>, because it defines exactly how much a container is not a virtual machine:</p>
+
+<ul>
+<li><strong>The kernel itself.</strong> One kernel, shared by everything. A kernel vulnerability is a vulnerability for all containers on the machine, and a kernel panic takes them all down. This is the fundamental difference from a virtual machine (Node 29).</li>
+<li><strong>The system clock.</strong> A time namespace exists since Linux 5.6 (2020) but only virtualises the boot-time offset, and container runtimes do not generally use it. You cannot give a container a different wall-clock time.</li>
+<li><strong>Most of <code>/proc/sys</code>.</strong> Kernel parameters are mostly global, which is why some are settable per-container (the namespaced networking ones) and most are not.</li>
+<li><strong>The CPU count and total memory as reported by <code>/proc</code>.</strong> This is a real, practical gap: a container sees the host's <code>/proc/cpuinfo</code> and <code>/proc/meminfo</code>. It is why <code>os.cpus().length</code> lies (Node 7), why the JVM needed explicit container awareness, why <code>nproc</code> is wrong inside a container, and why <code>lscpu</code> shows 64 cores in a pod limited to one. Limits are enforced by cgroups, and cgroups are not what <code>/proc</code> reports.</li>
+</ul>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>A Kubernetes pod is a namespace-sharing decision, and this is the clearest possible definition of one.</strong> [EXPLAIN] Containers in a pod share the <strong>network</strong> and <strong>IPC</strong> namespaces and (usually) the <strong>UTS</strong> namespace, while keeping separate <strong>mount</strong> and <strong>PID</strong> namespaces. Everything about pod behaviour follows mechanically:</p>
+
+<ul>
+<li>They reach each other on <code>localhost</code> — same network namespace.</li>
+<li>They <em>cannot</em> both bind port 8080 — same port space. This is the number one surprise for people who expect containers to be isolated from each other.</li>
+<li>They do not share files unless you mount the same volume into both — separate mount namespaces.</li>
+<li>They cannot see each other's processes unless <code>shareProcessNamespace: true</code> — separate PID namespaces. Setting it is how a debug sidecar can inspect the main container, and how one PID 1 can reap for all of them.</li>
+<li>The pod's network namespace is created and held by an infrastructure container (the <em>pause</em> container) that does nothing but sleep, so the namespace survives individual containers restarting. That is why you see a pause container per pod on a node.</li>
+<li>A sidecar — a service mesh proxy like Envoy — works by being in the same network namespace and having iptables rules redirect the application's traffic through it. The application needs no awareness at all, and this node is why that is possible.</li>
+</ul>
+
+<p><strong>Container networking, all of it, is the network namespace plus routing.</strong> Docker's <code>bridge</code> mode is a veth pair into a bridge with NAT. <code>host</code> mode is simply <em>not</em> creating a network namespace — the container shares the host's, so no NAT, no port mapping, full performance, and no isolation. <code>none</code> creates an empty one. Kubernetes CNI plugins (Calico, Cilium, Flannel) all do the same core work — create a namespace, wire an interface into it, program routes — and differ in how packets get between nodes. When you debug container networking with <code>nsenter -t &lt;pid&gt; -n ip addr</code>, you are entering a namespace explicitly.</p>
+
+<p><strong>Rootless containers are the user namespace.</strong> Podman's default mode, and Docker's rootless mode, create a user namespace mapping your UID to root inside. The container's processes believe they are root, can install packages and bind low ports inside their own namespace, and on the host are your unprivileged user. This removes the entire class of "container escape gives you host root" and is the direction the ecosystem has moved. The costs are real: some workloads need capabilities that do not survive the mapping, and file ownership inside mounted volumes goes through the ID map, which takes getting used to.</p>
+
+<p><strong>What you can do at this point:</strong> explain namespaces as per-process views rather than restrictions, name all seven and what each virtualises, explain precisely what is <em>not</em> namespaced and why that matters for CPU detection and for security, define a Kubernetes pod in terms of shared namespaces and derive its behaviour, and explain rootless containers.</p>
+
+<p><strong>What's still broken:</strong> a namespaced process cannot <em>see</em> the rest of the machine and can still <em>consume</em> all of it. It can allocate every byte of memory, saturate every core, and fill the disk. Isolation of view is not isolation of resources, and multi-tenancy needs both.</p>
     </div>
   </div>
 

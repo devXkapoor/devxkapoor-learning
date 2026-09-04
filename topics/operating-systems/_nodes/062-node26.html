@@ -1,0 +1,61 @@
+<h3>Node 26 — namespaces: giving a process its own view of the machine</h3>
+
+<p><strong>The limitation:</strong> every process can see every other process, every mount, every network interface, and every user on the machine.</p>
+
+<h4>The idea, stated once</h4>
+
+<p>Every global resource the kernel names — the process ID space, the mount tree, network interfaces, the hostname, user IDs, the inter-process communication namespace — is turned from a single global table into a <em>per-process pointer to a table</em>. Processes sharing a pointer see the same table; processes with different pointers see different ones.</p>
+
+<p>That is the whole mechanism. <strong>Namespaces do not restrict what a process may do; they change what exists as far as that process is concerned.</strong> [EXPLAIN] A process in its own PID namespace does not fail to kill PID 4321 on the host — it simply has no PID 4321, because in its numbering there is no such process. The isolation is by construction rather than by check, which is why it is both cheap (no per-access enforcement) and complete for the resources it covers.</p>
+
+<p>Namespaces are per-<em>task</em>, they were added over more than a decade (the mount namespace in 2002, the user namespace only completing in 2013), and a process can be in a different namespace of each kind independently. That independence is what makes Kubernetes pods expressible.</p>
+
+<h4>The seven</h4>
+
+<p><strong>Mount (<code>CLONE_NEWNS</code>, 2002)</strong> — a private copy of the mount tree. The first one, which is why its flag is generically named. Combined with <code>pivot_root</code> (a safer replacement for <code>chroot</code>), this gives a process a completely different filesystem tree: its <code>/</code> is the container image, and the host's filesystem simply is not present in its namespace. This is the "filesystem isolation" half of a container.</p>
+
+<p><strong>PID (<code>CLONE_NEWPID</code>, 2008)</strong> — a private process ID space. The first process created in a new PID namespace becomes <strong>PID 1</strong>, and processes inside cannot see or signal anything outside. They are nested: a process has a PID in its own namespace and a different one in each ancestor, so the host sees your container's PID 1 as, say, PID 28471. Two important behaviours attach to PID 1 (from Node 5, and covered fully in Node 30): signals with default actions are not delivered to it, and it inherits orphans and must reap them.</p>
+
+<p><strong>Network (<code>CLONE_NEWNET</code>, 2009)</strong> — a private set of interfaces, routing tables, firewall rules, and <em>port number space</em>. A new network namespace contains only a loopback device, initially down. To connect it to anything you create a <strong>veth pair</strong> — a virtual cable with two ends — put one end inside and attach the other to a bridge on the host. That is exactly what <code>docker0</code> is, and it is why containers on the default bridge can reach each other and why publishing a port (<code>-p 8080:80</code>) installs a NAT rule via iptables. Because the port space is private, <strong>two containers can both bind port 3000 with no conflict</strong>, which is the single most visible benefit and follows from one sentence of this node.</p>
+
+<p><strong>UTS (<code>CLONE_NEWUTS</code>, 2006)</strong> — a private hostname and domain name. Named for the <code>uname</code> system call's <code>utsname</code> struct. This is why a container's hostname is its container ID.</p>
+
+<p><strong>IPC (<code>CLONE_NEWIPC</code>, 2006)</strong> — private System V message queues, semaphores and shared memory segments, and a private POSIX message queue mount.</p>
+
+<p><strong>User (<code>CLONE_NEWUSER</code>, completed 2013)</strong> — the most consequential and the most complicated. It provides a private UID and GID space with a <em>mapping</em> to the parent's. So UID 0 inside can map to UID 100000 outside. <strong>A process can be root in its namespace with no privilege whatsoever on the host</strong> — which is the correct solution to Node 25's ownership problems and the basis of rootless containers. It is also the only namespace an unprivileged user may create, which is what makes rootless Podman and unprivileged Docker possible. That same property has made it a recurring source of kernel privilege-escalation vulnerabilities, because it exposes a great deal of kernel code to unprivileged callers, and several distributions restrict it by default.</p>
+
+<p><strong>Cgroup (<code>CLONE_NEWCGROUP</code>, 2016)</strong> — hides the process's true position in the cgroup hierarchy, so a container sees its own cgroup as the root.</p>
+
+<h4>The calls, and what is not namespaced</h4>
+
+<p>Three system calls operate on them. <code>clone()</code> with <code>CLONE_NEW*</code> flags creates a process in new namespaces — the same <code>clone()</code> that makes processes and threads (Node 14). <code>unshare()</code> moves the <em>calling</em> process into new ones. <code>setns()</code> joins an existing namespace given a descriptor, and it is what <code>docker exec</code> and <code>kubectl exec</code> do. A namespace exists as long as a process is in it or something holds a descriptor to it, visible as <code>/proc/&lt;pid&gt;/ns/*</code>, and <code>lsns</code> lists them.</p>
+
+<p><strong>What is not namespaced is the important part</strong>, because it defines exactly how much a container is not a virtual machine:</p>
+
+<ul>
+<li><strong>The kernel itself.</strong> One kernel, shared by everything. A kernel vulnerability is a vulnerability for all containers on the machine, and a kernel panic takes them all down. This is the fundamental difference from a virtual machine (Node 29).</li>
+<li><strong>The system clock.</strong> A time namespace exists since Linux 5.6 (2020) but only virtualises the boot-time offset, and container runtimes do not generally use it. You cannot give a container a different wall-clock time.</li>
+<li><strong>Most of <code>/proc/sys</code>.</strong> Kernel parameters are mostly global, which is why some are settable per-container (the namespaced networking ones) and most are not.</li>
+<li><strong>The CPU count and total memory as reported by <code>/proc</code>.</strong> This is a real, practical gap: a container sees the host's <code>/proc/cpuinfo</code> and <code>/proc/meminfo</code>. It is why <code>os.cpus().length</code> lies (Node 7), why the JVM needed explicit container awareness, why <code>nproc</code> is wrong inside a container, and why <code>lscpu</code> shows 64 cores in a pod limited to one. Limits are enforced by cgroups, and cgroups are not what <code>/proc</code> reports.</li>
+</ul>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>A Kubernetes pod is a namespace-sharing decision, and this is the clearest possible definition of one.</strong> [EXPLAIN] Containers in a pod share the <strong>network</strong> and <strong>IPC</strong> namespaces and (usually) the <strong>UTS</strong> namespace, while keeping separate <strong>mount</strong> and <strong>PID</strong> namespaces. Everything about pod behaviour follows mechanically:</p>
+
+<ul>
+<li>They reach each other on <code>localhost</code> — same network namespace.</li>
+<li>They <em>cannot</em> both bind port 8080 — same port space. This is the number one surprise for people who expect containers to be isolated from each other.</li>
+<li>They do not share files unless you mount the same volume into both — separate mount namespaces.</li>
+<li>They cannot see each other's processes unless <code>shareProcessNamespace: true</code> — separate PID namespaces. Setting it is how a debug sidecar can inspect the main container, and how one PID 1 can reap for all of them.</li>
+<li>The pod's network namespace is created and held by an infrastructure container (the <em>pause</em> container) that does nothing but sleep, so the namespace survives individual containers restarting. That is why you see a pause container per pod on a node.</li>
+<li>A sidecar — a service mesh proxy like Envoy — works by being in the same network namespace and having iptables rules redirect the application's traffic through it. The application needs no awareness at all, and this node is why that is possible.</li>
+</ul>
+
+<p><strong>Container networking, all of it, is the network namespace plus routing.</strong> Docker's <code>bridge</code> mode is a veth pair into a bridge with NAT. <code>host</code> mode is simply <em>not</em> creating a network namespace — the container shares the host's, so no NAT, no port mapping, full performance, and no isolation. <code>none</code> creates an empty one. Kubernetes CNI plugins (Calico, Cilium, Flannel) all do the same core work — create a namespace, wire an interface into it, program routes — and differ in how packets get between nodes. When you debug container networking with <code>nsenter -t &lt;pid&gt; -n ip addr</code>, you are entering a namespace explicitly.</p>
+
+<p><strong>Rootless containers are the user namespace.</strong> Podman's default mode, and Docker's rootless mode, create a user namespace mapping your UID to root inside. The container's processes believe they are root, can install packages and bind low ports inside their own namespace, and on the host are your unprivileged user. This removes the entire class of "container escape gives you host root" and is the direction the ecosystem has moved. The costs are real: some workloads need capabilities that do not survive the mapping, and file ownership inside mounted volumes goes through the ID map, which takes getting used to.</p>
+
+<p><strong>What you can do at this point:</strong> explain namespaces as per-process views rather than restrictions, name all seven and what each virtualises, explain precisely what is <em>not</em> namespaced and why that matters for CPU detection and for security, define a Kubernetes pod in terms of shared namespaces and derive its behaviour, and explain rootless containers.</p>
+
+<p><strong>What's still broken:</strong> a namespaced process cannot <em>see</em> the rest of the machine and can still <em>consume</em> all of it. It can allocate every byte of memory, saturate every core, and fill the disk. Isolation of view is not isolation of resources, and multi-tenancy needs both.</p>

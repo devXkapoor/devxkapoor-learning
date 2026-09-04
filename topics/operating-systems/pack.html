@@ -1337,7 +1337,139 @@ async function transfer(from, to, amount) {
 
 <p><strong>What you can do at this point:</strong> explain why <code>counter++</code> is not atomic and why races do not reproduce, explain cache coherence and false sharing, explain compiler and processor reordering and why ARM differs from x86, explain compare-and-swap and recognise it at three scales, and — most importantly — explain precisely what JavaScript's single thread does and does not protect you from, with <code>await</code> as the yield point.</p>
 
-<p><strong>What's still broken:</strong> compare-and-swap makes one word atomic. Real critical sections span many operations on many variables, and something must make a whole region exclusive. Building that naively wastes the processor, and building it correctly requires the kernel — but only sometimes, and getting that "only sometimes" right is the difference between a fast program and a slow one.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
+<p><strong>What's still broken:</strong> compare-and-swap makes one word atomic. Real critical sections span many operations on many variables, and something must make a whole region exclusive. Building that naively wastes the processor, and building it correctly requires the kernel — but only sometimes, and getting that "only sometimes" right is the difference between a fast program and a slow one.</p>
+
+<h3>Node 17 — locks, the futex, and deadlock</h3>
+
+<p><strong>The limitation:</strong> compare-and-swap makes a single word atomic; a real critical section spans many operations on many variables.</p>
+
+<h4>Building a lock, and the first design being wrong</h4>
+
+<p>A <strong>mutex</strong> — mutual exclusion lock — has two operations. <em>Acquire</em>: if free, take it; otherwise wait. <em>Release</em>: mark free.</p>
+
+<p>With compare-and-swap the first version writes itself. A word holds 0 for free and 1 for held; acquire loops attempting to swap 0 for 1 until it succeeds. That is a <strong>spin lock</strong>, and it is genuinely used — but only in the right place, because when it is wrong it is very wrong:</p>
+
+<ul>
+<li>While waiting, the thread burns processor time at full rate doing nothing.</li>
+<li>Each attempt is a write, which under Node 16's coherence protocol means acquiring the cache line exclusively — so N spinning threads saturate the interconnect and slow down the thread that actually holds the lock. The refinement is <em>test and test-and-set</em>: spin on a plain read, which can be satisfied from a shared cache line, and only attempt the write when the read says free.</li>
+<li><strong>On a single core it is catastrophic.</strong> The spinning thread cannot make progress until the holder runs, and the holder cannot run until the spinner is preempted. The lock is held for the duration of a full time slice, every time.</li>
+</ul>
+
+<p>Spin locks are correct when the hold time is shorter than a context switch — a few hundred nanoseconds — and there are more cores than contenders. That is true inside a kernel and almost never true in application code.</p>
+
+<p>The alternative is to <em>sleep</em>: put the waiting thread into the S state from Node 5, remove it from the run queue, and wake it when the lock is released. That costs nothing while waiting. But it requires the kernel, because only the kernel can deschedule a thread, so both acquire and release become system calls — 50 to 100 nanoseconds each, from Node 4, <em>every time, including the overwhelmingly common case where the lock was free and nobody was waiting</em>.</p>
+
+<h4>The futex: pay only when contended</h4>
+
+<p>Linux's answer, added in 2.5.7 (2002) by Hubertus Franke, Rusty Russell and Matthew Kirkwood, is one of the most satisfying designs in the kernel. <strong>Futex</strong> — Fast Userspace muTEX.</p>
+
+<p>The lock is an ordinary integer in the process's own memory. Acquire is a compare-and-swap in user space, no system call. <strong>If it succeeds, that is the whole operation</strong> — a handful of nanoseconds. Only if it fails does the thread call <code>futex(FUTEX_WAIT, addr, expected)</code>, which atomically checks the value is still what it expected and puts the thread to sleep on a kernel wait queue keyed by that address. Release is a compare-and-swap back to 0, and calls <code>futex(FUTEX_WAKE, addr, n)</code> <em>only if</em> it can see that someone is waiting.</p>
+
+<p><strong>The uncontended path never enters the kernel; the contended path does.</strong> [EXPLAIN] Since real locks are uncontended the great majority of the time, this makes locking essentially free in the common case. Every <code>pthread_mutex</code>, every Java <code>synchronized</code> block, every Go mutex, and JavaScript's <code>Atomics.wait</code> and <code>Atomics.notify</code> are built on it. It is also an excellent diagnostic: a large number of <code>futex</code> calls in <code>strace -c</code> means genuine contention, because uncontended locks make no calls at all.</p>
+
+<h4>The other primitives, briefly</h4>
+
+<ul>
+<li><strong>Semaphore</strong> — Edsger Dijkstra, 1965. A counter with atomic decrement-and-wait-if-negative and increment-and-wake. A semaphore initialised to N permits N holders, which makes it the natural expression of a resource pool. A mutex is the special case N=1.</li>
+<li><strong>Read-write lock</strong> — many readers or one writer. Worth it only when reads are frequent and long; otherwise the extra bookkeeping loses to a plain mutex, and naive implementations starve writers.</li>
+<li><strong>Condition variable</strong> — wait until a predicate becomes true, releasing the mutex while waiting and reacquiring on wake. Always used in a <code>while</code> loop, never an <code>if</code>, because of <em>spurious wakeups</em> and because another thread may have consumed the condition before you were scheduled.</li>
+<li><strong>Barrier</strong> — all N threads wait until all N arrive.</li>
+</ul>
+
+<h4>Deadlock, and the four conditions</h4>
+
+<p>Thread A holds lock 1 and wants lock 2. Thread B holds lock 2 and wants lock 1. Neither will ever proceed. Edward Coffman's 1971 paper established that deadlock requires all four of the following simultaneously, which is useful because breaking any one prevents it:</p>
+
+<ol>
+<li><strong>Mutual exclusion</strong> — the resource cannot be shared.</li>
+<li><strong>Hold and wait</strong> — a thread holds one resource while requesting another.</li>
+<li><strong>No preemption</strong> — a resource cannot be taken away.</li>
+<li><strong>Circular wait</strong> — a cycle exists in the waits-for graph.</li>
+</ol>
+
+<p>In practice the fourth is the one you break, and the technique is <strong>lock ordering</strong>: define a total order over all locks and require that every thread acquires them in that order. A cycle then cannot form. [EXPLAIN] This is why database code that locks multiple rows should sort the identifiers first — <code>SELECT ... FOR UPDATE</code> over <code>ORDER BY id</code> — and it is the actual fix for the classic bank-transfer deadlock where transfer(A→B) and transfer(B→A) run concurrently.</p>
+
+<p>Two related failures worth naming. <strong>Livelock</strong>: threads are running and responding to each other but no work completes — two processes each backing off and retrying in lockstep. <strong>Starvation</strong>: a thread never gets the resource because others keep taking it, which is what an unfair lock or a writer behind a stream of readers produces. And <strong>the thundering herd</strong>: releasing a lock wakes every waiter, all of whom race, all but one of whom immediately sleep again — which is why <code>FUTEX_WAKE</code> takes a count and why modern implementations wake one.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Redis is single-threaded on purpose, and this node is the reason.</strong> Its command execution is one thread, so every command is atomic by construction — no locks, no races, no deadlock, no coherence traffic, and each operation is a simple in-memory manipulation. That is why <code>INCR</code> is a correct distributed counter, why <code>SETNX</code> is a usable lock primitive, and why a Lua script in Redis is atomic (it runs to completion on that same thread). The price is that one slow command blocks everything — <code>KEYS *</code> on a large database is a genuine outage, which is why <code>SCAN</code> exists — and that it uses one core for commands. Redis 6 added threaded I/O for reading and writing sockets, keeping execution single-threaded, which is precisely the split this part of the document has been building toward. <strong>Redis's design is Node's design, in C, for a database.</strong></p>
+
+<p><strong>Postgres's locks are visible and diagnosable.</strong> Heavyweight locks are on tables and rows and appear in <code>pg_locks</code>; lightweight locks protect internal shared memory and appear as <code>wait_event_type = 'LWLock'</code> in <code>pg_stat_activity</code>. A query stuck with <code>wait_event_type = 'Lock'</code> is waiting on another transaction, and the query that finds the blocker via <code>pg_blocking_pids()</code> is one every backend engineer should have. Postgres detects deadlocks automatically after <code>deadlock_timeout</code> (1 second by default) and aborts one transaction with a message naming both — so a deadlock in Postgres is an error you can catch and retry, not a hang. It is worth knowing that this is unusual generosity; most systems just hang.</p>
+
+<p><strong>Advisory locks are the right tool more often than people realise.</strong> <code>pg_advisory_lock(key)</code> gives you a named mutex with the database as the arbiter, held for the session, and <code>pg_try_advisory_lock</code> returns immediately rather than waiting. That is the correct way to ensure only one instance of a cron job runs across a fleet, and it is safer than most Redis-based approaches for the reason below.</p>
+
+<p><strong>Distributed locks are not locks, and this is a genuinely contested area worth knowing both sides of.</strong> A lock in a process is backed by the kernel: the holder cannot vanish without the kernel knowing. Across a network nothing guarantees that. A process can acquire a lock, then be paused — by a GC pause (Node 12), by CPU throttling (Node 7), by a network partition — for longer than the lock's expiry, at which point another process acquires it and both believe they hold it. Martin Kleppmann's 2016 critique of Redlock made exactly this argument, and Salvatore Sanfilippo's reply is worth reading alongside it. The resolution is a <strong>fencing token</strong>: the lock service issues a monotonically increasing number with each grant, the holder passes it with every write, and the storage system rejects writes carrying a token lower than the highest it has seen. Without fencing, a distributed lock is an optimisation that reduces contention, not a correctness guarantee — and the honest engineering position is to say so out loud when you use one.</p>
+
+<p><strong>In-process JavaScript "locks" are cooperative queues, and they work for a narrow reason.</strong> Libraries like <code>async-mutex</code> hold a promise chain: acquiring returns a promise that resolves when the previous holder releases. No kernel involvement, no atomics needed — because JavaScript's run-to-completion property from Node 16 means the acquire check and the set cannot be interleaved. They are correct within one Node process and give you exactly nothing across cluster workers, which is the mistake people make with them.</p>
+
+<p><strong>What you can do at this point:</strong> explain why a spin lock is right in a kernel and wrong in an application, explain the futex's fast path and use futex counts as a contention signal, name the four Coffman conditions and apply lock ordering, explain why Redis being single-threaded is a design rather than a limitation, diagnose Postgres lock waits, and state honestly what a distributed lock does and does not guarantee.</p>
+
+<p><strong>What's still broken:</strong> all of this concerns threads competing for memory. The original problem was different — a program that waits for a device. Node 2 gave the hardware a way to signal readiness, and nothing has yet said what happens to the <em>program</em> in the meantime, or what it costs to have ten thousand of them waiting at once.</p>
+
+<h3>Node 18 — blocking I/O, thread-per-connection, and the C10K arithmetic</h3>
+
+<p><strong>The limitation:</strong> a program that asks a device for data has to wait, and nothing has said what "wait" costs when a server is waiting on ten thousand clients at once.</p>
+
+<h4>What blocking is, exactly</h4>
+
+<p>A process calls <code>read(fd, buf, 4096)</code> on a socket with no data yet. Precisely what happens:</p>
+
+<ol>
+<li>The syscall enters the kernel (Node 4).</li>
+<li>The kernel checks the socket's receive buffer. Empty.</li>
+<li>It changes the task's state from <code>R</code> to <code>S</code> — interruptible sleep (Node 5).</li>
+<li>It adds the task to a <strong>wait queue</strong> attached to that socket.</li>
+<li>It calls the scheduler, which picks something else. Context switch (Node 6).</li>
+<li>Later, a packet arrives: interrupt, softirq, TCP processing, data appended to the socket buffer (Node 2).</li>
+<li>The kernel walks that socket's wait queue and marks the waiting task runnable.</li>
+<li>The scheduler eventually runs it. It copies the bytes to the user buffer and returns.</li>
+</ol>
+
+<p><strong>Blocking is not waste at the process level — a blocked process consumes zero processor time.</strong> That is worth stating clearly because "blocking is slow" is a slogan people repeat without knowing what it means. The cost is not spent cycles. The cost is that <em>this thread can do nothing else until the wait ends</em>, so serving many clients requires many threads, and threads are the expensive thing. [EXPLAIN]</p>
+
+<h4>The architectures, in the order they were tried</h4>
+
+<p><strong>Process per connection.</strong> Accept, <code>fork</code>, child handles the connection and exits. This is what <code>inetd</code> did and what Apache's <code>prefork</code> module did for a decade. Robust — a crashing connection kills only its own process, which is why it survived so long in a world of buggy CGI scripts — and expensive: a full process per client, several megabytes each, a full context switch per event.</p>
+
+<p><strong>Thread per connection.</strong> Cheaper per client, since threads share an address space (Node 15), and this is Apache's <code>worker</code> module and classic Java servlet containers. Still a stack per client, still a scheduler entry per client, still a full context switch per event.</p>
+
+<p><strong>Bounded thread pool.</strong> N threads, a queue of connections. This bounds resource use, which is the point, and introduces <strong>head-of-line blocking</strong>: if all N threads are occupied by slow requests, fast requests queue behind them regardless of how cheap they are. This is the dominant server architecture in the Java and .NET world and it is why those systems have thread-pool sizing as a tuning discipline.</p>
+
+<h4>The arithmetic — this is the node's core</h4>
+
+<p>Dan Kegel wrote the "C10K problem" page in 1999, asking what it would take for one server to handle ten thousand simultaneous connections. The hardware of the day could clearly move the bytes; the software architecture could not. Run the numbers for thread-per-connection at ten thousand connections:</p>
+
+<ul>
+<li><strong>Memory.</strong> Default thread stack on Linux is 8 MB of reserved address space; actual resident use is more like 8–64 KB thanks to demand paging (Node 13), and a kernel stack of 16 KB is fully resident. Say 100 KB per thread all-in, being generous to the design. Ten thousand threads is <strong>1 GB</strong> before a single byte of application data. At the naive 8 MB, it is 80 GB of address space.</li>
+<li><strong>Scheduler.</strong> Ten thousand tasks in the run queue structures. CFS is logarithmic, so the decision itself is fine — but the load balancer, the wake-ups, and the bookkeeping all scale with task count.</li>
+<li><strong>Context switches.</strong> This is the one that kills it. Suppose each connection sees ten events per second — a modest chat or dashboard workload. That is 100,000 wake-ups per second. At a few microseconds each including the cache and TLB damage from Node 6, that is a large fraction of a core spent purely switching. Push it to a hundred events per second per connection and the machine does nothing else.</li>
+<li><strong>Cache.</strong> The worst part, and invisible in any profile. Ten thousand threads rotating through the processor means the caches never hold anything useful. Every thread starts cold, every time.</li>
+</ul>
+
+<p>Now the same workload on one thread that can wait on all ten thousand at once. One stack. One scheduler entry. One task. Data arrives on five hundred connections; the thread wakes <em>once</em>, learns about all five hundred, and handles each with a function call — warm caches, no page table change, no scheduler involvement. <strong>The switch cost per event drops from microseconds to nanoseconds, and the memory cost per connection drops from ~100 KB to a few hundred bytes of kernel socket state plus whatever your application keeps.</strong></p>
+
+<p>That is the entire argument, and it is arithmetic rather than taste. [EXPLAIN] Note its precise boundary: it says nothing about computation. If each event requires ten milliseconds of processing, one thread handles a hundred events per second and threads would have used all your cores. <strong>The event loop wins on concurrency of waiting, and loses on parallelism of computing</strong> — which is the exact shape of Node's strengths and weaknesses and the honest answer to "when should I not use Node".</p>
+
+<h4>The history this produced</h4>
+
+<p><strong>nginx</strong> (Igor Sysoev, publicly released October 2004) was written specifically against the C10K problem, using an event-driven, non-blocking architecture with a small number of worker processes, one per core, each running an event loop. Apache at the time was thread- or process-per-connection. Under many idle or slow connections — which is what the real internet is, full of mobile clients on poor networks — nginx used a small fraction of the memory and stayed responsive where Apache thrashed. That difference is why nginx now fronts a large share of the web.</p>
+
+<p><strong>Node.js</strong> (Ryan Dahl, presented at JSConf EU in Berlin, November 2009) took the same architecture and made it the <em>only</em> option in the language. Dahl's stated motivation was that Apache's concurrency model was wrong and that existing languages made non-blocking code painful because they had a blocking standard library and no natural callback idiom. JavaScript had no I/O library at all — so nothing had to be deprecated — and it already had first-class functions and closures, so callbacks were natural. <strong>Node's central design decision is that every I/O operation is non-blocking and there is no alternative</strong>, which is what makes the guarantee hold: a library cannot accidentally block the loop with a blocking read, because the blocking read is not exposed. (Except where it is — the <code>Sync</code> functions — and that is why using them outside startup is the cardinal error.)</p>
+
+<p>The other answer to the same problem is to keep the blocking programming model and make threads cheap enough that it does not matter. That is Go's goroutines (a few kilobytes of growable stack, multiplexed by a runtime scheduler that intercepts blocking calls) and Java's virtual threads (Project Loom, final in Java 21, September 2023). <strong>They are not a rejection of the event loop; they are an event loop hidden inside the runtime</strong> so you can write straight-line code. Knowing that lets you evaluate them properly: the concurrency mechanism is the same, the ergonomics differ, and the failure modes differ — a goroutine that runs a tight CPU loop is preemptible since Go 1.14, whereas a Node callback is not.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Your database connection pool is a bounded thread pool, with all of its properties.</strong> A pool of 20 connections serving 200 concurrent requests means 180 requests waiting for a connection. That wait is invisible to your APM unless you instrument it, so the symptom is "the database is slow" when the database is idle and the queue is in your process. Head-of-line blocking applies exactly: one slow query holds a connection and every request behind it waits. The diagnostics are pool metrics — acquisition wait time and queue depth — and the fixes are statement timeouts so a slow query cannot hold a connection indefinitely, separate pools for fast and slow workloads (the same reasoning as separate queues), and sizing the pool against the database's capacity rather than your concurrency.</p>
+
+<p><strong>Slowloris is this node used as an attack.</strong> Open many connections and send headers one byte at a time, very slowly. Against thread-per-connection, each held connection occupies a thread, and a few hundred connections exhaust the pool with almost no bandwidth. Against an event loop, each costs a socket and a few hundred bytes, and the attack fails. This is a security property that follows from the architecture, and it is why header and body timeouts (<code>server.headersTimeout</code>, <code>server.requestTimeout</code> in Node) exist even so — the resource is small but not zero.</p>
+
+<p><strong>The <code>Sync</code> functions are the blocking model leaking back in.</strong> <code>fs.readFileSync</code>, <code>execSync</code>, <code>crypto.pbkdf2Sync</code>, and — the one that catches people — <code>JSON.parse</code> on a large payload, which is not named <code>Sync</code> but blocks just as thoroughly. In a thread-per-connection server, blocking for 200 milliseconds delays one client. In an event loop, it delays <em>every</em> client, because there is one thread and it is not preemptible (Node 7). This is why the rule is "sync calls at startup only", why reading a config file synchronously at boot is fine, and why the same call in a request handler is a production incident. Measuring it is <code>perf_hooks</code>' event-loop delay histogram (<code>monitorEventLoopDelay</code>), which is the single most valuable metric a Node service can export.</p>
+
+<p><strong>What you can do at this point:</strong> explain exactly what happens to a thread that blocks, give the C10K arithmetic with real numbers, state precisely what the event loop wins at and what it does not, explain why nginx beat Apache and why Node was created, place Go and Loom correctly as the same mechanism with different ergonomics, and recognise your connection pool as a bounded thread pool with head-of-line blocking.</p>
+
+<p><strong>What's still broken:</strong> the architecture is settled — one thread waiting on many connections — and the system call to do it does not exist yet. <code>read</code> blocks on one descriptor. There is no call that means "wait until any of these ten thousand has something for me". Building it turns out to take three attempts across twenty years.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
   This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
   elaboration.json live alongside it and are fetched at runtime — do not inline
   that data here.
@@ -2721,6 +2853,138 @@ async function transfer(from, to, amount) {
 <p><strong>What you can do at this point:</strong> explain why <code>counter++</code> is not atomic and why races do not reproduce, explain cache coherence and false sharing, explain compiler and processor reordering and why ARM differs from x86, explain compare-and-swap and recognise it at three scales, and — most importantly — explain precisely what JavaScript's single thread does and does not protect you from, with <code>await</code> as the yield point.</p>
 
 <p><strong>What's still broken:</strong> compare-and-swap makes one word atomic. Real critical sections span many operations on many variables, and something must make a whole region exclusive. Building that naively wastes the processor, and building it correctly requires the kernel — but only sometimes, and getting that "only sometimes" right is the difference between a fast program and a slow one.</p>
+
+<h3>Node 17 — locks, the futex, and deadlock</h3>
+
+<p><strong>The limitation:</strong> compare-and-swap makes a single word atomic; a real critical section spans many operations on many variables.</p>
+
+<h4>Building a lock, and the first design being wrong</h4>
+
+<p>A <strong>mutex</strong> — mutual exclusion lock — has two operations. <em>Acquire</em>: if free, take it; otherwise wait. <em>Release</em>: mark free.</p>
+
+<p>With compare-and-swap the first version writes itself. A word holds 0 for free and 1 for held; acquire loops attempting to swap 0 for 1 until it succeeds. That is a <strong>spin lock</strong>, and it is genuinely used — but only in the right place, because when it is wrong it is very wrong:</p>
+
+<ul>
+<li>While waiting, the thread burns processor time at full rate doing nothing.</li>
+<li>Each attempt is a write, which under Node 16's coherence protocol means acquiring the cache line exclusively — so N spinning threads saturate the interconnect and slow down the thread that actually holds the lock. The refinement is <em>test and test-and-set</em>: spin on a plain read, which can be satisfied from a shared cache line, and only attempt the write when the read says free.</li>
+<li><strong>On a single core it is catastrophic.</strong> The spinning thread cannot make progress until the holder runs, and the holder cannot run until the spinner is preempted. The lock is held for the duration of a full time slice, every time.</li>
+</ul>
+
+<p>Spin locks are correct when the hold time is shorter than a context switch — a few hundred nanoseconds — and there are more cores than contenders. That is true inside a kernel and almost never true in application code.</p>
+
+<p>The alternative is to <em>sleep</em>: put the waiting thread into the S state from Node 5, remove it from the run queue, and wake it when the lock is released. That costs nothing while waiting. But it requires the kernel, because only the kernel can deschedule a thread, so both acquire and release become system calls — 50 to 100 nanoseconds each, from Node 4, <em>every time, including the overwhelmingly common case where the lock was free and nobody was waiting</em>.</p>
+
+<h4>The futex: pay only when contended</h4>
+
+<p>Linux's answer, added in 2.5.7 (2002) by Hubertus Franke, Rusty Russell and Matthew Kirkwood, is one of the most satisfying designs in the kernel. <strong>Futex</strong> — Fast Userspace muTEX.</p>
+
+<p>The lock is an ordinary integer in the process's own memory. Acquire is a compare-and-swap in user space, no system call. <strong>If it succeeds, that is the whole operation</strong> — a handful of nanoseconds. Only if it fails does the thread call <code>futex(FUTEX_WAIT, addr, expected)</code>, which atomically checks the value is still what it expected and puts the thread to sleep on a kernel wait queue keyed by that address. Release is a compare-and-swap back to 0, and calls <code>futex(FUTEX_WAKE, addr, n)</code> <em>only if</em> it can see that someone is waiting.</p>
+
+<p><strong>The uncontended path never enters the kernel; the contended path does.</strong> [EXPLAIN] Since real locks are uncontended the great majority of the time, this makes locking essentially free in the common case. Every <code>pthread_mutex</code>, every Java <code>synchronized</code> block, every Go mutex, and JavaScript's <code>Atomics.wait</code> and <code>Atomics.notify</code> are built on it. It is also an excellent diagnostic: a large number of <code>futex</code> calls in <code>strace -c</code> means genuine contention, because uncontended locks make no calls at all.</p>
+
+<h4>The other primitives, briefly</h4>
+
+<ul>
+<li><strong>Semaphore</strong> — Edsger Dijkstra, 1965. A counter with atomic decrement-and-wait-if-negative and increment-and-wake. A semaphore initialised to N permits N holders, which makes it the natural expression of a resource pool. A mutex is the special case N=1.</li>
+<li><strong>Read-write lock</strong> — many readers or one writer. Worth it only when reads are frequent and long; otherwise the extra bookkeeping loses to a plain mutex, and naive implementations starve writers.</li>
+<li><strong>Condition variable</strong> — wait until a predicate becomes true, releasing the mutex while waiting and reacquiring on wake. Always used in a <code>while</code> loop, never an <code>if</code>, because of <em>spurious wakeups</em> and because another thread may have consumed the condition before you were scheduled.</li>
+<li><strong>Barrier</strong> — all N threads wait until all N arrive.</li>
+</ul>
+
+<h4>Deadlock, and the four conditions</h4>
+
+<p>Thread A holds lock 1 and wants lock 2. Thread B holds lock 2 and wants lock 1. Neither will ever proceed. Edward Coffman's 1971 paper established that deadlock requires all four of the following simultaneously, which is useful because breaking any one prevents it:</p>
+
+<ol>
+<li><strong>Mutual exclusion</strong> — the resource cannot be shared.</li>
+<li><strong>Hold and wait</strong> — a thread holds one resource while requesting another.</li>
+<li><strong>No preemption</strong> — a resource cannot be taken away.</li>
+<li><strong>Circular wait</strong> — a cycle exists in the waits-for graph.</li>
+</ol>
+
+<p>In practice the fourth is the one you break, and the technique is <strong>lock ordering</strong>: define a total order over all locks and require that every thread acquires them in that order. A cycle then cannot form. [EXPLAIN] This is why database code that locks multiple rows should sort the identifiers first — <code>SELECT ... FOR UPDATE</code> over <code>ORDER BY id</code> — and it is the actual fix for the classic bank-transfer deadlock where transfer(A→B) and transfer(B→A) run concurrently.</p>
+
+<p>Two related failures worth naming. <strong>Livelock</strong>: threads are running and responding to each other but no work completes — two processes each backing off and retrying in lockstep. <strong>Starvation</strong>: a thread never gets the resource because others keep taking it, which is what an unfair lock or a writer behind a stream of readers produces. And <strong>the thundering herd</strong>: releasing a lock wakes every waiter, all of whom race, all but one of whom immediately sleep again — which is why <code>FUTEX_WAKE</code> takes a count and why modern implementations wake one.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Redis is single-threaded on purpose, and this node is the reason.</strong> Its command execution is one thread, so every command is atomic by construction — no locks, no races, no deadlock, no coherence traffic, and each operation is a simple in-memory manipulation. That is why <code>INCR</code> is a correct distributed counter, why <code>SETNX</code> is a usable lock primitive, and why a Lua script in Redis is atomic (it runs to completion on that same thread). The price is that one slow command blocks everything — <code>KEYS *</code> on a large database is a genuine outage, which is why <code>SCAN</code> exists — and that it uses one core for commands. Redis 6 added threaded I/O for reading and writing sockets, keeping execution single-threaded, which is precisely the split this part of the document has been building toward. <strong>Redis's design is Node's design, in C, for a database.</strong></p>
+
+<p><strong>Postgres's locks are visible and diagnosable.</strong> Heavyweight locks are on tables and rows and appear in <code>pg_locks</code>; lightweight locks protect internal shared memory and appear as <code>wait_event_type = 'LWLock'</code> in <code>pg_stat_activity</code>. A query stuck with <code>wait_event_type = 'Lock'</code> is waiting on another transaction, and the query that finds the blocker via <code>pg_blocking_pids()</code> is one every backend engineer should have. Postgres detects deadlocks automatically after <code>deadlock_timeout</code> (1 second by default) and aborts one transaction with a message naming both — so a deadlock in Postgres is an error you can catch and retry, not a hang. It is worth knowing that this is unusual generosity; most systems just hang.</p>
+
+<p><strong>Advisory locks are the right tool more often than people realise.</strong> <code>pg_advisory_lock(key)</code> gives you a named mutex with the database as the arbiter, held for the session, and <code>pg_try_advisory_lock</code> returns immediately rather than waiting. That is the correct way to ensure only one instance of a cron job runs across a fleet, and it is safer than most Redis-based approaches for the reason below.</p>
+
+<p><strong>Distributed locks are not locks, and this is a genuinely contested area worth knowing both sides of.</strong> A lock in a process is backed by the kernel: the holder cannot vanish without the kernel knowing. Across a network nothing guarantees that. A process can acquire a lock, then be paused — by a GC pause (Node 12), by CPU throttling (Node 7), by a network partition — for longer than the lock's expiry, at which point another process acquires it and both believe they hold it. Martin Kleppmann's 2016 critique of Redlock made exactly this argument, and Salvatore Sanfilippo's reply is worth reading alongside it. The resolution is a <strong>fencing token</strong>: the lock service issues a monotonically increasing number with each grant, the holder passes it with every write, and the storage system rejects writes carrying a token lower than the highest it has seen. Without fencing, a distributed lock is an optimisation that reduces contention, not a correctness guarantee — and the honest engineering position is to say so out loud when you use one.</p>
+
+<p><strong>In-process JavaScript "locks" are cooperative queues, and they work for a narrow reason.</strong> Libraries like <code>async-mutex</code> hold a promise chain: acquiring returns a promise that resolves when the previous holder releases. No kernel involvement, no atomics needed — because JavaScript's run-to-completion property from Node 16 means the acquire check and the set cannot be interleaved. They are correct within one Node process and give you exactly nothing across cluster workers, which is the mistake people make with them.</p>
+
+<p><strong>What you can do at this point:</strong> explain why a spin lock is right in a kernel and wrong in an application, explain the futex's fast path and use futex counts as a contention signal, name the four Coffman conditions and apply lock ordering, explain why Redis being single-threaded is a design rather than a limitation, diagnose Postgres lock waits, and state honestly what a distributed lock does and does not guarantee.</p>
+
+<p><strong>What's still broken:</strong> all of this concerns threads competing for memory. The original problem was different — a program that waits for a device. Node 2 gave the hardware a way to signal readiness, and nothing has yet said what happens to the <em>program</em> in the meantime, or what it costs to have ten thousand of them waiting at once.</p>
+
+<h3>Node 18 — blocking I/O, thread-per-connection, and the C10K arithmetic</h3>
+
+<p><strong>The limitation:</strong> a program that asks a device for data has to wait, and nothing has said what "wait" costs when a server is waiting on ten thousand clients at once.</p>
+
+<h4>What blocking is, exactly</h4>
+
+<p>A process calls <code>read(fd, buf, 4096)</code> on a socket with no data yet. Precisely what happens:</p>
+
+<ol>
+<li>The syscall enters the kernel (Node 4).</li>
+<li>The kernel checks the socket's receive buffer. Empty.</li>
+<li>It changes the task's state from <code>R</code> to <code>S</code> — interruptible sleep (Node 5).</li>
+<li>It adds the task to a <strong>wait queue</strong> attached to that socket.</li>
+<li>It calls the scheduler, which picks something else. Context switch (Node 6).</li>
+<li>Later, a packet arrives: interrupt, softirq, TCP processing, data appended to the socket buffer (Node 2).</li>
+<li>The kernel walks that socket's wait queue and marks the waiting task runnable.</li>
+<li>The scheduler eventually runs it. It copies the bytes to the user buffer and returns.</li>
+</ol>
+
+<p><strong>Blocking is not waste at the process level — a blocked process consumes zero processor time.</strong> That is worth stating clearly because "blocking is slow" is a slogan people repeat without knowing what it means. The cost is not spent cycles. The cost is that <em>this thread can do nothing else until the wait ends</em>, so serving many clients requires many threads, and threads are the expensive thing. [EXPLAIN]</p>
+
+<h4>The architectures, in the order they were tried</h4>
+
+<p><strong>Process per connection.</strong> Accept, <code>fork</code>, child handles the connection and exits. This is what <code>inetd</code> did and what Apache's <code>prefork</code> module did for a decade. Robust — a crashing connection kills only its own process, which is why it survived so long in a world of buggy CGI scripts — and expensive: a full process per client, several megabytes each, a full context switch per event.</p>
+
+<p><strong>Thread per connection.</strong> Cheaper per client, since threads share an address space (Node 15), and this is Apache's <code>worker</code> module and classic Java servlet containers. Still a stack per client, still a scheduler entry per client, still a full context switch per event.</p>
+
+<p><strong>Bounded thread pool.</strong> N threads, a queue of connections. This bounds resource use, which is the point, and introduces <strong>head-of-line blocking</strong>: if all N threads are occupied by slow requests, fast requests queue behind them regardless of how cheap they are. This is the dominant server architecture in the Java and .NET world and it is why those systems have thread-pool sizing as a tuning discipline.</p>
+
+<h4>The arithmetic — this is the node's core</h4>
+
+<p>Dan Kegel wrote the "C10K problem" page in 1999, asking what it would take for one server to handle ten thousand simultaneous connections. The hardware of the day could clearly move the bytes; the software architecture could not. Run the numbers for thread-per-connection at ten thousand connections:</p>
+
+<ul>
+<li><strong>Memory.</strong> Default thread stack on Linux is 8 MB of reserved address space; actual resident use is more like 8–64 KB thanks to demand paging (Node 13), and a kernel stack of 16 KB is fully resident. Say 100 KB per thread all-in, being generous to the design. Ten thousand threads is <strong>1 GB</strong> before a single byte of application data. At the naive 8 MB, it is 80 GB of address space.</li>
+<li><strong>Scheduler.</strong> Ten thousand tasks in the run queue structures. CFS is logarithmic, so the decision itself is fine — but the load balancer, the wake-ups, and the bookkeeping all scale with task count.</li>
+<li><strong>Context switches.</strong> This is the one that kills it. Suppose each connection sees ten events per second — a modest chat or dashboard workload. That is 100,000 wake-ups per second. At a few microseconds each including the cache and TLB damage from Node 6, that is a large fraction of a core spent purely switching. Push it to a hundred events per second per connection and the machine does nothing else.</li>
+<li><strong>Cache.</strong> The worst part, and invisible in any profile. Ten thousand threads rotating through the processor means the caches never hold anything useful. Every thread starts cold, every time.</li>
+</ul>
+
+<p>Now the same workload on one thread that can wait on all ten thousand at once. One stack. One scheduler entry. One task. Data arrives on five hundred connections; the thread wakes <em>once</em>, learns about all five hundred, and handles each with a function call — warm caches, no page table change, no scheduler involvement. <strong>The switch cost per event drops from microseconds to nanoseconds, and the memory cost per connection drops from ~100 KB to a few hundred bytes of kernel socket state plus whatever your application keeps.</strong></p>
+
+<p>That is the entire argument, and it is arithmetic rather than taste. [EXPLAIN] Note its precise boundary: it says nothing about computation. If each event requires ten milliseconds of processing, one thread handles a hundred events per second and threads would have used all your cores. <strong>The event loop wins on concurrency of waiting, and loses on parallelism of computing</strong> — which is the exact shape of Node's strengths and weaknesses and the honest answer to "when should I not use Node".</p>
+
+<h4>The history this produced</h4>
+
+<p><strong>nginx</strong> (Igor Sysoev, publicly released October 2004) was written specifically against the C10K problem, using an event-driven, non-blocking architecture with a small number of worker processes, one per core, each running an event loop. Apache at the time was thread- or process-per-connection. Under many idle or slow connections — which is what the real internet is, full of mobile clients on poor networks — nginx used a small fraction of the memory and stayed responsive where Apache thrashed. That difference is why nginx now fronts a large share of the web.</p>
+
+<p><strong>Node.js</strong> (Ryan Dahl, presented at JSConf EU in Berlin, November 2009) took the same architecture and made it the <em>only</em> option in the language. Dahl's stated motivation was that Apache's concurrency model was wrong and that existing languages made non-blocking code painful because they had a blocking standard library and no natural callback idiom. JavaScript had no I/O library at all — so nothing had to be deprecated — and it already had first-class functions and closures, so callbacks were natural. <strong>Node's central design decision is that every I/O operation is non-blocking and there is no alternative</strong>, which is what makes the guarantee hold: a library cannot accidentally block the loop with a blocking read, because the blocking read is not exposed. (Except where it is — the <code>Sync</code> functions — and that is why using them outside startup is the cardinal error.)</p>
+
+<p>The other answer to the same problem is to keep the blocking programming model and make threads cheap enough that it does not matter. That is Go's goroutines (a few kilobytes of growable stack, multiplexed by a runtime scheduler that intercepts blocking calls) and Java's virtual threads (Project Loom, final in Java 21, September 2023). <strong>They are not a rejection of the event loop; they are an event loop hidden inside the runtime</strong> so you can write straight-line code. Knowing that lets you evaluate them properly: the concurrency mechanism is the same, the ergonomics differ, and the failure modes differ — a goroutine that runs a tight CPU loop is preemptible since Go 1.14, whereas a Node callback is not.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Your database connection pool is a bounded thread pool, with all of its properties.</strong> A pool of 20 connections serving 200 concurrent requests means 180 requests waiting for a connection. That wait is invisible to your APM unless you instrument it, so the symptom is "the database is slow" when the database is idle and the queue is in your process. Head-of-line blocking applies exactly: one slow query holds a connection and every request behind it waits. The diagnostics are pool metrics — acquisition wait time and queue depth — and the fixes are statement timeouts so a slow query cannot hold a connection indefinitely, separate pools for fast and slow workloads (the same reasoning as separate queues), and sizing the pool against the database's capacity rather than your concurrency.</p>
+
+<p><strong>Slowloris is this node used as an attack.</strong> Open many connections and send headers one byte at a time, very slowly. Against thread-per-connection, each held connection occupies a thread, and a few hundred connections exhaust the pool with almost no bandwidth. Against an event loop, each costs a socket and a few hundred bytes, and the attack fails. This is a security property that follows from the architecture, and it is why header and body timeouts (<code>server.headersTimeout</code>, <code>server.requestTimeout</code> in Node) exist even so — the resource is small but not zero.</p>
+
+<p><strong>The <code>Sync</code> functions are the blocking model leaking back in.</strong> <code>fs.readFileSync</code>, <code>execSync</code>, <code>crypto.pbkdf2Sync</code>, and — the one that catches people — <code>JSON.parse</code> on a large payload, which is not named <code>Sync</code> but blocks just as thoroughly. In a thread-per-connection server, blocking for 200 milliseconds delays one client. In an event loop, it delays <em>every</em> client, because there is one thread and it is not preemptible (Node 7). This is why the rule is "sync calls at startup only", why reading a config file synchronously at boot is fine, and why the same call in a request handler is a production incident. Measuring it is <code>perf_hooks</code>' event-loop delay histogram (<code>monitorEventLoopDelay</code>), which is the single most valuable metric a Node service can export.</p>
+
+<p><strong>What you can do at this point:</strong> explain exactly what happens to a thread that blocks, give the C10K arithmetic with real numbers, state precisely what the event loop wins at and what it does not, explain why nginx beat Apache and why Node was created, place Go and Loom correctly as the same mechanism with different ergonomics, and recognise your connection pool as a bounded thread pool with head-of-line blocking.</p>
+
+<p><strong>What's still broken:</strong> the architecture is settled — one thread waiting on many connections — and the system call to do it does not exist yet. <code>read</code> blocks on one descriptor. There is no call that means "wait until any of these ten thousand has something for me". Building it turns out to take three attempts across twenty years.</p>
     </div>
   </div>
 

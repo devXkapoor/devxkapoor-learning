@@ -1,0 +1,67 @@
+<h3>Node 17 — locks, the futex, and deadlock</h3>
+
+<p><strong>The limitation:</strong> compare-and-swap makes a single word atomic; a real critical section spans many operations on many variables.</p>
+
+<h4>Building a lock, and the first design being wrong</h4>
+
+<p>A <strong>mutex</strong> — mutual exclusion lock — has two operations. <em>Acquire</em>: if free, take it; otherwise wait. <em>Release</em>: mark free.</p>
+
+<p>With compare-and-swap the first version writes itself. A word holds 0 for free and 1 for held; acquire loops attempting to swap 0 for 1 until it succeeds. That is a <strong>spin lock</strong>, and it is genuinely used — but only in the right place, because when it is wrong it is very wrong:</p>
+
+<ul>
+<li>While waiting, the thread burns processor time at full rate doing nothing.</li>
+<li>Each attempt is a write, which under Node 16's coherence protocol means acquiring the cache line exclusively — so N spinning threads saturate the interconnect and slow down the thread that actually holds the lock. The refinement is <em>test and test-and-set</em>: spin on a plain read, which can be satisfied from a shared cache line, and only attempt the write when the read says free.</li>
+<li><strong>On a single core it is catastrophic.</strong> The spinning thread cannot make progress until the holder runs, and the holder cannot run until the spinner is preempted. The lock is held for the duration of a full time slice, every time.</li>
+</ul>
+
+<p>Spin locks are correct when the hold time is shorter than a context switch — a few hundred nanoseconds — and there are more cores than contenders. That is true inside a kernel and almost never true in application code.</p>
+
+<p>The alternative is to <em>sleep</em>: put the waiting thread into the S state from Node 5, remove it from the run queue, and wake it when the lock is released. That costs nothing while waiting. But it requires the kernel, because only the kernel can deschedule a thread, so both acquire and release become system calls — 50 to 100 nanoseconds each, from Node 4, <em>every time, including the overwhelmingly common case where the lock was free and nobody was waiting</em>.</p>
+
+<h4>The futex: pay only when contended</h4>
+
+<p>Linux's answer, added in 2.5.7 (2002) by Hubertus Franke, Rusty Russell and Matthew Kirkwood, is one of the most satisfying designs in the kernel. <strong>Futex</strong> — Fast Userspace muTEX.</p>
+
+<p>The lock is an ordinary integer in the process's own memory. Acquire is a compare-and-swap in user space, no system call. <strong>If it succeeds, that is the whole operation</strong> — a handful of nanoseconds. Only if it fails does the thread call <code>futex(FUTEX_WAIT, addr, expected)</code>, which atomically checks the value is still what it expected and puts the thread to sleep on a kernel wait queue keyed by that address. Release is a compare-and-swap back to 0, and calls <code>futex(FUTEX_WAKE, addr, n)</code> <em>only if</em> it can see that someone is waiting.</p>
+
+<p><strong>The uncontended path never enters the kernel; the contended path does.</strong> [EXPLAIN] Since real locks are uncontended the great majority of the time, this makes locking essentially free in the common case. Every <code>pthread_mutex</code>, every Java <code>synchronized</code> block, every Go mutex, and JavaScript's <code>Atomics.wait</code> and <code>Atomics.notify</code> are built on it. It is also an excellent diagnostic: a large number of <code>futex</code> calls in <code>strace -c</code> means genuine contention, because uncontended locks make no calls at all.</p>
+
+<h4>The other primitives, briefly</h4>
+
+<ul>
+<li><strong>Semaphore</strong> — Edsger Dijkstra, 1965. A counter with atomic decrement-and-wait-if-negative and increment-and-wake. A semaphore initialised to N permits N holders, which makes it the natural expression of a resource pool. A mutex is the special case N=1.</li>
+<li><strong>Read-write lock</strong> — many readers or one writer. Worth it only when reads are frequent and long; otherwise the extra bookkeeping loses to a plain mutex, and naive implementations starve writers.</li>
+<li><strong>Condition variable</strong> — wait until a predicate becomes true, releasing the mutex while waiting and reacquiring on wake. Always used in a <code>while</code> loop, never an <code>if</code>, because of <em>spurious wakeups</em> and because another thread may have consumed the condition before you were scheduled.</li>
+<li><strong>Barrier</strong> — all N threads wait until all N arrive.</li>
+</ul>
+
+<h4>Deadlock, and the four conditions</h4>
+
+<p>Thread A holds lock 1 and wants lock 2. Thread B holds lock 2 and wants lock 1. Neither will ever proceed. Edward Coffman's 1971 paper established that deadlock requires all four of the following simultaneously, which is useful because breaking any one prevents it:</p>
+
+<ol>
+<li><strong>Mutual exclusion</strong> — the resource cannot be shared.</li>
+<li><strong>Hold and wait</strong> — a thread holds one resource while requesting another.</li>
+<li><strong>No preemption</strong> — a resource cannot be taken away.</li>
+<li><strong>Circular wait</strong> — a cycle exists in the waits-for graph.</li>
+</ol>
+
+<p>In practice the fourth is the one you break, and the technique is <strong>lock ordering</strong>: define a total order over all locks and require that every thread acquires them in that order. A cycle then cannot form. [EXPLAIN] This is why database code that locks multiple rows should sort the identifiers first — <code>SELECT ... FOR UPDATE</code> over <code>ORDER BY id</code> — and it is the actual fix for the classic bank-transfer deadlock where transfer(A→B) and transfer(B→A) run concurrently.</p>
+
+<p>Two related failures worth naming. <strong>Livelock</strong>: threads are running and responding to each other but no work completes — two processes each backing off and retrying in lockstep. <strong>Starvation</strong>: a thread never gets the resource because others keep taking it, which is what an unfair lock or a writer behind a stream of readers produces. And <strong>the thundering herd</strong>: releasing a lock wakes every waiter, all of whom race, all but one of whom immediately sleep again — which is why <code>FUTEX_WAKE</code> takes a count and why modern implementations wake one.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Redis is single-threaded on purpose, and this node is the reason.</strong> Its command execution is one thread, so every command is atomic by construction — no locks, no races, no deadlock, no coherence traffic, and each operation is a simple in-memory manipulation. That is why <code>INCR</code> is a correct distributed counter, why <code>SETNX</code> is a usable lock primitive, and why a Lua script in Redis is atomic (it runs to completion on that same thread). The price is that one slow command blocks everything — <code>KEYS *</code> on a large database is a genuine outage, which is why <code>SCAN</code> exists — and that it uses one core for commands. Redis 6 added threaded I/O for reading and writing sockets, keeping execution single-threaded, which is precisely the split this part of the document has been building toward. <strong>Redis's design is Node's design, in C, for a database.</strong></p>
+
+<p><strong>Postgres's locks are visible and diagnosable.</strong> Heavyweight locks are on tables and rows and appear in <code>pg_locks</code>; lightweight locks protect internal shared memory and appear as <code>wait_event_type = 'LWLock'</code> in <code>pg_stat_activity</code>. A query stuck with <code>wait_event_type = 'Lock'</code> is waiting on another transaction, and the query that finds the blocker via <code>pg_blocking_pids()</code> is one every backend engineer should have. Postgres detects deadlocks automatically after <code>deadlock_timeout</code> (1 second by default) and aborts one transaction with a message naming both — so a deadlock in Postgres is an error you can catch and retry, not a hang. It is worth knowing that this is unusual generosity; most systems just hang.</p>
+
+<p><strong>Advisory locks are the right tool more often than people realise.</strong> <code>pg_advisory_lock(key)</code> gives you a named mutex with the database as the arbiter, held for the session, and <code>pg_try_advisory_lock</code> returns immediately rather than waiting. That is the correct way to ensure only one instance of a cron job runs across a fleet, and it is safer than most Redis-based approaches for the reason below.</p>
+
+<p><strong>Distributed locks are not locks, and this is a genuinely contested area worth knowing both sides of.</strong> A lock in a process is backed by the kernel: the holder cannot vanish without the kernel knowing. Across a network nothing guarantees that. A process can acquire a lock, then be paused — by a GC pause (Node 12), by CPU throttling (Node 7), by a network partition — for longer than the lock's expiry, at which point another process acquires it and both believe they hold it. Martin Kleppmann's 2016 critique of Redlock made exactly this argument, and Salvatore Sanfilippo's reply is worth reading alongside it. The resolution is a <strong>fencing token</strong>: the lock service issues a monotonically increasing number with each grant, the holder passes it with every write, and the storage system rejects writes carrying a token lower than the highest it has seen. Without fencing, a distributed lock is an optimisation that reduces contention, not a correctness guarantee — and the honest engineering position is to say so out loud when you use one.</p>
+
+<p><strong>In-process JavaScript "locks" are cooperative queues, and they work for a narrow reason.</strong> Libraries like <code>async-mutex</code> hold a promise chain: acquiring returns a promise that resolves when the previous holder releases. No kernel involvement, no atomics needed — because JavaScript's run-to-completion property from Node 16 means the acquire check and the set cannot be interleaved. They are correct within one Node process and give you exactly nothing across cluster workers, which is the mistake people make with them.</p>
+
+<p><strong>What you can do at this point:</strong> explain why a spin lock is right in a kernel and wrong in an application, explain the futex's fast path and use futex counts as a contention signal, name the four Coffman conditions and apply lock ordering, explain why Redis being single-threaded is a design rather than a limitation, diagnose Postgres lock waits, and state honestly what a distributed lock does and does not guarantee.</p>
+
+<p><strong>What's still broken:</strong> all of this concerns threads competing for memory. The original problem was different — a program that waits for a device. Node 2 gave the hardware a way to signal readiness, and nothing has yet said what happens to the <em>program</em> in the meantime, or what it costs to have ten thousand of them waiting at once.</p>

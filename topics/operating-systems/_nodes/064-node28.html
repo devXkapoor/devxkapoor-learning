@@ -1,0 +1,62 @@
+<h3>Node 28 — the container, assembled</h3>
+
+<p><strong>The limitation:</strong> none. Everything needed exists. This node contains no new mechanism and exists to put the pieces together, because the assembly is the thing people never see.</p>
+
+<p><strong>A container is a process — an ordinary Linux process, visible in the host's process list with a real PID — started with a particular combination of namespaces, cgroups, a layered root filesystem, a credential mapping, a capability set, and a syscall filter.</strong> [EXPLAIN] There is no container object in the kernel. The kernel has no idea containers exist. <code>grep -r container</code> in the Linux source finds nothing relevant, because a container is a userspace convention about how to call <code>clone()</code>.</p>
+
+<h4>What an image is, precisely</h4>
+
+<p>Before the runtime, the artefact. An OCI image is three kinds of thing, all content-addressed by SHA-256 digest:</p>
+
+<ul>
+<li><strong>Layers</strong> — tar archives of filesystem differences, usually gzip- or zstd-compressed. Each is identified by the digest of its content, which is why an unchanged layer is never re-pulled and why layers are shared across images.</li>
+<li><strong>A config</strong> — a JSON document with the default command, environment, working directory, user, exposed ports, and the ordered list of layer digests.</li>
+<li><strong>A manifest</strong> — a JSON document listing the config and the layers. Its own digest is the image's digest, the <code>sha256:...</code> you see. A <em>manifest list</em> (or image index) maps architectures to manifests, which is how one tag serves both <code>linux/amd64</code> and <code>linux/arm64</code> (Node 0).</li>
+</ul>
+
+<p>A tag like <code>node:20-alpine</code> is a mutable pointer to a digest. <strong>Digests are immutable and tags are not</strong>, which is why production deployments should reference <code>image@sha256:...</code> and why <code>imagePullPolicy: Always</code> exists. Pulling is plain HTTPS against a registry API: fetch the manifest, then fetch each layer the local store does not already have.</p>
+
+<h4>What <code>docker run</code> does, step by step</h4>
+
+<p>Every step below is a node in this document. That is the point of reading it.</p>
+
+<ol>
+<li><strong>Resolve and pull.</strong> The client asks the daemon; the daemon asks the registry for the manifest, selects the right architecture, and downloads missing layers. Each is verified against its digest and unpacked into a directory in the local store.</li>
+<li><strong>Prepare the filesystem.</strong> Create a writable upper directory and assemble an overlayfs mount with the image's layers as lower directories (<strong>Node 24</strong>). Also prepare the mount specifications for any volumes and bind mounts (<strong>Node 21</strong>).</li>
+<li><strong>Create the cgroup.</strong> Make a directory under <code>/sys/fs/cgroup</code> and write <code>cpu.max</code>, <code>cpu.weight</code>, <code>memory.max</code>, <code>pids.max</code> (<strong>Node 27</strong>).</li>
+<li><strong>Create the process with new namespaces.</strong> <code>clone()</code> with <code>CLONE_NEWPID | CLONE_NEWNS | CLONE_NEWNET | CLONE_NEWUTS | CLONE_NEWIPC | CLONE_NEWCGROUP</code>, plus <code>CLONE_NEWUSER</code> if rootless (<strong>Nodes 14, 26</strong>). The child is PID 1 in its new PID namespace.</li>
+<li><strong>Wire the network.</strong> Create a veth pair; move one end into the new network namespace; attach the other to the bridge; assign an address; set routes; install NAT rules for published ports (<strong>Nodes 26, 32</strong>).</li>
+<li><strong>Set the root.</strong> Inside the child: mount the overlay, then <code>pivot_root</code> to it, then unmount the old root — so the host's filesystem is no longer reachable at all, which is the difference between <code>pivot_root</code> and the escapable <code>chroot</code>.</li>
+<li><strong>Mount the pseudo-filesystems.</strong> A fresh <code>/proc</code> (which now reflects the new PID namespace), <code>/sys</code>, a <code>tmpfs</code> on <code>/dev</code> with a minimal device set, <code>/dev/pts</code>, and <code>/dev/shm</code> (<strong>Nodes 21, 24</strong>).</li>
+<li><strong>Set the hostname</strong> in the new UTS namespace.</li>
+<li><strong>Apply the security posture.</strong> Set the UID and GID (<strong>Node 25</strong>); drop capabilities to the retained set; set <code>no_new_privs</code>; install the seccomp filter (<strong>Node 4</strong>); apply the AppArmor or SELinux label.</li>
+<li><strong>Set the environment and working directory</strong>, and set up the standard descriptors — pipes back to the daemon for logging, or a pseudo-terminal for <code>-it</code> (<strong>Node 22</strong>).</li>
+<li><strong><code>execve()</code> the entrypoint</strong> (<strong>Node 35</strong>). Your process is now running.</li>
+</ol>
+
+<p>Eleven steps, no new mechanism, all of it kernel features from 2002–2016 that existed for years before anyone packaged them together.</p>
+
+<h4>The layers of tooling above it</h4>
+
+<p>The vocabulary confuses people and the structure is simple:</p>
+
+<ul>
+<li><strong>runc</strong> — the low-level runtime. Reads an OCI bundle (a directory with a root filesystem and a <code>config.json</code>) and performs the eleven steps. It is essentially the reference implementation of the OCI runtime specification, and you can run it by hand.</li>
+<li><strong>containerd</strong> — the daemon that manages images, storage, networking and lifecycle, and calls runc to actually start things. This is what Kubernetes talks to, through the CRI (Container Runtime Interface).</li>
+<li><strong>The shim</strong> — one small process per container, which is runc's parent. It exists so that containerd can be restarted or upgraded without killing every running container, and so someone stays around to collect the exit status (<strong>Node 5</strong>'s zombie problem).</li>
+<li><strong>Docker</strong> — a developer-facing layer over containerd: the CLI, the build system, compose, and the image-building experience. Kubernetes removed its Docker-specific support in 1.24 (2022) because containerd was underneath all along; images built by Docker are OCI images and continued to work, which is why "Kubernetes is dropping Docker" caused far more alarm than it warranted.</li>
+<li><strong>Podman</strong> — daemonless and rootless by default, using the user namespace from Node 26. No background daemon means containers are children of your shell and integrate with systemd naturally.</li>
+<li><strong>BuildKit</strong> — the modern builder: it constructs a dependency graph of the build, executes independent steps in parallel, supports cache mounts (<code>RUN --mount=type=cache</code>, which makes a persistent <code>npm</code> or <code>apt</code> cache across builds) and secret mounts (<code>--mount=type=secret</code>, which never lands in a layer — the fix for Node 24's credential-leak problem).</li>
+</ul>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Everything you know about Dockerfiles now has a mechanism behind it.</strong> Multi-stage builds work because only the final stage's layers become the image, so the compiler and the source never ship. <code>COPY --from=builder /app/dist ./dist</code> copies between overlay trees. <code>.dockerignore</code> shrinks the tree walked in step 1's build-time equivalent. Ordering instructions from least to most volatile is layer-cache management (Node 24). A distroless or <code>FROM scratch</code> image works because a statically linked binary needs only the kernel's stable syscall ABI (Node 4) — and it has no shell, so <code>docker exec sh</code> fails and you need <code>kubectl debug</code>'s ephemeral containers, which join the target's namespaces with <code>setns</code> (Node 26).</p>
+
+<p><strong>Debugging a container from the host is namespace entry.</strong> <code>nsenter -t &lt;host-pid&gt; -n -p -m</code> puts a shell into a container's network, PID and mount namespaces without the container needing any tooling of its own — invaluable for a distroless image. <code>docker inspect --format '{{.State.Pid}}'</code> gets the host PID. <code>ctr</code> and <code>crictl</code> talk to containerd directly when the higher layers are the problem.</p>
+
+<p><strong>The security properties, stated honestly.</strong> A container's isolation rests entirely on kernel correctness, because there is one kernel and every container calls into it directly. A kernel privilege-escalation bug reachable from a container is a host compromise. That is a real and different risk profile from a virtual machine, and it is why untrusted multi-tenant workloads use gVisor (Node 4), Kata Containers, or Firecracker microVMs (Node 29) rather than plain containers. The mitigations that matter, in rough order of value: do not run as root; drop all capabilities; keep seccomp enabled; use a read-only root filesystem; and use a user namespace.</p>
+
+<p><strong>What you can do at this point:</strong> state exactly what a container is, describe an OCI image's three parts and why digests matter, walk the eleven steps of <code>docker run</code> naming the mechanism behind each, place runc/containerd/shim/Docker/Podman/BuildKit correctly, debug a container by entering its namespaces, and state its security properties honestly.</p>
+
+<p><strong>What's still broken:</strong> one kernel, shared. Every container on a machine trusts the same code, and a bug in it is a bug for all of them. Some workloads cannot accept that, and the answer predates containers by forty years.</p>

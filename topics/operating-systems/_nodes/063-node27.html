@@ -1,0 +1,63 @@
+<h3>Node 27 — cgroups: accounting for and limiting resources</h3>
+
+<p><strong>The limitation:</strong> a namespaced process cannot see the rest of the machine and can still consume all of it.</p>
+
+<h4>The mechanism</h4>
+
+<p><strong>Control groups</strong> — cgroups — were written at Google by Paul Menage and Rohit Seth in 2006 (originally "process containers") and merged into Linux 2.6.24 in 2008. A cgroup is a set of processes plus a set of resource controllers applied to it, arranged in a hierarchy that appears as a filesystem, so <em>configuring resource limits is writing text into files</em> — which is why every container runtime's resource management is a handful of file writes.</p>
+
+<p>cgroups v2, the unified hierarchy, is now the default on all current distributions and is what Kubernetes uses from 1.25 onward. It lives at <code>/sys/fs/cgroup</code> and a container's own view of it is at <code>/sys/fs/cgroup</code> inside the container thanks to the cgroup namespace.</p>
+
+<h4>The controllers that matter</h4>
+
+<p><strong>cpu.</strong> Two independent things, and confusing them is the most consequential misunderstanding in Kubernetes resource configuration.</p>
+
+<ul>
+<li><strong><code>cpu.weight</code></strong> — a relative share, 1 to 10000, default 100. It is CFS's task weight from Node 7 applied to a group. <strong>It only has an effect when the processor is contended.</strong> A cgroup with weight 100 competing with one of weight 200 gets a third of the contended time, and gets everything when nothing else wants it.</li>
+<li><strong><code>cpu.max</code></strong> — a hard quota, written as "<em>quota</em> <em>period</em>", e.g. <code>50000 100000</code> meaning at most 50 ms of processor time per 100 ms period. <strong>When the quota is exhausted, every task in the group is stopped until the period ends, even if the machine is completely idle.</strong> That is <em>throttling</em>.</li>
+</ul>
+
+<p>The arithmetic is worth doing once, because it explains a whole class of latency problem. A container with <code>cpu.max = 100000 100000</code> (one core's worth) running a Node process that also has four threadpool threads: if five threads run simultaneously, they consume the 100 ms quota in 20 ms of wall clock, and then <strong>the entire container sleeps for 80 ms</strong>. Average utilisation reads as 100% of one core — apparently fine — while every request that arrived during those 80 ms took an extra 80 ms. <em>Latency spikes at moderate average CPU, with no corresponding CPU graph, is the signature of throttling</em>, and the evidence is in <code>/sys/fs/cgroup/cpu.stat</code>: <code>nr_throttled</code> and <code>throttled_usec</code> climbing. [EXPLAIN] It also raises <code>nonvoluntary_ctxt_switches</code> from Node 6.</p>
+
+<p>The practical consequence, which is contested but well argued: <strong>for latency-sensitive services, set CPU requests and no CPU limit.</strong> Requests give you a guaranteed share under contention; limits only add throttling. The counter-argument is that without limits a misbehaving container degrades its neighbours, and both positions are defensible — but the decision should be made knowingly rather than by copying a template.</p>
+
+<p><strong>memory.</strong> Three thresholds, and knowing all three is more useful than knowing the one Kubernetes exposes.</p>
+
+<ul>
+<li><strong><code>memory.max</code></strong> — the hard limit. Exceeding it triggers reclaim, and if reclaim cannot free enough, the cgroup OOM killer fires <code>SIGKILL</code> (Node 13). This is what Kubernetes sets from <code>limits.memory</code>, and it is why you get exit code 137 and <code>OOMKilled</code>.</li>
+<li><strong><code>memory.high</code></strong> — a soft limit. Above it the kernel throttles the group's allocations and reclaims aggressively, making it <em>slow</em> rather than <em>dead</em>. This is very often the behaviour you actually want for a service with a spiky working set, and Kubernetes does not expose it directly, which is a genuine gap.</li>
+<li><strong><code>memory.min</code> and <code>memory.low</code></strong> — reclaim protection. Memory below <code>memory.min</code> is never reclaimed from this group.</li>
+</ul>
+
+<p><code>memory.current</code> is the group's usage and <code>memory.stat</code> breaks it down — crucially into <code>anon</code> (heap and stack) and <code>file</code> (page cache). Node 13's point returns here concretely: <strong>page cache from your container's file writes counts towards <code>memory.max</code></strong>, so a service that logs to a file can be OOMKilled with a flat heap. Reading <code>memory.stat</code> is how you prove that is what happened.</p>
+
+<p><strong>io.</strong> <code>io.max</code> sets per-device read and write limits in bytes per second and operations per second; <code>io.weight</code> is proportional sharing. Note that these work properly for direct block I/O and are much weaker for buffered writes, since those are performed later by kernel writeback threads and attributing them is hard — one reason "why is my disk-noisy neighbour still affecting me" has no clean answer.</p>
+
+<p><strong>pids.</strong> <code>pids.max</code> caps the number of tasks. This is the defence against a fork bomb, and it is a real one: without it, one container can exhaust the machine's PID space and nothing anywhere can start a process. Docker's <code>--pids-limit</code> and Kubernetes' pod PID limits set it.</p>
+
+<p><strong>PSI — Pressure Stall Information</strong> (Linux 4.20, 2018) — is worth knowing because it is a genuinely better signal than utilisation. <code>/sys/fs/cgroup/cpu.pressure</code>, <code>memory.pressure</code> and <code>io.pressure</code> report the fraction of time tasks were <em>stalled waiting</em> for that resource. Utilisation says how busy something is; pressure says how much your work is being delayed by it, which is the thing you actually care about. It is what modern autoscaling and out-of-memory daemons like Facebook's <code>oomd</code> use. [AWARE]</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Kubernetes resource fields map onto cgroup files exactly, and the mapping is worth memorising because it makes the semantics obvious.</strong></p>
+
+<pre><code>resources:
+  requests:            # scheduling + relative share
+    cpu: "500m"        # → cpu.weight, scaled from the millicores
+    memory: "256Mi"    # → used for scheduling; also memory.min-ish protection
+  limits:              # hard ceilings
+    cpu: "1000m"       # → cpu.max = "100000 100000"  (throttling!)
+    memory: "512Mi"    # → memory.max                  (OOMKill!)
+</code></pre>
+
+<p>Two different enforcement mechanisms with two different failure modes: <strong>exceeding a CPU limit makes you slow; exceeding a memory limit makes you dead.</strong> [EXPLAIN] That asymmetry is because CPU is compressible — you can give a process less of it and it still runs — and memory is not: there is nothing to give back once the bytes are written. This is the single most useful sentence about Kubernetes resource management.</p>
+
+<p><strong>QoS classes follow from the fields</strong>, and they determine who dies first when a <em>node</em> runs out of memory. <em>Guaranteed</em> (requests equal limits for every resource) gets the most protective <code>oom_score_adj</code>; <em>Burstable</em> (requests set, limits higher or absent) is in the middle, scored by how far above its request it has grown; <em>BestEffort</em> (nothing set) gets <code>oom_score_adj = 1000</code>, making it the first thing the kernel kills. Setting requests is therefore not merely a scheduling hint — it is a survival decision.</p>
+
+<p><strong>Sizing a Node process against a cgroup, derived from Parts III and this node.</strong> Container limit 1 GB. RSS will include the V8 heap, external buffers, the binary and libraries (50–100 MB), code space, thread stacks, and allocator fragmentation (Node 12). So set <code>--max-old-space-size=640</code> or thereabouts, so V8 hits its own limit — throwing a catchable heap-limit error with a stack trace, and optionally a snapshot via <code>--heapsnapshot-near-heap-limit</code> — before the kernel delivers an uncatchable <code>SIGKILL</code>. Add <code>MALLOC_ARENA_MAX=2</code> if RSS is unexplained. On the CPU side, use <code>os.availableParallelism()</code> rather than <code>os.cpus().length</code> for pool sizing, because Node 26 established that <code>/proc/cpuinfo</code> is not namespaced.</p>
+
+<p><strong>The systemd connection.</strong> systemd (Node 37) organises every service into a cgroup, so <code>MemoryMax=</code>, <code>CPUQuota=</code>, and <code>TasksMax=</code> in a unit file are this node applied outside containers entirely. <code>systemd-cgtop</code> shows resource use by cgroup, which is often more informative than <code>top</code>, and <code>systemctl status</code> shows the cgroup tree of a service. Running a Node service under systemd with a <code>MemoryMax</code> gives you container-style limits with no container.</p>
+
+<p><strong>What you can do at this point:</strong> explain cgroups as a filesystem interface, distinguish weight from quota and explain throttling with the arithmetic, name the three memory thresholds and explain why Kubernetes only exposing the hard one is a limitation, explain why exceeding CPU limits differs from exceeding memory limits, map Kubernetes resource fields to cgroup files, derive QoS classes and their OOM ordering, and size a Node process against a container limit from first principles.</p>
+
+<p><strong>What's still broken:</strong> nothing. Every ingredient of a container now exists — a filesystem view, a process view, a network view, an identity mapping, a resource budget, a syscall filter, and a layered image. Node 28 assembles them, and there is no new concept in it.</p>

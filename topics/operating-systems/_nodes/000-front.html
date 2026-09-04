@@ -1,0 +1,32 @@
+<p>This is the landscape for operating systems, written as a <strong>causal chain</strong>. It is not a list of topics. Each node exists because the node before it left something specifically broken, and every node ends by naming what is still broken so that the next node has a reason to exist. Read top to bottom and you should end up able to <em>derive</em> most of an operating system rather than memorise it.</p>
+
+<p>It starts at absolute zero — a wire with electricity in it or not — and assumes nothing whatsoever. Every term is defined before it is used. Every mechanism is given its origin: who hit the problem, in what year, on what machine, and what they tried that failed first. Nothing is explained by analogy. An analogy tells you what something is <em>like</em>; this document is about what things <em>are</em>.</p>
+
+<p>Every node has a section called <strong>Where this is in your stack</strong>. That section is not a courtesy. The reason to learn this material is that you already use every one of these mechanisms hundreds of times per second and currently experience them as unexplained behaviour: an event loop that stalls, a container that dies with exit code 137, a Postgres write that is slow for no visible reason, a <code>EADDRINUSE</code> after a restart, a Node process whose memory graph does not match its heap graph, a Kubernetes pod whose p99 latency spikes while its CPU graph shows forty percent. Each of those is one specific kernel mechanism visible from the outside. The full-stack sections trace each one all the way down and all the way back up, at the same depth as the rest of the node.</p>
+
+<h4>Depth markers</h4>
+
+<p>Capabilities are marked inline, attached to the specific thing rather than collected in a table.</p>
+
+<ul>
+<li><strong>[EXPLAIN]</strong> — you must be able to explain this from first principles, out loud, under pressure, with no notes and no diagram.</li>
+<li><strong>[USE]</strong> — you must be able to use it correctly and debug it when it breaks. You do not need the internals cold.</li>
+<li><strong>[AWARE]</strong> — you must know it exists, what problem it solves, and roughly when to reach for it.</li>
+</ul>
+
+<h4>The forces that recur</h4>
+
+<p>Operating systems are not an arbitrary pile of features. Almost everything in this chain is one of a small number of forces reappearing in a new place, and it is worth naming them now so that you can spot them as they come round again. When you meet a mechanism you have never seen, the fastest way to understand it is to ask which of these it is answering.</p>
+
+<ul>
+<li><strong>Sharing</strong> — one physical resource, many claimants. Every part of the machine that exists only once (the processor, memory, the disk, the network card, a port number) needs a story for how many things use it at once.</li>
+<li><strong>Protection</strong> — sharing immediately means one claimant can destroy another, by accident or on purpose. Every sharing mechanism drags a protection mechanism in behind it.</li>
+<li><strong>Indirection</strong> — the standard move for both of the above. Stop letting programs touch the real thing; give them a name or a number that the kernel translates. Virtual memory, file descriptors, process IDs, namespaces, and sockets are all the same move applied to different resources.</li>
+<li><strong>Latency</strong> — the parts of a computer differ in speed by factors of a hundred million. Almost every optimisation in the chain is one layer hiding the slowness of the layer below by caching, buffering, or overlapping.</li>
+<li><strong>The boundary</strong> — crossing between a program and the kernel costs real time, and every generation of systems software is partly an attempt to cross less often.</li>
+<li><strong>Compatibility</strong> — nothing here was designed cleanly. Interfaces from 1970 survive because a hundred million lines of code call them, and the newer, better interface has to live alongside the older one forever.</li>
+</ul>
+
+<h4>How the parts are grouped</h4>
+
+<p>Ten parts. Part I builds the machine and shows why software must sit between it and you. Part II introduces the process and the sharing of the processor. Part III does memory. Part IV does concurrency and arrives at the event loop with everything needed to explain it exactly. Part V does files and storage. Part VI does isolation, and by the end of it a container is fully assembled from parts you have already seen. Part VII does communication. Part VIII takes a source file all the way to a running process, and the machine all the way from power-on. Part IX is how you see inside a running system. Part X is the history threaded properly and one complete end-to-end lifecycle.</p>

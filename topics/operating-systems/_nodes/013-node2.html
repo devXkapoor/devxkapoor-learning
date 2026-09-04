@@ -1,0 +1,93 @@
+<h3>Node 2 — the interrupt, and the birth of asynchrony</h3>
+
+<p><strong>The limitation:</strong> a program that wants something from a device has to ask the device repeatedly whether it is ready, and every one of those questions is a wasted instruction.</p>
+
+<p>Fix the ratio in your head first, because the whole node follows from it. A card reader in 1960 delivered around ten cards per second. The IBM 7094 executed roughly half a million instructions per second. So between one card and the next there was room for about fifty thousand instructions, and the program spent every one of them re-reading a status bit that said "not yet". The proportions have not improved; they have got worse. A processor today executes on the order of ten billion instructions per second. Fetching one byte from main memory takes it about eighty nanoseconds, during which it could have executed several hundred instructions. Reading a block from a solid-state disk takes around one tenth of a millisecond — a million instructions. A network round trip to a server in another country takes a hundred milliseconds — a <em>billion</em> instructions. <strong>The gap between the processor and everything else is the central physical fact of computing, and nearly every mechanism after this point is a way of not wasting it.</strong> [EXPLAIN]</p>
+
+<h4>The mechanism, exactly</h4>
+
+<p>Polling is the wrong direction. The processor should not ask the device; the device should tell the processor. That requires a physical wire from the device into the processor, and a rule in the processor's fetch-decode-execute loop about what to do when that wire goes high.</p>
+
+<p>The rule is inserted between instructions, and its placement matters. The processor completes the instruction it is currently executing — it never stops halfway, because a half-executed instruction would leave registers in a state nothing could recover from — and then, before fetching the next one, it checks whether the interrupt line is raised. If it is:</p>
+
+<pre><code>1. finish the current instruction
+2. check the interrupt line — raised?
+3. save rip (and the flags register) somewhere it can be recovered from
+4. look up the handler address for this interrupt number
+5. set rip to that address
+   ... the handler runs ...
+6. a special "return from interrupt" instruction restores rip and flags
+7. the interrupted program resumes at exactly the instruction it was about to run
+</code></pre>
+
+<p>That is an <strong>interrupt</strong>. [EXPLAIN] Note precisely what has happened: a piece of code ran, in the middle of another piece of code, without that other code having any instruction that called it and without it being able to tell afterwards that anything happened. The interrupted program's registers are exactly as it left them, its instruction pointer resumes where it was, and nothing in its own logic ever mentioned the device. Execution stopped being a continuous, self-determined sequence and became something that can be entered from outside at essentially any point.</p>
+
+<p><strong>That is what "asynchronous" physically is.</strong> Not a language feature, not a callback style — a wire, and a rule about checking it between instructions. Every asynchronous thing you have ever written bottoms out here.</p>
+
+<h4>Which interrupt, and where the handler lives</h4>
+
+<p>A machine has many devices and one processor, so there must be a way to say <em>which</em> device is calling. Historically an <strong>interrupt controller</strong> chip sat between the devices and the processor, collecting many device lines and presenting the processor with one line plus a number. On the IBM PC that chip was the Intel 8259 PIC, with eight inputs, later two chained for fifteen; those inputs are the <strong>IRQ</strong> numbers still visible today in <code>/proc/interrupts</code> on any Linux machine, and the reason IRQ conflicts were a routine part of installing hardware in the 1990s is that there were only fifteen of them. Modern machines use the APIC — the Advanced Programmable Interrupt Controller — and PCI Express devices use <strong>MSI-X</strong> (Message Signalled Interrupts), where the "wire" is not a wire at all but a write to a special memory address, which lets one network card have dozens of distinct interrupt vectors, one per receive queue. That detail matters later: it is how a modern server spreads network interrupt handling across all its cores.</p>
+
+<p>The number is used as an index into a table of handler addresses. On x86 this is the <strong>Interrupt Descriptor Table</strong>, the IDT: 256 entries, each holding the address of the code to run for that vector, with a register (<code>idtr</code>) holding the table's own address. The processor's step 4 above is literally an array lookup. [EXPLAIN]</p>
+
+<p>The same table serves two other sources of entry, and lumping them together is one of the most useful simplifications available:</p>
+
+<ul>
+<li><strong>Hardware interrupts</strong> — a device raised a line. Asynchronous: they arrive with no relation to what the program was doing.</li>
+<li><strong>Exceptions</strong> (also called faults or traps) — the current instruction could not complete. Divide by zero, an invalid opcode, or, crucially, an access to a memory address the program is not allowed to touch. Synchronous: caused by the instruction itself. Node 10's page fault is one of these, and it is the single most important entry in the table.</li>
+<li><strong>Software interrupts</strong> — an instruction that deliberately triggers the mechanism, so a program can jump into the system on purpose. That is Node 4, the system call.</li>
+</ul>
+
+<p>One table, one mechanism, three reasons for entry. Every transition from your code into the kernel — every one, without exception — is one of those three.</p>
+
+<h4>The history, and one machine worth knowing</h4>
+
+<p>The first machine with anything called an interrupt was the UNIVAC 1103 around 1953, which needed to capture readings from a wind tunnel that would not wait. The DYSEAC, built at the US National Bureau of Standards in 1954, is usually credited as the first with general input/output interrupts. But the machine that turned interrupts into an operating system design is the <strong>Ferranti Atlas</strong> at the University of Manchester, operational in 1962 under Tom Kilburn — the same group that had run the Manchester Baby fourteen years earlier.</p>
+
+<p>Atlas is the most under-known machine in this document and it introduced, in one design: a full interrupt system with priorities; <strong>extracodes</strong>, which were instruction patterns the hardware did not implement and which trapped into a supervisor routine instead — a system call, in 1962, before the term existed; the <strong>Supervisor</strong> program itself, which is the direct ancestor of the word "kernel"; and virtual memory with demand paging, which is Node 10 and was not adopted by mainstream commercial machines for another decade. When you read that an idea in this document is from the 1960s, there is a good chance the specific answer is Atlas.</p>
+
+<h4>The three hard problems interrupts create</h4>
+
+<p>Interrupts solve the waiting problem and immediately create three new ones. All three are still live and all three have consequences you can observe in your own systems.</p>
+
+<p><strong>One: an interrupt can arrive halfway through something that must not be halved.</strong> Suppose the system is updating a linked list — it has set the new node's <code>next</code> pointer but not yet made the previous node point at it. An interrupt fires and the handler walks that list. It walks a structure that is, at this instant, inconsistent. So there must be a way to say "not now": on x86, the <code>cli</code> instruction clears the interrupt-enable flag and <code>sti</code> sets it. Regions between them are <strong>critical sections</strong>, and the general problem — a data structure being observed midway through a multi-step update — is the same problem that produces every race condition in Node 16 and every isolation level in a database. It appears here first, in hardware.</p>
+
+<p><strong>Two: while the handler runs, the machine is not doing its real work</strong>, and often cannot even take another interrupt. So handlers must be extremely short, which conflicts directly with the fact that reacting properly to a network packet involves a great deal of work. Linux resolves this by splitting the response in two, and the names are worth knowing because they appear in every profiling tool. The <strong>top half</strong> — the actual interrupt handler — does the minimum: acknowledge the device, note that there is work, and schedule the rest. The <strong>bottom half</strong> — implemented as <strong>softirqs</strong>, <code>tasklets</code>, or kernel work queues — runs later with interrupts enabled and does the real processing. When you run <code>top</code> on a busy server and see a percentage under <code>si</code>, that is time in softirqs, and on a machine serving a lot of traffic it is mostly network receive processing. High <code>si</code> on one core and idle on the others is a real and diagnosable production condition: interrupts are not spread across queues.</p>
+
+<p><strong>Three: at high rates, interrupting is worse than polling.</strong> A ten-gigabit network card receiving small packets can generate over a million interrupts a second, and at that rate the machine does nothing but enter and leave handlers — a condition with the excellent name <strong>receive livelock</strong>. The fix inverts the node: when the rate is high, the driver <em>turns interrupts off</em> and polls, because at high rates polling is guaranteed to find work and costs nothing wasted. Linux's mechanism for this is <strong>NAPI</strong> ("New API", named in 2001 and still called that), and it switches between interrupt-driven and polled mode automatically based on load. [AWARE] The general lesson is worth carrying: <em>interrupts win when events are rare, polling wins when events are dense</em>, and that same trade decides between WebSocket push and HTTP polling, between database triggers and batch scans, and between filesystem watching and periodic scanning.</p>
+
+<h4>DMA: the device writes to memory itself</h4>
+
+<p>One more piece completes the hardware picture. Even with interrupts, if the processor has to copy each byte from the device into memory itself, a large transfer occupies it entirely. So devices are given the ability to write to main memory directly, without the processor's involvement: <strong>Direct Memory Access</strong>. The processor tells the device "put the data at address X, length N, and interrupt me when you are done", and then goes and does something else entirely while the device and the memory controller move the bytes.</p>
+
+<p>This is why an interrupt from a network card means <em>the packet is already in memory</em>, not <em>a packet is available if you would like to fetch it</em>. It is also the reason a whole class of performance work exists: if the device can write straight into memory, the remaining copies are the ones software does, and eliminating them is what "zero-copy" means. Node's <code>sendfile</code>-backed file serving, and the reason a static file served by nginx is dramatically cheaper than the same file read into a JavaScript buffer and written to a socket, is exactly this — the second path copies the bytes from the kernel into your heap and back into the kernel for no reason.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p>This is the node where the phrase "Node.js is asynchronous" stops being a slogan. Here is the complete path of one HTTP request arriving at your server, from the wire to your callback, with nothing skipped. Every step is a real component with a real name.</p>
+
+<ol>
+<li>Electrical signals arrive at the network interface card. The card reassembles them into a frame and checks its integrity.</li>
+<li>The card writes the packet <strong>by DMA</strong> into a region of main memory the driver set up in advance — a ring buffer. No processor involvement.</li>
+<li>The card raises an <strong>MSI-X interrupt</strong> on a specific core.</li>
+<li>The processor finishes its current instruction — which may well be a piece of JIT-compiled JavaScript from your own code — saves <code>rip</code>, and jumps into the driver's handler through the IDT.</li>
+<li>The handler (top half) does almost nothing: it disables further interrupts from that queue and schedules a <strong>NET_RX softirq</strong>. It returns. Your JavaScript resumes, having noticed nothing.</li>
+<li>Shortly after, the softirq runs. It pulls packets from the ring, walks them up the network stack — Ethernet, then IP, then TCP — checks sequence numbers, sends acknowledgements, reassembles the byte stream, and appends the payload to the receive buffer of the socket it belongs to. This is Node 32's subject in full.</li>
+<li>That socket now has readable data. The kernel marks the corresponding file descriptor ready and, because your process registered interest in it, adds it to the ready list of an <strong>epoll</strong> instance. That is Node 19.</li>
+<li>Your Node process, meanwhile, is blocked inside a call to <code>epoll_wait</code>. That call now returns, carrying a list of ready descriptors. The process was consuming zero processor time until this moment.</li>
+<li><strong>libuv</strong>, the C library underneath Node, is the code that called <code>epoll_wait</code>. It maps each ready descriptor back to a handle and invokes the C callback registered for it. That is Node 20.</li>
+<li>The callback reads the bytes with a <code>read</code> system call, hands them to Node's HTTP parser, and when a complete request has been parsed, calls into V8 to invoke your JavaScript function.</li>
+<li>Your <code>app.get('/users', handler)</code> runs.</li>
+</ol>
+
+<p>Steps 1 through 5 are this node. Nothing else in the chain would work without them. And the framing that matters: <strong>your callback did not run because anything in your program asked for it. It ran because a wire went high.</strong> [EXPLAIN] The event loop is not the origin of asynchrony in your system; it is a piece of software that organises asynchrony that the hardware creates.</p>
+
+<p><strong>The same path explains a browser click.</strong> Pressing a mouse button closes a physical contact; the USB controller raises an interrupt; the kernel's input subsystem turns it into an event on <code>/dev/input/eventN</code>; the display server (X11, Wayland, or the platform equivalent) reads it and routes it to the window under the pointer; the browser's UI process receives it, works out which renderer process owns that region, and forwards it over an IPC channel; the renderer does a hit test against the layout tree to find the target element; and only then does a <code>MouseEvent</code> object get constructed and a task queued on the renderer's event loop to dispatch it through capture, target, and bubble phases to your React <code>onClick</code>. Roughly eight layers, and the bottom one is this node.</p>
+
+<p><strong>Interrupt coalescing explains a class of latency you may have measured.</strong> Network cards deliberately delay interrupts to batch packets — <code>ethtool -c</code> shows the setting, typically tens of microseconds. Cloud providers tune it for throughput. If you have ever found that a request's server-side timing accounts for less than the time the client observed, and network transit does not explain the rest, some of the missing time is here, together with the kernel's own delays: Nagle's algorithm holding a small write to coalesce it, and delayed acknowledgement on the other side. The interaction of those two is a classic forty-millisecond stall, and <code>socket.setNoDelay(true)</code> — which Node's HTTP server sets by default, and which you must set yourself on raw sockets — disables the first half of it.</p>
+
+<p><strong>And "top half / bottom half" is a pattern you already write.</strong> A webhook endpoint that validates a signature, pushes a job onto a queue, and returns <code>202 Accepted</code> in four milliseconds is a top half. The worker that processes it is a bottom half. You arrived at that design because the sender times out, which is the same pressure — <em>get out of the handler fast, do the real work where you are allowed to take your time</em> — that shaped the Linux network stack. It is the same pattern at a different scale, and recognising it as such is worth more than either instance alone.</p>
+
+<p><strong>What you can do at this point:</strong> explain what asynchronous execution physically is, trace a network packet from the wire to a JavaScript callback naming every layer, and read the <code>si</code> column in <code>top</code> and <code>/proc/interrupts</code> to see whether a machine's interrupt load is balanced.</p>
+
+<p><strong>What's still broken:</strong> everything in this node is code sitting in memory, and from Node 0 any program can write to any memory address. A job can overwrite the interrupt table and point the timer handler at its own code. A job can execute <code>cli</code>, disable interrupts, and loop forever, at which point no device and no clock can ever regain control and the machine is dead until someone cuts the power. A job can write directly to the disk controller and destroy another user's data. The monitor is a convention that programs are politely following, and conventions are not enforcement. The machine needs a distinction it does not currently have: some code is allowed to do these things, and other code is not.</p>

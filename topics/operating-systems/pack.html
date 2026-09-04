@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<!--
+  TOPIC PACK TEMPLATE — filled by the topic-mastery skill per topic.
+  Placeholders to replace: operating-systems Operating systems From a wire that is either on or off to a Kubernetes pod being throttled — the complete causal chain of why an operating system exists, what every one of its mechanisms is for, and how each one shows up in the stack you actually write.
+  <p>This is the landscape for operating systems, written as a <strong>causal chain</strong>. It is not a list of topics. Each node exists because the node before it left something specifically broken, and every node ends by naming what is still broken so that the next node has a reason to exist. Read top to bottom and you should end up able to <em>derive</em> most of an operating system rather than memorise it.</p>
+
+<p>It starts at absolute zero — a wire with electricity in it or not — and assumes nothing whatsoever. Every term is defined before it is used. Every mechanism is given its origin: who hit the problem, in what year, on what machine, and what they tried that failed first. Nothing is explained by analogy. An analogy tells you what something is <em>like</em>; this document is about what things <em>are</em>.</p>
+
+<p>Every node has a section called <strong>Where this is in your stack</strong>. That section is not a courtesy. The reason to learn this material is that you already use every one of these mechanisms hundreds of times per second and currently experience them as unexplained behaviour: an event loop that stalls, a container that dies with exit code 137, a Postgres write that is slow for no visible reason, a <code>EADDRINUSE</code> after a restart, a Node process whose memory graph does not match its heap graph, a Kubernetes pod whose p99 latency spikes while its CPU graph shows forty percent. Each of those is one specific kernel mechanism visible from the outside. The full-stack sections trace each one all the way down and all the way back up, at the same depth as the rest of the node.</p>
+
+<h4>Depth markers</h4>
+
+<p>Capabilities are marked inline, attached to the specific thing rather than collected in a table.</p>
+
+<ul>
+<li><strong>[EXPLAIN]</strong> — you must be able to explain this from first principles, out loud, under pressure, with no notes and no diagram.</li>
+<li><strong>[USE]</strong> — you must be able to use it correctly and debug it when it breaks. You do not need the internals cold.</li>
+<li><strong>[AWARE]</strong> — you must know it exists, what problem it solves, and roughly when to reach for it.</li>
+</ul>
+
+<h4>The forces that recur</h4>
+
+<p>Operating systems are not an arbitrary pile of features. Almost everything in this chain is one of a small number of forces reappearing in a new place, and it is worth naming them now so that you can spot them as they come round again. When you meet a mechanism you have never seen, the fastest way to understand it is to ask which of these it is answering.</p>
+
+<ul>
+<li><strong>Sharing</strong> — one physical resource, many claimants. Every part of the machine that exists only once (the processor, memory, the disk, the network card, a port number) needs a story for how many things use it at once.</li>
+<li><strong>Protection</strong> — sharing immediately means one claimant can destroy another, by accident or on purpose. Every sharing mechanism drags a protection mechanism in behind it.</li>
+<li><strong>Indirection</strong> — the standard move for both of the above. Stop letting programs touch the real thing; give them a name or a number that the kernel translates. Virtual memory, file descriptors, process IDs, namespaces, and sockets are all the same move applied to different resources.</li>
+<li><strong>Latency</strong> — the parts of a computer differ in speed by factors of a hundred million. Almost every optimisation in the chain is one layer hiding the slowness of the layer below by caching, buffering, or overlapping.</li>
+<li><strong>The boundary</strong> — crossing between a program and the kernel costs real time, and every generation of systems software is partly an attempt to cross less often.</li>
+<li><strong>Compatibility</strong> — nothing here was designed cleanly. Interfaces from 1970 survive because a hundred million lines of code call them, and the newer, better interface has to live alongside the older one forever.</li>
+</ul>
+
+<h4>How the parts are grouped</h4>
+
+<p>Ten parts. Part I builds the machine and shows why software must sit between it and you. Part II introduces the process and the sharing of the processor. Part III does memory. Part IV does concurrency and arrives at the event loop with everything needed to explain it exactly. Part V does files and storage. Part VI does isolation, and by the end of it a container is fully assembled from parts you have already seen. Part VII does communication. Part VIII takes a source file all the way to a running process, and the machine all the way from power-on. Part IX is how you see inside a running system. Part X is the history threaded properly and one complete end-to-end lifecycle.</p>
+
+<h3>PART I — THE BARE MACHINE, AND WHY IT CANNOT BE SHARED</h3>
+
+<p>Five nodes. By the end of them there is a processor, a memory, a running program, a way for the outside world to interrupt that program, a hardware wall that stops the program from wrecking the machine, and exactly one legal door through that wall. That door is the system call, and every line of code you have ever written eventually goes through it.</p>
+
+<h3>Node 0 — the machine with nothing on it</h3>
+
+<p>There is no operating system yet. There is no file, no process, no folder, no window. There is a machine, and this node builds it, from a piece of metal upward, and then shows the specific way it fails when two people want to use it. That failure is the whole reason the rest of this document exists.</p>
+
+<h4>A wire, and why there are only two values</h4>
+
+<p>Start with a wire — a strip of metal with electricity pushed into one end. At the far end you can measure how hard the electricity is being pushed. That measure is called <strong>voltage</strong>. The wire either has a push in it or it does not, and that is the entire capability of the object: it can distinguish two situations.</p>
+
+<p>The obvious objection is the right one. A wire can carry any voltage at all, so why agree on only two? Why not say zero volts means the digit 0, one tenth of a volt means 1, two tenths means 2, and so on to nine — ten times as much meaning carried on the same piece of metal, for free?</p>
+
+<p>People built machines that way. <strong>ENIAC</strong>, switched on in 1945 at the University of Pennsylvania, was a decimal machine: each digit was a ring of ten circuits with exactly one of them lit. So this was not an oversight that hindsight corrected. It was a live design that lost a fight.</p>
+
+<p>It lost to <strong>noise</strong>. A wire is not a sealed pipe. Its voltage sags slightly over distance, wobbles when the wire beside it switches, drifts as the room warms, and dips when something else in the machine draws current. All of this is small — hundredths of a volt. That is fatal when your digits are one tenth of a volt apart, because 0.3 volts sagging to 0.28 is now ambiguous between three and two, and — this is the part that kills it — <em>nothing downstream can tell that an error happened</em>. The wrong value is indistinguishable from a right one and propagates silently through every subsequent calculation.</p>
+
+<p>With two legal values the same wobble is nothing. Anything under about 0.4 volts is read as off, anything over about 0.6 is read as on, and the band between them is a no-man's-land that circuits are designed never to rest in. A 0.05 volt disturbance moves a signal from 0.9 to 0.85, which is still unambiguously on, and the disturbance is <em>discarded</em> at that point rather than carried forward. Noise is thrown away at every single step instead of accumulating.</p>
+
+<p>So binary is an engineering trade and not a mathematical truth, and it is worth being able to state it in one sentence: <strong>you give up nine tenths of the information a wire could carry, and in exchange every value is either exactly right or catastrophically wrong, never slightly wrong.</strong> [EXPLAIN] A machine that is occasionally slightly wrong is worth nothing, because you cannot tell which answers to trust. A machine that is exactly right is something you can build a banking system on.</p>
+
+<p>The two states are named: on is <strong>1</strong>, off is <strong>0</strong>, and one wire's worth of on-or-off is a <strong>bit</strong>, a contraction of "binary digit" that Claude Shannon put into print in his 1948 paper <em>A Mathematical Theory of Communication</em>. In this document a bit is not an abstract unit of information. It is a wire, and whether there is electricity in it.</p>
+
+<h4>The switch that is operated by electricity</h4>
+
+<p>Wires alone compute nothing. A machine made only of wires carries values you put in by hand; it is a bundle of cables. What is needed is a wire whose state is controlled by <em>another wire</em>.</p>
+
+<p>That component is the <strong>transistor</strong>, demonstrated at Bell Labs in December 1947 by John Bardeen and Walter Brattain, with the theory largely due to William Shockley. It has three connections: an input, an output, and a control. Put voltage on the control and current flows from input to output; take the voltage off and the flow stops. It is a switch that is thrown by electricity rather than by a finger. [EXPLAIN] That is the atom. A processor in a phone today contains somewhere north of ten billion of them, and there is nothing else in there — the entire machine is that one component, made very small and repeated.</p>
+
+<p>Switches are enough because they can be arranged to make decisions. Put two transistors in series, so current must pass through both: the output is on only when both controls are on. That arrangement is called an <strong>AND gate</strong>. Put two in parallel, so current can take either path: the output is on when either control is on — an <strong>OR gate</strong>. A single transistor wired to pass current when its control is <em>off</em> gives a <strong>NOT gate</strong>. Those three are enough to build every operation any computer performs; this was known before the hardware existed, from Claude Shannon's 1937 master's thesis at MIT, which showed that switching circuits and Boolean algebra are the same subject.</p>
+
+<p>From gates you get arithmetic, mechanically. Adding two bits produces a sum and a carry: the sum is on when exactly one input is on (an <strong>XOR</strong>, built from the three primitives), and the carry is on when both are (an AND). That two-gate object is a <strong>half adder</strong>. Chain a row of them so that each one's carry feeds the next one's input, and thirty-two of them in a row add two thirty-two-bit numbers. Subtraction is addition with one input inverted and a carry forced in. Multiplication is repeated shift-and-add. There is no further magic anywhere in the arithmetic of a computer. [AWARE]</p>
+
+<h4>Holding a number, and holding many</h4>
+
+<p>Gates compute but forget instantly — the output follows the input and nothing persists. Wire two NOT gates in a loop, each feeding the other, and the pair has two stable states it will sit in indefinitely. That is one bit of storage, called a <strong>latch</strong>, and with a control wire added so that it only accepts a new value when told to, a <strong>flip-flop</strong>.</p>
+
+<p>Put sixty-four flip-flops side by side and you can hold a sixty-four-bit number. Such a row, sitting directly next to the arithmetic circuits, is a <strong>register</strong>. [EXPLAIN] Registers are the fastest storage in the machine because they are physically adjacent to the gates that use them — the signal travels a fraction of a millimetre. A processor has only a few dozen of them. On the x86-64 processor in a typical laptop or server there are sixteen general-purpose integer registers with historical names — <code>rax</code>, <code>rbx</code>, <code>rcx</code>, <code>rdx</code>, <code>rsi</code>, <code>rdi</code>, <code>rbp</code>, <code>rsp</code>, and <code>r8</code> through <code>r15</code>. Those names will come back in Node 4, because the way your program asks the kernel for anything is by putting numbers in specific ones of them.</p>
+
+<p>A few dozen numbers is not a computer. You need millions. But you cannot put a million registers next to the arithmetic unit — there is no room, and the wires would be long enough that the signal delay would dominate. So a second kind of storage exists, further away and much larger, built from a simpler and denser cell: one transistor and one tiny capacitor holding a charge. That is <strong>DRAM</strong>, the main memory of the machine, and the capacitor leaks, which is why it must be read and rewritten thousands of times a second. The D stands for dynamic, and it means exactly that: the memory forgets unless continuously refreshed.</p>
+
+<p>Because there are billions of these cells, they need <em>names</em>. The names are consecutive integers starting at zero, and one such integer is an <strong>address</strong>. [EXPLAIN] Memory is therefore, physically and precisely, a very long row of numbered boxes, each holding eight bits — a <strong>byte</strong> — and the machine has exactly two operations on it: <em>load</em> the contents of box N into a register, and <em>store</em> the contents of a register into box N. Every data structure you have ever used is made of those two operations and nothing else.</p>
+
+<p>Eight is not a natural number here; it is a decision. IBM's System/360, announced in April 1964, standardised the eight-bit byte because eight bits hold one character in the encoding IBM was using and because eight is a power of two, which makes address arithmetic a matter of shifting bits rather than dividing. Machines before it used six-bit and seven-bit and nine-bit units. Eight won because System/360 won.</p>
+
+<h4>The idea that makes it a computer: instructions are numbers</h4>
+
+<p>Here is the pivot the whole field turns on, and it is worth slowing down for.</p>
+
+<p>ENIAC was programmed by physically rewiring it. To change what it computed, a team moved cables between plugboards and set switches, and this took days. The machine's <em>behaviour</em> lived in its wiring; its <em>data</em> lived in its circuits; the two were different kinds of thing.</p>
+
+<p>The alternative was written down in June 1945 in a document titled <em>First Draft of a Report on the EDVAC</em>, circulated under John von Neumann's name alone although it recorded work done with J. Presper Eckert and John Mauchly — an attribution dispute that has never fully settled. The idea: <strong>put the instructions in the same memory as the data, encoded as numbers.</strong> [EXPLAIN]</p>
+
+<p>Concretely, agree that when the machine reads the number <code>0x48</code> <code>0x01</code> <code>0xd8</code> it will interpret it as "add the contents of register <code>rbx</code> into register <code>rax</code>". That agreement — a table mapping bit patterns to operations, fixed in the wiring of the machine — is an <strong>instruction set architecture</strong>, an ISA. The bit patterns themselves are <strong>machine code</strong>. x86-64 is one such agreement, ARM64 is another, RISC-V a third; they are mutually unintelligible, which is why a compiled binary for one does not run on the other, and why Docker images carry an architecture tag and why an image built on an Apple laptop can fail to start on a cloud server.</p>
+
+<p>The consequences of instructions being data are not small conveniences. They are the field:</p>
+
+<ul>
+<li>A program can be <em>loaded</em> — copied into memory like any other data — instead of being wired. Changing programs takes seconds rather than days.</li>
+<li>A program can be <em>stored</em> on a card, a tape, a disk. Software becomes a thing that can exist separately from a machine.</li>
+<li>A program can <em>write</em> a program, because writing instructions is just writing numbers into memory. That is what a compiler is, and it is what V8's JIT is doing at runtime inside every Node process and every browser tab you have open.</li>
+<li>A program can, by mistake, <em>overwrite itself</em> or another program. Every security vulnerability in the class that includes buffer overflows exists because of this single design decision, and Node 3 is where the machine first fights back.</li>
+</ul>
+
+<p>The first machine actually to run a stored program was the <strong>Manchester Baby</strong> on 21 June 1948, a test rig that ran a seventeen-instruction program to find the highest factor of a number. The first practically useful one was <strong>EDSAC</strong> at Cambridge, under Maurice Wilkes, which ran its first program on 6 May 1949. Every computer since is the same design, and the phrase "von Neumann architecture" means precisely this: one memory, holding both instructions and data, with a processor that fetches from it.</p>
+
+<h4>The loop that is the entire processor</h4>
+
+<p>Given a memory full of instruction-numbers, the processor does one thing, forever, from the moment it is powered on until it is powered off. It needs one special register to do it: a register holding the address of the next instruction to run. On x86-64 it is called <code>rip</code>, the <strong>instruction pointer</strong>; the vendor-neutral name is the <strong>program counter</strong>.</p>
+
+<pre><code>1. FETCH    read the bytes at the address in rip
+2. DECODE   look up what that bit pattern means
+3. EXECUTE  do it — add, load, store, compare, jump
+4. ADVANCE  add the instruction's length to rip
+   repeat
+</code></pre>
+
+<p>That is the whole processor. [EXPLAIN] There is no scheduler in there, no notion of a program, no notion of a user, no notion of a file. Those are all software, and every one of them is built later in this document. The hardware knows only: fetch, decode, execute, advance.</p>
+
+<p>Two details in that loop carry enormous weight later.</p>
+
+<p>First, <strong>a jump is just writing to <code>rip</code></strong>. An <code>if</code> statement is a comparison followed by a conditional write to <code>rip</code>. A loop is a backward write to <code>rip</code>. A function call is a write to <code>rip</code> plus a note of where to come back to. Control flow is not a concept the hardware has; it is arithmetic on one register.</p>
+
+<p>Second, <strong>the loop never stops and never asks anything.</strong> It cannot pause and wait for a decision. It cannot notice that something else would be a better use of its time. It executes whatever is at <code>rip</code> with total obedience. Everything in the rest of this document is an answer to the question: given a device with that property, how do you get it to do more than one thing, safely, for more than one person?</p>
+
+<p>A modern processor complicates this picture without changing it. It fetches many instructions ahead (<strong>pipelining</strong>), guesses which way a branch will go and starts executing down that path before it knows (<strong>speculative execution</strong>, which is where the Spectre vulnerabilities of January 2018 come from — Node 40), and executes instructions out of order while preserving the appearance of order (<strong>out-of-order execution</strong>). All of that is an optimisation that the machine is contractually required to make invisible. The model above remains exactly correct as a description of what the results look like.</p>
+
+<h4>What a program actually is, at this point</h4>
+
+<p>A program, right now, is a run of bytes that you place into memory starting at some address, followed by setting <code>rip</code> to that address. Nothing more. There is no header, no name, no owner, no permissions, no isolation, no concept of it "starting" or "ending" other than by convention. If the bytes run off the end into whatever happens to be in memory next, the processor executes that too, cheerfully, because it cannot tell the difference.</p>
+
+<p>And this program owns the machine completely. It can read and write any memory address, because there is nothing to stop it. It can talk directly to the disk controller and the printer, because those are reached by writing to specific memory addresses or specific hardware ports and any code can do that. It runs until it decides to stop.</p>
+
+<h4>How this was actually used, and what it cost</h4>
+
+<p>This is not a thought experiment. It is how computing worked into the late 1950s, and the specific misery of it drove everything that follows.</p>
+
+<p>A machine like the IBM 704 (1954) filled a room and cost the equivalent of several million pounds today. It ran one program at a time, and to run yours you booked a slot on a sign-up sheet — typically an hour, possibly next week. At your slot you walked in carrying a deck of punched cards. Each card was a stiff piece of paper with rectangular holes in it; the pattern of holes on one card encoded one line of your program. A large program was a box of several thousand cards, and dropping the box was a genuine catastrophe, which is why people drew a diagonal line across the top edge of the deck — a dropped and reshuffled deck could be re-sorted by lining the diagonal back up.</p>
+
+<p>You loaded your deck into the card reader, set switches on the console to point the machine at the loading address, and pressed start. If your program had a bug, it did not print a stack trace; it either stopped dead with lights showing the contents of registers, or it kept running and produced wrong output, or it wandered into arbitrary memory and did something undefined. You had no debugger. You examined the console lights, thought about it, punched corrected cards, and — if your hour had run out — signed up for another slot next week.</p>
+
+<p>The economics are the point. The machine cost a fortune per hour and was almost always idle: idle while you walked to the reader, idle while cards fed through at a few hundred a minute, idle while the operator mounted a tape, idle while you stared at the lights, idle between your slot ending and the next person's beginning. Actual computation was a small fraction of the wall clock. The scarce resource was processor time and it was being wasted at enormous cost, and every single mechanism in this document is, at root, a response to some version of that observation.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p>Nothing above has been superseded. It is all running right now, underneath everything you write, and several things you already deal with are this node showing through.</p>
+
+<p><strong>Your JavaScript is these instructions.</strong> When you run <code>node server.js</code>, the file is not executed by anything that understands JavaScript. It is read by V8, a C++ program compiled to x86-64 or ARM64 machine code, which parses your source into a tree, walks that tree in an interpreter called Ignition, and — for functions that run often enough to be worth it — hands them to an optimising compiler (TurboFan, and since 2021 also a mid-tier one called Sparkplug) which <em>writes machine code into memory and jumps to it</em>. That is the stored-program property from 1945 being used at runtime, in your process, thousands of times. It is also why a JIT-compiled runtime needs memory that is both writable and executable, which is a security problem serious enough that browsers and modern kernels go to some lengths to narrow the window in which a page is both.</p>
+
+<p><strong>A stack trace is a list of instruction pointer values.</strong> When your Node process throws, the frames you read are recovered by walking a chain of saved <code>rip</code> values in memory and mapping each address back to a function name using a table the runtime kept. This is why a stack trace from a stripped native binary is a column of hexadecimal numbers, why source maps exist (they are the same mapping problem one level up: bundled line and column back to original line and column), and why <code>Error.stackTraceLimit</code> exists at all — collecting frames costs real time because it is a walk through memory.</p>
+
+<p><strong>An architecture mismatch is the ISA agreement failing.</strong> <code>exec format error</code> when you run a container image on the wrong machine is the processor being handed bit patterns encoded under a different agreement about what the bits mean. It is why <code>docker build --platform linux/amd64</code> exists, why Apple Silicon machines run <code>amd64</code> images through emulation (QEMU translating each instruction, roughly five to twenty times slower — a real reason your local Docker build feels sluggish), and why <code>docker manifest</code> lists can carry several architectures under one tag. The same fact makes native Node modules architecture-specific: a <code>.node</code> file is compiled machine code, so <code>npm install</code> on an ARM Mac produces binaries a linux/amd64 container cannot load, which is the actual reason <code>node_modules</code> must not be baked into an image from the host and must be installed inside the build.</p>
+
+<p><strong>Byte-level thinking surfaces in JavaScript.</strong> <code>ArrayBuffer</code>, <code>Uint8Array</code>, and Node's <code>Buffer</code> are a run of the numbered boxes described above, exposed directly. <code>buf.readUInt32BE</code> versus <code>readUInt32LE</code> is the question of which end of a four-byte number is stored first — <strong>endianness</strong>, a genuine hardware difference where x86 and ARM store the least significant byte at the lowest address (little-endian) while network protocols by convention use the other order. That is why it is called "network byte order" and why you convert.</p>
+
+<p><strong>Speculative execution reaches all the way into your web app.</strong> The out-of-order machinery mentioned above is what made Spectre possible, and the mitigation on the web side was to remove precise timing from JavaScript: <code>performance.now()</code> was deliberately coarsened, and <code>SharedArrayBuffer</code> was disabled in browsers in January 2018 and only restored behind the <code>Cross-Origin-Opener-Policy</code> and <code>Cross-Origin-Embedder-Policy</code> headers. If you have ever had to set those two headers to make a WebAssembly threading library work, the reason is a processor optimisation described three paragraphs ago.</p>
+
+<p><strong>What you can do at this point:</strong> describe, without hand-waving, what a computer is — a memory of numbered bytes holding both data and instructions, and a processor that repeats fetch, decode, execute, advance — and explain why it is binary, why instructions being data is the decisive idea, and what your JavaScript actually becomes before it runs.</p>
+
+<p><strong>What's still broken:</strong> the machine runs exactly one program, and a human being is the loader. Between one program ending and the next beginning, a person walks across a room. The processor — the most expensive thing in the building — sits idle for the overwhelming majority of every hour, waiting on humans and on cards. Nobody can share the machine, because there is nothing in it that could arbitrate. The first fix is obvious once stated: if loading the next program is itself a job, then a <em>program</em> could do it.</p>
+
+<h3>Node 1 — the program that loads the next program</h3>
+
+<p><strong>The limitation:</strong> the machine runs one program and a human loads it, so the processor idles between jobs and nobody can share it.</p>
+
+<p>The fix is available the moment you accept the stored-program idea from Node 0, and it is almost embarrassingly simple to state: if loading a program is a job, write a program that does it. Keep that program permanently in memory. When a job finishes, control returns to it, and it loads the next one. No human walks anywhere.</p>
+
+<p>This program has a name that says exactly what it does — the <strong>resident monitor</strong>. Resident because it stays in memory while jobs come and go; monitor because it watches over the sequence. It is the first operating system, and it is worth noticing how little it is: a loop that reads a job, jumps to it, and gets control back.</p>
+
+<h4>The first one, and what it consisted of</h4>
+
+<p>The generally recognised first operating system is <strong>GM-NAA I/O</strong>, written in 1956 by Robert L. Patrick of General Motors Research and Owen Mock of North American Aviation, for their IBM 704 machines. The name is worth unpacking because both halves of it are the two functions an operating system still performs today.</p>
+
+<p><strong>GM-NAA</strong> is the batch part: the monitor loop. A tape holds a sequence of jobs. The monitor reads the first, loads it into memory at a known address, sets the instruction pointer to it, and the job runs. When the job finishes, it jumps back to a fixed address inside the monitor, and the monitor loads the next. The processor's idle time between jobs falls from minutes to milliseconds. The word <strong>job</strong> enters computing here and never leaves it: a unit of work submitted to a system that will run it later, without you present. You use that word every day — a CI job, a cron job, a BullMQ job — and it means the same thing it meant in 1956.</p>
+
+<p><strong>I/O</strong> is the other half, and it was the part the users cared about more. Every program needed to read cards and write tape and drive the printer, and every program was writing that code itself, badly and differently. Talking to a card reader means writing precise bit patterns to a hardware port, waiting a precise time, checking a status bit, handling the case where the card jammed. Getting it wrong wasted a machine hour. So the monitor shipped a set of shared input/output subroutines that any job could call instead of driving the hardware itself.</p>
+
+<p>That is the origin of two things at once, and both are still exactly here. A <strong>device driver</strong> is the piece of code that knows the specific bit-level protocol of one piece of hardware, written once so that nothing above it has to know. [EXPLAIN] And a <strong>system library</strong> is the shared code an operating system provides so that programs are not each reimplementing the same fiddly thing. The reason your code says <code>fs.readFile</code> rather than issuing commands to an NVMe controller is a straight line from this decision in 1956.</p>
+
+<h4>Job control: configuration files are older than you think</h4>
+
+<p>The monitor needs to be told things about each job before it runs it. Which compiler does this job need? How much memory? Whose account gets billed? What should happen if it fails — skip to the next job, or stop the whole tape?</p>
+
+<p>None of that can live inside the job's own code, because the monitor has to read it <em>before</em> the job runs, and because the job might be written in a language the monitor cannot parse. So it goes in separate control cards at the front of the deck, written in a small dedicated language. IBM's version, shipped with OS/360 in 1964, was called <strong>Job Control Language</strong> — JCL — and it looked like this, with two slashes marking a control card:</p>
+
+<pre><code>//PAYROLL  JOB  (ACCT1234),'D KAPOOR',CLASS=A,TIME=(,30)
+//STEP1    EXEC PGM=IEBGENER
+//SYSUT1   DD   DSN=INPUT.CARDS,DISP=SHR
+//SYSUT2   DD   DSN=OUTPUT.RPT,DISP=(NEW,CATLG,DELETE)
+//SYSIN    DD   DUMMY
+</code></pre>
+
+<p>Read that structure rather than the syntax. There is a named job, an account for billing, a resource limit (thirty minutes), a sequence of named steps, and for each step a declaration of its inputs and outputs and what to do with them on success versus failure. [AWARE] It is a pipeline definition file. The reason it is worth putting in front of you is that you write one of these most weeks and may not have noticed the lineage.</p>
+
+<h4>Spooling: the first time a queue solved a speed mismatch</h4>
+
+<p>Batching fixed the gap <em>between</em> jobs. It did not fix the gap <em>inside</em> one. A card reader took cards at a few hundred a minute; a line printer managed perhaps a thousand lines a minute; the processor executed tens of thousands of instructions per second and, later, millions. A job that printed a long report spent nearly all its wall-clock time with the processor stopped, waiting for mechanical parts to move.</p>
+
+<p>The first fix was crude and effective. Buy a cheap, slow machine — an IBM 1401 — and use it purely to copy card decks onto magnetic tape. Tape could be read far faster than cards. Carry the tape to the expensive machine, which now reads jobs at tape speed. Output goes to another tape, which is carried back to the cheap machine to be printed. The expensive processor never waits on a card reader again. This was called <strong>offline</strong> operation because the slow devices were off the main machine's line.</p>
+
+<p>The better fix, once the hardware of Node 2 existed, kept everything on one machine and overlapped it in time: while job N computes, the system reads job N+1's cards to disk in the background, and prints job N−1's output from disk in the background. The processor works continuously and the slow devices work continuously and neither waits for the other. This is <strong>spooling</strong>, an acronym for <em>Simultaneous Peripheral Operations On-Line</em>, and the general principle it establishes is one you use constantly: <strong>when a fast producer meets a slow consumer, put a queue between them and let each run at its own rate.</strong> [EXPLAIN] Your print spooler still has this name. So does every message queue you have ever configured.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p>This node is not history you have moved past. It is the shape of your deployment pipeline, and once you see the correspondence it is difficult to unsee.</p>
+
+<p><strong>A CI runner is a resident monitor.</strong> A GitHub Actions runner process sits permanently alive on a machine, polling a queue. It receives a job, prepares an environment, runs the job's steps, collects the output, reports status, tears the environment down, and goes back to polling. That is Patrick and Mock's loop, unchanged, with HTTPS where the tape drive was. The vocabulary survived intact: the file is a list of <code>jobs</code>, each job has <code>steps</code>, each job declares <code>runs-on</code> (which machine class — <code>CLASS=A</code> in the JCL above), a <code>timeout-minutes</code> (<code>TIME=(,30)</code>), and <code>needs</code> to express that one step's output is another's input (<code>DD</code> statements). Your <code>.github/workflows/deploy.yml</code> is JCL with better syntax and worse error messages.</p>
+
+<p><strong>A BullMQ worker is the same loop again, and its design decisions are forced by the same problems.</strong> In your <code>qbank</code> repository, a producer pushes a job onto a Redis list and a worker process blocks on that list, pops a job, runs its handler, and marks it complete. Every hard part of that design is a batch-monitor problem that 1956 also had. What happens if the worker dies mid-job? The 704's answer was that the operator noticed and resubmitted the deck; BullMQ's answer is a visibility timeout — the job is moved to an <em>active</em> set with a lock that must be renewed, and a stalled-job checker returns it to <em>waiting</em> when the lock expires. What happens if a job fails? JCL had <code>COND</code> codes deciding whether to skip the remaining steps; BullMQ has <code>attempts</code> and a <code>backoff</code> strategy and a failed set. What stops one bad job from consuming the machine? JCL had <code>TIME=</code>; BullMQ has a job timeout and you also want a cgroup limit from Node 27. The problems are not similar to the old ones; they are the same problems.</p>
+
+<p><strong>The producer–consumer queue is spooling, everywhere.</strong> Every buffer in your stack exists because a fast thing met a slow thing. A Node <code>Writable</code> stream holds an internal buffer, and <code>write()</code> returning <code>false</code> means that buffer has passed <code>highWaterMark</code> — that is the system telling you the consumer is slower than you are, and ignoring it is how a Node process's memory climbs until it is killed. That signal, and the <code>'drain'</code> event that clears it, are <strong>backpressure</strong>, which is the one thing 1950s spooling did <em>not</em> have to solve because the tape was finite. Yours is not: an HTTP client that reads a response slowly while your server writes fast is an unbounded queue in your heap. Postgres has the same shape internally — a commit writes to an in-memory WAL buffer that a background writer drains to disk. So does the operating system itself: <code>write()</code> to a file returns as soon as the bytes are in the kernel's page cache, long before any disk has moved, which is Node 23's entire subject.</p>
+
+<p><strong>Cron is batch processing with a clock.</strong> A daemon holds a table of jobs and times, and at each minute runs whatever is due, capturing output and mailing it somewhere. It has the monitor's exact structure with a scheduling predicate bolted on, and it has the monitor's exact failure modes: if a run takes longer than the interval, the next one starts anyway and you now have two, which is why every real cron job needs a lock. Kubernetes <code>CronJob</code> makes that explicit as <code>concurrencyPolicy: Forbid</code> — a field that exists because of a problem inherent to this node.</p>
+
+<p><strong>What you can do at this point:</strong> explain what an operating system minimally is — a program that stays resident and arranges for other programs to run — and recognise the batch model in the pipeline tooling you use, including which of its ancient failure modes your configuration is guarding against.</p>
+
+<p><strong>What's still broken:</strong> three things, and each one is fatal.</p>
+
+<p>First, the processor still stops dead whenever a job touches a device. The monitor's shared I/O routine, underneath, is a loop that reads a hardware status bit over and over until the device says it is ready. That is called <strong>polling</strong>, and during it the processor executes millions of instructions that accomplish nothing. Spooling helps between jobs but cannot help a single job that is waiting.</p>
+
+<p>Second, control only returns to the monitor if the job <em>chooses</em> to return. A job with an infinite loop owns the machine until someone power-cycles it. A job that jumps to a wrong address never comes back.</p>
+
+<p>Third, and worst: the monitor is just bytes in memory, at addresses the job can write to. A job with a bad array index overwrites the monitor and the next job loads into a corrupted system. There is no mechanism anywhere in Node 0's machine that could prevent this, because the processor's only rule is fetch, decode, execute.</p>
+
+<p>The first of those needs a new piece of hardware: a way for a device to get the processor's attention rather than the processor having to ask.</p>
+
+<h3>Node 2 — the interrupt, and the birth of asynchrony</h3>
+
+<p><strong>The limitation:</strong> a program that wants something from a device has to ask the device repeatedly whether it is ready, and every one of those questions is a wasted instruction.</p>
+
+<p>Fix the ratio in your head first, because the whole node follows from it. A card reader in 1960 delivered around ten cards per second. The IBM 7094 executed roughly half a million instructions per second. So between one card and the next there was room for about fifty thousand instructions, and the program spent every one of them re-reading a status bit that said "not yet". The proportions have not improved; they have got worse. A processor today executes on the order of ten billion instructions per second. Fetching one byte from main memory takes it about eighty nanoseconds, during which it could have executed several hundred instructions. Reading a block from a solid-state disk takes around one tenth of a millisecond — a million instructions. A network round trip to a server in another country takes a hundred milliseconds — a <em>billion</em> instructions. <strong>The gap between the processor and everything else is the central physical fact of computing, and nearly every mechanism after this point is a way of not wasting it.</strong> [EXPLAIN]</p>
+
+<h4>The mechanism, exactly</h4>
+
+<p>Polling is the wrong direction. The processor should not ask the device; the device should tell the processor. That requires a physical wire from the device into the processor, and a rule in the processor's fetch-decode-execute loop about what to do when that wire goes high.</p>
+
+<p>The rule is inserted between instructions, and its placement matters. The processor completes the instruction it is currently executing — it never stops halfway, because a half-executed instruction would leave registers in a state nothing could recover from — and then, before fetching the next one, it checks whether the interrupt line is raised. If it is:</p>
+
+<pre><code>1. finish the current instruction
+2. check the interrupt line — raised?
+3. save rip (and the flags register) somewhere it can be recovered from
+4. look up the handler address for this interrupt number
+5. set rip to that address
+   ... the handler runs ...
+6. a special "return from interrupt" instruction restores rip and flags
+7. the interrupted program resumes at exactly the instruction it was about to run
+</code></pre>
+
+<p>That is an <strong>interrupt</strong>. [EXPLAIN] Note precisely what has happened: a piece of code ran, in the middle of another piece of code, without that other code having any instruction that called it and without it being able to tell afterwards that anything happened. The interrupted program's registers are exactly as it left them, its instruction pointer resumes where it was, and nothing in its own logic ever mentioned the device. Execution stopped being a continuous, self-determined sequence and became something that can be entered from outside at essentially any point.</p>
+
+<p><strong>That is what "asynchronous" physically is.</strong> Not a language feature, not a callback style — a wire, and a rule about checking it between instructions. Every asynchronous thing you have ever written bottoms out here.</p>
+
+<h4>Which interrupt, and where the handler lives</h4>
+
+<p>A machine has many devices and one processor, so there must be a way to say <em>which</em> device is calling. Historically an <strong>interrupt controller</strong> chip sat between the devices and the processor, collecting many device lines and presenting the processor with one line plus a number. On the IBM PC that chip was the Intel 8259 PIC, with eight inputs, later two chained for fifteen; those inputs are the <strong>IRQ</strong> numbers still visible today in <code>/proc/interrupts</code> on any Linux machine, and the reason IRQ conflicts were a routine part of installing hardware in the 1990s is that there were only fifteen of them. Modern machines use the APIC — the Advanced Programmable Interrupt Controller — and PCI Express devices use <strong>MSI-X</strong> (Message Signalled Interrupts), where the "wire" is not a wire at all but a write to a special memory address, which lets one network card have dozens of distinct interrupt vectors, one per receive queue. That detail matters later: it is how a modern server spreads network interrupt handling across all its cores.</p>
+
+<p>The number is used as an index into a table of handler addresses. On x86 this is the <strong>Interrupt Descriptor Table</strong>, the IDT: 256 entries, each holding the address of the code to run for that vector, with a register (<code>idtr</code>) holding the table's own address. The processor's step 4 above is literally an array lookup. [EXPLAIN]</p>
+
+<p>The same table serves two other sources of entry, and lumping them together is one of the most useful simplifications available:</p>
+
+<ul>
+<li><strong>Hardware interrupts</strong> — a device raised a line. Asynchronous: they arrive with no relation to what the program was doing.</li>
+<li><strong>Exceptions</strong> (also called faults or traps) — the current instruction could not complete. Divide by zero, an invalid opcode, or, crucially, an access to a memory address the program is not allowed to touch. Synchronous: caused by the instruction itself. Node 10's page fault is one of these, and it is the single most important entry in the table.</li>
+<li><strong>Software interrupts</strong> — an instruction that deliberately triggers the mechanism, so a program can jump into the system on purpose. That is Node 4, the system call.</li>
+</ul>
+
+<p>One table, one mechanism, three reasons for entry. Every transition from your code into the kernel — every one, without exception — is one of those three.</p>
+
+<h4>The history, and one machine worth knowing</h4>
+
+<p>The first machine with anything called an interrupt was the UNIVAC 1103 around 1953, which needed to capture readings from a wind tunnel that would not wait. The DYSEAC, built at the US National Bureau of Standards in 1954, is usually credited as the first with general input/output interrupts. But the machine that turned interrupts into an operating system design is the <strong>Ferranti Atlas</strong> at the University of Manchester, operational in 1962 under Tom Kilburn — the same group that had run the Manchester Baby fourteen years earlier.</p>
+
+<p>Atlas is the most under-known machine in this document and it introduced, in one design: a full interrupt system with priorities; <strong>extracodes</strong>, which were instruction patterns the hardware did not implement and which trapped into a supervisor routine instead — a system call, in 1962, before the term existed; the <strong>Supervisor</strong> program itself, which is the direct ancestor of the word "kernel"; and virtual memory with demand paging, which is Node 10 and was not adopted by mainstream commercial machines for another decade. When you read that an idea in this document is from the 1960s, there is a good chance the specific answer is Atlas.</p>
+
+<h4>The three hard problems interrupts create</h4>
+
+<p>Interrupts solve the waiting problem and immediately create three new ones. All three are still live and all three have consequences you can observe in your own systems.</p>
+
+<p><strong>One: an interrupt can arrive halfway through something that must not be halved.</strong> Suppose the system is updating a linked list — it has set the new node's <code>next</code> pointer but not yet made the previous node point at it. An interrupt fires and the handler walks that list. It walks a structure that is, at this instant, inconsistent. So there must be a way to say "not now": on x86, the <code>cli</code> instruction clears the interrupt-enable flag and <code>sti</code> sets it. Regions between them are <strong>critical sections</strong>, and the general problem — a data structure being observed midway through a multi-step update — is the same problem that produces every race condition in Node 16 and every isolation level in a database. It appears here first, in hardware.</p>
+
+<p><strong>Two: while the handler runs, the machine is not doing its real work</strong>, and often cannot even take another interrupt. So handlers must be extremely short, which conflicts directly with the fact that reacting properly to a network packet involves a great deal of work. Linux resolves this by splitting the response in two, and the names are worth knowing because they appear in every profiling tool. The <strong>top half</strong> — the actual interrupt handler — does the minimum: acknowledge the device, note that there is work, and schedule the rest. The <strong>bottom half</strong> — implemented as <strong>softirqs</strong>, <code>tasklets</code>, or kernel work queues — runs later with interrupts enabled and does the real processing. When you run <code>top</code> on a busy server and see a percentage under <code>si</code>, that is time in softirqs, and on a machine serving a lot of traffic it is mostly network receive processing. High <code>si</code> on one core and idle on the others is a real and diagnosable production condition: interrupts are not spread across queues.</p>
+
+<p><strong>Three: at high rates, interrupting is worse than polling.</strong> A ten-gigabit network card receiving small packets can generate over a million interrupts a second, and at that rate the machine does nothing but enter and leave handlers — a condition with the excellent name <strong>receive livelock</strong>. The fix inverts the node: when the rate is high, the driver <em>turns interrupts off</em> and polls, because at high rates polling is guaranteed to find work and costs nothing wasted. Linux's mechanism for this is <strong>NAPI</strong> ("New API", named in 2001 and still called that), and it switches between interrupt-driven and polled mode automatically based on load. [AWARE] The general lesson is worth carrying: <em>interrupts win when events are rare, polling wins when events are dense</em>, and that same trade decides between WebSocket push and HTTP polling, between database triggers and batch scans, and between filesystem watching and periodic scanning.</p>
+
+<h4>DMA: the device writes to memory itself</h4>
+
+<p>One more piece completes the hardware picture. Even with interrupts, if the processor has to copy each byte from the device into memory itself, a large transfer occupies it entirely. So devices are given the ability to write to main memory directly, without the processor's involvement: <strong>Direct Memory Access</strong>. The processor tells the device "put the data at address X, length N, and interrupt me when you are done", and then goes and does something else entirely while the device and the memory controller move the bytes.</p>
+
+<p>This is why an interrupt from a network card means <em>the packet is already in memory</em>, not <em>a packet is available if you would like to fetch it</em>. It is also the reason a whole class of performance work exists: if the device can write straight into memory, the remaining copies are the ones software does, and eliminating them is what "zero-copy" means. Node's <code>sendfile</code>-backed file serving, and the reason a static file served by nginx is dramatically cheaper than the same file read into a JavaScript buffer and written to a socket, is exactly this — the second path copies the bytes from the kernel into your heap and back into the kernel for no reason.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p>This is the node where the phrase "Node.js is asynchronous" stops being a slogan. Here is the complete path of one HTTP request arriving at your server, from the wire to your callback, with nothing skipped. Every step is a real component with a real name.</p>
+
+<ol>
+<li>Electrical signals arrive at the network interface card. The card reassembles them into a frame and checks its integrity.</li>
+<li>The card writes the packet <strong>by DMA</strong> into a region of main memory the driver set up in advance — a ring buffer. No processor involvement.</li>
+<li>The card raises an <strong>MSI-X interrupt</strong> on a specific core.</li>
+<li>The processor finishes its current instruction — which may well be a piece of JIT-compiled JavaScript from your own code — saves <code>rip</code>, and jumps into the driver's handler through the IDT.</li>
+<li>The handler (top half) does almost nothing: it disables further interrupts from that queue and schedules a <strong>NET_RX softirq</strong>. It returns. Your JavaScript resumes, having noticed nothing.</li>
+<li>Shortly after, the softirq runs. It pulls packets from the ring, walks them up the network stack — Ethernet, then IP, then TCP — checks sequence numbers, sends acknowledgements, reassembles the byte stream, and appends the payload to the receive buffer of the socket it belongs to. This is Node 32's subject in full.</li>
+<li>That socket now has readable data. The kernel marks the corresponding file descriptor ready and, because your process registered interest in it, adds it to the ready list of an <strong>epoll</strong> instance. That is Node 19.</li>
+<li>Your Node process, meanwhile, is blocked inside a call to <code>epoll_wait</code>. That call now returns, carrying a list of ready descriptors. The process was consuming zero processor time until this moment.</li>
+<li><strong>libuv</strong>, the C library underneath Node, is the code that called <code>epoll_wait</code>. It maps each ready descriptor back to a handle and invokes the C callback registered for it. That is Node 20.</li>
+<li>The callback reads the bytes with a <code>read</code> system call, hands them to Node's HTTP parser, and when a complete request has been parsed, calls into V8 to invoke your JavaScript function.</li>
+<li>Your <code>app.get('/users', handler)</code> runs.</li>
+</ol>
+
+<p>Steps 1 through 5 are this node. Nothing else in the chain would work without them. And the framing that matters: <strong>your callback did not run because anything in your program asked for it. It ran because a wire went high.</strong> [EXPLAIN] The event loop is not the origin of asynchrony in your system; it is a piece of software that organises asynchrony that the hardware creates.</p>
+
+<p><strong>The same path explains a browser click.</strong> Pressing a mouse button closes a physical contact; the USB controller raises an interrupt; the kernel's input subsystem turns it into an event on <code>/dev/input/eventN</code>; the display server (X11, Wayland, or the platform equivalent) reads it and routes it to the window under the pointer; the browser's UI process receives it, works out which renderer process owns that region, and forwards it over an IPC channel; the renderer does a hit test against the layout tree to find the target element; and only then does a <code>MouseEvent</code> object get constructed and a task queued on the renderer's event loop to dispatch it through capture, target, and bubble phases to your React <code>onClick</code>. Roughly eight layers, and the bottom one is this node.</p>
+
+<p><strong>Interrupt coalescing explains a class of latency you may have measured.</strong> Network cards deliberately delay interrupts to batch packets — <code>ethtool -c</code> shows the setting, typically tens of microseconds. Cloud providers tune it for throughput. If you have ever found that a request's server-side timing accounts for less than the time the client observed, and network transit does not explain the rest, some of the missing time is here, together with the kernel's own delays: Nagle's algorithm holding a small write to coalesce it, and delayed acknowledgement on the other side. The interaction of those two is a classic forty-millisecond stall, and <code>socket.setNoDelay(true)</code> — which Node's HTTP server sets by default, and which you must set yourself on raw sockets — disables the first half of it.</p>
+
+<p><strong>And "top half / bottom half" is a pattern you already write.</strong> A webhook endpoint that validates a signature, pushes a job onto a queue, and returns <code>202 Accepted</code> in four milliseconds is a top half. The worker that processes it is a bottom half. You arrived at that design because the sender times out, which is the same pressure — <em>get out of the handler fast, do the real work where you are allowed to take your time</em> — that shaped the Linux network stack. It is the same pattern at a different scale, and recognising it as such is worth more than either instance alone.</p>
+
+<p><strong>What you can do at this point:</strong> explain what asynchronous execution physically is, trace a network packet from the wire to a JavaScript callback naming every layer, and read the <code>si</code> column in <code>top</code> and <code>/proc/interrupts</code> to see whether a machine's interrupt load is balanced.</p>
+
+<p><strong>What's still broken:</strong> everything in this node is code sitting in memory, and from Node 0 any program can write to any memory address. A job can overwrite the interrupt table and point the timer handler at its own code. A job can execute <code>cli</code>, disable interrupts, and loop forever, at which point no device and no clock can ever regain control and the machine is dead until someone cuts the power. A job can write directly to the disk controller and destroy another user's data. The monitor is a convention that programs are politely following, and conventions are not enforcement. The machine needs a distinction it does not currently have: some code is allowed to do these things, and other code is not.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
+  This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
+  elaboration.json live alongside it and are fetched at runtime — do not inline
+  that data here.
+
+  Tabs: Landscape (this file) | Recall (topics/<slug>/recall.json, teaching deck,
+  ordered by landscape node) | Prep (topics/<slug>/prep.json, interview/scenario
+  bank) | Elaboration (topics/<slug>/elaboration.json, deep-dive write-ups).
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operating systems — devxkapoor mastery track</title>
+<link rel="manifest" href="../../manifest.webmanifest">
+<meta name="theme-color" content="#080d16">
+<link rel="apple-touch-icon" href="../../assets/icons/icon-192.png">
+<link rel="stylesheet" href="../../assets/styles.css?v=5c109ddfa6">
+<script src="../../assets/globals.js?v=58a0eb29e6"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="brand" href="../../index.html">devxkapoor<strong>/mastery-track</strong></a>
+  <div class="right">
+    <nav>
+      <a href="../../index.html">topics</a>
+      <a href="../../recall.html">recall</a>
+      <a href="../../search.html">search</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle"></button>
+  </div>
+</header>
+
+<div class="wrap">
+  <h1>Operating systems</h1>
+  <p class="lede">From a wire that is either on or off to a Kubernetes pod being throttled — the complete causal chain of why an operating system exists, what every one of its mechanisms is for, and how each one shows up in the stack you actually write.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="landscape">Landscape</button>
+    <button class="tab-btn" data-tab="recall">Recall</button>
+    <button class="tab-btn" data-tab="prep">Prep</button>
+    <button class="tab-btn" data-tab="elaboration">Elaboration</button>
+    <button class="tab-btn" data-tab="discuss">Discuss</button>
+  </div>
+
+  <div id="tab-landscape">
+    <div class="prose">
+      <p>This is the landscape for operating systems, written as a <strong>causal chain</strong>. It is not a list of topics. Each node exists because the node before it left something specifically broken, and every node ends by naming what is still broken so that the next node has a reason to exist. Read top to bottom and you should end up able to <em>derive</em> most of an operating system rather than memorise it.</p>
+
+<p>It starts at absolute zero — a wire with electricity in it or not — and assumes nothing whatsoever. Every term is defined before it is used. Every mechanism is given its origin: who hit the problem, in what year, on what machine, and what they tried that failed first. Nothing is explained by analogy. An analogy tells you what something is <em>like</em>; this document is about what things <em>are</em>.</p>
+
+<p>Every node has a section called <strong>Where this is in your stack</strong>. That section is not a courtesy. The reason to learn this material is that you already use every one of these mechanisms hundreds of times per second and currently experience them as unexplained behaviour: an event loop that stalls, a container that dies with exit code 137, a Postgres write that is slow for no visible reason, a <code>EADDRINUSE</code> after a restart, a Node process whose memory graph does not match its heap graph, a Kubernetes pod whose p99 latency spikes while its CPU graph shows forty percent. Each of those is one specific kernel mechanism visible from the outside. The full-stack sections trace each one all the way down and all the way back up, at the same depth as the rest of the node.</p>
+
+<h4>Depth markers</h4>
+
+<p>Capabilities are marked inline, attached to the specific thing rather than collected in a table.</p>
+
+<ul>
+<li><strong>[EXPLAIN]</strong> — you must be able to explain this from first principles, out loud, under pressure, with no notes and no diagram.</li>
+<li><strong>[USE]</strong> — you must be able to use it correctly and debug it when it breaks. You do not need the internals cold.</li>
+<li><strong>[AWARE]</strong> — you must know it exists, what problem it solves, and roughly when to reach for it.</li>
+</ul>
+
+<h4>The forces that recur</h4>
+
+<p>Operating systems are not an arbitrary pile of features. Almost everything in this chain is one of a small number of forces reappearing in a new place, and it is worth naming them now so that you can spot them as they come round again. When you meet a mechanism you have never seen, the fastest way to understand it is to ask which of these it is answering.</p>
+
+<ul>
+<li><strong>Sharing</strong> — one physical resource, many claimants. Every part of the machine that exists only once (the processor, memory, the disk, the network card, a port number) needs a story for how many things use it at once.</li>
+<li><strong>Protection</strong> — sharing immediately means one claimant can destroy another, by accident or on purpose. Every sharing mechanism drags a protection mechanism in behind it.</li>
+<li><strong>Indirection</strong> — the standard move for both of the above. Stop letting programs touch the real thing; give them a name or a number that the kernel translates. Virtual memory, file descriptors, process IDs, namespaces, and sockets are all the same move applied to different resources.</li>
+<li><strong>Latency</strong> — the parts of a computer differ in speed by factors of a hundred million. Almost every optimisation in the chain is one layer hiding the slowness of the layer below by caching, buffering, or overlapping.</li>
+<li><strong>The boundary</strong> — crossing between a program and the kernel costs real time, and every generation of systems software is partly an attempt to cross less often.</li>
+<li><strong>Compatibility</strong> — nothing here was designed cleanly. Interfaces from 1970 survive because a hundred million lines of code call them, and the newer, better interface has to live alongside the older one forever.</li>
+</ul>
+
+<h4>How the parts are grouped</h4>
+
+<p>Ten parts. Part I builds the machine and shows why software must sit between it and you. Part II introduces the process and the sharing of the processor. Part III does memory. Part IV does concurrency and arrives at the event loop with everything needed to explain it exactly. Part V does files and storage. Part VI does isolation, and by the end of it a container is fully assembled from parts you have already seen. Part VII does communication. Part VIII takes a source file all the way to a running process, and the machine all the way from power-on. Part IX is how you see inside a running system. Part X is the history threaded properly and one complete end-to-end lifecycle.</p>
+
+<h3>PART I — THE BARE MACHINE, AND WHY IT CANNOT BE SHARED</h3>
+
+<p>Five nodes. By the end of them there is a processor, a memory, a running program, a way for the outside world to interrupt that program, a hardware wall that stops the program from wrecking the machine, and exactly one legal door through that wall. That door is the system call, and every line of code you have ever written eventually goes through it.</p>
+
+<h3>Node 0 — the machine with nothing on it</h3>
+
+<p>There is no operating system yet. There is no file, no process, no folder, no window. There is a machine, and this node builds it, from a piece of metal upward, and then shows the specific way it fails when two people want to use it. That failure is the whole reason the rest of this document exists.</p>
+
+<h4>A wire, and why there are only two values</h4>
+
+<p>Start with a wire — a strip of metal with electricity pushed into one end. At the far end you can measure how hard the electricity is being pushed. That measure is called <strong>voltage</strong>. The wire either has a push in it or it does not, and that is the entire capability of the object: it can distinguish two situations.</p>
+
+<p>The obvious objection is the right one. A wire can carry any voltage at all, so why agree on only two? Why not say zero volts means the digit 0, one tenth of a volt means 1, two tenths means 2, and so on to nine — ten times as much meaning carried on the same piece of metal, for free?</p>
+
+<p>People built machines that way. <strong>ENIAC</strong>, switched on in 1945 at the University of Pennsylvania, was a decimal machine: each digit was a ring of ten circuits with exactly one of them lit. So this was not an oversight that hindsight corrected. It was a live design that lost a fight.</p>
+
+<p>It lost to <strong>noise</strong>. A wire is not a sealed pipe. Its voltage sags slightly over distance, wobbles when the wire beside it switches, drifts as the room warms, and dips when something else in the machine draws current. All of this is small — hundredths of a volt. That is fatal when your digits are one tenth of a volt apart, because 0.3 volts sagging to 0.28 is now ambiguous between three and two, and — this is the part that kills it — <em>nothing downstream can tell that an error happened</em>. The wrong value is indistinguishable from a right one and propagates silently through every subsequent calculation.</p>
+
+<p>With two legal values the same wobble is nothing. Anything under about 0.4 volts is read as off, anything over about 0.6 is read as on, and the band between them is a no-man's-land that circuits are designed never to rest in. A 0.05 volt disturbance moves a signal from 0.9 to 0.85, which is still unambiguously on, and the disturbance is <em>discarded</em> at that point rather than carried forward. Noise is thrown away at every single step instead of accumulating.</p>
+
+<p>So binary is an engineering trade and not a mathematical truth, and it is worth being able to state it in one sentence: <strong>you give up nine tenths of the information a wire could carry, and in exchange every value is either exactly right or catastrophically wrong, never slightly wrong.</strong> [EXPLAIN] A machine that is occasionally slightly wrong is worth nothing, because you cannot tell which answers to trust. A machine that is exactly right is something you can build a banking system on.</p>
+
+<p>The two states are named: on is <strong>1</strong>, off is <strong>0</strong>, and one wire's worth of on-or-off is a <strong>bit</strong>, a contraction of "binary digit" that Claude Shannon put into print in his 1948 paper <em>A Mathematical Theory of Communication</em>. In this document a bit is not an abstract unit of information. It is a wire, and whether there is electricity in it.</p>
+
+<h4>The switch that is operated by electricity</h4>
+
+<p>Wires alone compute nothing. A machine made only of wires carries values you put in by hand; it is a bundle of cables. What is needed is a wire whose state is controlled by <em>another wire</em>.</p>
+
+<p>That component is the <strong>transistor</strong>, demonstrated at Bell Labs in December 1947 by John Bardeen and Walter Brattain, with the theory largely due to William Shockley. It has three connections: an input, an output, and a control. Put voltage on the control and current flows from input to output; take the voltage off and the flow stops. It is a switch that is thrown by electricity rather than by a finger. [EXPLAIN] That is the atom. A processor in a phone today contains somewhere north of ten billion of them, and there is nothing else in there — the entire machine is that one component, made very small and repeated.</p>
+
+<p>Switches are enough because they can be arranged to make decisions. Put two transistors in series, so current must pass through both: the output is on only when both controls are on. That arrangement is called an <strong>AND gate</strong>. Put two in parallel, so current can take either path: the output is on when either control is on — an <strong>OR gate</strong>. A single transistor wired to pass current when its control is <em>off</em> gives a <strong>NOT gate</strong>. Those three are enough to build every operation any computer performs; this was known before the hardware existed, from Claude Shannon's 1937 master's thesis at MIT, which showed that switching circuits and Boolean algebra are the same subject.</p>
+
+<p>From gates you get arithmetic, mechanically. Adding two bits produces a sum and a carry: the sum is on when exactly one input is on (an <strong>XOR</strong>, built from the three primitives), and the carry is on when both are (an AND). That two-gate object is a <strong>half adder</strong>. Chain a row of them so that each one's carry feeds the next one's input, and thirty-two of them in a row add two thirty-two-bit numbers. Subtraction is addition with one input inverted and a carry forced in. Multiplication is repeated shift-and-add. There is no further magic anywhere in the arithmetic of a computer. [AWARE]</p>
+
+<h4>Holding a number, and holding many</h4>
+
+<p>Gates compute but forget instantly — the output follows the input and nothing persists. Wire two NOT gates in a loop, each feeding the other, and the pair has two stable states it will sit in indefinitely. That is one bit of storage, called a <strong>latch</strong>, and with a control wire added so that it only accepts a new value when told to, a <strong>flip-flop</strong>.</p>
+
+<p>Put sixty-four flip-flops side by side and you can hold a sixty-four-bit number. Such a row, sitting directly next to the arithmetic circuits, is a <strong>register</strong>. [EXPLAIN] Registers are the fastest storage in the machine because they are physically adjacent to the gates that use them — the signal travels a fraction of a millimetre. A processor has only a few dozen of them. On the x86-64 processor in a typical laptop or server there are sixteen general-purpose integer registers with historical names — <code>rax</code>, <code>rbx</code>, <code>rcx</code>, <code>rdx</code>, <code>rsi</code>, <code>rdi</code>, <code>rbp</code>, <code>rsp</code>, and <code>r8</code> through <code>r15</code>. Those names will come back in Node 4, because the way your program asks the kernel for anything is by putting numbers in specific ones of them.</p>
+
+<p>A few dozen numbers is not a computer. You need millions. But you cannot put a million registers next to the arithmetic unit — there is no room, and the wires would be long enough that the signal delay would dominate. So a second kind of storage exists, further away and much larger, built from a simpler and denser cell: one transistor and one tiny capacitor holding a charge. That is <strong>DRAM</strong>, the main memory of the machine, and the capacitor leaks, which is why it must be read and rewritten thousands of times a second. The D stands for dynamic, and it means exactly that: the memory forgets unless continuously refreshed.</p>
+
+<p>Because there are billions of these cells, they need <em>names</em>. The names are consecutive integers starting at zero, and one such integer is an <strong>address</strong>. [EXPLAIN] Memory is therefore, physically and precisely, a very long row of numbered boxes, each holding eight bits — a <strong>byte</strong> — and the machine has exactly two operations on it: <em>load</em> the contents of box N into a register, and <em>store</em> the contents of a register into box N. Every data structure you have ever used is made of those two operations and nothing else.</p>
+
+<p>Eight is not a natural number here; it is a decision. IBM's System/360, announced in April 1964, standardised the eight-bit byte because eight bits hold one character in the encoding IBM was using and because eight is a power of two, which makes address arithmetic a matter of shifting bits rather than dividing. Machines before it used six-bit and seven-bit and nine-bit units. Eight won because System/360 won.</p>
+
+<h4>The idea that makes it a computer: instructions are numbers</h4>
+
+<p>Here is the pivot the whole field turns on, and it is worth slowing down for.</p>
+
+<p>ENIAC was programmed by physically rewiring it. To change what it computed, a team moved cables between plugboards and set switches, and this took days. The machine's <em>behaviour</em> lived in its wiring; its <em>data</em> lived in its circuits; the two were different kinds of thing.</p>
+
+<p>The alternative was written down in June 1945 in a document titled <em>First Draft of a Report on the EDVAC</em>, circulated under John von Neumann's name alone although it recorded work done with J. Presper Eckert and John Mauchly — an attribution dispute that has never fully settled. The idea: <strong>put the instructions in the same memory as the data, encoded as numbers.</strong> [EXPLAIN]</p>
+
+<p>Concretely, agree that when the machine reads the number <code>0x48</code> <code>0x01</code> <code>0xd8</code> it will interpret it as "add the contents of register <code>rbx</code> into register <code>rax</code>". That agreement — a table mapping bit patterns to operations, fixed in the wiring of the machine — is an <strong>instruction set architecture</strong>, an ISA. The bit patterns themselves are <strong>machine code</strong>. x86-64 is one such agreement, ARM64 is another, RISC-V a third; they are mutually unintelligible, which is why a compiled binary for one does not run on the other, and why Docker images carry an architecture tag and why an image built on an Apple laptop can fail to start on a cloud server.</p>
+
+<p>The consequences of instructions being data are not small conveniences. They are the field:</p>
+
+<ul>
+<li>A program can be <em>loaded</em> — copied into memory like any other data — instead of being wired. Changing programs takes seconds rather than days.</li>
+<li>A program can be <em>stored</em> on a card, a tape, a disk. Software becomes a thing that can exist separately from a machine.</li>
+<li>A program can <em>write</em> a program, because writing instructions is just writing numbers into memory. That is what a compiler is, and it is what V8's JIT is doing at runtime inside every Node process and every browser tab you have open.</li>
+<li>A program can, by mistake, <em>overwrite itself</em> or another program. Every security vulnerability in the class that includes buffer overflows exists because of this single design decision, and Node 3 is where the machine first fights back.</li>
+</ul>
+
+<p>The first machine actually to run a stored program was the <strong>Manchester Baby</strong> on 21 June 1948, a test rig that ran a seventeen-instruction program to find the highest factor of a number. The first practically useful one was <strong>EDSAC</strong> at Cambridge, under Maurice Wilkes, which ran its first program on 6 May 1949. Every computer since is the same design, and the phrase "von Neumann architecture" means precisely this: one memory, holding both instructions and data, with a processor that fetches from it.</p>
+
+<h4>The loop that is the entire processor</h4>
+
+<p>Given a memory full of instruction-numbers, the processor does one thing, forever, from the moment it is powered on until it is powered off. It needs one special register to do it: a register holding the address of the next instruction to run. On x86-64 it is called <code>rip</code>, the <strong>instruction pointer</strong>; the vendor-neutral name is the <strong>program counter</strong>.</p>
+
+<pre><code>1. FETCH    read the bytes at the address in rip
+2. DECODE   look up what that bit pattern means
+3. EXECUTE  do it — add, load, store, compare, jump
+4. ADVANCE  add the instruction's length to rip
+   repeat
+</code></pre>
+
+<p>That is the whole processor. [EXPLAIN] There is no scheduler in there, no notion of a program, no notion of a user, no notion of a file. Those are all software, and every one of them is built later in this document. The hardware knows only: fetch, decode, execute, advance.</p>
+
+<p>Two details in that loop carry enormous weight later.</p>
+
+<p>First, <strong>a jump is just writing to <code>rip</code></strong>. An <code>if</code> statement is a comparison followed by a conditional write to <code>rip</code>. A loop is a backward write to <code>rip</code>. A function call is a write to <code>rip</code> plus a note of where to come back to. Control flow is not a concept the hardware has; it is arithmetic on one register.</p>
+
+<p>Second, <strong>the loop never stops and never asks anything.</strong> It cannot pause and wait for a decision. It cannot notice that something else would be a better use of its time. It executes whatever is at <code>rip</code> with total obedience. Everything in the rest of this document is an answer to the question: given a device with that property, how do you get it to do more than one thing, safely, for more than one person?</p>
+
+<p>A modern processor complicates this picture without changing it. It fetches many instructions ahead (<strong>pipelining</strong>), guesses which way a branch will go and starts executing down that path before it knows (<strong>speculative execution</strong>, which is where the Spectre vulnerabilities of January 2018 come from — Node 40), and executes instructions out of order while preserving the appearance of order (<strong>out-of-order execution</strong>). All of that is an optimisation that the machine is contractually required to make invisible. The model above remains exactly correct as a description of what the results look like.</p>
+
+<h4>What a program actually is, at this point</h4>
+
+<p>A program, right now, is a run of bytes that you place into memory starting at some address, followed by setting <code>rip</code> to that address. Nothing more. There is no header, no name, no owner, no permissions, no isolation, no concept of it "starting" or "ending" other than by convention. If the bytes run off the end into whatever happens to be in memory next, the processor executes that too, cheerfully, because it cannot tell the difference.</p>
+
+<p>And this program owns the machine completely. It can read and write any memory address, because there is nothing to stop it. It can talk directly to the disk controller and the printer, because those are reached by writing to specific memory addresses or specific hardware ports and any code can do that. It runs until it decides to stop.</p>
+
+<h4>How this was actually used, and what it cost</h4>
+
+<p>This is not a thought experiment. It is how computing worked into the late 1950s, and the specific misery of it drove everything that follows.</p>
+
+<p>A machine like the IBM 704 (1954) filled a room and cost the equivalent of several million pounds today. It ran one program at a time, and to run yours you booked a slot on a sign-up sheet — typically an hour, possibly next week. At your slot you walked in carrying a deck of punched cards. Each card was a stiff piece of paper with rectangular holes in it; the pattern of holes on one card encoded one line of your program. A large program was a box of several thousand cards, and dropping the box was a genuine catastrophe, which is why people drew a diagonal line across the top edge of the deck — a dropped and reshuffled deck could be re-sorted by lining the diagonal back up.</p>
+
+<p>You loaded your deck into the card reader, set switches on the console to point the machine at the loading address, and pressed start. If your program had a bug, it did not print a stack trace; it either stopped dead with lights showing the contents of registers, or it kept running and produced wrong output, or it wandered into arbitrary memory and did something undefined. You had no debugger. You examined the console lights, thought about it, punched corrected cards, and — if your hour had run out — signed up for another slot next week.</p>
+
+<p>The economics are the point. The machine cost a fortune per hour and was almost always idle: idle while you walked to the reader, idle while cards fed through at a few hundred a minute, idle while the operator mounted a tape, idle while you stared at the lights, idle between your slot ending and the next person's beginning. Actual computation was a small fraction of the wall clock. The scarce resource was processor time and it was being wasted at enormous cost, and every single mechanism in this document is, at root, a response to some version of that observation.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p>Nothing above has been superseded. It is all running right now, underneath everything you write, and several things you already deal with are this node showing through.</p>
+
+<p><strong>Your JavaScript is these instructions.</strong> When you run <code>node server.js</code>, the file is not executed by anything that understands JavaScript. It is read by V8, a C++ program compiled to x86-64 or ARM64 machine code, which parses your source into a tree, walks that tree in an interpreter called Ignition, and — for functions that run often enough to be worth it — hands them to an optimising compiler (TurboFan, and since 2021 also a mid-tier one called Sparkplug) which <em>writes machine code into memory and jumps to it</em>. That is the stored-program property from 1945 being used at runtime, in your process, thousands of times. It is also why a JIT-compiled runtime needs memory that is both writable and executable, which is a security problem serious enough that browsers and modern kernels go to some lengths to narrow the window in which a page is both.</p>
+
+<p><strong>A stack trace is a list of instruction pointer values.</strong> When your Node process throws, the frames you read are recovered by walking a chain of saved <code>rip</code> values in memory and mapping each address back to a function name using a table the runtime kept. This is why a stack trace from a stripped native binary is a column of hexadecimal numbers, why source maps exist (they are the same mapping problem one level up: bundled line and column back to original line and column), and why <code>Error.stackTraceLimit</code> exists at all — collecting frames costs real time because it is a walk through memory.</p>
+
+<p><strong>An architecture mismatch is the ISA agreement failing.</strong> <code>exec format error</code> when you run a container image on the wrong machine is the processor being handed bit patterns encoded under a different agreement about what the bits mean. It is why <code>docker build --platform linux/amd64</code> exists, why Apple Silicon machines run <code>amd64</code> images through emulation (QEMU translating each instruction, roughly five to twenty times slower — a real reason your local Docker build feels sluggish), and why <code>docker manifest</code> lists can carry several architectures under one tag. The same fact makes native Node modules architecture-specific: a <code>.node</code> file is compiled machine code, so <code>npm install</code> on an ARM Mac produces binaries a linux/amd64 container cannot load, which is the actual reason <code>node_modules</code> must not be baked into an image from the host and must be installed inside the build.</p>
+
+<p><strong>Byte-level thinking surfaces in JavaScript.</strong> <code>ArrayBuffer</code>, <code>Uint8Array</code>, and Node's <code>Buffer</code> are a run of the numbered boxes described above, exposed directly. <code>buf.readUInt32BE</code> versus <code>readUInt32LE</code> is the question of which end of a four-byte number is stored first — <strong>endianness</strong>, a genuine hardware difference where x86 and ARM store the least significant byte at the lowest address (little-endian) while network protocols by convention use the other order. That is why it is called "network byte order" and why you convert.</p>
+
+<p><strong>Speculative execution reaches all the way into your web app.</strong> The out-of-order machinery mentioned above is what made Spectre possible, and the mitigation on the web side was to remove precise timing from JavaScript: <code>performance.now()</code> was deliberately coarsened, and <code>SharedArrayBuffer</code> was disabled in browsers in January 2018 and only restored behind the <code>Cross-Origin-Opener-Policy</code> and <code>Cross-Origin-Embedder-Policy</code> headers. If you have ever had to set those two headers to make a WebAssembly threading library work, the reason is a processor optimisation described three paragraphs ago.</p>
+
+<p><strong>What you can do at this point:</strong> describe, without hand-waving, what a computer is — a memory of numbered bytes holding both data and instructions, and a processor that repeats fetch, decode, execute, advance — and explain why it is binary, why instructions being data is the decisive idea, and what your JavaScript actually becomes before it runs.</p>
+
+<p><strong>What's still broken:</strong> the machine runs exactly one program, and a human being is the loader. Between one program ending and the next beginning, a person walks across a room. The processor — the most expensive thing in the building — sits idle for the overwhelming majority of every hour, waiting on humans and on cards. Nobody can share the machine, because there is nothing in it that could arbitrate. The first fix is obvious once stated: if loading the next program is itself a job, then a <em>program</em> could do it.</p>
+
+<h3>Node 1 — the program that loads the next program</h3>
+
+<p><strong>The limitation:</strong> the machine runs one program and a human loads it, so the processor idles between jobs and nobody can share it.</p>
+
+<p>The fix is available the moment you accept the stored-program idea from Node 0, and it is almost embarrassingly simple to state: if loading a program is a job, write a program that does it. Keep that program permanently in memory. When a job finishes, control returns to it, and it loads the next one. No human walks anywhere.</p>
+
+<p>This program has a name that says exactly what it does — the <strong>resident monitor</strong>. Resident because it stays in memory while jobs come and go; monitor because it watches over the sequence. It is the first operating system, and it is worth noticing how little it is: a loop that reads a job, jumps to it, and gets control back.</p>
+
+<h4>The first one, and what it consisted of</h4>
+
+<p>The generally recognised first operating system is <strong>GM-NAA I/O</strong>, written in 1956 by Robert L. Patrick of General Motors Research and Owen Mock of North American Aviation, for their IBM 704 machines. The name is worth unpacking because both halves of it are the two functions an operating system still performs today.</p>
+
+<p><strong>GM-NAA</strong> is the batch part: the monitor loop. A tape holds a sequence of jobs. The monitor reads the first, loads it into memory at a known address, sets the instruction pointer to it, and the job runs. When the job finishes, it jumps back to a fixed address inside the monitor, and the monitor loads the next. The processor's idle time between jobs falls from minutes to milliseconds. The word <strong>job</strong> enters computing here and never leaves it: a unit of work submitted to a system that will run it later, without you present. You use that word every day — a CI job, a cron job, a BullMQ job — and it means the same thing it meant in 1956.</p>
+
+<p><strong>I/O</strong> is the other half, and it was the part the users cared about more. Every program needed to read cards and write tape and drive the printer, and every program was writing that code itself, badly and differently. Talking to a card reader means writing precise bit patterns to a hardware port, waiting a precise time, checking a status bit, handling the case where the card jammed. Getting it wrong wasted a machine hour. So the monitor shipped a set of shared input/output subroutines that any job could call instead of driving the hardware itself.</p>
+
+<p>That is the origin of two things at once, and both are still exactly here. A <strong>device driver</strong> is the piece of code that knows the specific bit-level protocol of one piece of hardware, written once so that nothing above it has to know. [EXPLAIN] And a <strong>system library</strong> is the shared code an operating system provides so that programs are not each reimplementing the same fiddly thing. The reason your code says <code>fs.readFile</code> rather than issuing commands to an NVMe controller is a straight line from this decision in 1956.</p>
+
+<h4>Job control: configuration files are older than you think</h4>
+
+<p>The monitor needs to be told things about each job before it runs it. Which compiler does this job need? How much memory? Whose account gets billed? What should happen if it fails — skip to the next job, or stop the whole tape?</p>
+
+<p>None of that can live inside the job's own code, because the monitor has to read it <em>before</em> the job runs, and because the job might be written in a language the monitor cannot parse. So it goes in separate control cards at the front of the deck, written in a small dedicated language. IBM's version, shipped with OS/360 in 1964, was called <strong>Job Control Language</strong> — JCL — and it looked like this, with two slashes marking a control card:</p>
+
+<pre><code>//PAYROLL  JOB  (ACCT1234),'D KAPOOR',CLASS=A,TIME=(,30)
+//STEP1    EXEC PGM=IEBGENER
+//SYSUT1   DD   DSN=INPUT.CARDS,DISP=SHR
+//SYSUT2   DD   DSN=OUTPUT.RPT,DISP=(NEW,CATLG,DELETE)
+//SYSIN    DD   DUMMY
+</code></pre>
+
+<p>Read that structure rather than the syntax. There is a named job, an account for billing, a resource limit (thirty minutes), a sequence of named steps, and for each step a declaration of its inputs and outputs and what to do with them on success versus failure. [AWARE] It is a pipeline definition file. The reason it is worth putting in front of you is that you write one of these most weeks and may not have noticed the lineage.</p>
+
+<h4>Spooling: the first time a queue solved a speed mismatch</h4>
+
+<p>Batching fixed the gap <em>between</em> jobs. It did not fix the gap <em>inside</em> one. A card reader took cards at a few hundred a minute; a line printer managed perhaps a thousand lines a minute; the processor executed tens of thousands of instructions per second and, later, millions. A job that printed a long report spent nearly all its wall-clock time with the processor stopped, waiting for mechanical parts to move.</p>
+
+<p>The first fix was crude and effective. Buy a cheap, slow machine — an IBM 1401 — and use it purely to copy card decks onto magnetic tape. Tape could be read far faster than cards. Carry the tape to the expensive machine, which now reads jobs at tape speed. Output goes to another tape, which is carried back to the cheap machine to be printed. The expensive processor never waits on a card reader again. This was called <strong>offline</strong> operation because the slow devices were off the main machine's line.</p>
+
+<p>The better fix, once the hardware of Node 2 existed, kept everything on one machine and overlapped it in time: while job N computes, the system reads job N+1's cards to disk in the background, and prints job N−1's output from disk in the background. The processor works continuously and the slow devices work continuously and neither waits for the other. This is <strong>spooling</strong>, an acronym for <em>Simultaneous Peripheral Operations On-Line</em>, and the general principle it establishes is one you use constantly: <strong>when a fast producer meets a slow consumer, put a queue between them and let each run at its own rate.</strong> [EXPLAIN] Your print spooler still has this name. So does every message queue you have ever configured.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p>This node is not history you have moved past. It is the shape of your deployment pipeline, and once you see the correspondence it is difficult to unsee.</p>
+
+<p><strong>A CI runner is a resident monitor.</strong> A GitHub Actions runner process sits permanently alive on a machine, polling a queue. It receives a job, prepares an environment, runs the job's steps, collects the output, reports status, tears the environment down, and goes back to polling. That is Patrick and Mock's loop, unchanged, with HTTPS where the tape drive was. The vocabulary survived intact: the file is a list of <code>jobs</code>, each job has <code>steps</code>, each job declares <code>runs-on</code> (which machine class — <code>CLASS=A</code> in the JCL above), a <code>timeout-minutes</code> (<code>TIME=(,30)</code>), and <code>needs</code> to express that one step's output is another's input (<code>DD</code> statements). Your <code>.github/workflows/deploy.yml</code> is JCL with better syntax and worse error messages.</p>
+
+<p><strong>A BullMQ worker is the same loop again, and its design decisions are forced by the same problems.</strong> In your <code>qbank</code> repository, a producer pushes a job onto a Redis list and a worker process blocks on that list, pops a job, runs its handler, and marks it complete. Every hard part of that design is a batch-monitor problem that 1956 also had. What happens if the worker dies mid-job? The 704's answer was that the operator noticed and resubmitted the deck; BullMQ's answer is a visibility timeout — the job is moved to an <em>active</em> set with a lock that must be renewed, and a stalled-job checker returns it to <em>waiting</em> when the lock expires. What happens if a job fails? JCL had <code>COND</code> codes deciding whether to skip the remaining steps; BullMQ has <code>attempts</code> and a <code>backoff</code> strategy and a failed set. What stops one bad job from consuming the machine? JCL had <code>TIME=</code>; BullMQ has a job timeout and you also want a cgroup limit from Node 27. The problems are not similar to the old ones; they are the same problems.</p>
+
+<p><strong>The producer–consumer queue is spooling, everywhere.</strong> Every buffer in your stack exists because a fast thing met a slow thing. A Node <code>Writable</code> stream holds an internal buffer, and <code>write()</code> returning <code>false</code> means that buffer has passed <code>highWaterMark</code> — that is the system telling you the consumer is slower than you are, and ignoring it is how a Node process's memory climbs until it is killed. That signal, and the <code>'drain'</code> event that clears it, are <strong>backpressure</strong>, which is the one thing 1950s spooling did <em>not</em> have to solve because the tape was finite. Yours is not: an HTTP client that reads a response slowly while your server writes fast is an unbounded queue in your heap. Postgres has the same shape internally — a commit writes to an in-memory WAL buffer that a background writer drains to disk. So does the operating system itself: <code>write()</code> to a file returns as soon as the bytes are in the kernel's page cache, long before any disk has moved, which is Node 23's entire subject.</p>
+
+<p><strong>Cron is batch processing with a clock.</strong> A daemon holds a table of jobs and times, and at each minute runs whatever is due, capturing output and mailing it somewhere. It has the monitor's exact structure with a scheduling predicate bolted on, and it has the monitor's exact failure modes: if a run takes longer than the interval, the next one starts anyway and you now have two, which is why every real cron job needs a lock. Kubernetes <code>CronJob</code> makes that explicit as <code>concurrencyPolicy: Forbid</code> — a field that exists because of a problem inherent to this node.</p>
+
+<p><strong>What you can do at this point:</strong> explain what an operating system minimally is — a program that stays resident and arranges for other programs to run — and recognise the batch model in the pipeline tooling you use, including which of its ancient failure modes your configuration is guarding against.</p>
+
+<p><strong>What's still broken:</strong> three things, and each one is fatal.</p>
+
+<p>First, the processor still stops dead whenever a job touches a device. The monitor's shared I/O routine, underneath, is a loop that reads a hardware status bit over and over until the device says it is ready. That is called <strong>polling</strong>, and during it the processor executes millions of instructions that accomplish nothing. Spooling helps between jobs but cannot help a single job that is waiting.</p>
+
+<p>Second, control only returns to the monitor if the job <em>chooses</em> to return. A job with an infinite loop owns the machine until someone power-cycles it. A job that jumps to a wrong address never comes back.</p>
+
+<p>Third, and worst: the monitor is just bytes in memory, at addresses the job can write to. A job with a bad array index overwrites the monitor and the next job loads into a corrupted system. There is no mechanism anywhere in Node 0's machine that could prevent this, because the processor's only rule is fetch, decode, execute.</p>
+
+<p>The first of those needs a new piece of hardware: a way for a device to get the processor's attention rather than the processor having to ask.</p>
+
+<h3>Node 2 — the interrupt, and the birth of asynchrony</h3>
+
+<p><strong>The limitation:</strong> a program that wants something from a device has to ask the device repeatedly whether it is ready, and every one of those questions is a wasted instruction.</p>
+
+<p>Fix the ratio in your head first, because the whole node follows from it. A card reader in 1960 delivered around ten cards per second. The IBM 7094 executed roughly half a million instructions per second. So between one card and the next there was room for about fifty thousand instructions, and the program spent every one of them re-reading a status bit that said "not yet". The proportions have not improved; they have got worse. A processor today executes on the order of ten billion instructions per second. Fetching one byte from main memory takes it about eighty nanoseconds, during which it could have executed several hundred instructions. Reading a block from a solid-state disk takes around one tenth of a millisecond — a million instructions. A network round trip to a server in another country takes a hundred milliseconds — a <em>billion</em> instructions. <strong>The gap between the processor and everything else is the central physical fact of computing, and nearly every mechanism after this point is a way of not wasting it.</strong> [EXPLAIN]</p>
+
+<h4>The mechanism, exactly</h4>
+
+<p>Polling is the wrong direction. The processor should not ask the device; the device should tell the processor. That requires a physical wire from the device into the processor, and a rule in the processor's fetch-decode-execute loop about what to do when that wire goes high.</p>
+
+<p>The rule is inserted between instructions, and its placement matters. The processor completes the instruction it is currently executing — it never stops halfway, because a half-executed instruction would leave registers in a state nothing could recover from — and then, before fetching the next one, it checks whether the interrupt line is raised. If it is:</p>
+
+<pre><code>1. finish the current instruction
+2. check the interrupt line — raised?
+3. save rip (and the flags register) somewhere it can be recovered from
+4. look up the handler address for this interrupt number
+5. set rip to that address
+   ... the handler runs ...
+6. a special "return from interrupt" instruction restores rip and flags
+7. the interrupted program resumes at exactly the instruction it was about to run
+</code></pre>
+
+<p>That is an <strong>interrupt</strong>. [EXPLAIN] Note precisely what has happened: a piece of code ran, in the middle of another piece of code, without that other code having any instruction that called it and without it being able to tell afterwards that anything happened. The interrupted program's registers are exactly as it left them, its instruction pointer resumes where it was, and nothing in its own logic ever mentioned the device. Execution stopped being a continuous, self-determined sequence and became something that can be entered from outside at essentially any point.</p>
+
+<p><strong>That is what "asynchronous" physically is.</strong> Not a language feature, not a callback style — a wire, and a rule about checking it between instructions. Every asynchronous thing you have ever written bottoms out here.</p>
+
+<h4>Which interrupt, and where the handler lives</h4>
+
+<p>A machine has many devices and one processor, so there must be a way to say <em>which</em> device is calling. Historically an <strong>interrupt controller</strong> chip sat between the devices and the processor, collecting many device lines and presenting the processor with one line plus a number. On the IBM PC that chip was the Intel 8259 PIC, with eight inputs, later two chained for fifteen; those inputs are the <strong>IRQ</strong> numbers still visible today in <code>/proc/interrupts</code> on any Linux machine, and the reason IRQ conflicts were a routine part of installing hardware in the 1990s is that there were only fifteen of them. Modern machines use the APIC — the Advanced Programmable Interrupt Controller — and PCI Express devices use <strong>MSI-X</strong> (Message Signalled Interrupts), where the "wire" is not a wire at all but a write to a special memory address, which lets one network card have dozens of distinct interrupt vectors, one per receive queue. That detail matters later: it is how a modern server spreads network interrupt handling across all its cores.</p>
+
+<p>The number is used as an index into a table of handler addresses. On x86 this is the <strong>Interrupt Descriptor Table</strong>, the IDT: 256 entries, each holding the address of the code to run for that vector, with a register (<code>idtr</code>) holding the table's own address. The processor's step 4 above is literally an array lookup. [EXPLAIN]</p>
+
+<p>The same table serves two other sources of entry, and lumping them together is one of the most useful simplifications available:</p>
+
+<ul>
+<li><strong>Hardware interrupts</strong> — a device raised a line. Asynchronous: they arrive with no relation to what the program was doing.</li>
+<li><strong>Exceptions</strong> (also called faults or traps) — the current instruction could not complete. Divide by zero, an invalid opcode, or, crucially, an access to a memory address the program is not allowed to touch. Synchronous: caused by the instruction itself. Node 10's page fault is one of these, and it is the single most important entry in the table.</li>
+<li><strong>Software interrupts</strong> — an instruction that deliberately triggers the mechanism, so a program can jump into the system on purpose. That is Node 4, the system call.</li>
+</ul>
+
+<p>One table, one mechanism, three reasons for entry. Every transition from your code into the kernel — every one, without exception — is one of those three.</p>
+
+<h4>The history, and one machine worth knowing</h4>
+
+<p>The first machine with anything called an interrupt was the UNIVAC 1103 around 1953, which needed to capture readings from a wind tunnel that would not wait. The DYSEAC, built at the US National Bureau of Standards in 1954, is usually credited as the first with general input/output interrupts. But the machine that turned interrupts into an operating system design is the <strong>Ferranti Atlas</strong> at the University of Manchester, operational in 1962 under Tom Kilburn — the same group that had run the Manchester Baby fourteen years earlier.</p>
+
+<p>Atlas is the most under-known machine in this document and it introduced, in one design: a full interrupt system with priorities; <strong>extracodes</strong>, which were instruction patterns the hardware did not implement and which trapped into a supervisor routine instead — a system call, in 1962, before the term existed; the <strong>Supervisor</strong> program itself, which is the direct ancestor of the word "kernel"; and virtual memory with demand paging, which is Node 10 and was not adopted by mainstream commercial machines for another decade. When you read that an idea in this document is from the 1960s, there is a good chance the specific answer is Atlas.</p>
+
+<h4>The three hard problems interrupts create</h4>
+
+<p>Interrupts solve the waiting problem and immediately create three new ones. All three are still live and all three have consequences you can observe in your own systems.</p>
+
+<p><strong>One: an interrupt can arrive halfway through something that must not be halved.</strong> Suppose the system is updating a linked list — it has set the new node's <code>next</code> pointer but not yet made the previous node point at it. An interrupt fires and the handler walks that list. It walks a structure that is, at this instant, inconsistent. So there must be a way to say "not now": on x86, the <code>cli</code> instruction clears the interrupt-enable flag and <code>sti</code> sets it. Regions between them are <strong>critical sections</strong>, and the general problem — a data structure being observed midway through a multi-step update — is the same problem that produces every race condition in Node 16 and every isolation level in a database. It appears here first, in hardware.</p>
+
+<p><strong>Two: while the handler runs, the machine is not doing its real work</strong>, and often cannot even take another interrupt. So handlers must be extremely short, which conflicts directly with the fact that reacting properly to a network packet involves a great deal of work. Linux resolves this by splitting the response in two, and the names are worth knowing because they appear in every profiling tool. The <strong>top half</strong> — the actual interrupt handler — does the minimum: acknowledge the device, note that there is work, and schedule the rest. The <strong>bottom half</strong> — implemented as <strong>softirqs</strong>, <code>tasklets</code>, or kernel work queues — runs later with interrupts enabled and does the real processing. When you run <code>top</code> on a busy server and see a percentage under <code>si</code>, that is time in softirqs, and on a machine serving a lot of traffic it is mostly network receive processing. High <code>si</code> on one core and idle on the others is a real and diagnosable production condition: interrupts are not spread across queues.</p>
+
+<p><strong>Three: at high rates, interrupting is worse than polling.</strong> A ten-gigabit network card receiving small packets can generate over a million interrupts a second, and at that rate the machine does nothing but enter and leave handlers — a condition with the excellent name <strong>receive livelock</strong>. The fix inverts the node: when the rate is high, the driver <em>turns interrupts off</em> and polls, because at high rates polling is guaranteed to find work and costs nothing wasted. Linux's mechanism for this is <strong>NAPI</strong> ("New API", named in 2001 and still called that), and it switches between interrupt-driven and polled mode automatically based on load. [AWARE] The general lesson is worth carrying: <em>interrupts win when events are rare, polling wins when events are dense</em>, and that same trade decides between WebSocket push and HTTP polling, between database triggers and batch scans, and between filesystem watching and periodic scanning.</p>
+
+<h4>DMA: the device writes to memory itself</h4>
+
+<p>One more piece completes the hardware picture. Even with interrupts, if the processor has to copy each byte from the device into memory itself, a large transfer occupies it entirely. So devices are given the ability to write to main memory directly, without the processor's involvement: <strong>Direct Memory Access</strong>. The processor tells the device "put the data at address X, length N, and interrupt me when you are done", and then goes and does something else entirely while the device and the memory controller move the bytes.</p>
+
+<p>This is why an interrupt from a network card means <em>the packet is already in memory</em>, not <em>a packet is available if you would like to fetch it</em>. It is also the reason a whole class of performance work exists: if the device can write straight into memory, the remaining copies are the ones software does, and eliminating them is what "zero-copy" means. Node's <code>sendfile</code>-backed file serving, and the reason a static file served by nginx is dramatically cheaper than the same file read into a JavaScript buffer and written to a socket, is exactly this — the second path copies the bytes from the kernel into your heap and back into the kernel for no reason.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p>This is the node where the phrase "Node.js is asynchronous" stops being a slogan. Here is the complete path of one HTTP request arriving at your server, from the wire to your callback, with nothing skipped. Every step is a real component with a real name.</p>
+
+<ol>
+<li>Electrical signals arrive at the network interface card. The card reassembles them into a frame and checks its integrity.</li>
+<li>The card writes the packet <strong>by DMA</strong> into a region of main memory the driver set up in advance — a ring buffer. No processor involvement.</li>
+<li>The card raises an <strong>MSI-X interrupt</strong> on a specific core.</li>
+<li>The processor finishes its current instruction — which may well be a piece of JIT-compiled JavaScript from your own code — saves <code>rip</code>, and jumps into the driver's handler through the IDT.</li>
+<li>The handler (top half) does almost nothing: it disables further interrupts from that queue and schedules a <strong>NET_RX softirq</strong>. It returns. Your JavaScript resumes, having noticed nothing.</li>
+<li>Shortly after, the softirq runs. It pulls packets from the ring, walks them up the network stack — Ethernet, then IP, then TCP — checks sequence numbers, sends acknowledgements, reassembles the byte stream, and appends the payload to the receive buffer of the socket it belongs to. This is Node 32's subject in full.</li>
+<li>That socket now has readable data. The kernel marks the corresponding file descriptor ready and, because your process registered interest in it, adds it to the ready list of an <strong>epoll</strong> instance. That is Node 19.</li>
+<li>Your Node process, meanwhile, is blocked inside a call to <code>epoll_wait</code>. That call now returns, carrying a list of ready descriptors. The process was consuming zero processor time until this moment.</li>
+<li><strong>libuv</strong>, the C library underneath Node, is the code that called <code>epoll_wait</code>. It maps each ready descriptor back to a handle and invokes the C callback registered for it. That is Node 20.</li>
+<li>The callback reads the bytes with a <code>read</code> system call, hands them to Node's HTTP parser, and when a complete request has been parsed, calls into V8 to invoke your JavaScript function.</li>
+<li>Your <code>app.get('/users', handler)</code> runs.</li>
+</ol>
+
+<p>Steps 1 through 5 are this node. Nothing else in the chain would work without them. And the framing that matters: <strong>your callback did not run because anything in your program asked for it. It ran because a wire went high.</strong> [EXPLAIN] The event loop is not the origin of asynchrony in your system; it is a piece of software that organises asynchrony that the hardware creates.</p>
+
+<p><strong>The same path explains a browser click.</strong> Pressing a mouse button closes a physical contact; the USB controller raises an interrupt; the kernel's input subsystem turns it into an event on <code>/dev/input/eventN</code>; the display server (X11, Wayland, or the platform equivalent) reads it and routes it to the window under the pointer; the browser's UI process receives it, works out which renderer process owns that region, and forwards it over an IPC channel; the renderer does a hit test against the layout tree to find the target element; and only then does a <code>MouseEvent</code> object get constructed and a task queued on the renderer's event loop to dispatch it through capture, target, and bubble phases to your React <code>onClick</code>. Roughly eight layers, and the bottom one is this node.</p>
+
+<p><strong>Interrupt coalescing explains a class of latency you may have measured.</strong> Network cards deliberately delay interrupts to batch packets — <code>ethtool -c</code> shows the setting, typically tens of microseconds. Cloud providers tune it for throughput. If you have ever found that a request's server-side timing accounts for less than the time the client observed, and network transit does not explain the rest, some of the missing time is here, together with the kernel's own delays: Nagle's algorithm holding a small write to coalesce it, and delayed acknowledgement on the other side. The interaction of those two is a classic forty-millisecond stall, and <code>socket.setNoDelay(true)</code> — which Node's HTTP server sets by default, and which you must set yourself on raw sockets — disables the first half of it.</p>
+
+<p><strong>And "top half / bottom half" is a pattern you already write.</strong> A webhook endpoint that validates a signature, pushes a job onto a queue, and returns <code>202 Accepted</code> in four milliseconds is a top half. The worker that processes it is a bottom half. You arrived at that design because the sender times out, which is the same pressure — <em>get out of the handler fast, do the real work where you are allowed to take your time</em> — that shaped the Linux network stack. It is the same pattern at a different scale, and recognising it as such is worth more than either instance alone.</p>
+
+<p><strong>What you can do at this point:</strong> explain what asynchronous execution physically is, trace a network packet from the wire to a JavaScript callback naming every layer, and read the <code>si</code> column in <code>top</code> and <code>/proc/interrupts</code> to see whether a machine's interrupt load is balanced.</p>
+
+<p><strong>What's still broken:</strong> everything in this node is code sitting in memory, and from Node 0 any program can write to any memory address. A job can overwrite the interrupt table and point the timer handler at its own code. A job can execute <code>cli</code>, disable interrupts, and loop forever, at which point no device and no clock can ever regain control and the machine is dead until someone cuts the power. A job can write directly to the disk controller and destroy another user's data. The monitor is a convention that programs are politely following, and conventions are not enforcement. The machine needs a distinction it does not currently have: some code is allowed to do these things, and other code is not.</p>
+    </div>
+  </div>
+
+  <div id="tab-recall" style="display:none">
+    <div class="card-list" id="recallCards"></div>
+  </div>
+
+  <div id="tab-prep" style="display:none">
+    <div class="card-list" id="prepCards"></div>
+  </div>
+
+  <div id="tab-elaboration" style="display:none">
+    <div class="card-list" id="elabCards"></div>
+  </div>
+
+  <div id="tab-discuss" style="display:none">
+    <div class="card-list" id="discussCards"></div>
+  </div>
+</div>
+
+<footer class="site-footer">devxkapoor-learning · operating-systems · built with Claude</footer>
+
+<script>
+DK.wireThemeToggle(document.getElementById("themeToggle"));
+
+const TABS = ["landscape", "recall", "prep", "elaboration", "discuss"];
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    TABS.forEach(t => {
+      document.getElementById("tab-" + t).style.display = (t === btn.dataset.tab) ? "block" : "none";
+    });
+  });
+});
+
+// Landscape: split the flat prose into collapsible nodes, closed by default,
+// so 19 nodes read as a navigable list instead of one continuous wall.
+(function () {
+  const prose = document.querySelector("#tab-landscape .prose");
+  if (!prose) return;
+  const n = DK.makeSectionsCollapsible(prose, { startOpen: false });
+  DK.addCopyButtons(prose);
+  DK.decorateBlocks(prose);
+  if (n) DK.addExpandControls(document.getElementById("tab-landscape"), prose, n + " nodes");
+})();
+
+// If the URL has a #anchor (e.g. from search.html), jump straight to the elaboration tab.
+if (window.location.hash) {
+  document.querySelector('.tab-btn[data-tab="elaboration"]').click();
+}
+
+function renderCards(container, cards, bank) {
+  DK.renderDeck(container, cards, { bank, topic: "operating-systems", showTopic: false });
+}
+
+(async function () {
+  const recall = await DK.fetchJSON("topics/operating-systems/recall.json");
+  const recallEl = document.getElementById("recallCards");
+  if (recall && recall.cards && recall.cards.length) {
+    renderCards(recallEl, recall.cards, "recall");
+  } else {
+    recallEl.innerHTML = "<p class='empty-note'>Recall questions land here once this topic's build gets underway.</p>";
+  }
+
+  const prep = await DK.fetchJSON("topics/operating-systems/prep.json");
+  const prepEl = document.getElementById("prepCards");
+  if (prep && prep.cards && prep.cards.length) {
+    renderCards(prepEl, prep.cards, "prep");
+  } else {
+    prepEl.innerHTML = "<p class='empty-note'>Interview and scenario prep lands here once this topic's build gets underway.</p>";
+  }
+
+  const discuss = await DK.fetchJSON("topics/operating-systems/discuss.json");
+  const discussEl = document.getElementById("discussCards");
+  if (discuss && discuss.pieces && discuss.pieces.length) {
+    discuss.pieces.forEach(pc => {
+      const block = document.createElement("details");
+      block.className = "el-block";
+      block.id = pc.anchor || "";
+      block.innerHTML =
+        `<summary class="node-summary">` +
+          `<span class="node-chevron">${DK.ICON.chevron}</span>` +
+          `<span class="node-title">${pc.title}</span>` +
+          (pc.resolves ? `<span class="node-count">${pc.resolves.length} doubts</span>` : "") +
+        `</summary>` +
+        `<div class="node-body"><div class="prose">${pc.content}</div></div>`;
+      discussEl.appendChild(block);
+    });
+    discussEl.querySelectorAll(".el-block .prose").forEach(pr => {
+      DK.makeSectionsCollapsible(pr, { startOpen: false, level: "sub" });
+      DK.addCopyButtons(pr);
+    });
+    DK.decorateBlocks(discussEl);
+    DK.addExpandControls(document.getElementById("tab-discuss"), discussEl,
+      discuss.pieces.length + " resolutions");
+  } else {
+    discussEl.innerHTML = "<p class='empty-note'>Resolutions to your follow-up questions land here.</p>";
+  }
+
+  const elab = await DK.fetchJSON("topics/operating-systems/elaboration.json");
+  const elabEl = document.getElementById("elabCards");
+  if (elab && elab.sections && elab.sections.length) {
+    elab.sections.forEach(s => {
+      const block = document.createElement("details");
+      block.className = "el-block";
+      block.id = s.anchor || "";
+      block.innerHTML =
+        `<summary class="node-summary">` +
+          `<span class="node-chevron">${DK.ICON.chevron}</span>` +
+          `<span class="node-title">${s.title}</span>` +
+        `</summary>` +
+        `<div class="node-body"><div class="prose">${s.content}</div></div>`;
+      elabEl.appendChild(block);
+    });
+    elabEl.querySelectorAll(".el-block .prose").forEach(pr => {
+      // Sub-sections start closed too: opening a node shouldn't dump its
+      // entire subtree on you at once.
+      DK.makeSectionsCollapsible(pr, { startOpen: false, level: "sub" });
+      DK.addCopyButtons(pr);
+    });
+    DK.decorateBlocks(elabEl);
+    DK.addExpandControls(document.getElementById("tab-elaboration"), elabEl,
+      elab.sections.length + " sections");
+    DK.revealHash();
+  } else {
+    elabEl.innerHTML = "<p class='empty-note'>The deep-dive write-up for this topic hasn't been started yet — it'll fill in section by section as we go.</p>";
+  }
+})();
+</script>
+
+</body>
+</html>

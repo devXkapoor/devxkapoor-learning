@@ -1,0 +1,64 @@
+<h3>Node 1 — the program that loads the next program</h3>
+
+<p><strong>The limitation:</strong> the machine runs one program and a human loads it, so the processor idles between jobs and nobody can share it.</p>
+
+<p>The fix is available the moment you accept the stored-program idea from Node 0, and it is almost embarrassingly simple to state: if loading a program is a job, write a program that does it. Keep that program permanently in memory. When a job finishes, control returns to it, and it loads the next one. No human walks anywhere.</p>
+
+<p>This program has a name that says exactly what it does — the <strong>resident monitor</strong>. Resident because it stays in memory while jobs come and go; monitor because it watches over the sequence. It is the first operating system, and it is worth noticing how little it is: a loop that reads a job, jumps to it, and gets control back.</p>
+
+<h4>The first one, and what it consisted of</h4>
+
+<p>The generally recognised first operating system is <strong>GM-NAA I/O</strong>, written in 1956 by Robert L. Patrick of General Motors Research and Owen Mock of North American Aviation, for their IBM 704 machines. The name is worth unpacking because both halves of it are the two functions an operating system still performs today.</p>
+
+<p><strong>GM-NAA</strong> is the batch part: the monitor loop. A tape holds a sequence of jobs. The monitor reads the first, loads it into memory at a known address, sets the instruction pointer to it, and the job runs. When the job finishes, it jumps back to a fixed address inside the monitor, and the monitor loads the next. The processor's idle time between jobs falls from minutes to milliseconds. The word <strong>job</strong> enters computing here and never leaves it: a unit of work submitted to a system that will run it later, without you present. You use that word every day — a CI job, a cron job, a BullMQ job — and it means the same thing it meant in 1956.</p>
+
+<p><strong>I/O</strong> is the other half, and it was the part the users cared about more. Every program needed to read cards and write tape and drive the printer, and every program was writing that code itself, badly and differently. Talking to a card reader means writing precise bit patterns to a hardware port, waiting a precise time, checking a status bit, handling the case where the card jammed. Getting it wrong wasted a machine hour. So the monitor shipped a set of shared input/output subroutines that any job could call instead of driving the hardware itself.</p>
+
+<p>That is the origin of two things at once, and both are still exactly here. A <strong>device driver</strong> is the piece of code that knows the specific bit-level protocol of one piece of hardware, written once so that nothing above it has to know. [EXPLAIN] And a <strong>system library</strong> is the shared code an operating system provides so that programs are not each reimplementing the same fiddly thing. The reason your code says <code>fs.readFile</code> rather than issuing commands to an NVMe controller is a straight line from this decision in 1956.</p>
+
+<h4>Job control: configuration files are older than you think</h4>
+
+<p>The monitor needs to be told things about each job before it runs it. Which compiler does this job need? How much memory? Whose account gets billed? What should happen if it fails — skip to the next job, or stop the whole tape?</p>
+
+<p>None of that can live inside the job's own code, because the monitor has to read it <em>before</em> the job runs, and because the job might be written in a language the monitor cannot parse. So it goes in separate control cards at the front of the deck, written in a small dedicated language. IBM's version, shipped with OS/360 in 1964, was called <strong>Job Control Language</strong> — JCL — and it looked like this, with two slashes marking a control card:</p>
+
+<pre><code>//PAYROLL  JOB  (ACCT1234),'D KAPOOR',CLASS=A,TIME=(,30)
+//STEP1    EXEC PGM=IEBGENER
+//SYSUT1   DD   DSN=INPUT.CARDS,DISP=SHR
+//SYSUT2   DD   DSN=OUTPUT.RPT,DISP=(NEW,CATLG,DELETE)
+//SYSIN    DD   DUMMY
+</code></pre>
+
+<p>Read that structure rather than the syntax. There is a named job, an account for billing, a resource limit (thirty minutes), a sequence of named steps, and for each step a declaration of its inputs and outputs and what to do with them on success versus failure. [AWARE] It is a pipeline definition file. The reason it is worth putting in front of you is that you write one of these most weeks and may not have noticed the lineage.</p>
+
+<h4>Spooling: the first time a queue solved a speed mismatch</h4>
+
+<p>Batching fixed the gap <em>between</em> jobs. It did not fix the gap <em>inside</em> one. A card reader took cards at a few hundred a minute; a line printer managed perhaps a thousand lines a minute; the processor executed tens of thousands of instructions per second and, later, millions. A job that printed a long report spent nearly all its wall-clock time with the processor stopped, waiting for mechanical parts to move.</p>
+
+<p>The first fix was crude and effective. Buy a cheap, slow machine — an IBM 1401 — and use it purely to copy card decks onto magnetic tape. Tape could be read far faster than cards. Carry the tape to the expensive machine, which now reads jobs at tape speed. Output goes to another tape, which is carried back to the cheap machine to be printed. The expensive processor never waits on a card reader again. This was called <strong>offline</strong> operation because the slow devices were off the main machine's line.</p>
+
+<p>The better fix, once the hardware of Node 2 existed, kept everything on one machine and overlapped it in time: while job N computes, the system reads job N+1's cards to disk in the background, and prints job N−1's output from disk in the background. The processor works continuously and the slow devices work continuously and neither waits for the other. This is <strong>spooling</strong>, an acronym for <em>Simultaneous Peripheral Operations On-Line</em>, and the general principle it establishes is one you use constantly: <strong>when a fast producer meets a slow consumer, put a queue between them and let each run at its own rate.</strong> [EXPLAIN] Your print spooler still has this name. So does every message queue you have ever configured.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p>This node is not history you have moved past. It is the shape of your deployment pipeline, and once you see the correspondence it is difficult to unsee.</p>
+
+<p><strong>A CI runner is a resident monitor.</strong> A GitHub Actions runner process sits permanently alive on a machine, polling a queue. It receives a job, prepares an environment, runs the job's steps, collects the output, reports status, tears the environment down, and goes back to polling. That is Patrick and Mock's loop, unchanged, with HTTPS where the tape drive was. The vocabulary survived intact: the file is a list of <code>jobs</code>, each job has <code>steps</code>, each job declares <code>runs-on</code> (which machine class — <code>CLASS=A</code> in the JCL above), a <code>timeout-minutes</code> (<code>TIME=(,30)</code>), and <code>needs</code> to express that one step's output is another's input (<code>DD</code> statements). Your <code>.github/workflows/deploy.yml</code> is JCL with better syntax and worse error messages.</p>
+
+<p><strong>A BullMQ worker is the same loop again, and its design decisions are forced by the same problems.</strong> In your <code>qbank</code> repository, a producer pushes a job onto a Redis list and a worker process blocks on that list, pops a job, runs its handler, and marks it complete. Every hard part of that design is a batch-monitor problem that 1956 also had. What happens if the worker dies mid-job? The 704's answer was that the operator noticed and resubmitted the deck; BullMQ's answer is a visibility timeout — the job is moved to an <em>active</em> set with a lock that must be renewed, and a stalled-job checker returns it to <em>waiting</em> when the lock expires. What happens if a job fails? JCL had <code>COND</code> codes deciding whether to skip the remaining steps; BullMQ has <code>attempts</code> and a <code>backoff</code> strategy and a failed set. What stops one bad job from consuming the machine? JCL had <code>TIME=</code>; BullMQ has a job timeout and you also want a cgroup limit from Node 27. The problems are not similar to the old ones; they are the same problems.</p>
+
+<p><strong>The producer–consumer queue is spooling, everywhere.</strong> Every buffer in your stack exists because a fast thing met a slow thing. A Node <code>Writable</code> stream holds an internal buffer, and <code>write()</code> returning <code>false</code> means that buffer has passed <code>highWaterMark</code> — that is the system telling you the consumer is slower than you are, and ignoring it is how a Node process's memory climbs until it is killed. That signal, and the <code>'drain'</code> event that clears it, are <strong>backpressure</strong>, which is the one thing 1950s spooling did <em>not</em> have to solve because the tape was finite. Yours is not: an HTTP client that reads a response slowly while your server writes fast is an unbounded queue in your heap. Postgres has the same shape internally — a commit writes to an in-memory WAL buffer that a background writer drains to disk. So does the operating system itself: <code>write()</code> to a file returns as soon as the bytes are in the kernel's page cache, long before any disk has moved, which is Node 23's entire subject.</p>
+
+<p><strong>Cron is batch processing with a clock.</strong> A daemon holds a table of jobs and times, and at each minute runs whatever is due, capturing output and mailing it somewhere. It has the monitor's exact structure with a scheduling predicate bolted on, and it has the monitor's exact failure modes: if a run takes longer than the interval, the next one starts anyway and you now have two, which is why every real cron job needs a lock. Kubernetes <code>CronJob</code> makes that explicit as <code>concurrencyPolicy: Forbid</code> — a field that exists because of a problem inherent to this node.</p>
+
+<p><strong>What you can do at this point:</strong> explain what an operating system minimally is — a program that stays resident and arranges for other programs to run — and recognise the batch model in the pipeline tooling you use, including which of its ancient failure modes your configuration is guarding against.</p>
+
+<p><strong>What's still broken:</strong> three things, and each one is fatal.</p>
+
+<p>First, the processor still stops dead whenever a job touches a device. The monitor's shared I/O routine, underneath, is a loop that reads a hardware status bit over and over until the device says it is ready. That is called <strong>polling</strong>, and during it the processor executes millions of instructions that accomplish nothing. Spooling helps between jobs but cannot help a single job that is waiting.</p>
+
+<p>Second, control only returns to the monitor if the job <em>chooses</em> to return. A job with an infinite loop owns the machine until someone power-cycles it. A job that jumps to a wrong address never comes back.</p>
+
+<p>Third, and worst: the monitor is just bytes in memory, at addresses the job can write to. A job with a bad array index overwrites the monitor and the next job loads into a corrupted system. There is no mechanism anywhere in Node 0's machine that could prevent this, because the processor's only rule is fetch, decode, execute.</p>
+
+<p>The first of those needs a new piece of hardware: a way for a device to get the processor's attention rather than the processor having to ask.</p>

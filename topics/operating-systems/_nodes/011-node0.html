@@ -1,0 +1,117 @@
+<h3>Node 0 — the machine with nothing on it</h3>
+
+<p>There is no operating system yet. There is no file, no process, no folder, no window. There is a machine, and this node builds it, from a piece of metal upward, and then shows the specific way it fails when two people want to use it. That failure is the whole reason the rest of this document exists.</p>
+
+<h4>A wire, and why there are only two values</h4>
+
+<p>Start with a wire — a strip of metal with electricity pushed into one end. At the far end you can measure how hard the electricity is being pushed. That measure is called <strong>voltage</strong>. The wire either has a push in it or it does not, and that is the entire capability of the object: it can distinguish two situations.</p>
+
+<p>The obvious objection is the right one. A wire can carry any voltage at all, so why agree on only two? Why not say zero volts means the digit 0, one tenth of a volt means 1, two tenths means 2, and so on to nine — ten times as much meaning carried on the same piece of metal, for free?</p>
+
+<p>People built machines that way. <strong>ENIAC</strong>, switched on in 1945 at the University of Pennsylvania, was a decimal machine: each digit was a ring of ten circuits with exactly one of them lit. So this was not an oversight that hindsight corrected. It was a live design that lost a fight.</p>
+
+<p>It lost to <strong>noise</strong>. A wire is not a sealed pipe. Its voltage sags slightly over distance, wobbles when the wire beside it switches, drifts as the room warms, and dips when something else in the machine draws current. All of this is small — hundredths of a volt. That is fatal when your digits are one tenth of a volt apart, because 0.3 volts sagging to 0.28 is now ambiguous between three and two, and — this is the part that kills it — <em>nothing downstream can tell that an error happened</em>. The wrong value is indistinguishable from a right one and propagates silently through every subsequent calculation.</p>
+
+<p>With two legal values the same wobble is nothing. Anything under about 0.4 volts is read as off, anything over about 0.6 is read as on, and the band between them is a no-man's-land that circuits are designed never to rest in. A 0.05 volt disturbance moves a signal from 0.9 to 0.85, which is still unambiguously on, and the disturbance is <em>discarded</em> at that point rather than carried forward. Noise is thrown away at every single step instead of accumulating.</p>
+
+<p>So binary is an engineering trade and not a mathematical truth, and it is worth being able to state it in one sentence: <strong>you give up nine tenths of the information a wire could carry, and in exchange every value is either exactly right or catastrophically wrong, never slightly wrong.</strong> [EXPLAIN] A machine that is occasionally slightly wrong is worth nothing, because you cannot tell which answers to trust. A machine that is exactly right is something you can build a banking system on.</p>
+
+<p>The two states are named: on is <strong>1</strong>, off is <strong>0</strong>, and one wire's worth of on-or-off is a <strong>bit</strong>, a contraction of "binary digit" that Claude Shannon put into print in his 1948 paper <em>A Mathematical Theory of Communication</em>. In this document a bit is not an abstract unit of information. It is a wire, and whether there is electricity in it.</p>
+
+<h4>The switch that is operated by electricity</h4>
+
+<p>Wires alone compute nothing. A machine made only of wires carries values you put in by hand; it is a bundle of cables. What is needed is a wire whose state is controlled by <em>another wire</em>.</p>
+
+<p>That component is the <strong>transistor</strong>, demonstrated at Bell Labs in December 1947 by John Bardeen and Walter Brattain, with the theory largely due to William Shockley. It has three connections: an input, an output, and a control. Put voltage on the control and current flows from input to output; take the voltage off and the flow stops. It is a switch that is thrown by electricity rather than by a finger. [EXPLAIN] That is the atom. A processor in a phone today contains somewhere north of ten billion of them, and there is nothing else in there — the entire machine is that one component, made very small and repeated.</p>
+
+<p>Switches are enough because they can be arranged to make decisions. Put two transistors in series, so current must pass through both: the output is on only when both controls are on. That arrangement is called an <strong>AND gate</strong>. Put two in parallel, so current can take either path: the output is on when either control is on — an <strong>OR gate</strong>. A single transistor wired to pass current when its control is <em>off</em> gives a <strong>NOT gate</strong>. Those three are enough to build every operation any computer performs; this was known before the hardware existed, from Claude Shannon's 1937 master's thesis at MIT, which showed that switching circuits and Boolean algebra are the same subject.</p>
+
+<p>From gates you get arithmetic, mechanically. Adding two bits produces a sum and a carry: the sum is on when exactly one input is on (an <strong>XOR</strong>, built from the three primitives), and the carry is on when both are (an AND). That two-gate object is a <strong>half adder</strong>. Chain a row of them so that each one's carry feeds the next one's input, and thirty-two of them in a row add two thirty-two-bit numbers. Subtraction is addition with one input inverted and a carry forced in. Multiplication is repeated shift-and-add. There is no further magic anywhere in the arithmetic of a computer. [AWARE]</p>
+
+<h4>Holding a number, and holding many</h4>
+
+<p>Gates compute but forget instantly — the output follows the input and nothing persists. Wire two NOT gates in a loop, each feeding the other, and the pair has two stable states it will sit in indefinitely. That is one bit of storage, called a <strong>latch</strong>, and with a control wire added so that it only accepts a new value when told to, a <strong>flip-flop</strong>.</p>
+
+<p>Put sixty-four flip-flops side by side and you can hold a sixty-four-bit number. Such a row, sitting directly next to the arithmetic circuits, is a <strong>register</strong>. [EXPLAIN] Registers are the fastest storage in the machine because they are physically adjacent to the gates that use them — the signal travels a fraction of a millimetre. A processor has only a few dozen of them. On the x86-64 processor in a typical laptop or server there are sixteen general-purpose integer registers with historical names — <code>rax</code>, <code>rbx</code>, <code>rcx</code>, <code>rdx</code>, <code>rsi</code>, <code>rdi</code>, <code>rbp</code>, <code>rsp</code>, and <code>r8</code> through <code>r15</code>. Those names will come back in Node 4, because the way your program asks the kernel for anything is by putting numbers in specific ones of them.</p>
+
+<p>A few dozen numbers is not a computer. You need millions. But you cannot put a million registers next to the arithmetic unit — there is no room, and the wires would be long enough that the signal delay would dominate. So a second kind of storage exists, further away and much larger, built from a simpler and denser cell: one transistor and one tiny capacitor holding a charge. That is <strong>DRAM</strong>, the main memory of the machine, and the capacitor leaks, which is why it must be read and rewritten thousands of times a second. The D stands for dynamic, and it means exactly that: the memory forgets unless continuously refreshed.</p>
+
+<p>Because there are billions of these cells, they need <em>names</em>. The names are consecutive integers starting at zero, and one such integer is an <strong>address</strong>. [EXPLAIN] Memory is therefore, physically and precisely, a very long row of numbered boxes, each holding eight bits — a <strong>byte</strong> — and the machine has exactly two operations on it: <em>load</em> the contents of box N into a register, and <em>store</em> the contents of a register into box N. Every data structure you have ever used is made of those two operations and nothing else.</p>
+
+<p>Eight is not a natural number here; it is a decision. IBM's System/360, announced in April 1964, standardised the eight-bit byte because eight bits hold one character in the encoding IBM was using and because eight is a power of two, which makes address arithmetic a matter of shifting bits rather than dividing. Machines before it used six-bit and seven-bit and nine-bit units. Eight won because System/360 won.</p>
+
+<h4>The idea that makes it a computer: instructions are numbers</h4>
+
+<p>Here is the pivot the whole field turns on, and it is worth slowing down for.</p>
+
+<p>ENIAC was programmed by physically rewiring it. To change what it computed, a team moved cables between plugboards and set switches, and this took days. The machine's <em>behaviour</em> lived in its wiring; its <em>data</em> lived in its circuits; the two were different kinds of thing.</p>
+
+<p>The alternative was written down in June 1945 in a document titled <em>First Draft of a Report on the EDVAC</em>, circulated under John von Neumann's name alone although it recorded work done with J. Presper Eckert and John Mauchly — an attribution dispute that has never fully settled. The idea: <strong>put the instructions in the same memory as the data, encoded as numbers.</strong> [EXPLAIN]</p>
+
+<p>Concretely, agree that when the machine reads the number <code>0x48</code> <code>0x01</code> <code>0xd8</code> it will interpret it as "add the contents of register <code>rbx</code> into register <code>rax</code>". That agreement — a table mapping bit patterns to operations, fixed in the wiring of the machine — is an <strong>instruction set architecture</strong>, an ISA. The bit patterns themselves are <strong>machine code</strong>. x86-64 is one such agreement, ARM64 is another, RISC-V a third; they are mutually unintelligible, which is why a compiled binary for one does not run on the other, and why Docker images carry an architecture tag and why an image built on an Apple laptop can fail to start on a cloud server.</p>
+
+<p>The consequences of instructions being data are not small conveniences. They are the field:</p>
+
+<ul>
+<li>A program can be <em>loaded</em> — copied into memory like any other data — instead of being wired. Changing programs takes seconds rather than days.</li>
+<li>A program can be <em>stored</em> on a card, a tape, a disk. Software becomes a thing that can exist separately from a machine.</li>
+<li>A program can <em>write</em> a program, because writing instructions is just writing numbers into memory. That is what a compiler is, and it is what V8's JIT is doing at runtime inside every Node process and every browser tab you have open.</li>
+<li>A program can, by mistake, <em>overwrite itself</em> or another program. Every security vulnerability in the class that includes buffer overflows exists because of this single design decision, and Node 3 is where the machine first fights back.</li>
+</ul>
+
+<p>The first machine actually to run a stored program was the <strong>Manchester Baby</strong> on 21 June 1948, a test rig that ran a seventeen-instruction program to find the highest factor of a number. The first practically useful one was <strong>EDSAC</strong> at Cambridge, under Maurice Wilkes, which ran its first program on 6 May 1949. Every computer since is the same design, and the phrase "von Neumann architecture" means precisely this: one memory, holding both instructions and data, with a processor that fetches from it.</p>
+
+<h4>The loop that is the entire processor</h4>
+
+<p>Given a memory full of instruction-numbers, the processor does one thing, forever, from the moment it is powered on until it is powered off. It needs one special register to do it: a register holding the address of the next instruction to run. On x86-64 it is called <code>rip</code>, the <strong>instruction pointer</strong>; the vendor-neutral name is the <strong>program counter</strong>.</p>
+
+<pre><code>1. FETCH    read the bytes at the address in rip
+2. DECODE   look up what that bit pattern means
+3. EXECUTE  do it — add, load, store, compare, jump
+4. ADVANCE  add the instruction's length to rip
+   repeat
+</code></pre>
+
+<p>That is the whole processor. [EXPLAIN] There is no scheduler in there, no notion of a program, no notion of a user, no notion of a file. Those are all software, and every one of them is built later in this document. The hardware knows only: fetch, decode, execute, advance.</p>
+
+<p>Two details in that loop carry enormous weight later.</p>
+
+<p>First, <strong>a jump is just writing to <code>rip</code></strong>. An <code>if</code> statement is a comparison followed by a conditional write to <code>rip</code>. A loop is a backward write to <code>rip</code>. A function call is a write to <code>rip</code> plus a note of where to come back to. Control flow is not a concept the hardware has; it is arithmetic on one register.</p>
+
+<p>Second, <strong>the loop never stops and never asks anything.</strong> It cannot pause and wait for a decision. It cannot notice that something else would be a better use of its time. It executes whatever is at <code>rip</code> with total obedience. Everything in the rest of this document is an answer to the question: given a device with that property, how do you get it to do more than one thing, safely, for more than one person?</p>
+
+<p>A modern processor complicates this picture without changing it. It fetches many instructions ahead (<strong>pipelining</strong>), guesses which way a branch will go and starts executing down that path before it knows (<strong>speculative execution</strong>, which is where the Spectre vulnerabilities of January 2018 come from — Node 40), and executes instructions out of order while preserving the appearance of order (<strong>out-of-order execution</strong>). All of that is an optimisation that the machine is contractually required to make invisible. The model above remains exactly correct as a description of what the results look like.</p>
+
+<h4>What a program actually is, at this point</h4>
+
+<p>A program, right now, is a run of bytes that you place into memory starting at some address, followed by setting <code>rip</code> to that address. Nothing more. There is no header, no name, no owner, no permissions, no isolation, no concept of it "starting" or "ending" other than by convention. If the bytes run off the end into whatever happens to be in memory next, the processor executes that too, cheerfully, because it cannot tell the difference.</p>
+
+<p>And this program owns the machine completely. It can read and write any memory address, because there is nothing to stop it. It can talk directly to the disk controller and the printer, because those are reached by writing to specific memory addresses or specific hardware ports and any code can do that. It runs until it decides to stop.</p>
+
+<h4>How this was actually used, and what it cost</h4>
+
+<p>This is not a thought experiment. It is how computing worked into the late 1950s, and the specific misery of it drove everything that follows.</p>
+
+<p>A machine like the IBM 704 (1954) filled a room and cost the equivalent of several million pounds today. It ran one program at a time, and to run yours you booked a slot on a sign-up sheet — typically an hour, possibly next week. At your slot you walked in carrying a deck of punched cards. Each card was a stiff piece of paper with rectangular holes in it; the pattern of holes on one card encoded one line of your program. A large program was a box of several thousand cards, and dropping the box was a genuine catastrophe, which is why people drew a diagonal line across the top edge of the deck — a dropped and reshuffled deck could be re-sorted by lining the diagonal back up.</p>
+
+<p>You loaded your deck into the card reader, set switches on the console to point the machine at the loading address, and pressed start. If your program had a bug, it did not print a stack trace; it either stopped dead with lights showing the contents of registers, or it kept running and produced wrong output, or it wandered into arbitrary memory and did something undefined. You had no debugger. You examined the console lights, thought about it, punched corrected cards, and — if your hour had run out — signed up for another slot next week.</p>
+
+<p>The economics are the point. The machine cost a fortune per hour and was almost always idle: idle while you walked to the reader, idle while cards fed through at a few hundred a minute, idle while the operator mounted a tape, idle while you stared at the lights, idle between your slot ending and the next person's beginning. Actual computation was a small fraction of the wall clock. The scarce resource was processor time and it was being wasted at enormous cost, and every single mechanism in this document is, at root, a response to some version of that observation.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p>Nothing above has been superseded. It is all running right now, underneath everything you write, and several things you already deal with are this node showing through.</p>
+
+<p><strong>Your JavaScript is these instructions.</strong> When you run <code>node server.js</code>, the file is not executed by anything that understands JavaScript. It is read by V8, a C++ program compiled to x86-64 or ARM64 machine code, which parses your source into a tree, walks that tree in an interpreter called Ignition, and — for functions that run often enough to be worth it — hands them to an optimising compiler (TurboFan, and since 2021 also a mid-tier one called Sparkplug) which <em>writes machine code into memory and jumps to it</em>. That is the stored-program property from 1945 being used at runtime, in your process, thousands of times. It is also why a JIT-compiled runtime needs memory that is both writable and executable, which is a security problem serious enough that browsers and modern kernels go to some lengths to narrow the window in which a page is both.</p>
+
+<p><strong>A stack trace is a list of instruction pointer values.</strong> When your Node process throws, the frames you read are recovered by walking a chain of saved <code>rip</code> values in memory and mapping each address back to a function name using a table the runtime kept. This is why a stack trace from a stripped native binary is a column of hexadecimal numbers, why source maps exist (they are the same mapping problem one level up: bundled line and column back to original line and column), and why <code>Error.stackTraceLimit</code> exists at all — collecting frames costs real time because it is a walk through memory.</p>
+
+<p><strong>An architecture mismatch is the ISA agreement failing.</strong> <code>exec format error</code> when you run a container image on the wrong machine is the processor being handed bit patterns encoded under a different agreement about what the bits mean. It is why <code>docker build --platform linux/amd64</code> exists, why Apple Silicon machines run <code>amd64</code> images through emulation (QEMU translating each instruction, roughly five to twenty times slower — a real reason your local Docker build feels sluggish), and why <code>docker manifest</code> lists can carry several architectures under one tag. The same fact makes native Node modules architecture-specific: a <code>.node</code> file is compiled machine code, so <code>npm install</code> on an ARM Mac produces binaries a linux/amd64 container cannot load, which is the actual reason <code>node_modules</code> must not be baked into an image from the host and must be installed inside the build.</p>
+
+<p><strong>Byte-level thinking surfaces in JavaScript.</strong> <code>ArrayBuffer</code>, <code>Uint8Array</code>, and Node's <code>Buffer</code> are a run of the numbered boxes described above, exposed directly. <code>buf.readUInt32BE</code> versus <code>readUInt32LE</code> is the question of which end of a four-byte number is stored first — <strong>endianness</strong>, a genuine hardware difference where x86 and ARM store the least significant byte at the lowest address (little-endian) while network protocols by convention use the other order. That is why it is called "network byte order" and why you convert.</p>
+
+<p><strong>Speculative execution reaches all the way into your web app.</strong> The out-of-order machinery mentioned above is what made Spectre possible, and the mitigation on the web side was to remove precise timing from JavaScript: <code>performance.now()</code> was deliberately coarsened, and <code>SharedArrayBuffer</code> was disabled in browsers in January 2018 and only restored behind the <code>Cross-Origin-Opener-Policy</code> and <code>Cross-Origin-Embedder-Policy</code> headers. If you have ever had to set those two headers to make a WebAssembly threading library work, the reason is a processor optimisation described three paragraphs ago.</p>
+
+<p><strong>What you can do at this point:</strong> describe, without hand-waving, what a computer is — a memory of numbered bytes holding both data and instructions, and a processor that repeats fetch, decode, execute, advance — and explain why it is binary, why instructions being data is the decisive idea, and what your JavaScript actually becomes before it runs.</p>
+
+<p><strong>What's still broken:</strong> the machine runs exactly one program, and a human being is the loader. Between one program ending and the next beginning, a person walks across a room. The processor — the most expensive thing in the building — sits idle for the overwhelming majority of every hour, waiting on humans and on cards. Nobody can share the machine, because there is nothing in it that could arbitrate. The first fix is obvious once stated: if loading the next program is itself a job, then a <em>program</em> could do it.</p>

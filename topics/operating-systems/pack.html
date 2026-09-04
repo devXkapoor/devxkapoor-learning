@@ -913,7 +913,174 @@ nonvoluntary_ctxt_switches:     46
 
 <p><strong>What you can do at this point:</strong> explain paging from the address split upward, state exactly what the page table entry flags do, explain the page fault as one mechanism serving six purposes, read RSS versus VSZ versus PSS correctly, distinguish major from minor faults when diagnosing, and explain why huge pages matter for a database and why V8 compresses pointers.</p>
 
-<p><strong>What's still broken:</strong> a process now has an address space, but nothing has said what is <em>in</em> it — where the code goes, where the stack goes, why the heap grows upward, what happens when the stack grows into something, or how a program asks for more memory in the first place.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
+<p><strong>What's still broken:</strong> a process now has an address space, but nothing has said what is <em>in</em> it — where the code goes, where the stack goes, why the heap grows upward, what happens when the stack grows into something, or how a program asks for more memory in the first place.</p>
+
+<h3>Node 11 — the address space: what is actually in a process's memory</h3>
+
+<p><strong>The limitation:</strong> a process has a private, translated address space and nothing has said what lives where in it, or how a program obtains more.</p>
+
+<p>The layout is not arbitrary; every region is where it is for a reason, and the reasons explain several errors you have seen.</p>
+
+<pre><code>  high addresses
+  ┌──────────────────────────┐  0xFFFFFFFFFFFFFFFF
+  │  kernel space            │  mapped in every process, unreachable
+  │                          │  from user mode (the U/S flag)
+  ├──────────────────────────┤  0x00007FFFFFFFFFFF  (128 TB on x86-64)
+  │  [stack]        ↓ grows  │  locals, return addresses, saved registers
+  ├──────────────────────────┤
+  │        (unmapped gap)    │
+  ├──────────────────────────┤
+  │  mmap region             │  shared libraries, large mallocs,
+  │                          │  memory-mapped files, thread stacks
+  ├──────────────────────────┤
+  │        (unmapped gap)    │
+  ├──────────────────────────┤
+  │  [heap]         ↑ grows  │  small mallocs, via brk
+  ├──────────────────────────┤
+  │  .bss                    │  zero-initialised globals (occupies no
+  │                          │  space in the file, only in memory)
+  ├──────────────────────────┤
+  │  .data                   │  initialised globals — writable
+  ├──────────────────────────┤
+  │  .rodata                 │  constants, string literals — read-only
+  ├──────────────────────────┤
+  │  .text                   │  the machine code — read+execute, no write
+  └──────────────────────────┘  0x400000 (or randomised, with PIE)
+  low addresses — page 0 deliberately unmapped
+</code></pre>
+
+<p>Several details there are load-bearing.</p>
+
+<p><strong>Page zero is deliberately left unmapped.</strong> That is why dereferencing a null pointer produces a segmentation fault rather than silently reading whatever happens to be at address 0. The safety of null is a page-table decision.</p>
+
+<p><strong><code>.text</code> is read-only and executable; the stack and heap are writable and non-executable.</strong> No region is both writable and executable, a policy called W^X, enforced by the NX bit from Node 10. This is what stops classical shellcode injection, and it is exactly the rule a JIT compiler must break — V8 has to write machine code and then run it, so it allocates pages, writes, and flips them to executable, keeping the window as narrow as possible. On systems that forbid this entirely (iOS outside Safari, some hardened kernels, OpenBSD by default) JIT is impossible, which is why JavaScript engines on locked-down platforms fall back to an interpreter and run several times slower.</p>
+
+<p><strong>The stack grows downward and the heap upward</strong> — a convention from when a process had one contiguous region and putting them at opposite ends let either grow into the shared middle. The gaps between regions are unmapped on purpose, so that growth past the intended limit hits nothing and faults rather than silently overwriting the neighbour.</p>
+
+<p><strong>Kernel space is mapped into every process</strong>, marked supervisor-only, so that a system call does not need to change the page table. Meltdown made that mapping readable through a speculative side channel, and KPTI's response — unmapping it and paying a page-table switch per syscall — is the cost described in Node 4.</p>
+
+<h4>The stack, and the error you have definitely seen</h4>
+
+<p>The stack holds one <strong>frame</strong> per active function call: its local variables, its arguments beyond the register-passed ones, and the return address. Calling pushes a frame; returning pops it. That is all "the call stack" is — a region of memory and a pointer (<code>rsp</code>) to the current top. A stack trace is that chain walked.</p>
+
+<p>Its size is bounded: 8 MB by default on Linux for the main thread (<code>ulimit -s</code>), and typically much less for additional threads — libuv uses far smaller stacks for threadpool threads. Below the stack sits a <strong>guard page</strong>, permanently unmapped, so that runaway growth faults immediately instead of quietly corrupting the mmap region below. <strong>Infinite recursion therefore ends as a page fault on the guard page, delivered as <code>SIGSEGV</code>.</strong></p>
+
+<p>But in JavaScript you do not see <code>SIGSEGV</code>; you see <code>RangeError: Maximum call stack size exceeded</code>. That is because V8 imposes its own, smaller limit and checks it on entry to each function, so that it can throw a catchable JavaScript error before the real hardware limit is reached. The V8 limit is around 1 MB by default, which is why the recursion depth is typically ten to twelve thousand frames rather than a hundred thousand, and why it varies with how many locals each frame holds. <code>node --stack-size=4000</code> raises V8's check — and raising it past the real OS stack turns a catchable <code>RangeError</code> into a hard segmentation fault, which is a genuinely bad trade. [USE] Deep recursion in JavaScript is a design problem, not a flag problem: JavaScript engines still do not implement proper tail calls (only Safari does, despite it being in ES2015), so the fix is an explicit stack, a queue, or iteration.</p>
+
+<h4>How a program gets more memory: two calls</h4>
+
+<p>There are only two mechanisms, and everything above them is library code.</p>
+
+<p><strong><code>brk</code> / <code>sbrk</code></strong> moves a single pointer marking the top of the heap. Simple, ancient, and limited: memory can only be returned by moving the pointer back down, so a single live allocation at the top pins everything below it.</p>
+
+<p><strong><code>mmap</code></strong> is the general one and is what everything modern uses. It asks for a region of address space with stated properties, and it is worth knowing its four combinations because each is a different familiar thing:</p>
+
+<ul>
+<li><strong>Anonymous, private</strong> — plain memory, not backed by any file, visible only to this process. This is what a large <code>malloc</code> becomes and what a JavaScript heap is made of.</li>
+<li><strong>File-backed, private</strong> — a file mapped in, with writes kept private via copy-on-write. This is how an executable's <code>.data</code> section is loaded.</li>
+<li><strong>File-backed, shared</strong> — a file mapped in, with writes going to the file and visible to every other process mapping it. This is <code>mmap</code>-based I/O and shared memory between unrelated processes.</li>
+<li><strong>Anonymous, shared</strong> — memory with no file, shared between a process and its children. This is how <code>fork</code>-based servers share state, and what <code>/dev/shm</code> provides.</li>
+</ul>
+
+<p><code>MAP_ANONYMOUS</code> memory is guaranteed zero-filled, and this is a security requirement rather than a convenience: without it, a fresh allocation could contain another process's freed data. The kernel keeps a supply of pre-zeroed pages for this.</p>
+
+<h4>Reading a real address space</h4>
+
+<p><code>cat /proc/&lt;pid&gt;/maps</code> prints every region: address range, permissions, and what it is. [USE] Doing this once on a running Node process is worth more than any diagram. You will see the <code>node</code> binary's <code>r-xp</code> text region, its data, an anonymous <code>[heap]</code>, dozens of large anonymous regions that are V8's heap spaces and the allocator's arenas, mapped shared libraries (<code>libc</code>, <code>libstdc++</code>, any <code>.node</code> addons), one stack per thread, <code>[vdso]</code> from Node 8, and <code>[vvar]</code>. <code>/proc/&lt;pid&gt;/smaps_rollup</code> summarises the same thing with RSS and PSS totals.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>V8's heap is a set of these regions, and its structure explains its performance.</strong> Inside the process's address space, V8 maintains several <em>spaces</em>, and knowing them makes a heap snapshot legible:</p>
+
+<ul>
+<li><strong>New space</strong> (the <em>young generation</em>) — small, typically 1–8 MB per semi-space, split in two halves. All new objects are allocated here by simply incrementing a pointer, which is why allocation in JavaScript costs a handful of instructions. Collection is a <em>scavenge</em>: live objects are copied to the other half and the whole half is then free. Because the overwhelming majority of objects die young, a scavenge touches very little and takes under a millisecond. <code>--max-semi-space-size</code> tunes it, and raising it is one of the few Node GC flags that reliably helps a high-allocation server.</li>
+<li><strong>Old space</strong> — objects that survived two scavenges are <em>promoted</em> here. Collected by mark-sweep-compact, incrementally and concurrently since the "Orinoco" work in 2016–2018. <code>--max-old-space-size</code> is the flag people know, and Node 10 explained why values above ~4096 are ineffective under pointer compression.</li>
+<li><strong>Large object space</strong> — anything above roughly 128 KB is allocated directly here and never moved, because copying it would cost more than it saves.</li>
+<li><strong>Code space</strong> — executable pages holding JIT output. The only writable-then-executable memory in the process.</li>
+</ul>
+
+<p><strong>The generational hypothesis — "most objects die young" — is why this works</strong>, and it is why creating short-lived objects in JavaScript is genuinely cheap while holding onto them is expensive. The cost of garbage collection scales with <em>surviving</em> data, not with allocated data. A handler that allocates ten thousand short-lived objects per request costs almost nothing; one that adds ten objects per request to a module-level cache costs increasingly much, forever.</p>
+
+<p><strong>Buffers live outside the V8 heap, which is why your numbers do not add up.</strong> <code>Buffer.allocUnsafe</code> and <code>ArrayBuffer</code> data are allocated outside V8's managed heap — <code>Buffer</code> uses a pooled 8 KB slab allocator for small buffers and direct allocation for large ones. So <code>process.memoryUsage()</code> returns several distinct numbers and you must read them as such: <code>heapTotal</code> and <code>heapUsed</code> are V8's spaces only; <code>external</code> is memory held by C++ objects tied to JavaScript ones, including buffers; <code>arrayBuffers</code> is the subset that is <code>ArrayBuffer</code>; and <code>rss</code> is the operating system's number from Node 10, which is all of the above plus the binary, the libraries, the thread stacks, and the allocator's overhead. <strong>A leak of buffers shows up in <code>rss</code> and <code>external</code> while <code>heapUsed</code> stays flat</strong> — and since most Node memory-leak tooling looks at the heap, that class of leak is often hunted for a long time in the wrong place. It is also why <code>--max-old-space-size</code> cannot protect you from it: the limit only governs old space.</p>
+
+<p><strong>Node's own limits are per-region, not per-process</strong>, and this is the reason for the standard sizing rule: set <code>--max-old-space-size</code> meaningfully <em>below</em> your container's memory limit, because RSS will exceed old space by hundreds of megabytes of binary, code, stacks, buffers and fragmentation. A container limited to 512 MB running Node with a default heap cap will usually be killed by the kernel before V8 ever decides to collect aggressively — which is Node 13, and one of the most common container misconfigurations in production.</p>
+
+<p><strong>What you can do at this point:</strong> read <code>/proc/&lt;pid&gt;/maps</code>, explain why null dereferences fault and why W^X exists and what it costs a JIT, explain a stack overflow at both the V8 and the hardware level, name the four kinds of <code>mmap</code>, describe V8's spaces and the generational hypothesis, and read all five numbers from <code>process.memoryUsage()</code> correctly.</p>
+
+<p><strong>What's still broken:</strong> <code>mmap</code> hands out whole pages. Real programs allocate sixteen bytes at a time, millions of times. Something has to sit between them, and that something has properties that will surprise you.</p>
+
+<h3>Node 12 — the allocator, and why freed memory does not come back</h3>
+
+<p><strong>The limitation:</strong> the kernel deals in 4096-byte pages, and programs allocate sixteen bytes at a time, millions of times a second. A system call per allocation would be absurd.</p>
+
+<p>So a <strong>memory allocator</strong> lives in user space, inside your process. It obtains large regions from the kernel with <code>mmap</code> or <code>brk</code> and carves them up. It is ordinary library code with no privileges — <code>malloc</code> and <code>free</code> are not system calls, a fact that surprises people and explains most of this node. [EXPLAIN]</p>
+
+<h4>What it has to do, and why it is hard</h4>
+
+<p>Given a request for N bytes it must find a free run of at least N, mark it used, and return a pointer. On <code>free</code> it must know how big the block was — so it stores a small header immediately before the returned pointer, which is why writing before the start of an allocated block corrupts the heap in ways that crash much later somewhere else entirely — and it must merge the block with adjacent free ones to avoid ending up with a heap of unusable slivers.</p>
+
+<p>glibc's allocator, the one your Node process is using unless you changed it, works like this:</p>
+
+<ul>
+<li>Free blocks are kept in <strong>bins</strong> by size — fast bins for small blocks, sorted bins for large ones — so finding a fit is not a linear scan.</li>
+<li>Requests above <code>MMAP_THRESHOLD</code> (128 KB by default, and dynamically adjusted) bypass the heap entirely and get their own <code>mmap</code>, which is returned to the kernel exactly when freed.</li>
+<li>Every thread gets its own <strong>arena</strong>, so that threads do not contend on a single lock for every allocation. The number is capped at eight times the core count by default — which on a 64-core machine is 512 arenas, each of which can grow to 64 MB of address space.</li>
+</ul>
+
+<h4>The property that catches everyone</h4>
+
+<p><strong><code>free()</code> usually does not return memory to the operating system.</strong> [EXPLAIN] It returns it to the allocator's own free lists, inside your process, so the next <code>malloc</code> can reuse it without a system call. RSS stays where it was.</p>
+
+<p>This is correct behaviour and it is the right default — releasing pages and re-faulting them costs far more than keeping them. But it means <strong>a process's memory use is a high-water mark, not a current measurement.</strong> A Node service that handles one enormous request and then goes idle keeps the elevated RSS. That is not a leak. It is not a bug. It is the allocator holding memory it will happily reuse.</p>
+
+<p>Worse, memory <em>cannot</em> always be returned even when the allocator wants to. The heap shrinks only from the top (that is <code>brk</code>'s nature), so one small live allocation near the top pins everything below it. And a page can only be returned if <em>every</em> object on it is free — a page holding one live 32-byte object and 4064 bytes of free space is fully resident. That is <strong>internal fragmentation at the allocator level</strong>, and for a long-running server with variable object sizes it can account for a large and permanent gap between "bytes my program considers live" and "bytes the machine has committed to me".</p>
+
+<p>Which is the answer to the question that brings people to this material: <em>why does my Node container use 800 MB when <code>heapUsed</code> says 200 MB?</em> The full accounting, in order of typical size:</p>
+
+<ol>
+<li>V8 old space and new space — <code>heapTotal</code>, which is always larger than <code>heapUsed</code> because V8 keeps headroom.</li>
+<li>External memory — buffers, <code>ArrayBuffer</code>s, and native addon allocations. Node 11.</li>
+<li>The <code>node</code> binary itself and its shared libraries — roughly 50–100 MB resident.</li>
+<li>V8's code space, compiled from your JavaScript and every module you required.</li>
+<li>Thread stacks — the main thread, four libuv threadpool threads, V8's helper threads.</li>
+<li><strong>glibc arena fragmentation</strong> — often the largest surprise, especially on many-core machines where dozens of arenas each hold unreturned memory.</li>
+</ol>
+
+<p>Setting <code>MALLOC_ARENA_MAX=2</code> is a real and frequently effective fix for the last one, and it is one of the few genuinely useful environment variables for containerised Node and Java services alike. [USE] It trades a little allocation contention for a substantial reduction in resident memory.</p>
+
+<h4>Other allocators exist for exactly these reasons</h4>
+
+<p><strong>jemalloc</strong> (Jason Evans, originally for FreeBSD in 2005, then Facebook) is designed around fragmentation avoidance and scalability, with size-class-based allocation and aggressive page reclamation. <strong>tcmalloc</strong> (Google) uses per-thread caches for the same goal. Swapping glibc's allocator for jemalloc via <code>LD_PRELOAD</code> — no recompilation, just an environment variable, which Node 34 will explain — is a standard move for Ruby, Python and Postgres deployments and routinely reduces RSS by twenty to forty percent on allocation-heavy workloads. It is worth knowing this exists, because "our service uses too much memory" sometimes has a one-line answer that involves no code.</p>
+
+<h4>Garbage collection is a third layer on top</h4>
+
+<p>Everything so far is manual: the program says when a block is free. Managed languages remove that obligation by tracking reachability. It is worth stating the layering precisely, because the three layers are routinely conflated:</p>
+
+<ol>
+<li>The <strong>kernel</strong> hands out pages via <code>mmap</code>.</li>
+<li>The <strong>allocator</strong> (or, in V8's case, V8's own page allocator) carves those into objects.</li>
+<li>The <strong>garbage collector</strong> decides which objects are still reachable and reclaims the rest, returning them to layer 2 — which usually does not return them to layer 1.</li>
+</ol>
+
+<p>The reachability question is answered by tracing: start from the <strong>roots</strong> — the global object, the current call stack, and handles held by native code — and mark everything reachable. Anything unmarked is garbage. <strong>This is why "unreferenced" is the wrong mental model and "unreachable from a root" is the right one</strong>, and it is why reference counting alone (which Python uses, with a cycle collector bolted on) cannot collect a cycle while tracing can.</p>
+
+<p>Two consequences you will meet:</p>
+
+<p><strong>A memory leak in JavaScript is always a reference you forgot.</strong> The classic sources: a module-level <code>Map</code> or array that grows per request; an event listener added per connection and never removed, keeping the whole handler closure and everything it captured alive; a <code>setInterval</code> whose callback closes over a large object; a promise that never settles, keeping its continuation and captured scope alive forever; and — specific to closures — the fact that in V8 all closures created in the same function share one <em>context</em> object, so an unrelated small closure can keep a large captured variable alive. <code>WeakMap</code>, <code>WeakRef</code> and <code>FinalizationRegistry</code> exist for the cases where you genuinely need a reference that does not prevent collection.</p>
+
+<p><strong>Collection pauses are real and they land in your latency percentiles.</strong> A scavenge is sub-millisecond. A full mark-compact of a 2 GB old space can be tens to low hundreds of milliseconds, and although V8 does most of the marking concurrently and incrementally, the compaction pause is a genuine stop. If your p99 latency has spikes that do not correlate with request complexity, capture GC events (<code>--trace-gc</code>, or <code>perf_hooks</code>'s <code>PerformanceObserver</code> on the <code>gc</code> entry type) and check. The mitigations are architectural — allocate less per request, keep the live set small, and split large heaps across processes — rather than flags.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>The container sizing rule, derived rather than memorised.</strong> Given everything above: RSS is heap plus external plus binary plus code plus stacks plus fragmentation, and the kernel kills on RSS. So the heap cap must leave room for the rest. A workable starting point is <code>--max-old-space-size</code> at roughly 60–75% of the container limit — for a 1 GB container, around 640–768 MB — and then measuring. Setting no cap at all in a container is the common error: V8's default heap size is derived from the <em>host's</em> physical memory, not the cgroup limit, so on a 64 GB node a container limited to 512 MB gets a V8 that believes it may grow to gigabytes and will not collect urgently until far past the point where the kernel kills it. Node has improved its cgroup awareness over time, but setting the flag explicitly remains the reliable answer. [USE]</p>
+
+<p><strong>Postgres has the same three-layer structure and the same trap.</strong> <code>shared_buffers</code> is memory the server maps once at startup; <code>work_mem</code> is per sort or hash operation, <em>per node of the plan, per concurrent query</em> — so a value that looks modest can multiply by a hundred under load and exhaust the machine; <code>maintenance_work_mem</code> is for index builds and vacuum. Setting <code>work_mem</code> without thinking about concurrency is the Postgres version of setting no heap cap, with the same ending.</p>
+
+<p><strong>Native addons allocate outside everything V8 knows about.</strong> <code>sharp</code>, <code>canvas</code>, <code>better-sqlite3</code> and their kind call <code>malloc</code> directly. V8 has no idea that memory exists, so it does not count towards the heap limit and does not create GC pressure — meaning a leak in native code produces a steadily climbing RSS with a perfectly flat heap graph and no GC activity at all. <code>ExternalMemoryAccounting</code> (<code>napi_adjust_external_memory</code>) exists so well-behaved addons can tell V8 about it; many do not. When RSS climbs and the heap does not, look at the addons before you look at your JavaScript.</p>
+
+<p><strong>What you can do at this point:</strong> explain why <code>malloc</code> is not a system call, why freed memory does not reduce RSS, and what fragmentation costs; account fully for the gap between <code>heapUsed</code> and container memory; state the three layers of allocation and where a garbage collector sits; derive a heap cap from a container limit rather than guessing; and recognise the signature of a native leak.</p>
+
+<p><strong>What's still broken:</strong> the allocator can hand out memory only if the kernel has frames to give. Nothing has said what happens when it does not — when every frame is spoken for and another allocation arrives. That question has three answers, and one of them is the reason for exit code 137.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
   This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
   elaboration.json live alongside it and are fetched at runtime — do not inline
   that data here.
@@ -1873,6 +2040,173 @@ nonvoluntary_ctxt_switches:     46
 <p><strong>What you can do at this point:</strong> explain paging from the address split upward, state exactly what the page table entry flags do, explain the page fault as one mechanism serving six purposes, read RSS versus VSZ versus PSS correctly, distinguish major from minor faults when diagnosing, and explain why huge pages matter for a database and why V8 compresses pointers.</p>
 
 <p><strong>What's still broken:</strong> a process now has an address space, but nothing has said what is <em>in</em> it — where the code goes, where the stack goes, why the heap grows upward, what happens when the stack grows into something, or how a program asks for more memory in the first place.</p>
+
+<h3>Node 11 — the address space: what is actually in a process's memory</h3>
+
+<p><strong>The limitation:</strong> a process has a private, translated address space and nothing has said what lives where in it, or how a program obtains more.</p>
+
+<p>The layout is not arbitrary; every region is where it is for a reason, and the reasons explain several errors you have seen.</p>
+
+<pre><code>  high addresses
+  ┌──────────────────────────┐  0xFFFFFFFFFFFFFFFF
+  │  kernel space            │  mapped in every process, unreachable
+  │                          │  from user mode (the U/S flag)
+  ├──────────────────────────┤  0x00007FFFFFFFFFFF  (128 TB on x86-64)
+  │  [stack]        ↓ grows  │  locals, return addresses, saved registers
+  ├──────────────────────────┤
+  │        (unmapped gap)    │
+  ├──────────────────────────┤
+  │  mmap region             │  shared libraries, large mallocs,
+  │                          │  memory-mapped files, thread stacks
+  ├──────────────────────────┤
+  │        (unmapped gap)    │
+  ├──────────────────────────┤
+  │  [heap]         ↑ grows  │  small mallocs, via brk
+  ├──────────────────────────┤
+  │  .bss                    │  zero-initialised globals (occupies no
+  │                          │  space in the file, only in memory)
+  ├──────────────────────────┤
+  │  .data                   │  initialised globals — writable
+  ├──────────────────────────┤
+  │  .rodata                 │  constants, string literals — read-only
+  ├──────────────────────────┤
+  │  .text                   │  the machine code — read+execute, no write
+  └──────────────────────────┘  0x400000 (or randomised, with PIE)
+  low addresses — page 0 deliberately unmapped
+</code></pre>
+
+<p>Several details there are load-bearing.</p>
+
+<p><strong>Page zero is deliberately left unmapped.</strong> That is why dereferencing a null pointer produces a segmentation fault rather than silently reading whatever happens to be at address 0. The safety of null is a page-table decision.</p>
+
+<p><strong><code>.text</code> is read-only and executable; the stack and heap are writable and non-executable.</strong> No region is both writable and executable, a policy called W^X, enforced by the NX bit from Node 10. This is what stops classical shellcode injection, and it is exactly the rule a JIT compiler must break — V8 has to write machine code and then run it, so it allocates pages, writes, and flips them to executable, keeping the window as narrow as possible. On systems that forbid this entirely (iOS outside Safari, some hardened kernels, OpenBSD by default) JIT is impossible, which is why JavaScript engines on locked-down platforms fall back to an interpreter and run several times slower.</p>
+
+<p><strong>The stack grows downward and the heap upward</strong> — a convention from when a process had one contiguous region and putting them at opposite ends let either grow into the shared middle. The gaps between regions are unmapped on purpose, so that growth past the intended limit hits nothing and faults rather than silently overwriting the neighbour.</p>
+
+<p><strong>Kernel space is mapped into every process</strong>, marked supervisor-only, so that a system call does not need to change the page table. Meltdown made that mapping readable through a speculative side channel, and KPTI's response — unmapping it and paying a page-table switch per syscall — is the cost described in Node 4.</p>
+
+<h4>The stack, and the error you have definitely seen</h4>
+
+<p>The stack holds one <strong>frame</strong> per active function call: its local variables, its arguments beyond the register-passed ones, and the return address. Calling pushes a frame; returning pops it. That is all "the call stack" is — a region of memory and a pointer (<code>rsp</code>) to the current top. A stack trace is that chain walked.</p>
+
+<p>Its size is bounded: 8 MB by default on Linux for the main thread (<code>ulimit -s</code>), and typically much less for additional threads — libuv uses far smaller stacks for threadpool threads. Below the stack sits a <strong>guard page</strong>, permanently unmapped, so that runaway growth faults immediately instead of quietly corrupting the mmap region below. <strong>Infinite recursion therefore ends as a page fault on the guard page, delivered as <code>SIGSEGV</code>.</strong></p>
+
+<p>But in JavaScript you do not see <code>SIGSEGV</code>; you see <code>RangeError: Maximum call stack size exceeded</code>. That is because V8 imposes its own, smaller limit and checks it on entry to each function, so that it can throw a catchable JavaScript error before the real hardware limit is reached. The V8 limit is around 1 MB by default, which is why the recursion depth is typically ten to twelve thousand frames rather than a hundred thousand, and why it varies with how many locals each frame holds. <code>node --stack-size=4000</code> raises V8's check — and raising it past the real OS stack turns a catchable <code>RangeError</code> into a hard segmentation fault, which is a genuinely bad trade. [USE] Deep recursion in JavaScript is a design problem, not a flag problem: JavaScript engines still do not implement proper tail calls (only Safari does, despite it being in ES2015), so the fix is an explicit stack, a queue, or iteration.</p>
+
+<h4>How a program gets more memory: two calls</h4>
+
+<p>There are only two mechanisms, and everything above them is library code.</p>
+
+<p><strong><code>brk</code> / <code>sbrk</code></strong> moves a single pointer marking the top of the heap. Simple, ancient, and limited: memory can only be returned by moving the pointer back down, so a single live allocation at the top pins everything below it.</p>
+
+<p><strong><code>mmap</code></strong> is the general one and is what everything modern uses. It asks for a region of address space with stated properties, and it is worth knowing its four combinations because each is a different familiar thing:</p>
+
+<ul>
+<li><strong>Anonymous, private</strong> — plain memory, not backed by any file, visible only to this process. This is what a large <code>malloc</code> becomes and what a JavaScript heap is made of.</li>
+<li><strong>File-backed, private</strong> — a file mapped in, with writes kept private via copy-on-write. This is how an executable's <code>.data</code> section is loaded.</li>
+<li><strong>File-backed, shared</strong> — a file mapped in, with writes going to the file and visible to every other process mapping it. This is <code>mmap</code>-based I/O and shared memory between unrelated processes.</li>
+<li><strong>Anonymous, shared</strong> — memory with no file, shared between a process and its children. This is how <code>fork</code>-based servers share state, and what <code>/dev/shm</code> provides.</li>
+</ul>
+
+<p><code>MAP_ANONYMOUS</code> memory is guaranteed zero-filled, and this is a security requirement rather than a convenience: without it, a fresh allocation could contain another process's freed data. The kernel keeps a supply of pre-zeroed pages for this.</p>
+
+<h4>Reading a real address space</h4>
+
+<p><code>cat /proc/&lt;pid&gt;/maps</code> prints every region: address range, permissions, and what it is. [USE] Doing this once on a running Node process is worth more than any diagram. You will see the <code>node</code> binary's <code>r-xp</code> text region, its data, an anonymous <code>[heap]</code>, dozens of large anonymous regions that are V8's heap spaces and the allocator's arenas, mapped shared libraries (<code>libc</code>, <code>libstdc++</code>, any <code>.node</code> addons), one stack per thread, <code>[vdso]</code> from Node 8, and <code>[vvar]</code>. <code>/proc/&lt;pid&gt;/smaps_rollup</code> summarises the same thing with RSS and PSS totals.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>V8's heap is a set of these regions, and its structure explains its performance.</strong> Inside the process's address space, V8 maintains several <em>spaces</em>, and knowing them makes a heap snapshot legible:</p>
+
+<ul>
+<li><strong>New space</strong> (the <em>young generation</em>) — small, typically 1–8 MB per semi-space, split in two halves. All new objects are allocated here by simply incrementing a pointer, which is why allocation in JavaScript costs a handful of instructions. Collection is a <em>scavenge</em>: live objects are copied to the other half and the whole half is then free. Because the overwhelming majority of objects die young, a scavenge touches very little and takes under a millisecond. <code>--max-semi-space-size</code> tunes it, and raising it is one of the few Node GC flags that reliably helps a high-allocation server.</li>
+<li><strong>Old space</strong> — objects that survived two scavenges are <em>promoted</em> here. Collected by mark-sweep-compact, incrementally and concurrently since the "Orinoco" work in 2016–2018. <code>--max-old-space-size</code> is the flag people know, and Node 10 explained why values above ~4096 are ineffective under pointer compression.</li>
+<li><strong>Large object space</strong> — anything above roughly 128 KB is allocated directly here and never moved, because copying it would cost more than it saves.</li>
+<li><strong>Code space</strong> — executable pages holding JIT output. The only writable-then-executable memory in the process.</li>
+</ul>
+
+<p><strong>The generational hypothesis — "most objects die young" — is why this works</strong>, and it is why creating short-lived objects in JavaScript is genuinely cheap while holding onto them is expensive. The cost of garbage collection scales with <em>surviving</em> data, not with allocated data. A handler that allocates ten thousand short-lived objects per request costs almost nothing; one that adds ten objects per request to a module-level cache costs increasingly much, forever.</p>
+
+<p><strong>Buffers live outside the V8 heap, which is why your numbers do not add up.</strong> <code>Buffer.allocUnsafe</code> and <code>ArrayBuffer</code> data are allocated outside V8's managed heap — <code>Buffer</code> uses a pooled 8 KB slab allocator for small buffers and direct allocation for large ones. So <code>process.memoryUsage()</code> returns several distinct numbers and you must read them as such: <code>heapTotal</code> and <code>heapUsed</code> are V8's spaces only; <code>external</code> is memory held by C++ objects tied to JavaScript ones, including buffers; <code>arrayBuffers</code> is the subset that is <code>ArrayBuffer</code>; and <code>rss</code> is the operating system's number from Node 10, which is all of the above plus the binary, the libraries, the thread stacks, and the allocator's overhead. <strong>A leak of buffers shows up in <code>rss</code> and <code>external</code> while <code>heapUsed</code> stays flat</strong> — and since most Node memory-leak tooling looks at the heap, that class of leak is often hunted for a long time in the wrong place. It is also why <code>--max-old-space-size</code> cannot protect you from it: the limit only governs old space.</p>
+
+<p><strong>Node's own limits are per-region, not per-process</strong>, and this is the reason for the standard sizing rule: set <code>--max-old-space-size</code> meaningfully <em>below</em> your container's memory limit, because RSS will exceed old space by hundreds of megabytes of binary, code, stacks, buffers and fragmentation. A container limited to 512 MB running Node with a default heap cap will usually be killed by the kernel before V8 ever decides to collect aggressively — which is Node 13, and one of the most common container misconfigurations in production.</p>
+
+<p><strong>What you can do at this point:</strong> read <code>/proc/&lt;pid&gt;/maps</code>, explain why null dereferences fault and why W^X exists and what it costs a JIT, explain a stack overflow at both the V8 and the hardware level, name the four kinds of <code>mmap</code>, describe V8's spaces and the generational hypothesis, and read all five numbers from <code>process.memoryUsage()</code> correctly.</p>
+
+<p><strong>What's still broken:</strong> <code>mmap</code> hands out whole pages. Real programs allocate sixteen bytes at a time, millions of times. Something has to sit between them, and that something has properties that will surprise you.</p>
+
+<h3>Node 12 — the allocator, and why freed memory does not come back</h3>
+
+<p><strong>The limitation:</strong> the kernel deals in 4096-byte pages, and programs allocate sixteen bytes at a time, millions of times a second. A system call per allocation would be absurd.</p>
+
+<p>So a <strong>memory allocator</strong> lives in user space, inside your process. It obtains large regions from the kernel with <code>mmap</code> or <code>brk</code> and carves them up. It is ordinary library code with no privileges — <code>malloc</code> and <code>free</code> are not system calls, a fact that surprises people and explains most of this node. [EXPLAIN]</p>
+
+<h4>What it has to do, and why it is hard</h4>
+
+<p>Given a request for N bytes it must find a free run of at least N, mark it used, and return a pointer. On <code>free</code> it must know how big the block was — so it stores a small header immediately before the returned pointer, which is why writing before the start of an allocated block corrupts the heap in ways that crash much later somewhere else entirely — and it must merge the block with adjacent free ones to avoid ending up with a heap of unusable slivers.</p>
+
+<p>glibc's allocator, the one your Node process is using unless you changed it, works like this:</p>
+
+<ul>
+<li>Free blocks are kept in <strong>bins</strong> by size — fast bins for small blocks, sorted bins for large ones — so finding a fit is not a linear scan.</li>
+<li>Requests above <code>MMAP_THRESHOLD</code> (128 KB by default, and dynamically adjusted) bypass the heap entirely and get their own <code>mmap</code>, which is returned to the kernel exactly when freed.</li>
+<li>Every thread gets its own <strong>arena</strong>, so that threads do not contend on a single lock for every allocation. The number is capped at eight times the core count by default — which on a 64-core machine is 512 arenas, each of which can grow to 64 MB of address space.</li>
+</ul>
+
+<h4>The property that catches everyone</h4>
+
+<p><strong><code>free()</code> usually does not return memory to the operating system.</strong> [EXPLAIN] It returns it to the allocator's own free lists, inside your process, so the next <code>malloc</code> can reuse it without a system call. RSS stays where it was.</p>
+
+<p>This is correct behaviour and it is the right default — releasing pages and re-faulting them costs far more than keeping them. But it means <strong>a process's memory use is a high-water mark, not a current measurement.</strong> A Node service that handles one enormous request and then goes idle keeps the elevated RSS. That is not a leak. It is not a bug. It is the allocator holding memory it will happily reuse.</p>
+
+<p>Worse, memory <em>cannot</em> always be returned even when the allocator wants to. The heap shrinks only from the top (that is <code>brk</code>'s nature), so one small live allocation near the top pins everything below it. And a page can only be returned if <em>every</em> object on it is free — a page holding one live 32-byte object and 4064 bytes of free space is fully resident. That is <strong>internal fragmentation at the allocator level</strong>, and for a long-running server with variable object sizes it can account for a large and permanent gap between "bytes my program considers live" and "bytes the machine has committed to me".</p>
+
+<p>Which is the answer to the question that brings people to this material: <em>why does my Node container use 800 MB when <code>heapUsed</code> says 200 MB?</em> The full accounting, in order of typical size:</p>
+
+<ol>
+<li>V8 old space and new space — <code>heapTotal</code>, which is always larger than <code>heapUsed</code> because V8 keeps headroom.</li>
+<li>External memory — buffers, <code>ArrayBuffer</code>s, and native addon allocations. Node 11.</li>
+<li>The <code>node</code> binary itself and its shared libraries — roughly 50–100 MB resident.</li>
+<li>V8's code space, compiled from your JavaScript and every module you required.</li>
+<li>Thread stacks — the main thread, four libuv threadpool threads, V8's helper threads.</li>
+<li><strong>glibc arena fragmentation</strong> — often the largest surprise, especially on many-core machines where dozens of arenas each hold unreturned memory.</li>
+</ol>
+
+<p>Setting <code>MALLOC_ARENA_MAX=2</code> is a real and frequently effective fix for the last one, and it is one of the few genuinely useful environment variables for containerised Node and Java services alike. [USE] It trades a little allocation contention for a substantial reduction in resident memory.</p>
+
+<h4>Other allocators exist for exactly these reasons</h4>
+
+<p><strong>jemalloc</strong> (Jason Evans, originally for FreeBSD in 2005, then Facebook) is designed around fragmentation avoidance and scalability, with size-class-based allocation and aggressive page reclamation. <strong>tcmalloc</strong> (Google) uses per-thread caches for the same goal. Swapping glibc's allocator for jemalloc via <code>LD_PRELOAD</code> — no recompilation, just an environment variable, which Node 34 will explain — is a standard move for Ruby, Python and Postgres deployments and routinely reduces RSS by twenty to forty percent on allocation-heavy workloads. It is worth knowing this exists, because "our service uses too much memory" sometimes has a one-line answer that involves no code.</p>
+
+<h4>Garbage collection is a third layer on top</h4>
+
+<p>Everything so far is manual: the program says when a block is free. Managed languages remove that obligation by tracking reachability. It is worth stating the layering precisely, because the three layers are routinely conflated:</p>
+
+<ol>
+<li>The <strong>kernel</strong> hands out pages via <code>mmap</code>.</li>
+<li>The <strong>allocator</strong> (or, in V8's case, V8's own page allocator) carves those into objects.</li>
+<li>The <strong>garbage collector</strong> decides which objects are still reachable and reclaims the rest, returning them to layer 2 — which usually does not return them to layer 1.</li>
+</ol>
+
+<p>The reachability question is answered by tracing: start from the <strong>roots</strong> — the global object, the current call stack, and handles held by native code — and mark everything reachable. Anything unmarked is garbage. <strong>This is why "unreferenced" is the wrong mental model and "unreachable from a root" is the right one</strong>, and it is why reference counting alone (which Python uses, with a cycle collector bolted on) cannot collect a cycle while tracing can.</p>
+
+<p>Two consequences you will meet:</p>
+
+<p><strong>A memory leak in JavaScript is always a reference you forgot.</strong> The classic sources: a module-level <code>Map</code> or array that grows per request; an event listener added per connection and never removed, keeping the whole handler closure and everything it captured alive; a <code>setInterval</code> whose callback closes over a large object; a promise that never settles, keeping its continuation and captured scope alive forever; and — specific to closures — the fact that in V8 all closures created in the same function share one <em>context</em> object, so an unrelated small closure can keep a large captured variable alive. <code>WeakMap</code>, <code>WeakRef</code> and <code>FinalizationRegistry</code> exist for the cases where you genuinely need a reference that does not prevent collection.</p>
+
+<p><strong>Collection pauses are real and they land in your latency percentiles.</strong> A scavenge is sub-millisecond. A full mark-compact of a 2 GB old space can be tens to low hundreds of milliseconds, and although V8 does most of the marking concurrently and incrementally, the compaction pause is a genuine stop. If your p99 latency has spikes that do not correlate with request complexity, capture GC events (<code>--trace-gc</code>, or <code>perf_hooks</code>'s <code>PerformanceObserver</code> on the <code>gc</code> entry type) and check. The mitigations are architectural — allocate less per request, keep the live set small, and split large heaps across processes — rather than flags.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>The container sizing rule, derived rather than memorised.</strong> Given everything above: RSS is heap plus external plus binary plus code plus stacks plus fragmentation, and the kernel kills on RSS. So the heap cap must leave room for the rest. A workable starting point is <code>--max-old-space-size</code> at roughly 60–75% of the container limit — for a 1 GB container, around 640–768 MB — and then measuring. Setting no cap at all in a container is the common error: V8's default heap size is derived from the <em>host's</em> physical memory, not the cgroup limit, so on a 64 GB node a container limited to 512 MB gets a V8 that believes it may grow to gigabytes and will not collect urgently until far past the point where the kernel kills it. Node has improved its cgroup awareness over time, but setting the flag explicitly remains the reliable answer. [USE]</p>
+
+<p><strong>Postgres has the same three-layer structure and the same trap.</strong> <code>shared_buffers</code> is memory the server maps once at startup; <code>work_mem</code> is per sort or hash operation, <em>per node of the plan, per concurrent query</em> — so a value that looks modest can multiply by a hundred under load and exhaust the machine; <code>maintenance_work_mem</code> is for index builds and vacuum. Setting <code>work_mem</code> without thinking about concurrency is the Postgres version of setting no heap cap, with the same ending.</p>
+
+<p><strong>Native addons allocate outside everything V8 knows about.</strong> <code>sharp</code>, <code>canvas</code>, <code>better-sqlite3</code> and their kind call <code>malloc</code> directly. V8 has no idea that memory exists, so it does not count towards the heap limit and does not create GC pressure — meaning a leak in native code produces a steadily climbing RSS with a perfectly flat heap graph and no GC activity at all. <code>ExternalMemoryAccounting</code> (<code>napi_adjust_external_memory</code>) exists so well-behaved addons can tell V8 about it; many do not. When RSS climbs and the heap does not, look at the addons before you look at your JavaScript.</p>
+
+<p><strong>What you can do at this point:</strong> explain why <code>malloc</code> is not a system call, why freed memory does not reduce RSS, and what fragmentation costs; account fully for the gap between <code>heapUsed</code> and container memory; state the three layers of allocation and where a garbage collector sits; derive a heap cap from a container limit rather than guessing; and recognise the signature of a native leak.</p>
+
+<p><strong>What's still broken:</strong> the allocator can hand out memory only if the kernel has frames to give. Nothing has said what happens when it does not — when every frame is spoken for and another allocation arrives. That question has three answers, and one of them is the reason for exit code 137.</p>
     </div>
   </div>
 

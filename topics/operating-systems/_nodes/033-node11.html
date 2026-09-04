@@ -1,0 +1,93 @@
+<h3>Node 11 — the address space: what is actually in a process's memory</h3>
+
+<p><strong>The limitation:</strong> a process has a private, translated address space and nothing has said what lives where in it, or how a program obtains more.</p>
+
+<p>The layout is not arbitrary; every region is where it is for a reason, and the reasons explain several errors you have seen.</p>
+
+<pre><code>  high addresses
+  ┌──────────────────────────┐  0xFFFFFFFFFFFFFFFF
+  │  kernel space            │  mapped in every process, unreachable
+  │                          │  from user mode (the U/S flag)
+  ├──────────────────────────┤  0x00007FFFFFFFFFFF  (128 TB on x86-64)
+  │  [stack]        ↓ grows  │  locals, return addresses, saved registers
+  ├──────────────────────────┤
+  │        (unmapped gap)    │
+  ├──────────────────────────┤
+  │  mmap region             │  shared libraries, large mallocs,
+  │                          │  memory-mapped files, thread stacks
+  ├──────────────────────────┤
+  │        (unmapped gap)    │
+  ├──────────────────────────┤
+  │  [heap]         ↑ grows  │  small mallocs, via brk
+  ├──────────────────────────┤
+  │  .bss                    │  zero-initialised globals (occupies no
+  │                          │  space in the file, only in memory)
+  ├──────────────────────────┤
+  │  .data                   │  initialised globals — writable
+  ├──────────────────────────┤
+  │  .rodata                 │  constants, string literals — read-only
+  ├──────────────────────────┤
+  │  .text                   │  the machine code — read+execute, no write
+  └──────────────────────────┘  0x400000 (or randomised, with PIE)
+  low addresses — page 0 deliberately unmapped
+</code></pre>
+
+<p>Several details there are load-bearing.</p>
+
+<p><strong>Page zero is deliberately left unmapped.</strong> That is why dereferencing a null pointer produces a segmentation fault rather than silently reading whatever happens to be at address 0. The safety of null is a page-table decision.</p>
+
+<p><strong><code>.text</code> is read-only and executable; the stack and heap are writable and non-executable.</strong> No region is both writable and executable, a policy called W^X, enforced by the NX bit from Node 10. This is what stops classical shellcode injection, and it is exactly the rule a JIT compiler must break — V8 has to write machine code and then run it, so it allocates pages, writes, and flips them to executable, keeping the window as narrow as possible. On systems that forbid this entirely (iOS outside Safari, some hardened kernels, OpenBSD by default) JIT is impossible, which is why JavaScript engines on locked-down platforms fall back to an interpreter and run several times slower.</p>
+
+<p><strong>The stack grows downward and the heap upward</strong> — a convention from when a process had one contiguous region and putting them at opposite ends let either grow into the shared middle. The gaps between regions are unmapped on purpose, so that growth past the intended limit hits nothing and faults rather than silently overwriting the neighbour.</p>
+
+<p><strong>Kernel space is mapped into every process</strong>, marked supervisor-only, so that a system call does not need to change the page table. Meltdown made that mapping readable through a speculative side channel, and KPTI's response — unmapping it and paying a page-table switch per syscall — is the cost described in Node 4.</p>
+
+<h4>The stack, and the error you have definitely seen</h4>
+
+<p>The stack holds one <strong>frame</strong> per active function call: its local variables, its arguments beyond the register-passed ones, and the return address. Calling pushes a frame; returning pops it. That is all "the call stack" is — a region of memory and a pointer (<code>rsp</code>) to the current top. A stack trace is that chain walked.</p>
+
+<p>Its size is bounded: 8 MB by default on Linux for the main thread (<code>ulimit -s</code>), and typically much less for additional threads — libuv uses far smaller stacks for threadpool threads. Below the stack sits a <strong>guard page</strong>, permanently unmapped, so that runaway growth faults immediately instead of quietly corrupting the mmap region below. <strong>Infinite recursion therefore ends as a page fault on the guard page, delivered as <code>SIGSEGV</code>.</strong></p>
+
+<p>But in JavaScript you do not see <code>SIGSEGV</code>; you see <code>RangeError: Maximum call stack size exceeded</code>. That is because V8 imposes its own, smaller limit and checks it on entry to each function, so that it can throw a catchable JavaScript error before the real hardware limit is reached. The V8 limit is around 1 MB by default, which is why the recursion depth is typically ten to twelve thousand frames rather than a hundred thousand, and why it varies with how many locals each frame holds. <code>node --stack-size=4000</code> raises V8's check — and raising it past the real OS stack turns a catchable <code>RangeError</code> into a hard segmentation fault, which is a genuinely bad trade. [USE] Deep recursion in JavaScript is a design problem, not a flag problem: JavaScript engines still do not implement proper tail calls (only Safari does, despite it being in ES2015), so the fix is an explicit stack, a queue, or iteration.</p>
+
+<h4>How a program gets more memory: two calls</h4>
+
+<p>There are only two mechanisms, and everything above them is library code.</p>
+
+<p><strong><code>brk</code> / <code>sbrk</code></strong> moves a single pointer marking the top of the heap. Simple, ancient, and limited: memory can only be returned by moving the pointer back down, so a single live allocation at the top pins everything below it.</p>
+
+<p><strong><code>mmap</code></strong> is the general one and is what everything modern uses. It asks for a region of address space with stated properties, and it is worth knowing its four combinations because each is a different familiar thing:</p>
+
+<ul>
+<li><strong>Anonymous, private</strong> — plain memory, not backed by any file, visible only to this process. This is what a large <code>malloc</code> becomes and what a JavaScript heap is made of.</li>
+<li><strong>File-backed, private</strong> — a file mapped in, with writes kept private via copy-on-write. This is how an executable's <code>.data</code> section is loaded.</li>
+<li><strong>File-backed, shared</strong> — a file mapped in, with writes going to the file and visible to every other process mapping it. This is <code>mmap</code>-based I/O and shared memory between unrelated processes.</li>
+<li><strong>Anonymous, shared</strong> — memory with no file, shared between a process and its children. This is how <code>fork</code>-based servers share state, and what <code>/dev/shm</code> provides.</li>
+</ul>
+
+<p><code>MAP_ANONYMOUS</code> memory is guaranteed zero-filled, and this is a security requirement rather than a convenience: without it, a fresh allocation could contain another process's freed data. The kernel keeps a supply of pre-zeroed pages for this.</p>
+
+<h4>Reading a real address space</h4>
+
+<p><code>cat /proc/&lt;pid&gt;/maps</code> prints every region: address range, permissions, and what it is. [USE] Doing this once on a running Node process is worth more than any diagram. You will see the <code>node</code> binary's <code>r-xp</code> text region, its data, an anonymous <code>[heap]</code>, dozens of large anonymous regions that are V8's heap spaces and the allocator's arenas, mapped shared libraries (<code>libc</code>, <code>libstdc++</code>, any <code>.node</code> addons), one stack per thread, <code>[vdso]</code> from Node 8, and <code>[vvar]</code>. <code>/proc/&lt;pid&gt;/smaps_rollup</code> summarises the same thing with RSS and PSS totals.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>V8's heap is a set of these regions, and its structure explains its performance.</strong> Inside the process's address space, V8 maintains several <em>spaces</em>, and knowing them makes a heap snapshot legible:</p>
+
+<ul>
+<li><strong>New space</strong> (the <em>young generation</em>) — small, typically 1–8 MB per semi-space, split in two halves. All new objects are allocated here by simply incrementing a pointer, which is why allocation in JavaScript costs a handful of instructions. Collection is a <em>scavenge</em>: live objects are copied to the other half and the whole half is then free. Because the overwhelming majority of objects die young, a scavenge touches very little and takes under a millisecond. <code>--max-semi-space-size</code> tunes it, and raising it is one of the few Node GC flags that reliably helps a high-allocation server.</li>
+<li><strong>Old space</strong> — objects that survived two scavenges are <em>promoted</em> here. Collected by mark-sweep-compact, incrementally and concurrently since the "Orinoco" work in 2016–2018. <code>--max-old-space-size</code> is the flag people know, and Node 10 explained why values above ~4096 are ineffective under pointer compression.</li>
+<li><strong>Large object space</strong> — anything above roughly 128 KB is allocated directly here and never moved, because copying it would cost more than it saves.</li>
+<li><strong>Code space</strong> — executable pages holding JIT output. The only writable-then-executable memory in the process.</li>
+</ul>
+
+<p><strong>The generational hypothesis — "most objects die young" — is why this works</strong>, and it is why creating short-lived objects in JavaScript is genuinely cheap while holding onto them is expensive. The cost of garbage collection scales with <em>surviving</em> data, not with allocated data. A handler that allocates ten thousand short-lived objects per request costs almost nothing; one that adds ten objects per request to a module-level cache costs increasingly much, forever.</p>
+
+<p><strong>Buffers live outside the V8 heap, which is why your numbers do not add up.</strong> <code>Buffer.allocUnsafe</code> and <code>ArrayBuffer</code> data are allocated outside V8's managed heap — <code>Buffer</code> uses a pooled 8 KB slab allocator for small buffers and direct allocation for large ones. So <code>process.memoryUsage()</code> returns several distinct numbers and you must read them as such: <code>heapTotal</code> and <code>heapUsed</code> are V8's spaces only; <code>external</code> is memory held by C++ objects tied to JavaScript ones, including buffers; <code>arrayBuffers</code> is the subset that is <code>ArrayBuffer</code>; and <code>rss</code> is the operating system's number from Node 10, which is all of the above plus the binary, the libraries, the thread stacks, and the allocator's overhead. <strong>A leak of buffers shows up in <code>rss</code> and <code>external</code> while <code>heapUsed</code> stays flat</strong> — and since most Node memory-leak tooling looks at the heap, that class of leak is often hunted for a long time in the wrong place. It is also why <code>--max-old-space-size</code> cannot protect you from it: the limit only governs old space.</p>
+
+<p><strong>Node's own limits are per-region, not per-process</strong>, and this is the reason for the standard sizing rule: set <code>--max-old-space-size</code> meaningfully <em>below</em> your container's memory limit, because RSS will exceed old space by hundreds of megabytes of binary, code, stacks, buffers and fragmentation. A container limited to 512 MB running Node with a default heap cap will usually be killed by the kernel before V8 ever decides to collect aggressively — which is Node 13, and one of the most common container misconfigurations in production.</p>
+
+<p><strong>What you can do at this point:</strong> read <code>/proc/&lt;pid&gt;/maps</code>, explain why null dereferences fault and why W^X exists and what it costs a JIT, explain a stack overflow at both the V8 and the hardware level, name the four kinds of <code>mmap</code>, describe V8's spaces and the generational hypothesis, and read all five numbers from <code>process.memoryUsage()</code> correctly.</p>
+
+<p><strong>What's still broken:</strong> <code>mmap</code> hands out whole pages. Real programs allocate sixteen bytes at a time, millions of times. Something has to sit between them, and that something has properties that will surprise you.</p>

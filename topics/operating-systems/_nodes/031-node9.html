@@ -1,0 +1,36 @@
+<h3>Node 9 — physical memory, and the three ways sharing it naively fails</h3>
+
+<p><strong>The limitation:</strong> processes exist and are scheduled, but they all live in one flat array of numbered bytes with nothing between them.</p>
+
+<p>The naive scheme is: keep the memory in use by the kernel at the bottom, and give each process a contiguous region above it. This fails in three separate ways, and each failure names a requirement that Node 10's design has to satisfy. Understanding the failures is what makes the solution feel inevitable rather than arbitrary.</p>
+
+<h4>Failure one: relocation</h4>
+
+<p>A compiler turns your source into machine code containing <em>absolute addresses</em> — "jump to 0x4012A0", "load from 0x601040". Those numbers are baked into the bytes. But the loader has no idea where in physical memory the process will be placed; that depends on what else is running. So the addresses in the file are wrong the moment the program is loaded anywhere other than where the compiler assumed.</p>
+
+<p>Two historical fixes. <strong>Static relocation</strong>: the loader walks the program and rewrites every address as it loads it, using a table of locations the compiler left behind. It works, it makes loading slow, and it makes the loaded copy unique to its location — so the program cannot be moved afterwards and cannot be shared between processes. <strong>Dynamic relocation</strong>: a hardware <em>base register</em> holds the process's start address, and the processor adds it to every address the program produces. The program is compiled as though it starts at zero, and translation happens at run time. Cheap, and it makes moving a process a matter of changing one register. This is the beginning of the crucial idea: <strong>the addresses a program uses are not the addresses the memory hardware uses.</strong> [EXPLAIN]</p>
+
+<h4>Failure two: protection</h4>
+
+<p>Nothing stops process A from reading or writing an address inside process B. Node 3 introduced a limit register alongside the base to check the upper bound, and that closes the hole for this crude layout. Keep the shape of the answer — <em>a hardware check on every access, using values only the kernel can set</em> — because it survives; only the mechanism gets replaced.</p>
+
+<h4>Failure three: fragmentation, which is the one that kills the design</h4>
+
+<p>Processes come and go with different sizes, so the free memory becomes scattered. Suppose memory is 1 GB, and processes of 100, 300, 200 and 400 MB are loaded in order. The second and fourth exit. There is now 700 MB free, in two pieces of 300 and 400 MB. A new process needing 500 MB <em>cannot start</em>, despite 700 MB being free.</p>
+
+<p>That is <strong>external fragmentation</strong>: free memory exists but not in a usable shape, because the design demands one contiguous run. Allocation policies help a little and none of them solve it — first-fit is fast, best-fit leaves slivers of useless space, worst-fit destroys the large blocks. <strong>Compaction</strong> — sliding every process down to squeeze out the gaps — solves it and costs an enormous amount, because it means copying gigabytes while every affected process is stopped.</p>
+
+<p>And two related consequences follow from the same contiguity requirement:</p>
+
+<ul>
+<li><strong>A process cannot be larger than physical memory.</strong> Programmers dealt with this by hand, using <strong>overlays</strong>: splitting the program into pieces and writing explicit code to load one piece over another when needed, making sure that no two pieces that call each other were ever swapped out at once. This was a genuine and hated part of the job into the 1970s, and its existence is the reason virtual memory was pursued so hard.</li>
+<li><strong>Processes cannot share anything.</strong> Twenty copies of the same program each need their own full copy of its code, because there is no way to say "these two regions are the same physical memory".</li>
+</ul>
+
+<h4>What this establishes</h4>
+
+<p>The requirements are now fully specified by the failures. A memory design must: translate program addresses into physical addresses in hardware, check permissions on every access, place a process's memory in <em>non-contiguous</em> physical pieces so fragmentation cannot block it, let a process be larger than physical memory without the programmer doing anything, and let two processes share the same physical memory when they want to.</p>
+
+<p>One mechanism satisfies all five.</p>
+
+<p><strong>What's still broken:</strong> everything above. Contiguity is the root of it, so the fix is to abandon contiguity.</p>

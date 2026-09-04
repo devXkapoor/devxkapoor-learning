@@ -1,0 +1,85 @@
+<h3>Node 10 — virtual memory: the page table, the MMU, and the page fault</h3>
+
+<p><strong>The limitation:</strong> requiring a process's memory to be one contiguous physical run causes fragmentation, caps process size at physical memory, and makes sharing impossible.</p>
+
+<h4>The idea</h4>
+
+<p>Cut both sides into fixed-size blocks of the same size, and allow any block on one side to map to any block on the other.</p>
+
+<p>The blocks of a process's address space are <strong>pages</strong>. The blocks of physical memory are <strong>frames</strong>. Both are 4096 bytes on essentially every current system. A per-process table — the <strong>page table</strong> — records, for each page, which frame it lives in. Hardware consults that table on every single memory access and substitutes the physical address. [EXPLAIN]</p>
+
+<p>Every one of Node 9's failures dies at once. Fragmentation is gone, because a process's pages can be scattered anywhere and any free frame is as good as any other — the only waste left is <strong>internal fragmentation</strong>, the unused remainder of the last page, averaging 2 KB per region, which is nothing. Protection is per-page and enforced by hardware. Sharing is trivial: two processes' page tables point at the same frame. And a process can be larger than physical memory, because a page can be marked "not here right now" and fetched on demand.</p>
+
+<p>Why 4096? It is a balance. Smaller pages waste less on the final partial page but need more table entries — at 4 KB, a 64 GB address space needs sixteen million entries, and at 512 bytes it would need eight times that. Larger pages need fewer entries but waste more and make disk transfers coarser. 4 KB was settled on by the VAX in 1977 and has stuck through a factor of a million in memory sizes, mostly because changing it would break too much. Modern processors also support <strong>huge pages</strong> — 2 MB and 1 GB — for exactly the reason the next section explains.</p>
+
+<h4>The address, split</h4>
+
+<p>The page table is not consulted by a search. The address is simply <em>cut in two</em>. On a 32-bit machine with 4 KB pages, the low 12 bits of an address (since 2<sup>12</sup> = 4096) are the offset within the page and are passed through untouched; the upper 20 bits are the page number and are looked up. Translation is an array index and a concatenation — a handful of gate delays, not a search. [EXPLAIN]</p>
+
+<p>A flat table does not scale, though. Twenty bits of page number means a million entries per process, at 4 bytes each, which is 4 MB of table for every process even if it uses almost no memory. On 64-bit it is absurd: a full table would be larger than the universe's supply of matter. So the table is made a <strong>tree</strong>, and only the branches that are actually used exist.</p>
+
+<p>x86-64 uses 48 bits of address (recent processors optionally 57), split into four levels of nine bits each plus the 12-bit offset:</p>
+
+<pre><code>  47..39      38..30      29..21      20..12      11..0
+ ┌────────┬────────────┬───────────┬───────────┬─────────┐
+ │  PML4  │    PDPT    │    PD     │    PT     │ offset  │
+ │ 9 bits │   9 bits   │  9 bits   │  9 bits   │ 12 bits │
+ └────────┴────────────┴───────────┴───────────┴─────────┘
+</code></pre>
+
+<p>Nine bits indexes 512 entries; 512 entries of 8 bytes each is exactly 4096 bytes — <em>one page</em>. Every level of the tree is itself one page. That is why nine, and it is a satisfying piece of design. The root of the tree is held in the <code>cr3</code> register, which Node 6's context switch reloads and which Node 3 made privileged, and those two facts together are the whole of memory isolation: <strong>changing <code>cr3</code> changes the meaning of every address in the machine, and only the kernel can do it.</strong></p>
+
+<p>Each entry holds a frame number plus flag bits, and the flags are where the interesting behaviour lives:</p>
+
+<ul>
+<li><strong>Present</strong> — is this page currently in physical memory? If not, everything else in the entry is free for the kernel to use for its own bookkeeping, such as where on disk the page lives.</li>
+<li><strong>Writable</strong> — clearing this on a present page is the mechanism behind copy-on-write (Node 14).</li>
+<li><strong>User/supervisor</strong> — may user-mode code touch this? This is how the kernel's own memory is mapped into every process yet unreachable from it, and undoing that mapping is what KPTI does.</li>
+<li><strong>Accessed</strong> and <strong>Dirty</strong> — set by hardware on read and on write. The kernel reads and clears them to decide which pages to evict (Node 13) and which need writing back to disk.</li>
+<li><strong>NX / execute-disable</strong> — added by AMD in 2003, this marks a page as non-executable. It is why a buffer overflow can no longer simply place instructions on the stack and jump to them, and it is why JIT engines like V8 need explicitly executable pages.</li>
+</ul>
+
+<h4>The TLB, and why the tree does not cost four memory accesses</h4>
+
+<p>Walking a four-level tree means four memory reads before the real access — a fivefold slowdown on every load and store, which would be catastrophic. So the processor caches recent translations in the <strong>Translation Lookaside Buffer</strong>, a small fully-associative cache of perhaps 64 to 1536 entries. A hit costs essentially nothing. Hit rates on ordinary code are well above 99%, because programs touch the same pages repeatedly.</p>
+
+<p>Three consequences that matter in practice:</p>
+
+<p>A process with a large, randomly accessed working set — a database index, a big hash map, a graph — misses the TLB constantly and pays the walk. <strong>Huge pages</strong> exist for this: one 2 MB page covers 512 times as much memory with one TLB entry, so a Postgres instance with 32 GB of shared buffers can drop from eight million entries' worth of coverage to sixteen thousand. That is why <code>huge_pages = try</code> is standard advice for large Postgres deployments, and why Linux's <em>transparent</em> huge pages exist — and also why THP is often <em>disabled</em> for databases, because its background defragmentation causes latency spikes. MongoDB and Redis both tell you to turn it off.</p>
+
+<p>Changing <code>cr3</code> historically invalidated the TLB, which is the expensive part of Node 6's context switch. Address-space identifiers (PCID) let entries survive.</p>
+
+<p>And <strong>cache and TLB behaviour is why data layout affects speed by large factors</strong>. An array of numbers walked in order touches each cache line once and each page 512 times consecutively; a linked list of the same values scattered across the heap misses cache on nearly every step. This is the real reason typed arrays outperform arrays of objects in JavaScript, and why V8 works so hard to keep arrays of small integers in a packed representation.</p>
+
+<h4>The page fault: the most important exception in the machine</h4>
+
+<p>When the processor translates an address and the page table says the page is not present, or that the access is not permitted, it raises a <strong>page fault</strong> — an exception, Node 2's second entry type — with the offending address in register <code>cr2</code>. The kernel handler then works out which of several very different situations this is:</p>
+
+<ul>
+<li><strong>The page is valid but not in memory.</strong> Read it in from disk, fix the entry, return, and the faulting instruction is <em>re-executed</em> and now succeeds. The process never knows. This is a <strong>major fault</strong> and it costs a disk access.</li>
+<li><strong>The page is valid and in memory but not mapped into this process yet</strong> — for instance it is already in the page cache from another process. Just point at it. A <strong>minor fault</strong>, costing microseconds.</li>
+<li><strong>This is the first touch of freshly allocated memory.</strong> Allocation only reserved address space; now a physical frame is found, zeroed, and mapped. This is why allocating a gigabyte is instant and using it is not.</li>
+<li><strong>It is a write to a page marked read-only that is shared copy-on-write.</strong> Copy it, mark the copy writable, return. Node 14.</li>
+<li><strong>It is just below the stack.</strong> The stack grows automatically by mapping another page.</li>
+<li><strong>None of the above — the address is genuinely not part of this process.</strong> Deliver <code>SIGSEGV</code>. The process dies.</li>
+</ul>
+
+<p><strong>Every one of those is the same hardware event, distinguished only by kernel bookkeeping.</strong> [EXPLAIN] Lazy allocation, demand loading, copy-on-write, growable stacks, memory-mapped files, and segmentation faults are one mechanism wearing six hats, and that is the most elegant thing in the operating system.</p>
+
+<p>Distinguishing major from minor faults is directly operational: <code>ps -o min_flt,maj_flt -p &lt;pid&gt;</code>, or the <code>majflt/s</code> column in <code>pidstat -r</code>. Minor faults in the millions are normal and cheap. <em>Major</em> faults climbing during steady-state operation mean the machine is fetching pages from disk to run, which is Node 13's thrashing and which will show up as latency that no application-level profiler can explain.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>The two numbers in every memory graph, defined exactly.</strong> <code>VSZ</code> (virtual size) is the total address space the process has mapped — how much it has <em>asked for</em>, including regions never touched. <code>RSS</code> (resident set size) is how many of those pages are actually in physical memory right now — what it is <em>using</em>. VSZ can be wildly larger than RSS and it does not matter: a Node process routinely shows several gigabytes of VSZ because V8 reserves large regions of address space it may never populate, and address space on 64 bits is free. <strong>RSS is the number that consumes a resource, and RSS is what a container limit and the OOM killer count.</strong> [EXPLAIN] Anyone alarmed by a Node process's VSZ is reading the wrong column. RSS has its own subtlety, though: it includes shared pages, counted in full against every process sharing them, so summing RSS across a process tree overcounts badly. <code>PSS</code> (proportional set size, in <code>/proc/&lt;pid&gt;/smaps_rollup</code>) divides shared pages among sharers and is the honest number.</p>
+
+<p><strong>ASLR is a page-table feature and it shapes your crash reports.</strong> Address Space Layout Randomisation places the stack, heap, libraries and (for position-independent executables) the program itself at different addresses on every run, so that an attacker who can corrupt memory cannot predict where to jump. That is why a native crash address differs every time, why reproducing a memory bug is hard, and why symbolising a core dump requires knowing the load addresses. It is also why <code>/proc/sys/kernel/randomize_va_space</code> gets turned off during debugging.</p>
+
+<p><strong>V8's pointer compression is a direct consequence of page tables and cache lines.</strong> Since V8 8.0, on 64-bit builds, object references in the heap are stored as 32-bit offsets from a base rather than full 64-bit pointers. Two reasons, both from this node: half the memory for pointers, and — more importantly — twice as many pointers per cache line, so pointer-chasing through the heap misses cache half as often. The price is that a single V8 heap is capped at 4 GB of compressed address space, which is the real reason <code>--max-old-space-size</code> above about 4096 does nothing useful on a standard build. If you have ever wondered why the answer to "how do I give Node 16 GB of heap" is "you don't, you run four processes", that is why.</p>
+
+<p><strong>A memory-mapped file is this node used deliberately.</strong> <code>mmap</code> maps a file's contents into the address space, so reading the file is reading memory: pages fault in on first touch, the kernel loads them from disk, and the page cache holds them so a second process mapping the same file shares the same physical frames with no extra memory at all. SQLite and LMDB use it as their primary access method; V8 uses it to map its code cache and snapshots (which is why Node starts in tens of milliseconds despite V8 needing to build its entire built-in object graph — it is mapped from a pre-built snapshot, not constructed). It is also why a container running twenty copies of the same image's binaries costs far less than twenty times the memory: the executable's text pages are one set of frames, mapped everywhere.</p>
+
+<p><strong>Cache-line and page thinking explains real JavaScript performance.</strong> A <code>Float64Array</code> of a million numbers is eight megabytes of contiguous, sequentially-prefetchable memory. An array of a million <code>{x, y}</code> objects is a million pointers to a million separately allocated objects scattered over the heap — each access a potential cache miss, each miss around eighty nanoseconds. The factor between them on a numeric loop is routinely five to twenty times, and it is not V8 being clever or stupid; it is the memory hierarchy from this node. It is the same reason columnar databases exist.</p>
+
+<p><strong>What you can do at this point:</strong> explain paging from the address split upward, state exactly what the page table entry flags do, explain the page fault as one mechanism serving six purposes, read RSS versus VSZ versus PSS correctly, distinguish major from minor faults when diagnosing, and explain why huge pages matter for a database and why V8 compresses pointers.</p>
+
+<p><strong>What's still broken:</strong> a process now has an address space, but nothing has said what is <em>in</em> it — where the code goes, where the stack goes, why the heap grows upward, what happens when the stack grows into something, or how a program asks for more memory in the first place.</p>

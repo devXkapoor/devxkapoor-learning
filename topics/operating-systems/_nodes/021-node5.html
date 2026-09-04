@@ -1,0 +1,72 @@
+<h3>Node 5 — the process: giving the kernel something to hold</h3>
+
+<p><strong>The limitation:</strong> the kernel can protect itself and can service requests, but "a running program" is not a thing it has any record of — just an instruction pointer that happens to be pointing at some bytes.</p>
+
+<p>Start with the distinction the whole node rests on. <strong>A program is a file on disk: a passive sequence of bytes. A process is that program in execution, together with every piece of state the execution needs and every resource it currently holds.</strong> [EXPLAIN] One program can have many processes — running <code>node server.js</code> four times gives four processes from one file, each with its own memory, its own open sockets, its own place in its own execution. The file is a recipe; the process is the cooking.</p>
+
+<h4>What the kernel actually stores</h4>
+
+<p>For each process the kernel keeps one structure. Generically it is called the <strong>process control block</strong>; in Linux it is <code>struct task_struct</code>, defined in <code>include/linux/sched.h</code>, and it is around ten kilobytes. Every one of its fields exists because some earlier node in this chain created a need for it, and going through them is a genuinely efficient way to see what a process <em>is</em>:</p>
+
+<ul>
+<li><strong>Identity</strong> — the <code>pid</code> (process ID, a number), the <code>ppid</code> (the process that created it), a process group and a session. Names, so that a process can be referred to at all.</li>
+<li><strong>Saved registers</strong> — where the whole register set goes when the process is not running, including <code>rip</code> and <code>rsp</code>. This is what makes stopping and resuming possible, and it is Node 6.</li>
+<li><strong>Memory map</strong> — a pointer to an <code>mm_struct</code> describing every region of the address space and the page tables that implement it. Node 10 and Node 11.</li>
+<li><strong>Open file table</strong> — an array mapping small integers (0, 1, 2, 3…) to the things they refer to. Node 22, and the reason every Unix API takes a number rather than a name.</li>
+<li><strong>Credentials</strong> — the user ID and group IDs it runs as, and its capability set. Node 25, and the reason <code>USER node</code> in a Dockerfile does anything.</li>
+<li><strong>Signal state</strong> — which signals are blocked, which are pending, and what handler each one has. Node 30.</li>
+<li><strong>Filesystem context</strong> — the current working directory, the root directory, and the <code>umask</code>. Note that the current directory is per-process state held by the kernel; this is why a child process cannot change its parent's directory, and why <code>cd</code> must be a shell builtin rather than a program.</li>
+<li><strong>Scheduling state</strong> — priority, nice value, accumulated runtime, which processor it last ran on. Node 7.</li>
+<li><strong>Resource limits and accounting</strong> — maximum open files, maximum memory, total user and system time consumed.</li>
+<li><strong>Namespaces and cgroup</strong> — pointers to which view of the system it has and which resource budget it belongs to. Nodes 26 and 27, and together the definition of a container.</li>
+</ul>
+
+<p>The list is the answer to "what is a process". A process is: an identity, a saved processor state, an address space, a set of open things, a set of permissions, a set of pending signals, a position in the filesystem, a scheduling record, a budget, and a view. Nothing else.</p>
+
+<h4>Process states, and the one that surprises people</h4>
+
+<p>At any instant a process is in one state, and <code>ps</code> prints it as a single letter. These matter operationally.</p>
+
+<ul>
+<li><strong>R — running or runnable.</strong> Either executing right now on some core, or sitting in the run queue ready to. <code>ps</code> does not distinguish them, which is why <code>R</code> counts can exceed core counts.</li>
+<li><strong>S — interruptible sleep.</strong> Waiting for something — data on a socket, a timer, a lock — and can be woken early by a signal. The overwhelming majority of processes on any machine are here, including your idle Node server sitting in <code>epoll_wait</code>. <strong>A sleeping process consumes exactly zero processor time.</strong> This is the whole payoff of Node 2.</li>
+<li><strong>D — uninterruptible sleep.</strong> Waiting inside the kernel at a point where it cannot safely be woken — typically partway through a disk or network filesystem operation, holding kernel state that a signal delivery would corrupt. <strong>A process in D state cannot be killed, not even with <code>SIGKILL</code>.</strong> [EXPLAIN] It leaves D when the operation completes, and if the operation never completes — a hung NFS mount, a detached cloud block device, a failing disk — it never leaves. This is the true answer to "why won't this process die", it is not a bug, and the only remedies are to fix the underlying device or reboot. It also inflates Linux load average, because load average counts R <em>and</em> D, which is why a machine with a stuck storage device can show a load of 40 while its processors are idle.</li>
+<li><strong>T — stopped.</strong> Suspended by <code>SIGSTOP</code> or by Ctrl-Z. Still exists, still holds everything, simply not scheduled.</li>
+<li><strong>Z — zombie.</strong> Finished executing, released its memory, but its <code>task_struct</code> still exists because its exit status has not yet been collected by its parent. Covered below and in Node 31.</li>
+</ul>
+
+<h4>Creation, the tree, and PID 1</h4>
+
+<p>Processes are created by other processes, so every process has a parent and the whole set forms a tree. The root of that tree is <strong>PID 1</strong>, started by the kernel at boot (Node 36), which on a modern Linux machine is <code>systemd</code> and inside a container is whatever your image's entrypoint is.</p>
+
+<p>Unix made an unusual choice about creation which Node 14 examines in full: creating a process and running a new program are <em>two separate operations</em>. <code>fork()</code> makes a copy of the calling process, identical in every respect except the returned PID; <code>execve()</code> replaces the current process's program with a different one, keeping the identity, the open files, and the credentials. Every process on the machine except PID 1 came into being through some version of that pair. The reason for the split is that it makes the gap between the two into a place where the child can adjust itself — redirect its output, drop privileges, change directory, close descriptors — using ordinary calls, before the new program starts. Shell redirection and pipes are that gap being used, and it is one of the most elegant things in this document.</p>
+
+<p>Two consequences of the tree are pure operations knowledge:</p>
+
+<p><strong>Orphans.</strong> If a parent dies while its children are alive, the children are <em>reparented</em> to PID 1 (or, on modern Linux, to the nearest ancestor marked as a subreaper). They keep running. This is how a process survives the terminal that started it.</p>
+
+<p><strong>Zombies.</strong> When a process exits, the kernel cannot discard its record immediately, because its parent may still want to know how it ended. So a small husk remains until the parent calls <code>wait()</code> and collects the status. A parent that never calls <code>wait</code> leaks these. One zombie is harmless — it holds no memory and no files, just a PID — but a process that spawns children in a loop and never reaps them will eventually exhaust the PID space and the machine will be unable to start anything. <strong>You cannot kill a zombie; it is already dead. You fix the parent, or you kill the parent, at which point PID 1 inherits the zombies and reaps them.</strong> [EXPLAIN]</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Your Node server is one process, and that is a design constraint with teeth.</strong> One <code>task_struct</code>, one address space containing the entire V8 heap, one main thread executing JavaScript, plus a handful of extra threads that belong to the same process (the libuv threadpool, V8's compiler and garbage collector helpers). Because it is one process, <em>every</em> item in the list above is shared by all your request handlers: one file descriptor table, so all connections compete for the same limit; one address space, so a memory leak in any route affects the whole server; one set of credentials; one cgroup budget. And because it is one process, a native crash from Node 3 takes all in-flight requests with it. This is the honest engineering reason people run several Node processes instead of one — not raw throughput alone, but blast radius.</p>
+
+<p><strong>The cluster module is <code>fork</code> plus descriptor passing, exactly.</strong> <code>cluster.fork()</code> spawns a full child process with its own V8 heap. The primary creates the listening socket and passes the descriptor to the children, which is possible because a file descriptor is a per-process number pointing at a kernel object (Node 22) and Unix sockets can transfer that reference between processes. Since Node 0.12 the default is round-robin distribution by the primary rather than letting the kernel choose, because kernel-level distribution turned out to be badly unbalanced under real load. The <em>reason</em> nothing is shared between workers — no shared cache, no shared counter, no shared session store, no shared rate limiter — is that separate processes have separate address spaces by definition, and that single fact forces Redis into more architectures than any other design consideration.</p>
+
+<p><strong><code>worker_threads</code> is deliberately not this.</strong> A worker thread shares the process — the same descriptor table, the same address space, the same PID — but gets its own V8 isolate and therefore its own JavaScript heap. That is why you can pass a <code>SharedArrayBuffer</code> between workers but not between cluster children, why <code>transferList</code> exists to move an <code>ArrayBuffer</code> without copying, and why a worker that crashes V8 still kills the process. Node 15 does threads properly; the distinction to hold now is that cluster gives isolation and workers give sharing, and you pick based on which of those you need.</p>
+
+<p><strong>A container is a process tree, and this is the most useful correction available about containers.</strong> A container is not a small virtual machine. It is one or more ordinary Linux processes on the host — you can see them in the host's <code>ps</code> output with their real PIDs — that have been given restricted views (Node 26) and a resource budget (Node 27). Everything in this node applies to them unchanged. Which is why:</p>
+
+<ul>
+<li>Your container's entrypoint is <strong>PID 1 inside it</strong>, and PID 1 has special kernel behaviour: signals with default actions are <em>not</em> applied to it. A plain <code>node index.js</code> as PID 1 that has not installed a <code>SIGTERM</code> handler will simply ignore <code>docker stop</code>, and be <code>SIGKILL</code>ed ten seconds later, dropping every in-flight request. This is Node 31 and it is one of the most common real production defects in containerised Node.</li>
+<li>PID 1 is also expected to reap orphans. Node does not do this. If your container shells out to subprocesses, you accumulate zombies — which is exactly why <code>docker run --init</code> and Kubernetes' <code>shareProcessNamespace</code> exist, and why the tiny <code>tini</code> init program ships inside Docker.</li>
+<li><code>docker exec</code> starts a <em>new</em> process inside the container's namespaces; it is not a session on a machine. When the container's PID 1 exits, everything goes, including your exec shell.</li>
+</ul>
+
+<p><strong>A Kubernetes pod is a set of containers sharing a subset of this state.</strong> Containers in one pod share the network namespace — hence <code>localhost</code> between them, and hence they cannot both bind port 3000 — and optionally the PID namespace, but they do not share a filesystem unless you mount a volume into both. Once you know exactly which parts of a <code>task_struct</code> are shared and which are not, pod semantics stop needing to be memorised.</p>
+
+<p><strong>Everything <code>ps</code> and <code>top</code> print comes from this structure.</strong> They read <code>/proc/&lt;pid&gt;/</code>, which is a view onto the <code>task_struct</code> rendered as text (Node 38). <code>/proc/&lt;pid&gt;/status</code> is the fields; <code>/proc/&lt;pid&gt;/fd/</code> is the descriptor table as symbolic links; <code>/proc/&lt;pid&gt;/maps</code> is the address space; <code>/proc/&lt;pid&gt;/limits</code> is the resource limits; <code>/proc/&lt;pid&gt;/cmdline</code> is the arguments. Debugging a stuck Node process starts by reading those five files, and doing so tells you more in thirty seconds than most application-level instrumentation.</p>
+
+<p><strong>What you can do at this point:</strong> state precisely what a process is by listing what the kernel keeps for it, read process states and correctly diagnose a <code>D</code>-state hang and a zombie leak, explain why cluster workers share nothing and worker threads share almost everything, and explain why a container's PID 1 needs a signal handler.</p>
+
+<p><strong>What's still broken:</strong> the kernel now has a record of many processes, but the processor still executes exactly one instruction stream. There is a list of programs and one machine, and no mechanism yet for putting one program down mid-execution, in a way that lets it be picked back up later without it ever noticing.</p>

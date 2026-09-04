@@ -1,0 +1,72 @@
+<h3>Node 6 — the context switch, and what it costs</h3>
+
+<p><strong>The limitation:</strong> the kernel has a list of processes and a processor that can only be executing one of them.</p>
+
+<p>The mechanism is fully determined by Node 0. If a process's entire execution state is its registers — and it is, because everything else lives in memory that stays where it is — then swapping which process runs means nothing more than: write this process's registers into its <code>task_struct</code>, and load the other one's out of its own. When you later put the registers back, execution resumes at the exact instruction it was about to run, with every value exactly as it was. <strong>The process cannot detect that it was ever stopped.</strong> [EXPLAIN] Not "does not usually notice" — has no mechanism by which it could notice, because its entire observable state was restored. The only way to tell is by looking at a clock and seeing that time has passed.</p>
+
+<p>That is a <strong>context switch</strong>, and it is the trick that makes one processor look like many.</p>
+
+<h4>The steps, precisely</h4>
+
+<ol>
+<li><strong>Enter the kernel.</strong> Always. A switch can only be initiated from kernel mode, so it is always triggered by one of Node 2's three entries: a system call that must wait (the process blocks on a read), a device interrupt (a higher-priority process just became runnable), or the timer interrupt (this process's slice is up). There is no fourth way in.</li>
+<li><strong>Save the user registers.</strong> Mostly already done by the syscall or interrupt entry path from Node 4, which pushed them onto the kernel stack.</li>
+<li><strong>Save the remaining kernel-side state</strong> — the callee-saved registers and the kernel stack pointer — into the outgoing <code>task_struct</code>.</li>
+<li><strong>Pick the next process.</strong> That is the scheduler, Node 7.</li>
+<li><strong>Switch the address space.</strong> Load the incoming process's page table root into <code>cr3</code> — a privileged instruction from Node 3. From this instruction on, the same numeric addresses refer to entirely different physical memory. This is the expensive step and the next section explains why.</li>
+<li><strong>Switch the kernel stack</strong> and restore the incoming process's saved registers.</li>
+<li><strong>Return to user mode</strong> with <code>sysret</code> or <code>iret</code>. The incoming process resumes.</li>
+</ol>
+
+<h4>The cost, in two parts</h4>
+
+<p>This is where the numbers matter, because they are the quantitative argument behind most of Part IV.</p>
+
+<p>The <strong>direct cost</strong> — the instructions above — is roughly one to three microseconds on current hardware. Not free, but small.</p>
+
+<p>The <strong>indirect cost</strong> is much larger and is invisible in any profile that only counts instructions. The processor's caches and prediction structures are full of the outgoing process's data, and they are now all wrong.</p>
+
+<ul>
+<li><strong>The caches.</strong> Between the registers and main memory sit small, fast copies of recently used memory: L1 (roughly 32–64 KB per core, about 4 cycles away), L2 (a few hundred KB to a couple of MB, about 12–20 cycles), and L3 (tens of megabytes, shared, around 40 cycles). Main memory is around 80 nanoseconds — some 200 to 300 cycles. The incoming process finds none of its data in L1 or L2, so its first thousands of memory accesses go to a slower level. It runs at a fraction of full speed until the caches refill.</li>
+<li><strong>The TLB.</strong> The hardware that translates virtual addresses to physical ones (Node 10) caches its recent translations in a small table. Changing <code>cr3</code> historically invalidated all of it, meaning every subsequent memory access needed a full table walk until it refilled. Modern processors tag entries with an address-space identifier (Intel calls it PCID) so that the flush can be avoided — but KPTI, the Meltdown mitigation from Node 4, reintroduced much of the cost.</li>
+<li><strong>Branch prediction.</strong> The processor's record of which way each branch usually goes is now describing the wrong program, so mispredictions spike, and each one costs fifteen to twenty cycles of discarded speculative work.</li>
+</ul>
+
+<p>Add it up and the honest figure for a full process switch, including the recovery period, is on the order of <strong>several microseconds to a few tens of microseconds</strong> depending on how much memory the incoming process touches. Hold that number. It is the number the entire event-loop architecture exists to avoid paying.</p>
+
+<p>A <strong>thread</strong> switch within the same process is cheaper, and now you can say exactly why rather than repeating that it is: step 5 is skipped, because threads of one process share an address space, so <code>cr3</code> does not change, the TLB is not disturbed, and the caches likely still hold shared data. That is the whole of the difference. [EXPLAIN]</p>
+
+<h4>Voluntary and involuntary, and how to tell them apart</h4>
+
+<p>A switch happens for one of two reasons and Linux counts them separately for every process. Reading those two counters is one of the highest-yield diagnostic moves available.</p>
+
+<pre><code>$ grep ctxt /proc/&lt;pid&gt;/status
+voluntary_ctxt_switches:        184203
+nonvoluntary_ctxt_switches:     46
+</code></pre>
+
+<p><strong>Voluntary</strong> means the process gave up the processor because it had nothing to do — it called something that blocks, so the kernel put it to sleep. A healthy I/O-bound service, including any normal Node server, shows a large voluntary count. Each one corresponds to a request being waited on.</p>
+
+<p><strong>Nonvoluntary</strong> means the kernel took the processor away because the slice expired or something more urgent appeared. A large and growing nonvoluntary count means the process wants more processor time than it is getting: it is competing, either with other work on the machine or against a cgroup quota. On a container that is being CPU-throttled, this is the number that moves.</p>
+
+<p>Machine-wide, <code>vmstat 1</code> gives the same thing in its <code>cs</code> column — total switches per second. A few thousand is unremarkable. Hundreds of thousands, on a machine that is not obviously busy, means something is thrashing: too many threads, a lock being contended (Node 17), or a poll loop with a tiny timeout.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>This node is the actual, quantitative argument for asynchronous I/O, and it is worth being able to state as arithmetic rather than as a preference.</strong></p>
+
+<p>Consider a server handling ten thousand concurrent connections that are mostly idle — a chat backend, a dashboard with live updates, an API where clients hold connections open. Two designs:</p>
+
+<p><em>One thread per connection.</em> Ten thousand threads. Each has a kernel stack, a <code>task_struct</code>, and — the killer — a user stack, which on Linux defaults to 8 MB of reserved address space each (though only the touched pages are backed by real memory). Every time data arrives on any connection, a thread must be woken and switched to. At even a modest rate of events, you are paying microseconds of switch cost per event, plus a scheduler that now has ten thousand entries to reason about, plus caches that are useless because the working set rotates constantly.</p>
+
+<p><em>One thread, one event loop.</em> One process, one thread, one context. Data arrives on any of the ten thousand connections; the single thread is woken once, learns about all ready connections in one call, and handles each one by <strong>calling a function</strong>. A function call is a handful of instructions with warm caches — on the order of <em>nanoseconds</em>. Switching from handling connection 4,000 to connection 7,000 costs nothing at all, because there is no switch: it is the same thread, the same stack, the same caches, the same page table.</p>
+
+<p><strong>The event loop's advantage is three orders of magnitude, and its source is precisely that it replaces a context switch with a function call.</strong> [EXPLAIN] That is the whole thesis of Node.js as a design, and it is the correct answer when an interviewer asks why Node handles many connections well. Note carefully what it does <em>not</em> claim: it says nothing about being faster at computation, and Node 7 explains the price paid.</p>
+
+<p><strong>Postgres pays this cost by design, and that is why you need a pool.</strong> Postgres uses one operating system process per connection — a decision from the 1980s that gives real robustness, since a backend crashing cannot corrupt others. But it means each connection costs a <code>task_struct</code>, several megabytes of private memory, and a scheduler entry, and that a few hundred connections is a genuinely heavy load on the machine. That is why <code>max_connections</code> is typically 100–200 rather than 10,000, why a connection pool in your application is not optional, and why <code>pgbouncer</code> exists to multiplex thousands of client connections onto a few dozen real ones. When your serverless functions each open their own connection and the database falls over, the resource being exhausted is the one described in this node.</p>
+
+<p><strong>Threadpool sizing is this node in one variable.</strong> libuv's threadpool defaults to four threads, and people commonly raise <code>UV_THREADPOOL_SIZE</code> when file or crypto work is queueing. Raising it beyond the number of cores does not add capacity — it adds context switching, because more runnable threads than cores means the kernel starts rotating them, paying the full cost above each time while getting no extra work done. The correct value is bounded by cores for CPU-bound work (crypto, zlib) and can exceed cores for genuinely blocking work (file I/O that waits on a disk), and the way to tell which you have is whether the threads are in <code>R</code> or in <code>D</code>.</p>
+
+<p><strong>What you can do at this point:</strong> explain what a context switch is mechanically, why a thread switch is cheaper than a process switch and by exactly which step, read voluntary versus nonvoluntary switch counts to distinguish an I/O-bound process from a starved one, and give the numeric argument for the event loop rather than the slogan.</p>
+
+<p><strong>What's still broken:</strong> the kernel can now swap processes, but nothing decides <em>which</em> process and <em>for how long</em>. Worse, a switch can currently only happen when a process voluntarily enters the kernel. A program with an infinite loop that makes no system calls never enters the kernel, so the kernel never gets a chance to take the processor back — exactly the failure from Node 1, still unfixed.</p>

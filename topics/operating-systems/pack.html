@@ -2258,7 +2258,66 @@ USER nodejs
 
 <p><strong>What you can do at this point:</strong> state exactly what a container is, describe an OCI image's three parts and why digests matter, walk the eleven steps of <code>docker run</code> naming the mechanism behind each, place runc/containerd/shim/Docker/Podman/BuildKit correctly, debug a container by entering its namespaces, and state its security properties honestly.</p>
 
-<p><strong>What's still broken:</strong> one kernel, shared. Every container on a machine trusts the same code, and a bug in it is a bug for all of them. Some workloads cannot accept that, and the answer predates containers by forty years.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
+<p><strong>What's still broken:</strong> one kernel, shared. Every container on a machine trusts the same code, and a bug in it is a bug for all of them. Some workloads cannot accept that, and the answer predates containers by forty years.</p>
+
+<h3>Node 29 — virtual machines, and where containers are not enough</h3>
+
+<p><strong>The limitation:</strong> containers share one kernel, so a kernel bug is a shared vulnerability, a kernel panic is a shared outage, and a container cannot run a different operating system.</p>
+
+<h4>The idea, and its age</h4>
+
+<p>Virtualisation is older than Unix. IBM's CP-40 and CP-67, from 1967, gave each user a complete simulated System/360 — and VM/370 (1972) made it a product that is still sold today as z/VM. <strong>Time-sharing and virtualisation were competing answers to the same 1960s question of how to share an expensive machine</strong>, and the answers differ in where the boundary sits: time-sharing shares one operating system among many users, virtualisation gives each user an entire machine.</p>
+
+<p>A <strong>hypervisor</strong> (or virtual machine monitor) presents each guest with what looks like real hardware: a processor, memory, disks, network cards, an interrupt controller. The guest runs an unmodified operating system, which boots, installs its own interrupt table, manages its own page tables, and believes it owns the machine.</p>
+
+<p>Two kinds. <strong>Type 1</strong> runs directly on the hardware — VMware ESXi, Xen, Hyper-V, and KVM in practice. <strong>Type 2</strong> runs as an application on a host OS — VirtualBox, VMware Workstation, QEMU standalone. The line blurs: KVM is a Linux kernel module, so Linux itself becomes the hypervisor, which is arguably both.</p>
+
+<h4>Why it was hard, and the instruction that fixed it</h4>
+
+<p>Gerald Popek and Robert Goldberg established in 1974 the requirement for efficient virtualisation: every instruction that could reveal or change privileged state must trap when executed unprivileged, so the hypervisor can intercept it.</p>
+
+<p><strong>x86 failed that test.</strong> Seventeen instructions behaved differently in user mode instead of trapping — <code>popf</code>, for instance, would silently ignore attempts to change the interrupt flag rather than faulting. So a guest kernel running unprivileged would get wrong answers with no way for the hypervisor to notice. Three responses:</p>
+
+<ul>
+<li><strong>Binary translation</strong> — VMware's approach from 1999, and a genuine feat: scan the guest's kernel code as it executes and rewrite the problematic instructions on the fly. It worked, it was complicated, and it cost performance.</li>
+<li><strong>Paravirtualisation</strong> — Xen's approach (2003): modify the guest kernel to call the hypervisor explicitly instead of executing privileged instructions. Fast, and it requires a guest that knows it is virtualised.</li>
+<li><strong>Hardware virtualisation</strong> — Intel VT-x (2005) and AMD-V added a new mode <em>beneath</em> ring 0, informally "ring −1" (Node 3). A guest kernel runs genuinely in ring 0 and the hypervisor sits below it, with hardware trapping the operations that need interception. This made virtualisation fast and straightforward, and it is why the cloud became economically possible in the years after 2006.</li>
+</ul>
+
+<p>Memory needed the same treatment. A guest maintains page tables mapping guest-virtual to guest-physical addresses, and the hypervisor must map guest-physical to host-physical — two levels. Software did this with <em>shadow page tables</em>, which were expensive to maintain. Hardware added <strong>second-level address translation</strong> (Intel EPT, AMD NPT), so the MMU walks both levels itself. Devices needed it too: <strong>IOMMU</strong> (VT-d) translates the addresses a device uses for DMA (Node 2), which is what makes it safe to hand a physical network card or GPU directly to a guest.</p>
+
+<p><strong>Virtio</strong> solved the device problem the other way: rather than emulating a real network card register by register — slow and pointless, since the guest knows it is virtualised — define a paravirtual device with a shared ring-buffer interface. Every Linux guest has virtio drivers built in, which is why cloud images boot on any hypervisor and why virtio-net and virtio-blk are what your cloud instance actually uses.</p>
+
+<h4>Containers and virtual machines, compared honestly</h4>
+
+<table>
+<tr><th></th><th>Container</th><th>Virtual machine</th></tr>
+<tr><td>Kernel</td><td>shared with the host</td><td>its own</td></tr>
+<tr><td>Isolation boundary</td><td>kernel correctness</td><td>hardware-enforced, much smaller attack surface</td></tr>
+<tr><td>Start time</td><td>milliseconds — it is a <code>clone()</code></td><td>seconds — a full boot (Node 36)</td></tr>
+<tr><td>Overhead per instance</td><td>a process</td><td>a kernel plus its memory</td></tr>
+<tr><td>Density</td><td>hundreds per host</td><td>tens</td></tr>
+<tr><td>Guest OS</td><td>must match the host kernel</td><td>anything</td></tr>
+<tr><td>Live migration</td><td>essentially no</td><td>yes, mature</td></tr>
+</table>
+
+<p>The middle ground is where the interesting work has happened. <strong>Firecracker</strong> (AWS, 2018, written in Rust) is a minimal virtual machine monitor built on KVM that emulates almost nothing — five devices — and boots a microVM in about 125 milliseconds with roughly 5 MB of overhead. It is what runs AWS Lambda and Fargate, and it exists because AWS needed hardware-level isolation between customers' functions with container-like start times. <strong>Kata Containers</strong> presents an OCI runtime interface and transparently runs each container inside a microVM. <strong>gVisor</strong> (Node 4) takes the opposite route, implementing the Linux syscall interface in a user-space process so the host kernel is barely exposed.</p>
+
+<p>The genuine conclusion is that <strong>containers and virtual machines are not competitors; the standard production shape is containers inside virtual machines.</strong> Your Kubernetes nodes are EC2 instances. The virtual machine boundary separates tenants; the container boundary separates your own workloads and gives you packaging and density. Anyone presenting it as a choice has usually not run multi-tenant infrastructure.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Docker Desktop on macOS and Windows runs a Linux virtual machine, and this explains a great deal of daily friction.</strong> Containers are a Linux kernel feature (Node 26); macOS and Windows do not have those features, so there is a Linux VM — via Apple's Virtualization.framework or WSL2's Hyper-V-based VM — and your containers run inside it. Consequences: the "Docker is using 4 GB" you see is the VM's allocation, not your containers'; bind mounts cross a filesystem boundary and are slow (Node 24); <code>--network host</code> means the VM's network, not your Mac's, so it does not do what you expect; and containers cannot see your Mac's <code>localhost</code> except through the special <code>host.docker.internal</code> name. Every one of those is the VM boundary showing.</p>
+
+<p><strong>WSL2 is a virtual machine and WSL1 was not</strong>, and the difference is instructive. WSL1 translated Linux system calls into Windows NT kernel calls — a compatibility layer, in the spirit of Node 4's observation that the syscall interface <em>is</em> Linux. It was fast for Windows filesystem access and incomplete, and it could not run Docker. WSL2 runs a real Linux kernel in a lightweight VM, so it is fully compatible, and its filesystem story inverts: files under the Linux root are fast, files under <code>/mnt/c</code> cross the boundary and are slow. <strong>Keeping a project inside the WSL2 filesystem rather than under <code>/mnt/c</code> is often a five-to-tenfold difference on a Node build</strong>, and the reason is one line of this node.</p>
+
+<p><strong>Cloud instance types are this node's vocabulary.</strong> A "vCPU" is usually one hyperthread of a physical core, so two vCPUs is one core's worth of execution resources shared by two threads. <em>Burstable</em> instances (AWS T-family) accrue CPU credits while idle and are throttled to a baseline once they run out — the same failure shape as Node 23's EBS burst credits, and the reason a small instance that was fine for a week suddenly is not. <em>Bare metal</em> instances exist for workloads that cannot accept the hypervisor's overhead or that need to run their own hypervisor. And "noisy neighbours" is contention for shared physical resources — memory bandwidth, the L3 cache, the network — that no amount of vCPU allocation prevents.</p>
+
+<p><strong>Serverless is microVMs with a scheduler.</strong> A Lambda invocation runs inside a Firecracker microVM; a <em>cold start</em> is booting that microVM plus initialising your runtime plus demand-paging your code (Node 13). Understanding that tells you exactly which optimisations work: smaller deployment packages help because there is less to fault in; provisioned concurrency keeps the microVM warm; SnapStart snapshots the initialised state so the boot is replaced by a restore; and choosing more memory also gives more CPU, because Lambda allocates them together — which is why a CPU-bound function can be <em>cheaper</em> at a higher memory setting.</p>
+
+<p><strong>What you can do at this point:</strong> explain what a hypervisor is and why x86 was hard to virtualise, name the three historical solutions and what hardware support changed, compare containers and VMs on the axes that matter and say why the usual answer is both, explain what Firecracker and gVisor and Kata are for, explain Docker Desktop's and WSL2's architecture and the performance consequences, and explain a serverless cold start mechanically.</p>
+
+<p><strong>What's still broken:</strong> processes are now isolated in every dimension, which leaves the opposite problem. They need to talk — to each other, to the outside world, and to receive instructions like "shut down cleanly". None of that has been built, and the first piece of it is the reason your container ignores <code>docker stop</code>.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
   This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
   elaboration.json live alongside it and are fetched at runtime — do not inline
   that data here.
@@ -4563,6 +4622,65 @@ USER nodejs
 <p><strong>What you can do at this point:</strong> state exactly what a container is, describe an OCI image's three parts and why digests matter, walk the eleven steps of <code>docker run</code> naming the mechanism behind each, place runc/containerd/shim/Docker/Podman/BuildKit correctly, debug a container by entering its namespaces, and state its security properties honestly.</p>
 
 <p><strong>What's still broken:</strong> one kernel, shared. Every container on a machine trusts the same code, and a bug in it is a bug for all of them. Some workloads cannot accept that, and the answer predates containers by forty years.</p>
+
+<h3>Node 29 — virtual machines, and where containers are not enough</h3>
+
+<p><strong>The limitation:</strong> containers share one kernel, so a kernel bug is a shared vulnerability, a kernel panic is a shared outage, and a container cannot run a different operating system.</p>
+
+<h4>The idea, and its age</h4>
+
+<p>Virtualisation is older than Unix. IBM's CP-40 and CP-67, from 1967, gave each user a complete simulated System/360 — and VM/370 (1972) made it a product that is still sold today as z/VM. <strong>Time-sharing and virtualisation were competing answers to the same 1960s question of how to share an expensive machine</strong>, and the answers differ in where the boundary sits: time-sharing shares one operating system among many users, virtualisation gives each user an entire machine.</p>
+
+<p>A <strong>hypervisor</strong> (or virtual machine monitor) presents each guest with what looks like real hardware: a processor, memory, disks, network cards, an interrupt controller. The guest runs an unmodified operating system, which boots, installs its own interrupt table, manages its own page tables, and believes it owns the machine.</p>
+
+<p>Two kinds. <strong>Type 1</strong> runs directly on the hardware — VMware ESXi, Xen, Hyper-V, and KVM in practice. <strong>Type 2</strong> runs as an application on a host OS — VirtualBox, VMware Workstation, QEMU standalone. The line blurs: KVM is a Linux kernel module, so Linux itself becomes the hypervisor, which is arguably both.</p>
+
+<h4>Why it was hard, and the instruction that fixed it</h4>
+
+<p>Gerald Popek and Robert Goldberg established in 1974 the requirement for efficient virtualisation: every instruction that could reveal or change privileged state must trap when executed unprivileged, so the hypervisor can intercept it.</p>
+
+<p><strong>x86 failed that test.</strong> Seventeen instructions behaved differently in user mode instead of trapping — <code>popf</code>, for instance, would silently ignore attempts to change the interrupt flag rather than faulting. So a guest kernel running unprivileged would get wrong answers with no way for the hypervisor to notice. Three responses:</p>
+
+<ul>
+<li><strong>Binary translation</strong> — VMware's approach from 1999, and a genuine feat: scan the guest's kernel code as it executes and rewrite the problematic instructions on the fly. It worked, it was complicated, and it cost performance.</li>
+<li><strong>Paravirtualisation</strong> — Xen's approach (2003): modify the guest kernel to call the hypervisor explicitly instead of executing privileged instructions. Fast, and it requires a guest that knows it is virtualised.</li>
+<li><strong>Hardware virtualisation</strong> — Intel VT-x (2005) and AMD-V added a new mode <em>beneath</em> ring 0, informally "ring −1" (Node 3). A guest kernel runs genuinely in ring 0 and the hypervisor sits below it, with hardware trapping the operations that need interception. This made virtualisation fast and straightforward, and it is why the cloud became economically possible in the years after 2006.</li>
+</ul>
+
+<p>Memory needed the same treatment. A guest maintains page tables mapping guest-virtual to guest-physical addresses, and the hypervisor must map guest-physical to host-physical — two levels. Software did this with <em>shadow page tables</em>, which were expensive to maintain. Hardware added <strong>second-level address translation</strong> (Intel EPT, AMD NPT), so the MMU walks both levels itself. Devices needed it too: <strong>IOMMU</strong> (VT-d) translates the addresses a device uses for DMA (Node 2), which is what makes it safe to hand a physical network card or GPU directly to a guest.</p>
+
+<p><strong>Virtio</strong> solved the device problem the other way: rather than emulating a real network card register by register — slow and pointless, since the guest knows it is virtualised — define a paravirtual device with a shared ring-buffer interface. Every Linux guest has virtio drivers built in, which is why cloud images boot on any hypervisor and why virtio-net and virtio-blk are what your cloud instance actually uses.</p>
+
+<h4>Containers and virtual machines, compared honestly</h4>
+
+<table>
+<tr><th></th><th>Container</th><th>Virtual machine</th></tr>
+<tr><td>Kernel</td><td>shared with the host</td><td>its own</td></tr>
+<tr><td>Isolation boundary</td><td>kernel correctness</td><td>hardware-enforced, much smaller attack surface</td></tr>
+<tr><td>Start time</td><td>milliseconds — it is a <code>clone()</code></td><td>seconds — a full boot (Node 36)</td></tr>
+<tr><td>Overhead per instance</td><td>a process</td><td>a kernel plus its memory</td></tr>
+<tr><td>Density</td><td>hundreds per host</td><td>tens</td></tr>
+<tr><td>Guest OS</td><td>must match the host kernel</td><td>anything</td></tr>
+<tr><td>Live migration</td><td>essentially no</td><td>yes, mature</td></tr>
+</table>
+
+<p>The middle ground is where the interesting work has happened. <strong>Firecracker</strong> (AWS, 2018, written in Rust) is a minimal virtual machine monitor built on KVM that emulates almost nothing — five devices — and boots a microVM in about 125 milliseconds with roughly 5 MB of overhead. It is what runs AWS Lambda and Fargate, and it exists because AWS needed hardware-level isolation between customers' functions with container-like start times. <strong>Kata Containers</strong> presents an OCI runtime interface and transparently runs each container inside a microVM. <strong>gVisor</strong> (Node 4) takes the opposite route, implementing the Linux syscall interface in a user-space process so the host kernel is barely exposed.</p>
+
+<p>The genuine conclusion is that <strong>containers and virtual machines are not competitors; the standard production shape is containers inside virtual machines.</strong> Your Kubernetes nodes are EC2 instances. The virtual machine boundary separates tenants; the container boundary separates your own workloads and gives you packaging and density. Anyone presenting it as a choice has usually not run multi-tenant infrastructure.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Docker Desktop on macOS and Windows runs a Linux virtual machine, and this explains a great deal of daily friction.</strong> Containers are a Linux kernel feature (Node 26); macOS and Windows do not have those features, so there is a Linux VM — via Apple's Virtualization.framework or WSL2's Hyper-V-based VM — and your containers run inside it. Consequences: the "Docker is using 4 GB" you see is the VM's allocation, not your containers'; bind mounts cross a filesystem boundary and are slow (Node 24); <code>--network host</code> means the VM's network, not your Mac's, so it does not do what you expect; and containers cannot see your Mac's <code>localhost</code> except through the special <code>host.docker.internal</code> name. Every one of those is the VM boundary showing.</p>
+
+<p><strong>WSL2 is a virtual machine and WSL1 was not</strong>, and the difference is instructive. WSL1 translated Linux system calls into Windows NT kernel calls — a compatibility layer, in the spirit of Node 4's observation that the syscall interface <em>is</em> Linux. It was fast for Windows filesystem access and incomplete, and it could not run Docker. WSL2 runs a real Linux kernel in a lightweight VM, so it is fully compatible, and its filesystem story inverts: files under the Linux root are fast, files under <code>/mnt/c</code> cross the boundary and are slow. <strong>Keeping a project inside the WSL2 filesystem rather than under <code>/mnt/c</code> is often a five-to-tenfold difference on a Node build</strong>, and the reason is one line of this node.</p>
+
+<p><strong>Cloud instance types are this node's vocabulary.</strong> A "vCPU" is usually one hyperthread of a physical core, so two vCPUs is one core's worth of execution resources shared by two threads. <em>Burstable</em> instances (AWS T-family) accrue CPU credits while idle and are throttled to a baseline once they run out — the same failure shape as Node 23's EBS burst credits, and the reason a small instance that was fine for a week suddenly is not. <em>Bare metal</em> instances exist for workloads that cannot accept the hypervisor's overhead or that need to run their own hypervisor. And "noisy neighbours" is contention for shared physical resources — memory bandwidth, the L3 cache, the network — that no amount of vCPU allocation prevents.</p>
+
+<p><strong>Serverless is microVMs with a scheduler.</strong> A Lambda invocation runs inside a Firecracker microVM; a <em>cold start</em> is booting that microVM plus initialising your runtime plus demand-paging your code (Node 13). Understanding that tells you exactly which optimisations work: smaller deployment packages help because there is less to fault in; provisioned concurrency keeps the microVM warm; SnapStart snapshots the initialised state so the boot is replaced by a restore; and choosing more memory also gives more CPU, because Lambda allocates them together — which is why a CPU-bound function can be <em>cheaper</em> at a higher memory setting.</p>
+
+<p><strong>What you can do at this point:</strong> explain what a hypervisor is and why x86 was hard to virtualise, name the three historical solutions and what hardware support changed, compare containers and VMs on the axes that matter and say why the usual answer is both, explain what Firecracker and gVisor and Kata are for, explain Docker Desktop's and WSL2's architecture and the performance consequences, and explain a serverless cold start mechanically.</p>
+
+<p><strong>What's still broken:</strong> processes are now isolated in every dimension, which leaves the opposite problem. They need to talk — to each other, to the outside world, and to receive instructions like "shut down cleanly". None of that has been built, and the first piece of it is the reason your container ignores <code>docker stop</code>.</p>
     </div>
   </div>
 

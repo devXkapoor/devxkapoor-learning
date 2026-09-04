@@ -1,0 +1,83 @@
+<h3>Node 23 — the disk underneath, and what <code>fsync</code> is for</h3>
+
+<p><strong>The limitation:</strong> <code>write()</code> returns as soon as bytes are in the page cache, so nothing yet said has any relationship to data surviving a power cut.</p>
+
+<h4>The two devices, and why they behave so differently</h4>
+
+<p><strong>A hard disk</strong> is spinning magnetic platters with a head on an arm. To read a block, the arm moves to the right track (<strong>seek</strong>, 4–10 ms) and then the platter rotates until the block passes under the head (<strong>rotational latency</strong>, averaging half a revolution — 4.2 ms at 7200 rpm). Total for a random read: around 8–12 ms. Once positioned, sequential transfer runs at 100–200 MB/s.</p>
+
+<p><strong>Those two numbers give a ratio of roughly 100 to 1 between sequential and random access, and that ratio is the reason for the entire shape of database design.</strong> [EXPLAIN] B-trees exist to keep the number of seeks logarithmic. Write-ahead logs exist to convert random writes into sequential ones. Sequential scans beat index scans past a certain selectivity because a hundred sequential blocks cost less than ten random ones — which is exactly what Postgres's <code>random_page_cost</code> (4.0) versus <code>seq_page_cost</code> (1.0) encodes, and why <strong>lowering <code>random_page_cost</code> to about 1.1 on SSD storage is standard and frequently changes plans for the better.</strong> The planner is doing arithmetic with this node's physics.</p>
+
+<p><strong>A solid-state disk</strong> has no moving parts, so random access costs essentially the same as sequential: around 100 microseconds for SATA, 20–80 for NVMe. A hundred times faster than a disk seek. But flash has three awkward properties that create a whole hidden layer:</p>
+
+<ul>
+<li>It is read and written in <strong>pages</strong> of 4–16 KB, but erased only in <strong>blocks</strong> of several megabytes.</li>
+<li>A page cannot be overwritten in place; it must be erased first, and erasure only works at block granularity.</li>
+<li>Each block tolerates a limited number of erase cycles — thousands to tens of thousands.</li>
+</ul>
+
+<p>So an SSD contains a small computer, the <strong>Flash Translation Layer</strong>, that maintains a map from logical block addresses to physical pages. A write goes to a fresh page and the map is updated; the old page is marked stale. Background garbage collection later relocates the still-live pages out of a mostly-stale block and erases it. Consequences worth knowing: <strong>write amplification</strong>, where writing 4 KB causes far more than 4 KB of flash traffic; <strong>latency spikes</strong> when garbage collection collides with your writes, which is why SSD p99 latency is much worse than its average; <strong>wear levelling</strong>, spreading writes so no block dies early; and <strong><code>TRIM</code></strong>, by which the filesystem tells the device which blocks are no longer in use so it can garbage-collect them — without it, a full-then-emptied SSD stays slow.</p>
+
+<p>The latency hierarchy, which is worth memorising because it explains most performance intuitions:</p>
+
+<pre><code>  L1 cache                       ~1 ns
+  L2 cache                       ~4 ns
+  main memory (DRAM)            ~80 ns
+  NVMe SSD read                ~20–80 µs      (~1,000× DRAM)
+  SATA SSD read                  ~100 µs
+  network, same datacentre     ~100–500 µs
+  hard disk seek                ~5–10 ms       (~100,000× DRAM)
+  network, cross-continent      ~100 ms
+</code></pre>
+
+<h4>The block layer</h4>
+
+<p>Between the filesystem and the device sits the block layer, which merges adjacent requests, reorders them, and hands them to the driver. Its <strong>I/O scheduler</strong> mattered enormously for spinning disks — the elevator algorithm sweeps the head in one direction to avoid pathological back-and-forth seeking. On NVMe it mostly does not, which is why the modern default for such devices is literally <code>none</code>: the device's own queues (thousands of them, deep) do better than the kernel can. <code>cat /sys/block/nvme0n1/queue/scheduler</code> shows the choice.</p>
+
+<p><strong>Readahead</strong> is the other important behaviour: on detecting sequential reads, the kernel fetches ahead into the page cache, which is why a sequential scan is fast and why the page cache from Node 13 does most of the work in a well-behaved database.</p>
+
+<h4>The durability chain, and the call that closes it</h4>
+
+<p>Here is where your bytes actually are, in order, after a <code>write()</code>:</p>
+
+<ol>
+<li><strong>Your language's buffer</strong> — a Node stream's internal buffer, or libc's <code>stdio</code> buffer. Lost if the <em>process</em> crashes.</li>
+<li><strong>The kernel page cache</strong> — after the <code>write</code> syscall returns. Survives a process crash, including a <code>SIGKILL</code> or an OOM kill. <strong>Lost on power failure or kernel panic.</strong></li>
+<li><strong>The device's write cache</strong> — after the kernel writes it back. A disk or SSD has its own volatile RAM cache, and it acknowledges writes on arrival there. Lost on power failure, unless the device has a capacitor or battery.</li>
+<li><strong>The actual medium</strong> — platter or flash. Survives everything.</li>
+</ol>
+
+<p><strong><code>fsync(fd)</code> forces stages 2 and 3 to complete: it writes back all dirty pages of that file and issues a cache-flush command to the device, returning only when the device says the data is durable.</strong> [EXPLAIN] <code>fdatasync</code> is the same but may skip metadata that does not affect reading the data back — cheaper, and what databases usually use. Costs: on a hard disk, a full rotation, so 5–10 ms; on a consumer SSD, tens to hundreds of microseconds; on enterprise hardware with power-loss protection, near zero because the device can honestly acknowledge immediately.</p>
+
+<p><strong>This is the single most important number in database performance.</strong> An in-memory row insert is a microsecond. A committed, durable row insert is bounded below by one <code>fsync</code>. That is the whole gap, and every durability setting in every database is a decision about how many <code>fsync</code>s to do and when.</p>
+
+<p>Three more facts that separate people who have run databases from people who have not:</p>
+
+<p><strong>Devices lie.</strong> Some consumer drives acknowledge a flush without performing it, because it benchmarks better. Data written to such a device is not durable no matter what your database does. This is why enterprise drives with power-loss capacitors exist and why cloud block storage is worth its price — the provider has solved this and gives you a written guarantee.</p>
+
+<p><strong><code>fsync</code> can fail, and what happens then used to be catastrophic.</strong> In 2018 the Postgres developers discovered — the incident is known as <em>fsyncgate</em> — that on Linux, when writeback fails, the kernel reports the error to whoever calls <code>fsync</code> next and then <em>marks the pages clean anyway</em>, so a second <code>fsync</code> returns success while the data is gone forever. Postgres had been retrying on <code>fsync</code> failure. The fix, shipped in Postgres 12, is to <strong>panic the server</strong> on <code>fsync</code> failure and recover from the write-ahead log, because there is no safe way to continue. The general lesson is worth carrying: <em>an I/O error is not a retryable error unless you know exactly what the layer beneath did with the failed data.</em></p>
+
+<p><strong>Durability is not atomicity.</strong> A power cut partway through writing an 8 KB page can leave four kilobytes of new data and four of old — a <strong>torn page</strong>. Hardware guarantees atomicity only at sector granularity (512 or 4096 bytes). This is why Postgres has <code>full_page_writes</code> on by default: the first modification of a page after each checkpoint writes the <em>entire page image</em> into the write-ahead log, so recovery can reconstruct it. It roughly doubles WAL volume and it is the reason turning it off is tempting and wrong on any storage without atomic-write guarantees.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>The write-ahead log is this node's design pattern, and it is worth being able to derive.</strong> Modifying a row means changing a page somewhere in a large file — a random write, which on a disk is 10 ms and which cannot be made atomic across several pages. So instead: append a description of the change to a sequential log, <code>fsync</code> that, and only then report the commit as successful. The actual data pages are updated later, lazily, in the background. <strong>The random write becomes one sequential append plus one <code>fsync</code>.</strong> If the machine dies, replay the log from the last checkpoint. Every durable system does this — Postgres's WAL, MySQL's InnoDB redo log, SQLite's WAL mode, Kafka's log-structured storage, etcd's Raft log, and every LSM-tree database's commit log. [EXPLAIN] Recognising it once means you understand the durability story of all of them.</p>
+
+<p><strong>The knobs, and what they trade:</strong></p>
+
+<ul>
+<li><strong>Postgres <code>synchronous_commit</code>.</strong> <code>on</code> (default) means every commit waits for a WAL <code>fsync</code> — full durability, and a commit rate bounded by <code>fsync</code> latency. <code>off</code> means commits return without waiting, flushing within <code>wal_writer_delay</code> (200 ms default). <strong>You do not risk corruption — only the loss of the last fraction of a second of committed transactions.</strong> That is a genuinely reasonable trade for analytics ingestion or event logging and a terrible one for payments. Also relevant: <em>group commit</em>, where concurrent commits share one <code>fsync</code>, which is why throughput scales far better with concurrency than the single-transaction latency suggests, and which <code>commit_delay</code> tunes deliberately.</li>
+<li><strong>MySQL <code>innodb_flush_log_at_trx_commit</code></strong>: 1 flushes per commit (durable, the default), 2 writes to the page cache per commit and flushes each second (survives a process crash, not a power cut), 0 does neither.</li>
+<li><strong>Redis <code>appendfsync</code></strong>: <code>always</code>, <code>everysec</code> (the default and the sensible one), or <code>no</code>. And RDB snapshots alone mean losing everything since the last save, which is a fact many people using Redis as a database rather than a cache have discovered at the wrong moment.</li>
+<li><strong>SQLite <code>PRAGMA journal_mode=WAL</code> and <code>synchronous=NORMAL</code></strong> — the standard pairing, and the reason SQLite is dramatically faster with them than with the defaults.</li>
+</ul>
+
+<p><strong>Diagnosing storage from the outside.</strong> <code>iostat -x 1</code> gives, per device: <code>await</code> (average request latency in milliseconds — the number that matters), <code>%util</code> (misleading on SSDs with parallel queues; a device can be at 100% util and far from saturated), and <code>aqu-sz</code> (queue depth). High <code>await</code> with a deep queue means the device is saturated. In <code>top</code>, the <code>wa</code> column is time processes spent blocked on I/O, and a machine with high <code>wa</code> and low user CPU is storage-bound, not compute-bound. <code>pidstat -d</code> attributes it to processes. [USE] "The database is slow" resolves through these three commands more often than through any query analysis.</p>
+
+<p><strong>Cloud storage adds a layer with its own economics.</strong> An AWS EBS <code>gp3</code> volume has a provisioned IOPS figure and a throughput figure, independently settable; <code>gp2</code> used a burst-credit system where a small volume accumulates credits while idle and, once they are exhausted, drops to a baseline that can be a fraction of what your application saw in testing. <strong>A database that was fast for three weeks and then became permanently slow has usually exhausted burst credits</strong>, and no amount of query tuning fixes it. Network-attached storage also has network latency in the durability path — an EBS <code>fsync</code> is a round trip — which is why local NVMe instance storage is dramatically faster and why it is ephemeral, and why a Kubernetes <code>PersistentVolumeClaim</code>'s storage class is a database performance decision rather than an infrastructure detail.</p>
+
+<p><strong>Containers and writes.</strong> Writing to a container's filesystem goes through the overlay driver (Node 24), which adds copy-up costs. Writing to a volume goes to the host filesystem directly. <strong>Never run a database on the container's writable layer</strong> — that is the mechanical reason behind the advice, not merely a persistence concern.</p>
+
+<p><strong>What you can do at this point:</strong> explain the sequential-versus-random ratio and how it shapes B-trees, WALs and query plans; explain what an SSD's translation layer does and why p99 differs from average; state the four stages of the durability chain and exactly what <code>fsync</code> guarantees; derive the write-ahead log from first principles; explain what each durability setting actually risks; and diagnose an I/O-bound machine with <code>iostat</code> and <code>top</code>.</p>
+
+<p><strong>What's still broken:</strong> the block device is a flat array of numbered blocks. Nothing yet turns that into named files and directories, decides which block holds what, or survives a crash partway through creating a file. And one particular filesystem — a stack of read-only layers with one writable layer on top — is the thing a Docker image actually is.</p>

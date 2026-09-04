@@ -1,0 +1,71 @@
+<h3>Node 24 — filesystems, journaling, and the one a Docker image is made of</h3>
+
+<p><strong>The limitation:</strong> a block device is a numbered array of blocks; files and directories are not.</p>
+
+<h4>What a filesystem has to lay out</h4>
+
+<p>Any filesystem divides the device into: a <strong>superblock</strong> holding global metadata (size, block size, where everything else is, and a clean/dirty flag); allocation structures recording which blocks and inodes are free; the <strong>inode table</strong> from Node 21; and the data blocks themselves.</p>
+
+<p>The interesting design question is how an inode points at its data. The classic Unix scheme used direct pointers for the first few blocks plus single, double and triple <em>indirect</em> blocks — so a small file needs one lookup and a huge file needs four, with the cost paid only by files large enough to justify it. Modern filesystems use <strong>extents</strong> instead: a start block and a length, so a contiguous 1 GB file is described by a handful of records rather than 262,144 pointers. That change alone is a large part of why ext4 outperforms ext3 on big files.</p>
+
+<h4>Crash consistency: the actual hard problem</h4>
+
+<p>Creating a file requires several separate writes: allocate an inode, write the inode, allocate data blocks, write the data, add the directory entry, update the free maps. A crash between any two leaves the filesystem inconsistent — an inode marked in use with no directory entry pointing at it (a leaked file), or a directory entry pointing at an inode that was never initialised (which is worse, since it may contain another file's old data).</p>
+
+<p>The old answer was <code>fsck</code>: on boot after an unclean shutdown, scan the entire filesystem and repair it. On a multi-terabyte filesystem that is hours, during which the machine is down. Unacceptable for a server.</p>
+
+<p><strong>Journaling</strong> is the answer, and it is Node 23's write-ahead log applied to filesystem metadata. Before performing a group of related updates, write a description of them to a dedicated journal area and flush it. Then perform the real updates. Then mark the journal entry complete. After a crash, replay any entries that were written but not marked complete — bounded work, seconds rather than hours. [EXPLAIN]</p>
+
+<p>ext4 offers three modes, and the middle one being the default explains a behaviour people find surprising:</p>
+
+<ul>
+<li><code>data=journal</code> — data <em>and</em> metadata go through the journal. Safest, and everything is written twice.</li>
+<li><code>data=ordered</code> (the default) — only metadata is journaled, but data blocks are forced to disk <em>before</em> the metadata that references them. So you never see a file whose metadata points at blocks containing another file's old contents. You can still lose recent data.</li>
+<li><code>data=writeback</code> — metadata journaled, no ordering. Fastest, and after a crash a file can contain arbitrary stale bytes.</li>
+</ul>
+
+<p>Because ext4 journals metadata rather than data, <strong>a crash can leave a file that exists, has the right size, and is full of zeros.</strong> That is not a bug; it is the documented consequence of <code>data=ordered</code> with delayed allocation, and it is why applications that care must <code>fsync</code> — and must <code>fsync</code> the <em>directory</em> too, after a rename, or the rename itself may not be durable. The rename idiom from Node 21 is atomic with respect to readers and is not automatically durable with respect to power loss; a correct safe-write is: write temp, <code>fsync</code> temp, <code>rename</code>, <code>fsync</code> the directory.</p>
+
+<h4>The filesystems you will meet</h4>
+
+<ul>
+<li><strong>ext4</strong> (2008) — the Linux default. Journaled, extent-based, dull and reliable. The correct choice unless you have a reason.</li>
+<li><strong>XFS</strong> (SGI, 1993; Linux since 2001) — excellent at large files and high parallelism; the default on Red Hat. Cannot be shrunk.</li>
+<li><strong>btrfs</strong> and <strong>ZFS</strong> — copy-on-write filesystems (Node 14's pattern at block level) with built-in snapshots, checksums on all data, and volume management. ZFS is the more mature and its licence keeps it out of the Linux kernel tree.</li>
+<li><strong>tmpfs</strong> — a filesystem in RAM, backed by the page cache and swap. This is what <code>/dev/shm</code> and much of <code>/run</code> are, what Docker's <code>--tmpfs</code> and Kubernetes' <code>emptyDir: {medium: Memory}</code> give you, and — importantly — <strong>its contents count against your cgroup memory limit</strong> (Node 13). A build that writes a few gigabytes into a memory-backed <code>emptyDir</code> will be OOMKilled, and the reason is not obvious from the error.</li>
+<li><strong>Network filesystems</strong> — NFS, SMB, and cloud file services. They break assumptions that local filesystems satisfy: locking is advisory and unreliable, <code>fsync</code> semantics vary, latency is milliseconds, and a server that stops responding puts your process into the <code>D</code> state from Node 5, unkillable. <strong>Never put a database on NFS</strong>, and be careful about putting anything latency-sensitive there.</li>
+<li><strong>FUSE</strong> — filesystems implemented in user space. s3fs, sshfs, and many container and cloud tools use it. Every operation is a round trip to a user process, so it is slow, and it is why "mount S3 as a filesystem" is always a worse idea than it sounds.</li>
+</ul>
+
+<h4>overlayfs, and therefore Docker</h4>
+
+<p>A <strong>union filesystem</strong> presents several directory trees merged into one. overlayfs, in the Linux kernel since 3.18 (2014), is the one Docker uses. It takes some read-only <em>lower</em> directories and one writable <em>upper</em> directory and presents a merged view:</p>
+
+<ul>
+<li><strong>Reading</strong> a path searches the upper layer first, then each lower layer in order, and returns the first hit.</li>
+<li><strong>Writing</strong> to a file that exists only in a lower layer triggers a <strong>copy-up</strong>: the <em>entire file</em> is copied into the upper layer, then modified. Copy-on-write at file granularity (Node 14).</li>
+<li><strong>Deleting</strong> a lower-layer file cannot actually delete it, so a <em>whiteout</em> marker is created in the upper layer to hide it.</li>
+</ul>
+
+<p><strong>This is what a Docker image is.</strong> [EXPLAIN] Each instruction in a Dockerfile that changes the filesystem produces one layer — a directory of the differences. A running container adds one writable upper layer. Every property of Docker images that you have learned as a rule falls out of this mechanism:</p>
+
+<ul>
+<li><strong>Layers are shared.</strong> Ten containers from one image share one set of lower directories, so ten containers cost one copy of the image plus ten small upper layers. This is also why the same base image across many services is a genuine and large saving.</li>
+<li><strong>The writable layer is ephemeral</strong> — it is a directory on the host that is deleted when the container is removed. Hence volumes.</li>
+<li><strong>Deleting a file does not shrink the image.</strong> <code>RUN apt-get install ... &amp;&amp; rm -rf /var/lib/apt/lists/*</code> in <em>one</em> instruction removes the files before the layer is finalised. Split across two instructions, the first layer still contains them and the second only adds whiteouts — the image is larger, and <strong>the deleted secret is still extractable from the layer</strong>. This is the single most common way credentials leak from container images, and it is why multi-stage builds and <code>--secret</code> mounts exist.</li>
+<li><strong>Layer ordering is a caching decision.</strong> A layer's cache is invalidated when its instruction or its inputs change, and every layer after it is then rebuilt. So <code>COPY package*.json ./</code> then <code>RUN npm ci</code> then <code>COPY . .</code> is not a style convention: it puts the slow, rarely-invalidated step above the fast, always-invalidated one. Reversing them means reinstalling dependencies on every source change.</li>
+<li><strong>Write-heavy workloads are slow on the overlay.</strong> The first write to any file pays a full copy-up, which for a large file is a full copy. This is the mechanical reason databases need volumes, and why heavy build work inside a container benefits from a mounted cache.</li>
+<li><strong><code>docker commit</code> and image bloat.</strong> Because layers are additive, an image's size is the sum of its layers regardless of what the final view contains.</li>
+</ul>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Docker Desktop's bind-mount slowness on macOS and Windows is a filesystem boundary.</strong> Linux containers there run inside a virtual machine (Node 29), so a bind mount from the host crosses from the host's filesystem into the VM through a network-style protocol — originally osxfs, then gRPC-FUSE, now VirtioFS, each faster than the last but none free. Every <code>stat</code> crosses that boundary, and a tool that stats a hundred thousand files — which is exactly what a bundler or a test runner does on <code>node_modules</code> — becomes an order of magnitude slower. <strong>The standard fix is to keep <code>node_modules</code> inside the container as a named volume rather than bind-mounted from the host</strong>, which now has a mechanical explanation rather than being folklore. Running the whole workflow inside WSL2's own filesystem, rather than under <code>/mnt/c</code>, is the same fix on Windows and makes an enormous difference.</p>
+
+<p><strong>Case sensitivity is a filesystem property and it breaks CI.</strong> macOS's APFS is case-insensitive by default; ext4 is case-sensitive. <code>import Button from './button'</code> works on a Mac and fails in a Linux container with <code>Cannot find module</code>. This is one of the most common "works on my machine" failures in JavaScript projects and its cause is one line of this node.</p>
+
+<p><strong>Timestamps and reproducible builds.</strong> Filesystem <code>mtime</code> values end up in archives and image layers, so identical inputs produce different layer hashes and the cache misses. This is why reproducible-build tooling normalises timestamps and why <code>SOURCE_DATE_EPOCH</code> exists.</p>
+
+<p><strong>What you can do at this point:</strong> explain filesystem layout and extents, explain journaling as a write-ahead log and what <code>data=ordered</code> does and does not protect, write a genuinely safe file update, choose a filesystem for a purpose and say why not NFS for a database, and — most usefully — explain a Docker image entirely in terms of overlayfs, deriving layer caching, image bloat, secret leakage and volume requirements rather than memorising them.</p>
+
+<p><strong>What's still broken:</strong> the filesystem checks permissions, and nothing has said what a permission <em>is</em>, who a user is to the kernel, or why running as root inside a container is dangerous when the container is supposedly isolated. Part VI answers that, and by its end a container will be fully assembled from parts already built.</p>

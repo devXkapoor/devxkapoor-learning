@@ -1837,7 +1837,163 @@ if (pid == 0) {
 
 <p><strong>What you can do at this point:</strong> explain the three-table structure and predict offset-sharing behaviour after <code>dup</code> and <code>fork</code>, derive shell redirection and pipelines from <code>fork</code>/<code>dup2</code>/<code>exec</code>, explain pipe backpressure and <code>SIGPIPE</code>, explain the <code>stdio</code> option in <code>child_process</code> and the subprocess buffer deadlock, explain why containers want stdout logging, and read <code>/proc/&lt;pid&gt;/fd</code> to find a leak.</p>
 
-<p><strong>What's still broken:</strong> <code>write()</code> to a file returns almost instantly, which the page cache in Node 13 already hinted is a lie about durability. If the machine loses power one microsecond after <code>write</code> returns, what survives? That question is the single most important one in storage, and every database's guarantees are an answer to it.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
+<p><strong>What's still broken:</strong> <code>write()</code> to a file returns almost instantly, which the page cache in Node 13 already hinted is a lie about durability. If the machine loses power one microsecond after <code>write</code> returns, what survives? That question is the single most important one in storage, and every database's guarantees are an answer to it.</p>
+
+<h3>Node 23 — the disk underneath, and what <code>fsync</code> is for</h3>
+
+<p><strong>The limitation:</strong> <code>write()</code> returns as soon as bytes are in the page cache, so nothing yet said has any relationship to data surviving a power cut.</p>
+
+<h4>The two devices, and why they behave so differently</h4>
+
+<p><strong>A hard disk</strong> is spinning magnetic platters with a head on an arm. To read a block, the arm moves to the right track (<strong>seek</strong>, 4–10 ms) and then the platter rotates until the block passes under the head (<strong>rotational latency</strong>, averaging half a revolution — 4.2 ms at 7200 rpm). Total for a random read: around 8–12 ms. Once positioned, sequential transfer runs at 100–200 MB/s.</p>
+
+<p><strong>Those two numbers give a ratio of roughly 100 to 1 between sequential and random access, and that ratio is the reason for the entire shape of database design.</strong> [EXPLAIN] B-trees exist to keep the number of seeks logarithmic. Write-ahead logs exist to convert random writes into sequential ones. Sequential scans beat index scans past a certain selectivity because a hundred sequential blocks cost less than ten random ones — which is exactly what Postgres's <code>random_page_cost</code> (4.0) versus <code>seq_page_cost</code> (1.0) encodes, and why <strong>lowering <code>random_page_cost</code> to about 1.1 on SSD storage is standard and frequently changes plans for the better.</strong> The planner is doing arithmetic with this node's physics.</p>
+
+<p><strong>A solid-state disk</strong> has no moving parts, so random access costs essentially the same as sequential: around 100 microseconds for SATA, 20–80 for NVMe. A hundred times faster than a disk seek. But flash has three awkward properties that create a whole hidden layer:</p>
+
+<ul>
+<li>It is read and written in <strong>pages</strong> of 4–16 KB, but erased only in <strong>blocks</strong> of several megabytes.</li>
+<li>A page cannot be overwritten in place; it must be erased first, and erasure only works at block granularity.</li>
+<li>Each block tolerates a limited number of erase cycles — thousands to tens of thousands.</li>
+</ul>
+
+<p>So an SSD contains a small computer, the <strong>Flash Translation Layer</strong>, that maintains a map from logical block addresses to physical pages. A write goes to a fresh page and the map is updated; the old page is marked stale. Background garbage collection later relocates the still-live pages out of a mostly-stale block and erases it. Consequences worth knowing: <strong>write amplification</strong>, where writing 4 KB causes far more than 4 KB of flash traffic; <strong>latency spikes</strong> when garbage collection collides with your writes, which is why SSD p99 latency is much worse than its average; <strong>wear levelling</strong>, spreading writes so no block dies early; and <strong><code>TRIM</code></strong>, by which the filesystem tells the device which blocks are no longer in use so it can garbage-collect them — without it, a full-then-emptied SSD stays slow.</p>
+
+<p>The latency hierarchy, which is worth memorising because it explains most performance intuitions:</p>
+
+<pre><code>  L1 cache                       ~1 ns
+  L2 cache                       ~4 ns
+  main memory (DRAM)            ~80 ns
+  NVMe SSD read                ~20–80 µs      (~1,000× DRAM)
+  SATA SSD read                  ~100 µs
+  network, same datacentre     ~100–500 µs
+  hard disk seek                ~5–10 ms       (~100,000× DRAM)
+  network, cross-continent      ~100 ms
+</code></pre>
+
+<h4>The block layer</h4>
+
+<p>Between the filesystem and the device sits the block layer, which merges adjacent requests, reorders them, and hands them to the driver. Its <strong>I/O scheduler</strong> mattered enormously for spinning disks — the elevator algorithm sweeps the head in one direction to avoid pathological back-and-forth seeking. On NVMe it mostly does not, which is why the modern default for such devices is literally <code>none</code>: the device's own queues (thousands of them, deep) do better than the kernel can. <code>cat /sys/block/nvme0n1/queue/scheduler</code> shows the choice.</p>
+
+<p><strong>Readahead</strong> is the other important behaviour: on detecting sequential reads, the kernel fetches ahead into the page cache, which is why a sequential scan is fast and why the page cache from Node 13 does most of the work in a well-behaved database.</p>
+
+<h4>The durability chain, and the call that closes it</h4>
+
+<p>Here is where your bytes actually are, in order, after a <code>write()</code>:</p>
+
+<ol>
+<li><strong>Your language's buffer</strong> — a Node stream's internal buffer, or libc's <code>stdio</code> buffer. Lost if the <em>process</em> crashes.</li>
+<li><strong>The kernel page cache</strong> — after the <code>write</code> syscall returns. Survives a process crash, including a <code>SIGKILL</code> or an OOM kill. <strong>Lost on power failure or kernel panic.</strong></li>
+<li><strong>The device's write cache</strong> — after the kernel writes it back. A disk or SSD has its own volatile RAM cache, and it acknowledges writes on arrival there. Lost on power failure, unless the device has a capacitor or battery.</li>
+<li><strong>The actual medium</strong> — platter or flash. Survives everything.</li>
+</ol>
+
+<p><strong><code>fsync(fd)</code> forces stages 2 and 3 to complete: it writes back all dirty pages of that file and issues a cache-flush command to the device, returning only when the device says the data is durable.</strong> [EXPLAIN] <code>fdatasync</code> is the same but may skip metadata that does not affect reading the data back — cheaper, and what databases usually use. Costs: on a hard disk, a full rotation, so 5–10 ms; on a consumer SSD, tens to hundreds of microseconds; on enterprise hardware with power-loss protection, near zero because the device can honestly acknowledge immediately.</p>
+
+<p><strong>This is the single most important number in database performance.</strong> An in-memory row insert is a microsecond. A committed, durable row insert is bounded below by one <code>fsync</code>. That is the whole gap, and every durability setting in every database is a decision about how many <code>fsync</code>s to do and when.</p>
+
+<p>Three more facts that separate people who have run databases from people who have not:</p>
+
+<p><strong>Devices lie.</strong> Some consumer drives acknowledge a flush without performing it, because it benchmarks better. Data written to such a device is not durable no matter what your database does. This is why enterprise drives with power-loss capacitors exist and why cloud block storage is worth its price — the provider has solved this and gives you a written guarantee.</p>
+
+<p><strong><code>fsync</code> can fail, and what happens then used to be catastrophic.</strong> In 2018 the Postgres developers discovered — the incident is known as <em>fsyncgate</em> — that on Linux, when writeback fails, the kernel reports the error to whoever calls <code>fsync</code> next and then <em>marks the pages clean anyway</em>, so a second <code>fsync</code> returns success while the data is gone forever. Postgres had been retrying on <code>fsync</code> failure. The fix, shipped in Postgres 12, is to <strong>panic the server</strong> on <code>fsync</code> failure and recover from the write-ahead log, because there is no safe way to continue. The general lesson is worth carrying: <em>an I/O error is not a retryable error unless you know exactly what the layer beneath did with the failed data.</em></p>
+
+<p><strong>Durability is not atomicity.</strong> A power cut partway through writing an 8 KB page can leave four kilobytes of new data and four of old — a <strong>torn page</strong>. Hardware guarantees atomicity only at sector granularity (512 or 4096 bytes). This is why Postgres has <code>full_page_writes</code> on by default: the first modification of a page after each checkpoint writes the <em>entire page image</em> into the write-ahead log, so recovery can reconstruct it. It roughly doubles WAL volume and it is the reason turning it off is tempting and wrong on any storage without atomic-write guarantees.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>The write-ahead log is this node's design pattern, and it is worth being able to derive.</strong> Modifying a row means changing a page somewhere in a large file — a random write, which on a disk is 10 ms and which cannot be made atomic across several pages. So instead: append a description of the change to a sequential log, <code>fsync</code> that, and only then report the commit as successful. The actual data pages are updated later, lazily, in the background. <strong>The random write becomes one sequential append plus one <code>fsync</code>.</strong> If the machine dies, replay the log from the last checkpoint. Every durable system does this — Postgres's WAL, MySQL's InnoDB redo log, SQLite's WAL mode, Kafka's log-structured storage, etcd's Raft log, and every LSM-tree database's commit log. [EXPLAIN] Recognising it once means you understand the durability story of all of them.</p>
+
+<p><strong>The knobs, and what they trade:</strong></p>
+
+<ul>
+<li><strong>Postgres <code>synchronous_commit</code>.</strong> <code>on</code> (default) means every commit waits for a WAL <code>fsync</code> — full durability, and a commit rate bounded by <code>fsync</code> latency. <code>off</code> means commits return without waiting, flushing within <code>wal_writer_delay</code> (200 ms default). <strong>You do not risk corruption — only the loss of the last fraction of a second of committed transactions.</strong> That is a genuinely reasonable trade for analytics ingestion or event logging and a terrible one for payments. Also relevant: <em>group commit</em>, where concurrent commits share one <code>fsync</code>, which is why throughput scales far better with concurrency than the single-transaction latency suggests, and which <code>commit_delay</code> tunes deliberately.</li>
+<li><strong>MySQL <code>innodb_flush_log_at_trx_commit</code></strong>: 1 flushes per commit (durable, the default), 2 writes to the page cache per commit and flushes each second (survives a process crash, not a power cut), 0 does neither.</li>
+<li><strong>Redis <code>appendfsync</code></strong>: <code>always</code>, <code>everysec</code> (the default and the sensible one), or <code>no</code>. And RDB snapshots alone mean losing everything since the last save, which is a fact many people using Redis as a database rather than a cache have discovered at the wrong moment.</li>
+<li><strong>SQLite <code>PRAGMA journal_mode=WAL</code> and <code>synchronous=NORMAL</code></strong> — the standard pairing, and the reason SQLite is dramatically faster with them than with the defaults.</li>
+</ul>
+
+<p><strong>Diagnosing storage from the outside.</strong> <code>iostat -x 1</code> gives, per device: <code>await</code> (average request latency in milliseconds — the number that matters), <code>%util</code> (misleading on SSDs with parallel queues; a device can be at 100% util and far from saturated), and <code>aqu-sz</code> (queue depth). High <code>await</code> with a deep queue means the device is saturated. In <code>top</code>, the <code>wa</code> column is time processes spent blocked on I/O, and a machine with high <code>wa</code> and low user CPU is storage-bound, not compute-bound. <code>pidstat -d</code> attributes it to processes. [USE] "The database is slow" resolves through these three commands more often than through any query analysis.</p>
+
+<p><strong>Cloud storage adds a layer with its own economics.</strong> An AWS EBS <code>gp3</code> volume has a provisioned IOPS figure and a throughput figure, independently settable; <code>gp2</code> used a burst-credit system where a small volume accumulates credits while idle and, once they are exhausted, drops to a baseline that can be a fraction of what your application saw in testing. <strong>A database that was fast for three weeks and then became permanently slow has usually exhausted burst credits</strong>, and no amount of query tuning fixes it. Network-attached storage also has network latency in the durability path — an EBS <code>fsync</code> is a round trip — which is why local NVMe instance storage is dramatically faster and why it is ephemeral, and why a Kubernetes <code>PersistentVolumeClaim</code>'s storage class is a database performance decision rather than an infrastructure detail.</p>
+
+<p><strong>Containers and writes.</strong> Writing to a container's filesystem goes through the overlay driver (Node 24), which adds copy-up costs. Writing to a volume goes to the host filesystem directly. <strong>Never run a database on the container's writable layer</strong> — that is the mechanical reason behind the advice, not merely a persistence concern.</p>
+
+<p><strong>What you can do at this point:</strong> explain the sequential-versus-random ratio and how it shapes B-trees, WALs and query plans; explain what an SSD's translation layer does and why p99 differs from average; state the four stages of the durability chain and exactly what <code>fsync</code> guarantees; derive the write-ahead log from first principles; explain what each durability setting actually risks; and diagnose an I/O-bound machine with <code>iostat</code> and <code>top</code>.</p>
+
+<p><strong>What's still broken:</strong> the block device is a flat array of numbered blocks. Nothing yet turns that into named files and directories, decides which block holds what, or survives a crash partway through creating a file. And one particular filesystem — a stack of read-only layers with one writable layer on top — is the thing a Docker image actually is.</p>
+
+<h3>Node 24 — filesystems, journaling, and the one a Docker image is made of</h3>
+
+<p><strong>The limitation:</strong> a block device is a numbered array of blocks; files and directories are not.</p>
+
+<h4>What a filesystem has to lay out</h4>
+
+<p>Any filesystem divides the device into: a <strong>superblock</strong> holding global metadata (size, block size, where everything else is, and a clean/dirty flag); allocation structures recording which blocks and inodes are free; the <strong>inode table</strong> from Node 21; and the data blocks themselves.</p>
+
+<p>The interesting design question is how an inode points at its data. The classic Unix scheme used direct pointers for the first few blocks plus single, double and triple <em>indirect</em> blocks — so a small file needs one lookup and a huge file needs four, with the cost paid only by files large enough to justify it. Modern filesystems use <strong>extents</strong> instead: a start block and a length, so a contiguous 1 GB file is described by a handful of records rather than 262,144 pointers. That change alone is a large part of why ext4 outperforms ext3 on big files.</p>
+
+<h4>Crash consistency: the actual hard problem</h4>
+
+<p>Creating a file requires several separate writes: allocate an inode, write the inode, allocate data blocks, write the data, add the directory entry, update the free maps. A crash between any two leaves the filesystem inconsistent — an inode marked in use with no directory entry pointing at it (a leaked file), or a directory entry pointing at an inode that was never initialised (which is worse, since it may contain another file's old data).</p>
+
+<p>The old answer was <code>fsck</code>: on boot after an unclean shutdown, scan the entire filesystem and repair it. On a multi-terabyte filesystem that is hours, during which the machine is down. Unacceptable for a server.</p>
+
+<p><strong>Journaling</strong> is the answer, and it is Node 23's write-ahead log applied to filesystem metadata. Before performing a group of related updates, write a description of them to a dedicated journal area and flush it. Then perform the real updates. Then mark the journal entry complete. After a crash, replay any entries that were written but not marked complete — bounded work, seconds rather than hours. [EXPLAIN]</p>
+
+<p>ext4 offers three modes, and the middle one being the default explains a behaviour people find surprising:</p>
+
+<ul>
+<li><code>data=journal</code> — data <em>and</em> metadata go through the journal. Safest, and everything is written twice.</li>
+<li><code>data=ordered</code> (the default) — only metadata is journaled, but data blocks are forced to disk <em>before</em> the metadata that references them. So you never see a file whose metadata points at blocks containing another file's old contents. You can still lose recent data.</li>
+<li><code>data=writeback</code> — metadata journaled, no ordering. Fastest, and after a crash a file can contain arbitrary stale bytes.</li>
+</ul>
+
+<p>Because ext4 journals metadata rather than data, <strong>a crash can leave a file that exists, has the right size, and is full of zeros.</strong> That is not a bug; it is the documented consequence of <code>data=ordered</code> with delayed allocation, and it is why applications that care must <code>fsync</code> — and must <code>fsync</code> the <em>directory</em> too, after a rename, or the rename itself may not be durable. The rename idiom from Node 21 is atomic with respect to readers and is not automatically durable with respect to power loss; a correct safe-write is: write temp, <code>fsync</code> temp, <code>rename</code>, <code>fsync</code> the directory.</p>
+
+<h4>The filesystems you will meet</h4>
+
+<ul>
+<li><strong>ext4</strong> (2008) — the Linux default. Journaled, extent-based, dull and reliable. The correct choice unless you have a reason.</li>
+<li><strong>XFS</strong> (SGI, 1993; Linux since 2001) — excellent at large files and high parallelism; the default on Red Hat. Cannot be shrunk.</li>
+<li><strong>btrfs</strong> and <strong>ZFS</strong> — copy-on-write filesystems (Node 14's pattern at block level) with built-in snapshots, checksums on all data, and volume management. ZFS is the more mature and its licence keeps it out of the Linux kernel tree.</li>
+<li><strong>tmpfs</strong> — a filesystem in RAM, backed by the page cache and swap. This is what <code>/dev/shm</code> and much of <code>/run</code> are, what Docker's <code>--tmpfs</code> and Kubernetes' <code>emptyDir: {medium: Memory}</code> give you, and — importantly — <strong>its contents count against your cgroup memory limit</strong> (Node 13). A build that writes a few gigabytes into a memory-backed <code>emptyDir</code> will be OOMKilled, and the reason is not obvious from the error.</li>
+<li><strong>Network filesystems</strong> — NFS, SMB, and cloud file services. They break assumptions that local filesystems satisfy: locking is advisory and unreliable, <code>fsync</code> semantics vary, latency is milliseconds, and a server that stops responding puts your process into the <code>D</code> state from Node 5, unkillable. <strong>Never put a database on NFS</strong>, and be careful about putting anything latency-sensitive there.</li>
+<li><strong>FUSE</strong> — filesystems implemented in user space. s3fs, sshfs, and many container and cloud tools use it. Every operation is a round trip to a user process, so it is slow, and it is why "mount S3 as a filesystem" is always a worse idea than it sounds.</li>
+</ul>
+
+<h4>overlayfs, and therefore Docker</h4>
+
+<p>A <strong>union filesystem</strong> presents several directory trees merged into one. overlayfs, in the Linux kernel since 3.18 (2014), is the one Docker uses. It takes some read-only <em>lower</em> directories and one writable <em>upper</em> directory and presents a merged view:</p>
+
+<ul>
+<li><strong>Reading</strong> a path searches the upper layer first, then each lower layer in order, and returns the first hit.</li>
+<li><strong>Writing</strong> to a file that exists only in a lower layer triggers a <strong>copy-up</strong>: the <em>entire file</em> is copied into the upper layer, then modified. Copy-on-write at file granularity (Node 14).</li>
+<li><strong>Deleting</strong> a lower-layer file cannot actually delete it, so a <em>whiteout</em> marker is created in the upper layer to hide it.</li>
+</ul>
+
+<p><strong>This is what a Docker image is.</strong> [EXPLAIN] Each instruction in a Dockerfile that changes the filesystem produces one layer — a directory of the differences. A running container adds one writable upper layer. Every property of Docker images that you have learned as a rule falls out of this mechanism:</p>
+
+<ul>
+<li><strong>Layers are shared.</strong> Ten containers from one image share one set of lower directories, so ten containers cost one copy of the image plus ten small upper layers. This is also why the same base image across many services is a genuine and large saving.</li>
+<li><strong>The writable layer is ephemeral</strong> — it is a directory on the host that is deleted when the container is removed. Hence volumes.</li>
+<li><strong>Deleting a file does not shrink the image.</strong> <code>RUN apt-get install ... &amp;&amp; rm -rf /var/lib/apt/lists/*</code> in <em>one</em> instruction removes the files before the layer is finalised. Split across two instructions, the first layer still contains them and the second only adds whiteouts — the image is larger, and <strong>the deleted secret is still extractable from the layer</strong>. This is the single most common way credentials leak from container images, and it is why multi-stage builds and <code>--secret</code> mounts exist.</li>
+<li><strong>Layer ordering is a caching decision.</strong> A layer's cache is invalidated when its instruction or its inputs change, and every layer after it is then rebuilt. So <code>COPY package*.json ./</code> then <code>RUN npm ci</code> then <code>COPY . .</code> is not a style convention: it puts the slow, rarely-invalidated step above the fast, always-invalidated one. Reversing them means reinstalling dependencies on every source change.</li>
+<li><strong>Write-heavy workloads are slow on the overlay.</strong> The first write to any file pays a full copy-up, which for a large file is a full copy. This is the mechanical reason databases need volumes, and why heavy build work inside a container benefits from a mounted cache.</li>
+<li><strong><code>docker commit</code> and image bloat.</strong> Because layers are additive, an image's size is the sum of its layers regardless of what the final view contains.</li>
+</ul>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Docker Desktop's bind-mount slowness on macOS and Windows is a filesystem boundary.</strong> Linux containers there run inside a virtual machine (Node 29), so a bind mount from the host crosses from the host's filesystem into the VM through a network-style protocol — originally osxfs, then gRPC-FUSE, now VirtioFS, each faster than the last but none free. Every <code>stat</code> crosses that boundary, and a tool that stats a hundred thousand files — which is exactly what a bundler or a test runner does on <code>node_modules</code> — becomes an order of magnitude slower. <strong>The standard fix is to keep <code>node_modules</code> inside the container as a named volume rather than bind-mounted from the host</strong>, which now has a mechanical explanation rather than being folklore. Running the whole workflow inside WSL2's own filesystem, rather than under <code>/mnt/c</code>, is the same fix on Windows and makes an enormous difference.</p>
+
+<p><strong>Case sensitivity is a filesystem property and it breaks CI.</strong> macOS's APFS is case-insensitive by default; ext4 is case-sensitive. <code>import Button from './button'</code> works on a Mac and fails in a Linux container with <code>Cannot find module</code>. This is one of the most common "works on my machine" failures in JavaScript projects and its cause is one line of this node.</p>
+
+<p><strong>Timestamps and reproducible builds.</strong> Filesystem <code>mtime</code> values end up in archives and image layers, so identical inputs produce different layer hashes and the cache misses. This is why reproducible-build tooling normalises timestamps and why <code>SOURCE_DATE_EPOCH</code> exists.</p>
+
+<p><strong>What you can do at this point:</strong> explain filesystem layout and extents, explain journaling as a write-ahead log and what <code>data=ordered</code> does and does not protect, write a genuinely safe file update, choose a filesystem for a purpose and say why not NFS for a database, and — most usefully — explain a Docker image entirely in terms of overlayfs, deriving layer caching, image bloat, secret leakage and volume requirements rather than memorising them.</p>
+
+<p><strong>What's still broken:</strong> the filesystem checks permissions, and nothing has said what a permission <em>is</em>, who a user is to the kernel, or why running as root inside a container is dangerous when the container is supposedly isolated. Part VI answers that, and by its end a container will be fully assembled from parts already built.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
   This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
   elaboration.json live alongside it and are fetched at runtime — do not inline
   that data here.
@@ -3721,6 +3877,162 @@ if (pid == 0) {
 <p><strong>What you can do at this point:</strong> explain the three-table structure and predict offset-sharing behaviour after <code>dup</code> and <code>fork</code>, derive shell redirection and pipelines from <code>fork</code>/<code>dup2</code>/<code>exec</code>, explain pipe backpressure and <code>SIGPIPE</code>, explain the <code>stdio</code> option in <code>child_process</code> and the subprocess buffer deadlock, explain why containers want stdout logging, and read <code>/proc/&lt;pid&gt;/fd</code> to find a leak.</p>
 
 <p><strong>What's still broken:</strong> <code>write()</code> to a file returns almost instantly, which the page cache in Node 13 already hinted is a lie about durability. If the machine loses power one microsecond after <code>write</code> returns, what survives? That question is the single most important one in storage, and every database's guarantees are an answer to it.</p>
+
+<h3>Node 23 — the disk underneath, and what <code>fsync</code> is for</h3>
+
+<p><strong>The limitation:</strong> <code>write()</code> returns as soon as bytes are in the page cache, so nothing yet said has any relationship to data surviving a power cut.</p>
+
+<h4>The two devices, and why they behave so differently</h4>
+
+<p><strong>A hard disk</strong> is spinning magnetic platters with a head on an arm. To read a block, the arm moves to the right track (<strong>seek</strong>, 4–10 ms) and then the platter rotates until the block passes under the head (<strong>rotational latency</strong>, averaging half a revolution — 4.2 ms at 7200 rpm). Total for a random read: around 8–12 ms. Once positioned, sequential transfer runs at 100–200 MB/s.</p>
+
+<p><strong>Those two numbers give a ratio of roughly 100 to 1 between sequential and random access, and that ratio is the reason for the entire shape of database design.</strong> [EXPLAIN] B-trees exist to keep the number of seeks logarithmic. Write-ahead logs exist to convert random writes into sequential ones. Sequential scans beat index scans past a certain selectivity because a hundred sequential blocks cost less than ten random ones — which is exactly what Postgres's <code>random_page_cost</code> (4.0) versus <code>seq_page_cost</code> (1.0) encodes, and why <strong>lowering <code>random_page_cost</code> to about 1.1 on SSD storage is standard and frequently changes plans for the better.</strong> The planner is doing arithmetic with this node's physics.</p>
+
+<p><strong>A solid-state disk</strong> has no moving parts, so random access costs essentially the same as sequential: around 100 microseconds for SATA, 20–80 for NVMe. A hundred times faster than a disk seek. But flash has three awkward properties that create a whole hidden layer:</p>
+
+<ul>
+<li>It is read and written in <strong>pages</strong> of 4–16 KB, but erased only in <strong>blocks</strong> of several megabytes.</li>
+<li>A page cannot be overwritten in place; it must be erased first, and erasure only works at block granularity.</li>
+<li>Each block tolerates a limited number of erase cycles — thousands to tens of thousands.</li>
+</ul>
+
+<p>So an SSD contains a small computer, the <strong>Flash Translation Layer</strong>, that maintains a map from logical block addresses to physical pages. A write goes to a fresh page and the map is updated; the old page is marked stale. Background garbage collection later relocates the still-live pages out of a mostly-stale block and erases it. Consequences worth knowing: <strong>write amplification</strong>, where writing 4 KB causes far more than 4 KB of flash traffic; <strong>latency spikes</strong> when garbage collection collides with your writes, which is why SSD p99 latency is much worse than its average; <strong>wear levelling</strong>, spreading writes so no block dies early; and <strong><code>TRIM</code></strong>, by which the filesystem tells the device which blocks are no longer in use so it can garbage-collect them — without it, a full-then-emptied SSD stays slow.</p>
+
+<p>The latency hierarchy, which is worth memorising because it explains most performance intuitions:</p>
+
+<pre><code>  L1 cache                       ~1 ns
+  L2 cache                       ~4 ns
+  main memory (DRAM)            ~80 ns
+  NVMe SSD read                ~20–80 µs      (~1,000× DRAM)
+  SATA SSD read                  ~100 µs
+  network, same datacentre     ~100–500 µs
+  hard disk seek                ~5–10 ms       (~100,000× DRAM)
+  network, cross-continent      ~100 ms
+</code></pre>
+
+<h4>The block layer</h4>
+
+<p>Between the filesystem and the device sits the block layer, which merges adjacent requests, reorders them, and hands them to the driver. Its <strong>I/O scheduler</strong> mattered enormously for spinning disks — the elevator algorithm sweeps the head in one direction to avoid pathological back-and-forth seeking. On NVMe it mostly does not, which is why the modern default for such devices is literally <code>none</code>: the device's own queues (thousands of them, deep) do better than the kernel can. <code>cat /sys/block/nvme0n1/queue/scheduler</code> shows the choice.</p>
+
+<p><strong>Readahead</strong> is the other important behaviour: on detecting sequential reads, the kernel fetches ahead into the page cache, which is why a sequential scan is fast and why the page cache from Node 13 does most of the work in a well-behaved database.</p>
+
+<h4>The durability chain, and the call that closes it</h4>
+
+<p>Here is where your bytes actually are, in order, after a <code>write()</code>:</p>
+
+<ol>
+<li><strong>Your language's buffer</strong> — a Node stream's internal buffer, or libc's <code>stdio</code> buffer. Lost if the <em>process</em> crashes.</li>
+<li><strong>The kernel page cache</strong> — after the <code>write</code> syscall returns. Survives a process crash, including a <code>SIGKILL</code> or an OOM kill. <strong>Lost on power failure or kernel panic.</strong></li>
+<li><strong>The device's write cache</strong> — after the kernel writes it back. A disk or SSD has its own volatile RAM cache, and it acknowledges writes on arrival there. Lost on power failure, unless the device has a capacitor or battery.</li>
+<li><strong>The actual medium</strong> — platter or flash. Survives everything.</li>
+</ol>
+
+<p><strong><code>fsync(fd)</code> forces stages 2 and 3 to complete: it writes back all dirty pages of that file and issues a cache-flush command to the device, returning only when the device says the data is durable.</strong> [EXPLAIN] <code>fdatasync</code> is the same but may skip metadata that does not affect reading the data back — cheaper, and what databases usually use. Costs: on a hard disk, a full rotation, so 5–10 ms; on a consumer SSD, tens to hundreds of microseconds; on enterprise hardware with power-loss protection, near zero because the device can honestly acknowledge immediately.</p>
+
+<p><strong>This is the single most important number in database performance.</strong> An in-memory row insert is a microsecond. A committed, durable row insert is bounded below by one <code>fsync</code>. That is the whole gap, and every durability setting in every database is a decision about how many <code>fsync</code>s to do and when.</p>
+
+<p>Three more facts that separate people who have run databases from people who have not:</p>
+
+<p><strong>Devices lie.</strong> Some consumer drives acknowledge a flush without performing it, because it benchmarks better. Data written to such a device is not durable no matter what your database does. This is why enterprise drives with power-loss capacitors exist and why cloud block storage is worth its price — the provider has solved this and gives you a written guarantee.</p>
+
+<p><strong><code>fsync</code> can fail, and what happens then used to be catastrophic.</strong> In 2018 the Postgres developers discovered — the incident is known as <em>fsyncgate</em> — that on Linux, when writeback fails, the kernel reports the error to whoever calls <code>fsync</code> next and then <em>marks the pages clean anyway</em>, so a second <code>fsync</code> returns success while the data is gone forever. Postgres had been retrying on <code>fsync</code> failure. The fix, shipped in Postgres 12, is to <strong>panic the server</strong> on <code>fsync</code> failure and recover from the write-ahead log, because there is no safe way to continue. The general lesson is worth carrying: <em>an I/O error is not a retryable error unless you know exactly what the layer beneath did with the failed data.</em></p>
+
+<p><strong>Durability is not atomicity.</strong> A power cut partway through writing an 8 KB page can leave four kilobytes of new data and four of old — a <strong>torn page</strong>. Hardware guarantees atomicity only at sector granularity (512 or 4096 bytes). This is why Postgres has <code>full_page_writes</code> on by default: the first modification of a page after each checkpoint writes the <em>entire page image</em> into the write-ahead log, so recovery can reconstruct it. It roughly doubles WAL volume and it is the reason turning it off is tempting and wrong on any storage without atomic-write guarantees.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>The write-ahead log is this node's design pattern, and it is worth being able to derive.</strong> Modifying a row means changing a page somewhere in a large file — a random write, which on a disk is 10 ms and which cannot be made atomic across several pages. So instead: append a description of the change to a sequential log, <code>fsync</code> that, and only then report the commit as successful. The actual data pages are updated later, lazily, in the background. <strong>The random write becomes one sequential append plus one <code>fsync</code>.</strong> If the machine dies, replay the log from the last checkpoint. Every durable system does this — Postgres's WAL, MySQL's InnoDB redo log, SQLite's WAL mode, Kafka's log-structured storage, etcd's Raft log, and every LSM-tree database's commit log. [EXPLAIN] Recognising it once means you understand the durability story of all of them.</p>
+
+<p><strong>The knobs, and what they trade:</strong></p>
+
+<ul>
+<li><strong>Postgres <code>synchronous_commit</code>.</strong> <code>on</code> (default) means every commit waits for a WAL <code>fsync</code> — full durability, and a commit rate bounded by <code>fsync</code> latency. <code>off</code> means commits return without waiting, flushing within <code>wal_writer_delay</code> (200 ms default). <strong>You do not risk corruption — only the loss of the last fraction of a second of committed transactions.</strong> That is a genuinely reasonable trade for analytics ingestion or event logging and a terrible one for payments. Also relevant: <em>group commit</em>, where concurrent commits share one <code>fsync</code>, which is why throughput scales far better with concurrency than the single-transaction latency suggests, and which <code>commit_delay</code> tunes deliberately.</li>
+<li><strong>MySQL <code>innodb_flush_log_at_trx_commit</code></strong>: 1 flushes per commit (durable, the default), 2 writes to the page cache per commit and flushes each second (survives a process crash, not a power cut), 0 does neither.</li>
+<li><strong>Redis <code>appendfsync</code></strong>: <code>always</code>, <code>everysec</code> (the default and the sensible one), or <code>no</code>. And RDB snapshots alone mean losing everything since the last save, which is a fact many people using Redis as a database rather than a cache have discovered at the wrong moment.</li>
+<li><strong>SQLite <code>PRAGMA journal_mode=WAL</code> and <code>synchronous=NORMAL</code></strong> — the standard pairing, and the reason SQLite is dramatically faster with them than with the defaults.</li>
+</ul>
+
+<p><strong>Diagnosing storage from the outside.</strong> <code>iostat -x 1</code> gives, per device: <code>await</code> (average request latency in milliseconds — the number that matters), <code>%util</code> (misleading on SSDs with parallel queues; a device can be at 100% util and far from saturated), and <code>aqu-sz</code> (queue depth). High <code>await</code> with a deep queue means the device is saturated. In <code>top</code>, the <code>wa</code> column is time processes spent blocked on I/O, and a machine with high <code>wa</code> and low user CPU is storage-bound, not compute-bound. <code>pidstat -d</code> attributes it to processes. [USE] "The database is slow" resolves through these three commands more often than through any query analysis.</p>
+
+<p><strong>Cloud storage adds a layer with its own economics.</strong> An AWS EBS <code>gp3</code> volume has a provisioned IOPS figure and a throughput figure, independently settable; <code>gp2</code> used a burst-credit system where a small volume accumulates credits while idle and, once they are exhausted, drops to a baseline that can be a fraction of what your application saw in testing. <strong>A database that was fast for three weeks and then became permanently slow has usually exhausted burst credits</strong>, and no amount of query tuning fixes it. Network-attached storage also has network latency in the durability path — an EBS <code>fsync</code> is a round trip — which is why local NVMe instance storage is dramatically faster and why it is ephemeral, and why a Kubernetes <code>PersistentVolumeClaim</code>'s storage class is a database performance decision rather than an infrastructure detail.</p>
+
+<p><strong>Containers and writes.</strong> Writing to a container's filesystem goes through the overlay driver (Node 24), which adds copy-up costs. Writing to a volume goes to the host filesystem directly. <strong>Never run a database on the container's writable layer</strong> — that is the mechanical reason behind the advice, not merely a persistence concern.</p>
+
+<p><strong>What you can do at this point:</strong> explain the sequential-versus-random ratio and how it shapes B-trees, WALs and query plans; explain what an SSD's translation layer does and why p99 differs from average; state the four stages of the durability chain and exactly what <code>fsync</code> guarantees; derive the write-ahead log from first principles; explain what each durability setting actually risks; and diagnose an I/O-bound machine with <code>iostat</code> and <code>top</code>.</p>
+
+<p><strong>What's still broken:</strong> the block device is a flat array of numbered blocks. Nothing yet turns that into named files and directories, decides which block holds what, or survives a crash partway through creating a file. And one particular filesystem — a stack of read-only layers with one writable layer on top — is the thing a Docker image actually is.</p>
+
+<h3>Node 24 — filesystems, journaling, and the one a Docker image is made of</h3>
+
+<p><strong>The limitation:</strong> a block device is a numbered array of blocks; files and directories are not.</p>
+
+<h4>What a filesystem has to lay out</h4>
+
+<p>Any filesystem divides the device into: a <strong>superblock</strong> holding global metadata (size, block size, where everything else is, and a clean/dirty flag); allocation structures recording which blocks and inodes are free; the <strong>inode table</strong> from Node 21; and the data blocks themselves.</p>
+
+<p>The interesting design question is how an inode points at its data. The classic Unix scheme used direct pointers for the first few blocks plus single, double and triple <em>indirect</em> blocks — so a small file needs one lookup and a huge file needs four, with the cost paid only by files large enough to justify it. Modern filesystems use <strong>extents</strong> instead: a start block and a length, so a contiguous 1 GB file is described by a handful of records rather than 262,144 pointers. That change alone is a large part of why ext4 outperforms ext3 on big files.</p>
+
+<h4>Crash consistency: the actual hard problem</h4>
+
+<p>Creating a file requires several separate writes: allocate an inode, write the inode, allocate data blocks, write the data, add the directory entry, update the free maps. A crash between any two leaves the filesystem inconsistent — an inode marked in use with no directory entry pointing at it (a leaked file), or a directory entry pointing at an inode that was never initialised (which is worse, since it may contain another file's old data).</p>
+
+<p>The old answer was <code>fsck</code>: on boot after an unclean shutdown, scan the entire filesystem and repair it. On a multi-terabyte filesystem that is hours, during which the machine is down. Unacceptable for a server.</p>
+
+<p><strong>Journaling</strong> is the answer, and it is Node 23's write-ahead log applied to filesystem metadata. Before performing a group of related updates, write a description of them to a dedicated journal area and flush it. Then perform the real updates. Then mark the journal entry complete. After a crash, replay any entries that were written but not marked complete — bounded work, seconds rather than hours. [EXPLAIN]</p>
+
+<p>ext4 offers three modes, and the middle one being the default explains a behaviour people find surprising:</p>
+
+<ul>
+<li><code>data=journal</code> — data <em>and</em> metadata go through the journal. Safest, and everything is written twice.</li>
+<li><code>data=ordered</code> (the default) — only metadata is journaled, but data blocks are forced to disk <em>before</em> the metadata that references them. So you never see a file whose metadata points at blocks containing another file's old contents. You can still lose recent data.</li>
+<li><code>data=writeback</code> — metadata journaled, no ordering. Fastest, and after a crash a file can contain arbitrary stale bytes.</li>
+</ul>
+
+<p>Because ext4 journals metadata rather than data, <strong>a crash can leave a file that exists, has the right size, and is full of zeros.</strong> That is not a bug; it is the documented consequence of <code>data=ordered</code> with delayed allocation, and it is why applications that care must <code>fsync</code> — and must <code>fsync</code> the <em>directory</em> too, after a rename, or the rename itself may not be durable. The rename idiom from Node 21 is atomic with respect to readers and is not automatically durable with respect to power loss; a correct safe-write is: write temp, <code>fsync</code> temp, <code>rename</code>, <code>fsync</code> the directory.</p>
+
+<h4>The filesystems you will meet</h4>
+
+<ul>
+<li><strong>ext4</strong> (2008) — the Linux default. Journaled, extent-based, dull and reliable. The correct choice unless you have a reason.</li>
+<li><strong>XFS</strong> (SGI, 1993; Linux since 2001) — excellent at large files and high parallelism; the default on Red Hat. Cannot be shrunk.</li>
+<li><strong>btrfs</strong> and <strong>ZFS</strong> — copy-on-write filesystems (Node 14's pattern at block level) with built-in snapshots, checksums on all data, and volume management. ZFS is the more mature and its licence keeps it out of the Linux kernel tree.</li>
+<li><strong>tmpfs</strong> — a filesystem in RAM, backed by the page cache and swap. This is what <code>/dev/shm</code> and much of <code>/run</code> are, what Docker's <code>--tmpfs</code> and Kubernetes' <code>emptyDir: {medium: Memory}</code> give you, and — importantly — <strong>its contents count against your cgroup memory limit</strong> (Node 13). A build that writes a few gigabytes into a memory-backed <code>emptyDir</code> will be OOMKilled, and the reason is not obvious from the error.</li>
+<li><strong>Network filesystems</strong> — NFS, SMB, and cloud file services. They break assumptions that local filesystems satisfy: locking is advisory and unreliable, <code>fsync</code> semantics vary, latency is milliseconds, and a server that stops responding puts your process into the <code>D</code> state from Node 5, unkillable. <strong>Never put a database on NFS</strong>, and be careful about putting anything latency-sensitive there.</li>
+<li><strong>FUSE</strong> — filesystems implemented in user space. s3fs, sshfs, and many container and cloud tools use it. Every operation is a round trip to a user process, so it is slow, and it is why "mount S3 as a filesystem" is always a worse idea than it sounds.</li>
+</ul>
+
+<h4>overlayfs, and therefore Docker</h4>
+
+<p>A <strong>union filesystem</strong> presents several directory trees merged into one. overlayfs, in the Linux kernel since 3.18 (2014), is the one Docker uses. It takes some read-only <em>lower</em> directories and one writable <em>upper</em> directory and presents a merged view:</p>
+
+<ul>
+<li><strong>Reading</strong> a path searches the upper layer first, then each lower layer in order, and returns the first hit.</li>
+<li><strong>Writing</strong> to a file that exists only in a lower layer triggers a <strong>copy-up</strong>: the <em>entire file</em> is copied into the upper layer, then modified. Copy-on-write at file granularity (Node 14).</li>
+<li><strong>Deleting</strong> a lower-layer file cannot actually delete it, so a <em>whiteout</em> marker is created in the upper layer to hide it.</li>
+</ul>
+
+<p><strong>This is what a Docker image is.</strong> [EXPLAIN] Each instruction in a Dockerfile that changes the filesystem produces one layer — a directory of the differences. A running container adds one writable upper layer. Every property of Docker images that you have learned as a rule falls out of this mechanism:</p>
+
+<ul>
+<li><strong>Layers are shared.</strong> Ten containers from one image share one set of lower directories, so ten containers cost one copy of the image plus ten small upper layers. This is also why the same base image across many services is a genuine and large saving.</li>
+<li><strong>The writable layer is ephemeral</strong> — it is a directory on the host that is deleted when the container is removed. Hence volumes.</li>
+<li><strong>Deleting a file does not shrink the image.</strong> <code>RUN apt-get install ... &amp;&amp; rm -rf /var/lib/apt/lists/*</code> in <em>one</em> instruction removes the files before the layer is finalised. Split across two instructions, the first layer still contains them and the second only adds whiteouts — the image is larger, and <strong>the deleted secret is still extractable from the layer</strong>. This is the single most common way credentials leak from container images, and it is why multi-stage builds and <code>--secret</code> mounts exist.</li>
+<li><strong>Layer ordering is a caching decision.</strong> A layer's cache is invalidated when its instruction or its inputs change, and every layer after it is then rebuilt. So <code>COPY package*.json ./</code> then <code>RUN npm ci</code> then <code>COPY . .</code> is not a style convention: it puts the slow, rarely-invalidated step above the fast, always-invalidated one. Reversing them means reinstalling dependencies on every source change.</li>
+<li><strong>Write-heavy workloads are slow on the overlay.</strong> The first write to any file pays a full copy-up, which for a large file is a full copy. This is the mechanical reason databases need volumes, and why heavy build work inside a container benefits from a mounted cache.</li>
+<li><strong><code>docker commit</code> and image bloat.</strong> Because layers are additive, an image's size is the sum of its layers regardless of what the final view contains.</li>
+</ul>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Docker Desktop's bind-mount slowness on macOS and Windows is a filesystem boundary.</strong> Linux containers there run inside a virtual machine (Node 29), so a bind mount from the host crosses from the host's filesystem into the VM through a network-style protocol — originally osxfs, then gRPC-FUSE, now VirtioFS, each faster than the last but none free. Every <code>stat</code> crosses that boundary, and a tool that stats a hundred thousand files — which is exactly what a bundler or a test runner does on <code>node_modules</code> — becomes an order of magnitude slower. <strong>The standard fix is to keep <code>node_modules</code> inside the container as a named volume rather than bind-mounted from the host</strong>, which now has a mechanical explanation rather than being folklore. Running the whole workflow inside WSL2's own filesystem, rather than under <code>/mnt/c</code>, is the same fix on Windows and makes an enormous difference.</p>
+
+<p><strong>Case sensitivity is a filesystem property and it breaks CI.</strong> macOS's APFS is case-insensitive by default; ext4 is case-sensitive. <code>import Button from './button'</code> works on a Mac and fails in a Linux container with <code>Cannot find module</code>. This is one of the most common "works on my machine" failures in JavaScript projects and its cause is one line of this node.</p>
+
+<p><strong>Timestamps and reproducible builds.</strong> Filesystem <code>mtime</code> values end up in archives and image layers, so identical inputs produce different layer hashes and the cache misses. This is why reproducible-build tooling normalises timestamps and why <code>SOURCE_DATE_EPOCH</code> exists.</p>
+
+<p><strong>What you can do at this point:</strong> explain filesystem layout and extents, explain journaling as a write-ahead log and what <code>data=ordered</code> does and does not protect, write a genuinely safe file update, choose a filesystem for a purpose and say why not NFS for a database, and — most usefully — explain a Docker image entirely in terms of overlayfs, deriving layer caching, image bloat, secret leakage and volume requirements rather than memorising them.</p>
+
+<p><strong>What's still broken:</strong> the filesystem checks permissions, and nothing has said what a permission <em>is</em>, who a user is to the kernel, or why running as root inside a container is dangerous when the container is supposedly isolated. Part VI answers that, and by its end a container will be fully assembled from parts already built.</p>
     </div>
   </div>
 

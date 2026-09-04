@@ -1,0 +1,79 @@
+<h3>Node 32 — the kernel network stack, from the wire to your socket</h3>
+
+<p><strong>The limitation:</strong> everything so far is local. Between machines, packets are lost, reordered, duplicated and delayed, and no shared kernel arbitrates.</p>
+
+<h4>The socket</h4>
+
+<p>Introduced in 4.2BSD in 1983 by Bill Joy's group at Berkeley, the socket API deliberately reused the file descriptor (Node 22) so that network endpoints could be read and written like anything else — the "everything is a file" decision from Node 21 paying off again. <code>socket()</code> creates one; <code>bind()</code> attaches a local address and port; <code>listen()</code> marks it passive; <code>accept()</code> returns a <em>new</em> descriptor for one connection; <code>connect()</code> initiates one.</p>
+
+<p>Note the shape of <code>accept</code>: the listening socket stays listening and each connection gets its own descriptor. A connection is identified by a <strong>four-tuple</strong> — source address, source port, destination address, destination port. That tuple is what the kernel hashes to route an incoming packet to the right socket, and it explains several limits later.</p>
+
+<h4>Establishing a connection, and the two queues</h4>
+
+<p>TCP's three-way handshake: the client sends <code>SYN</code> with its initial sequence number; the server replies <code>SYN-ACK</code> with its own; the client sends <code>ACK</code>. <strong>One full round trip before any data moves</strong> — and TLS adds one more (two in TLS 1.2), which is the entire reason connection reuse matters as much as it does.</p>
+
+<p>The kernel keeps <em>two</em> queues, and conflating them is a common error:</p>
+
+<ul>
+<li><strong>The SYN queue</strong> holds half-open connections that have received a <code>SYN</code> and are awaiting the final <code>ACK</code>. Sized by <code>net.ipv4.tcp_max_syn_backlog</code>. Flooding it with SYNs from forged addresses is a <em>SYN flood</em>, and the defence — <strong>SYN cookies</strong> — is elegant: encode the connection state cryptographically into the sequence number itself so no state need be kept until the handshake completes.</li>
+<li><strong>The accept queue</strong> holds fully established connections waiting for your program to call <code>accept()</code>. Sized by the <code>backlog</code> argument to <code>listen()</code>, capped by <code>net.core.somaxconn</code> (512 on Linux by default, 4096 on recent kernels; Node passes 511 by default). <strong>When this queue is full, new connections are dropped</strong> — silently, from the client's point of view, appearing as a connection timeout or a reset.</li>
+</ul>
+
+<p>That second queue is a real production signal. It fills when your process is not calling <code>accept</code> fast enough, which for a Node server means <em>the event loop is blocked</em> (Node 20). <code>ss -lnt</code> shows <code>Recv-Q</code> as the current accept-queue depth and <code>Send-Q</code> as its limit, and <code>nstat -az TcpExtListenOverflows</code> counts the drops. [USE] A rising <code>ListenOverflows</code> with healthy CPU is one of the cleanest possible diagnoses of a blocked loop.</p>
+
+<h4>Reliability, and flow, and congestion</h4>
+
+<p>TCP turns a lossy packet channel into an ordered byte stream using: <strong>sequence numbers</strong> on every byte; <strong>acknowledgements</strong> for what has been received (with selective acknowledgement, SACK, to report holes precisely); <strong>retransmission</strong> on timeout, where the timeout is derived from a smoothed round-trip-time estimate and doubles on each failure; and <strong>reordering tolerance</strong>, buffering out-of-order data until the gap fills.</p>
+
+<p>Two separate limits govern how fast data flows, and people routinely confuse them:</p>
+
+<ul>
+<li><strong>Flow control</strong> protects the <em>receiver</em>. Every acknowledgement carries a <strong>receive window</strong> — how much buffer space remains — and the sender may not exceed it. A receiver that reads slowly shrinks the window to zero and the sender stops. <em>This is TCP-level backpressure, and it is the same principle as the pipe in Node 22 and the stream in Node 19.</em></li>
+<li><strong>Congestion control</strong> protects the <em>network</em>. The sender maintains a congestion window it grows on success and shrinks on loss. <strong>Slow start</strong> begins with about ten packets and doubles each round trip — which is why the first ~14 KB of a response arrives in one round trip and larger responses take several, and why "keep your critical CSS under 14 KB" was ever meaningful advice. <strong>CUBIC</strong> is Linux's default: grow aggressively, halve on loss. <strong>BBR</strong> (Google, 2016) instead models the path's bandwidth and round-trip time directly rather than treating loss as the congestion signal, which performs far better on links that drop packets for reasons other than congestion — mobile networks, long-distance links — and is why enabling it on an edge server sometimes produces a startling improvement.</li>
+</ul>
+
+<p><strong>Bandwidth-delay product</strong> is the number that ties them together: a 100 ms round trip at 1 Gbps needs about 12 MB in flight to keep the pipe full. If the receive buffer is smaller than that, throughput is capped by latency regardless of available bandwidth. This is why <code>net.ipv4.tcp_rmem</code> and <code>tcp_wmem</code> autotuning exists and why long-distance transfers are slow until buffers are sized for them.</p>
+
+<h4>Closing, and <code>TIME_WAIT</code></h4>
+
+<p>Closing is a four-way exchange (<code>FIN</code>, <code>ACK</code>, <code>FIN</code>, <code>ACK</code>) because each direction closes independently. The side that closes <em>first</em> then enters <strong><code>TIME_WAIT</code></strong> and stays there for twice the maximum segment lifetime — 60 seconds on Linux, not tunable without recompiling.</p>
+
+<p>Two genuine reasons, both worth knowing: a delayed duplicate packet from this connection must not be delivered to a <em>new</em> connection reusing the same four-tuple; and if the final <code>ACK</code> is lost, the peer will retransmit its <code>FIN</code> and someone must be there to answer.</p>
+
+<p>The consequence is that <strong>the side that closes first accumulates sockets in <code>TIME_WAIT</code> for a minute each</strong>, and since a client's source ports come from the ephemeral range (<code>net.ipv4.ip_local_port_range</code>, about 28,000 ports by default), a client opening more than roughly 470 connections per second to <em>the same destination</em> exhausts them and gets <code>EADDRNOTAVAIL</code>. Hence:</p>
+
+<ul>
+<li><strong><code>SO_REUSEADDR</code></strong> lets a server bind a port that has connections in <code>TIME_WAIT</code>. Without it, restarting a server fails with <code>EADDRINUSE</code> for a minute — which is why every server framework sets it, Node included.</li>
+<li><strong><code>SO_REUSEPORT</code></strong> (Linux 3.9, 2013) is different and more powerful: several processes may bind the <em>same</em> port, and the kernel load-balances incoming connections between them by hashing the four-tuple. This is an alternative to Node's <code>cluster</code> primary distributing descriptors, and it is what nginx workers use.</li>
+<li><strong><code>tcp_tw_reuse</code></strong> allows reusing <code>TIME_WAIT</code> sockets for new outbound connections. Note that <code>tcp_tw_recycle</code>, which older tuning guides recommend, was <em>removed</em> in Linux 4.12 because it broke badly behind NAT.</li>
+<li><strong>The real fix is not to open so many connections</strong> — keep-alive and pooling, below.</li>
+</ul>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Every network error you have seen, decoded:</strong></p>
+
+<ul>
+<li><strong><code>ECONNREFUSED</code></strong> — the destination replied with <code>RST</code>: the host is reachable and nothing is listening on that port. Fast, and definitive. Usually the wrong port, or the service has not started.</li>
+<li><strong><code>ETIMEDOUT</code> on connect</strong> — no reply at all. A firewall dropping silently, a wrong address, or a security group. Slow, because it waits out retransmissions.</li>
+<li><strong><code>ECONNRESET</code></strong> — the peer sent <code>RST</code> on an established connection: it crashed, its socket had unread data when it closed, an idle timeout expired at a load balancer, or a keep-alive connection was reused just as the server closed it. <em>That last case is the common one in Node</em>, and it is a race: your agent picks a pooled socket the server is simultaneously closing. Mitigations are to keep the client's idle timeout <em>below</em> the server's, and to retry idempotent requests on <code>ECONNRESET</code>.</li>
+<li><strong><code>EPIPE</code></strong> — you wrote to a connection the peer has closed (Node 30).</li>
+<li><strong><code>EADDRINUSE</code></strong> — the port is taken, or held in <code>TIME_WAIT</code> without <code>SO_REUSEADDR</code>.</li>
+<li><strong><code>EMFILE</code></strong> — descriptor limit (Node 19).</li>
+</ul>
+
+<p><strong>HTTP keep-alive is the direct answer to the handshake cost.</strong> A new HTTPS connection costs a TCP round trip plus a TLS round trip plus slow start; reusing one costs nothing. Node's <code>http.Agent</code> had <code>keepAlive: false</code> by default until Node 19, which meant every outbound request paid the full cost — a genuinely significant and widely unnoticed latency tax on service-to-service calls. Set <code>keepAlive: true</code>, set <code>maxSockets</code> deliberately, and prefer <code>undici</code> (Node's modern HTTP client, and the implementation behind global <code>fetch</code>), whose pooling and pipelining are considerably better. <strong>In AWS Lambda this is the single highest-value line of configuration</strong> for anything calling other services, because a function instance handles many invocations and without pooling every one re-handshakes.</p>
+
+<p><strong>A Kubernetes Service is packet rewriting, not a proxy.</strong> A ClusterIP has no process behind it. <code>kube-proxy</code> programs the kernel — historically with <code>iptables</code> DNAT rules, then IPVS for large clusters, and now increasingly eBPF via Cilium — so that a packet addressed to the Service IP has its destination rewritten to a randomly chosen pod IP by <strong>netfilter</strong>, in the kernel, on the sending node. Consequences that follow directly: load balancing is <em>per connection</em>, not per request, so a long-lived HTTP/2 or gRPC connection pins to one pod forever and traffic distributes badly — which is exactly why service meshes and gRPC clients need explicit load balancing. Also, the iptables ruleset grows with the number of endpoints, which is why very large clusters moved to IPVS and eBPF.</p>
+
+<p><strong>Connection tracking is a finite table and it fills up.</strong> NAT and stateful firewalling require the kernel to remember every connection in <code>nf_conntrack</code>. The table has a size (<code>nf_conntrack_max</code>), and when it is full <strong>new connections are dropped and the kernel logs <code>nf_conntrack: table full, dropping packet</code></strong>. On a busy Kubernetes node with many short-lived connections this is a real and confusing outage — intermittent connection failures across every workload on the node, with all applications healthy. Diagnose with <code>conntrack -C</code> against <code>nf_conntrack_max</code>.</p>
+
+<p><strong>Head-of-line blocking, at three layers, which is the clearest way to see why HTTP evolved.</strong> HTTP/1.1 has it at the <em>request</em> layer: one response must complete before the next on that connection, which is why browsers open six connections per host. HTTP/2 multiplexes streams over one connection and removes it at the HTTP layer — but not at the TCP layer, because a single lost packet stalls <em>every</em> stream until it is retransmitted, since TCP must deliver bytes in order. <strong>HTTP/3 solves that by abandoning TCP entirely</strong> for QUIC over UDP, implementing reliability per-stream in user space, so one stream's loss does not block the others. It also merges the transport and TLS handshakes into one round trip. Every step of that evolution is a response to something in this node.</p>
+
+<p><strong>MTU and the mysteries it causes.</strong> Ethernet's payload limit is 1500 bytes, and TCP negotiates a maximum segment size accordingly. Overlay networks — VXLAN in Kubernetes, WireGuard, IPsec VPNs — add encapsulation headers, so the effective MTU inside is smaller. If a packet is too large and the "don't fragment" bit is set, a router should return an ICMP "fragmentation needed" message, and path MTU discovery adjusts. <strong>When a firewall blocks that ICMP message — which many do, in the name of security — you get a <em>PMTU black hole</em>: small requests succeed and large ones hang forever.</strong> The classic symptom is that <code>curl</code> of a health endpoint works and a POST with a large body times out, on the same connection path. It is one of the most maddening network bugs there is, and recognising the signature saves days.</p>
+
+<p><strong>DNS in Kubernetes is a latency source people miss.</strong> The default <code>ndots: 5</code> in a pod's <code>/etc/resolv.conf</code> means any name with fewer than five dots is first tried against every search domain — so resolving <code>api.example.com</code> issues four or five failing queries before the right one, for both A and AAAA records. Fixes: a trailing dot to make the name absolute, an explicit <code>dnsConfig</code> with a lower <code>ndots</code>, or NodeLocal DNSCache. Also relevant from Node 19: <code>dns.lookup</code> uses the threadpool, so slow DNS blocks file I/O too.</p>
+
+<p><strong>What you can do at this point:</strong> explain the socket API and the four-tuple, explain both backlog queues and use accept-queue overflow to detect a blocked event loop, distinguish flow control from congestion control and explain slow start's effect on response times, explain <code>TIME_WAIT</code> and derive port exhaustion and <code>SO_REUSEADDR</code>/<code>SO_REUSEPORT</code>, decode every common network error code by mechanism, explain a Kubernetes Service as netfilter rules and why gRPC balances badly over it, and recognise conntrack exhaustion and PMTU black holes.</p>
+
+<p><strong>What's still broken:</strong> everything in Parts I to VII assumed a running program existed. Nothing has explained how a text file becomes machine code, how that code finds the library functions it calls, what <code>execve</code> does with the resulting file, or how the machine gets from powered-off to running any of it.</p>

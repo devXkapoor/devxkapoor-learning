@@ -314,7 +314,176 @@
 
 <p><strong>What you can do at this point:</strong> explain what asynchronous execution physically is, trace a network packet from the wire to a JavaScript callback naming every layer, and read the <code>si</code> column in <code>top</code> and <code>/proc/interrupts</code> to see whether a machine's interrupt load is balanced.</p>
 
-<p><strong>What's still broken:</strong> everything in this node is code sitting in memory, and from Node 0 any program can write to any memory address. A job can overwrite the interrupt table and point the timer handler at its own code. A job can execute <code>cli</code>, disable interrupts, and loop forever, at which point no device and no clock can ever regain control and the machine is dead until someone cuts the power. A job can write directly to the disk controller and destroy another user's data. The monitor is a convention that programs are politely following, and conventions are not enforcement. The machine needs a distinction it does not currently have: some code is allowed to do these things, and other code is not.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
+<p><strong>What's still broken:</strong> everything in this node is code sitting in memory, and from Node 0 any program can write to any memory address. A job can overwrite the interrupt table and point the timer handler at its own code. A job can execute <code>cli</code>, disable interrupts, and loop forever, at which point no device and no clock can ever regain control and the machine is dead until someone cuts the power. A job can write directly to the disk controller and destroy another user's data. The monitor is a convention that programs are politely following, and conventions are not enforcement. The machine needs a distinction it does not currently have: some code is allowed to do these things, and other code is not.</p>
+
+<h3>Node 3 — privilege: one bit that splits the machine in two</h3>
+
+<p><strong>The limitation:</strong> every mechanism built so far — the monitor, the interrupt table, the device drivers — is ordinary bytes in ordinary memory, and any program can overwrite them, disable interrupts, or drive the hardware itself. Protection is currently a request, not a rule.</p>
+
+<p>Software cannot fix this. Whatever check you write in software runs as instructions that the offending program could simply jump past, or overwrite, or never call. A guard that the guarded party can remove is not a guard. <strong>The enforcement has to be in the hardware, below the level at which any instruction can reach it.</strong> [EXPLAIN]</p>
+
+<h4>The mode bit</h4>
+
+<p>The mechanism is one bit inside the processor, not in memory, holding the current <strong>mode</strong>. Two values. Call them <em>kernel mode</em> (also supervisor mode, privileged mode, ring 0) and <em>user mode</em> (unprivileged, ring 3).</p>
+
+<p>Certain instructions are then declared <strong>privileged</strong>. If the processor decodes one while the mode bit says user mode, it does not execute it. Instead it raises an exception — one of the three entry types from Node 2 — which transfers control to a handler that the kernel installed. The user program does not get to decide what happens next; the hardware has already taken control away from it.</p>
+
+<p>On x86-64 the privileged set includes, concretely:</p>
+
+<ul>
+<li><code>cli</code> and <code>sti</code> — disable and enable interrupts. This closes Node 2's hole where a program could freeze the machine permanently.</li>
+<li><code>lidt</code> — load the interrupt descriptor table register. A user program cannot repoint the interrupt table at its own code.</li>
+<li><code>mov cr3, ...</code> — change the page table root. This is Node 10's mechanism and it is the one that makes memory isolation possible at all.</li>
+<li><code>in</code> and <code>out</code> — read and write hardware I/O ports. A user program cannot address the disk controller directly.</li>
+<li><code>hlt</code> — stop the processor until the next interrupt. This is what an idle machine executes, and it is why an idle server draws less power.</li>
+</ul>
+
+<p>Notice what this list is. It is exactly the set of things the operating system needs in order to remain in control: control of the clock, control of the interrupt table, control of memory mapping, control of devices. Everything else — arithmetic, loads, stores, jumps, function calls — is unprivileged, which is why the vast majority of a normal program's instructions run at full speed with no involvement from anything.</p>
+
+<h4>The other half: memory protection</h4>
+
+<p>The mode bit alone is not enough, because a user program could still write over the kernel's memory with an ordinary <code>mov</code> instruction, which is not privileged. So the hardware must also enforce which addresses a program may touch, and the check has to happen on every single memory access without slowing the machine down.</p>
+
+<p>The earliest form was two extra registers: a <strong>base</strong> and a <strong>limit</strong>. Every address the program produces has base added to it and is checked against limit; out of range raises an exception. Both registers are loadable only in kernel mode. This is crude — it gives each program one contiguous region — but it establishes the shape of the answer, which is that <em>address translation and permission checking happen in hardware, on every access, from tables only the kernel can modify.</em> Node 10 replaces base-and-limit with page tables, which are the modern form, but the principle is fixed here.</p>
+
+<p>The violation, when it happens, is an exception that lands in a kernel handler, and on Unix systems that handler's normal response is to deliver the signal <code>SIGSEGV</code> to the offending process, whose default action is to terminate it. <strong>"Segmentation fault" is the user-visible name of this exact hardware event.</strong> [EXPLAIN] The word "segmentation" is a fossil from an older scheme where memory was divided into segments; the mechanism today is paging, but the message stayed.</p>
+
+<h4>The single most useful thing to understand about the kernel</h4>
+
+<p>It is very common, and completely wrong, to picture the kernel as a program that is running alongside your programs — a big process that takes its turn. Correct this now, because a great deal downstream depends on it.</p>
+
+<p><strong>The kernel is not a process. It is a mode the processor is in.</strong> [EXPLAIN]</p>
+
+<p>There is one processor, executing one instruction stream. Most of the time that stream is your program's instructions and the mode bit says user. When your program makes a request, or a device interrupts, or an instruction faults, the processor switches the mode bit to kernel and jumps to kernel code — <em>the same processor, continuing to execute, now with different permissions and running different instructions</em>. When it is finished it flips the bit back and resumes where it was. There is no scheduling in between, no other program involved. The kernel is a body of code that your process executes, on your process's time, with the privilege bit raised.</p>
+
+<p>Three things follow immediately and they are all observable:</p>
+
+<p>When you run <code>top</code> and see <code>us</code> and <code>sy</code>, you are seeing this split measured. <code>us</code> is time your process spent executing with the mode bit at user; <code>sy</code> is time <em>your process</em> spent executing kernel code on its own behalf. A process doing heavy file or network work can show most of its time in <code>sy</code>, and that time is still charged to it. This is also why <code>process.cpuUsage()</code> in Node returns <code>{ user, system }</code> as two separate numbers.</p>
+
+<p>When a kernel bug is hit, there is no process to kill — the failing code <em>is</em> the system — so the machine panics, which is why a kernel bug takes down everything and a user-space bug takes down one process. That asymmetry is the entire argument of Node 41's microkernel debate.</p>
+
+<p>And the boundary crossing is a real cost that you can count, which is Node 40's subject and the reason interfaces like <code>io_uring</code> were designed.</p>
+
+<h4>How the split was found, historically</h4>
+
+<p>The Ferranti Atlas Supervisor (1962) had it, as did the Burroughs B5000 the same year. The design that thought hardest about it was <strong>Multics</strong> — Multiplexed Information and Computing Service — a joint MIT, Bell Labs and General Electric project begun in 1965 whose stated goal was a computing utility that many mutually untrusting users could share. Multics generalised two modes into <strong>eight protection rings</strong>, numbered 0 (most privileged) outward, with hardware checking on every cross-ring call. It was, in security terms, far ahead of anything that followed.</p>
+
+<p>Multics was also enormous, late, and slow, and in 1969 Bell Labs withdrew. Two of its people, Ken Thompson and Dennis Ritchie, then wrote a much smaller system on a spare PDP-7, which Brian Kernighan named <strong>Unics</strong> as a joke on Multics — one of everything where Multics had many — and which became <strong>Unix</strong>. That withdrawal is the single most consequential event in this document: Linux, macOS, iOS, Android, and every server you deploy to are descendants of the small thing built in reaction to the large one.</p>
+
+<p>Intel's x86 line inherited the ring model, offering four rings (0 to 3) when the 80286 introduced protected mode in 1982 and the 80386 completed it in 1985. In practice essentially every operating system uses only ring 0 and ring 3, because the paging hardware only distinguishes "supervisor" from "user" anyway and because portable kernels cannot rely on a feature x86 alone has. Rings 1 and 2 sat unused for thirty years, then found a use in early paravirtualised Xen, and then hardware virtualisation added a genuinely new level below ring 0 — informally "ring −1" — where a hypervisor runs, which is Node 29.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>This is the boundary that defines what your language can and cannot do.</strong> There is no JavaScript that opens a file. There cannot be. Opening a file requires talking to a storage controller, which requires privileged instructions, which user-mode code cannot execute. Every capability your runtime appears to have — files, sockets, timers, spawning processes, allocating memory, knowing the time — is a request across this boundary, and the complete list of things your program can ask for is the list of system calls, which is Node 4. When people say a language is "sandboxed", what they usually mean is that a layer above this one narrows the list further.</p>
+
+<p><strong>Native crashes in Node are this node firing.</strong> A JavaScript error throws an exception you can catch. A crash inside a native addon — <code>better-sqlite3</code>, <code>sharp</code>, <code>bcrypt</code>, anything with a <code>.node</code> file — reaching a bad pointer produces a memory access violation, an exception in hardware, a <code>SIGSEGV</code>, and process death with no JavaScript stack, because by the time the signal is delivered there is nothing left to unwind. This is precisely why <code>process.on('uncaughtException')</code> cannot save you from it: the failure happened below the level at which V8 has any say. It is also why a crash of this kind is a real argument for running workloads in separate processes with a supervisor — a design decision Node 5 and Node 31 make concrete.</p>
+
+<p><strong>Browser site isolation is this idea copied upward.</strong> A browser tab runs untrusted code from the internet, so it needs the same guarantee: this code may compute, and may ask for things, but may not touch anything else. Originally that was enforced in software inside one process — V8 <em>isolates</em> and <em>contexts</em> separating one site's objects from another's. Spectre, in January 2018, broke that: speculative execution let code read memory in its own address space that it had no logical right to, and software-level separation within a process is not a defence against a hardware side channel. Chrome's response, shipped fully in Chrome 67 (May 2018), was <strong>Site Isolation</strong> — put each site in its own operating system process, so that the boundary is the hardware one from this node rather than a software convention. This is why your browser shows dozens of processes in the task manager, why memory use went up by roughly ten to thirteen percent, and why <code>SharedArrayBuffer</code> requires cross-origin isolation headers before it is handed back to you. A JavaScript feature is gated on a processor's speculation behaviour, mediated by a 1962 idea about rings.</p>
+
+<p><strong>WebAssembly is a software re-derivation of the same design.</strong> A Wasm module has a <em>linear memory</em> — a single <code>ArrayBuffer</code> — and every memory access it makes is bounds-checked against that buffer's length. It cannot form a pointer to anything outside. It has no instruction that reaches the host. Its only way out is a list of imported functions the host chose to provide — which is a system call table, built in software, with the host as the kernel. WASI, the WebAssembly System Interface, makes the resemblance total: it is a POSIX-shaped syscall list for Wasm. If you understand Node 3 and Node 4, you understand Wasm's security model completely, because it is the same model.</p>
+
+<p><strong>Container privilege flags are ring-0 access.</strong> <code>docker run --privileged</code> means: do not drop the capabilities that would let this container reconfigure the kernel. It is not a general "more permissions" switch; it specifically re-grants abilities like loading kernel modules, changing the interrupt configuration, and accessing raw devices — the kernel-mode powers of this node, exposed to a process. That is why running a container privileged is close to giving it the host, and why the fix for a container that needs one specific ability is a single capability (<code>--cap-add NET_ADMIN</code>) rather than the whole set. Node 25 breaks capabilities down properly.</p>
+
+<p><strong>eBPF is the interesting modern exception.</strong> It lets ordinary user-space tools load small programs that run <em>in kernel mode</em>, attached to kernel events. Since Node 3 says that is exactly what must never be allowed, the resolution is worth knowing: the kernel runs a <strong>verifier</strong> over the bytecode before loading it, statically proving that it terminates, that every memory access is in bounds, and that it only calls an allowed set of helpers. It is a proof obligation substituting for a hardware boundary, and it is how modern observability (Node 39), modern container networking (Cilium), and modern security policy are implemented.</p>
+
+<p><strong>What you can do at this point:</strong> explain why an operating system cannot be enforced in software, state precisely what the kernel is (a mode, not a process), read <code>us</code> versus <code>sy</code> correctly, and explain what a segmentation fault physically is and why no JavaScript handler can catch one.</p>
+
+<p><strong>What's still broken:</strong> the wall is now absolute, and that is useless. A user program can execute arithmetic and nothing else — it cannot read input, cannot write output, cannot allocate memory, cannot even stop cleanly. A program that cannot affect the world is not a program. What is needed is a door in the wall: a way for user code to deliberately enter kernel mode, but only at an address the kernel chose, running code the kernel wrote, with the kernel deciding whether the request is permitted.</p>
+
+<h3>Node 4 — the system call: the only door</h3>
+
+<p><strong>The limitation:</strong> user mode can compute but cannot do anything, and kernel mode can do anything but must not be enterable at an address the user program picks.</p>
+
+<p>The resolution reuses the third entry type from Node 2 — the software interrupt. A single instruction exists whose entire effect is: <em>switch the mode bit to kernel, and jump to one specific address that the kernel registered in advance.</em> The user program controls <em>when</em> the crossing happens. It does not control <em>where</em> it lands. That asymmetry is the whole design, and everything else is detail.</p>
+
+<p>The instruction is a <strong>trap</strong>, and the resulting request is a <strong>system call</strong> — syscall. It is the complete and only interface between every program on the machine and the machine itself. [EXPLAIN] Linux has roughly 350 of them on x86-64. That number is the true size of the API you are programming against, whatever language you write in.</p>
+
+<h4>The instruction, and the agreement around it</h4>
+
+<p>Since the destination is fixed, the request itself has to be encoded some other way, and the only place available is the registers. So there is a convention — an <strong>ABI</strong>, an Application Binary Interface — fixing which register holds what. On Linux x86-64 it is:</p>
+
+<ul>
+<li><code>rax</code> — the system call <em>number</em>. 0 is <code>read</code>, 1 is <code>write</code>, 2 is <code>open</code>, 60 is <code>exit</code>. These numbers are permanent; changing one would break every binary ever compiled.</li>
+<li><code>rdi</code>, <code>rsi</code>, <code>rdx</code>, <code>r10</code>, <code>r8</code>, <code>r9</code> — up to six arguments, in that order.</li>
+<li>the <code>syscall</code> instruction — trap.</li>
+<li><code>rax</code> on return — the result. A negative value between −1 and −4095 means failure, and its negation is the error number: 2 is <code>ENOENT</code> (no such file), 13 is <code>EACCES</code> (permission denied), 9 is <code>EBADF</code> (bad file descriptor), 11 is <code>EAGAIN</code> (try again — the one that Node 19 turns into an entire architecture). These are the same strings you see in Node errors, because Node passes them straight through.</li>
+</ul>
+
+<p>Writing "hi" to the terminal, complete, with nothing hidden:</p>
+
+<pre><code>mov rax, 1          ; syscall number 1 = write
+mov rdi, 1          ; first argument: file descriptor 1 = standard output
+mov rsi, message    ; second argument: address of the bytes
+mov rdx, 2          ; third argument: how many bytes
+syscall             ; trap into the kernel
+</code></pre>
+
+<p>That is <code>console.log("hi")</code> at the bottom. Every layer between — your JavaScript, V8, Node's C++ bindings, libuv, glibc's <code>write</code> wrapper — exists to arrange those five lines and interpret the answer.</p>
+
+<h4>What the processor and the kernel actually do in the crossing</h4>
+
+<p>Worth walking once in full, because the cost of it drives design decisions in Nodes 19, 20, 23 and 40.</p>
+
+<ol>
+<li>The <code>syscall</code> instruction saves the return address into <code>rcx</code> and the flags into <code>r11</code>, sets the mode bit to kernel, and loads <code>rip</code> from a special register (<code>MSR_LSTAR</code>) that only kernel mode could ever have written. The kernel wrote it at boot. There is no way for user code to influence the destination.</li>
+<li>The kernel's entry code executes <code>swapgs</code>, which swaps in a pointer to this processor's per-core kernel data — because at this instant the kernel does not yet know where anything of its own is.</li>
+<li>It switches to a <strong>kernel stack</strong>. Every process has two stacks: its user stack, and a small kernel stack (typically 16 KB on x86-64) used only while executing kernel code on its behalf. It must switch, because trusting the user stack pointer would let a program point it at kernel memory.</li>
+<li>It saves the full user register set onto that kernel stack. This saved block is called the <em>pt_regs</em> structure, and it is what <code>ptrace</code> and debuggers read, and what Node 6's context switch will save further.</li>
+<li>It checks <code>rax</code> against the size of the syscall table and uses it as an index: <code>sys_call_table[rax]</code>. Another array lookup, exactly like the IDT.</li>
+<li>Before touching any pointer the user passed, it validates it. A user program can pass any address at all, including a kernel address, and if the kernel dereferenced it directly, every process could read kernel memory by calling <code>read</code> with a kernel buffer. So all user memory is accessed through <code>copy_from_user</code> and <code>copy_to_user</code>, which check the address range and handle faults. This is the single most security-critical code in the kernel and the historical source of a long line of vulnerabilities.</li>
+<li>The work happens.</li>
+<li>The return value is placed in <code>rax</code>, registers are restored, and <code>sysret</code> flips the mode bit back and returns to the saved address.</li>
+</ol>
+
+<p>The cost of all that, on modern hardware, is roughly 50 to 100 nanoseconds in the best case — a few hundred instructions' worth of time to do nothing but cross a line. It used to be less. The Meltdown vulnerability, disclosed 3 January 2018, forced a mitigation called <strong>KPTI</strong> (Kernel Page Table Isolation) which unmaps kernel memory from the user page table entirely, so every crossing now also reloads the page table root and flushes address translations. On some workloads that cost five to thirty percent of throughput, and it hit syscall-heavy workloads — databases, network servers, exactly your servers — hardest. If you administered anything in early 2018 and watched cloud instance performance drop after a host reboot, that was this.</p>
+
+<h4>The syscall boundary is the actual stable contract on Linux</h4>
+
+<p>This point separates people who understand Linux from people who use it. Linus Torvalds's rule, stated repeatedly and with force, is <strong>"we do not break userspace"</strong>: the kernel's internal structures change freely between versions, but the syscall interface is permanent. A binary compiled against Linux 2.6 in 2005 will still run on Linux 6.x, because syscall number 1 is still <code>write</code> and it still takes the same three arguments.</p>
+
+<p>This is why a statically linked Go binary can be dropped into a container built <code>FROM scratch</code> — no libraries, no shell, no filesystem to speak of — and simply work. Go's runtime issues syscalls directly rather than going through the C library, so the binary depends on nothing but the kernel's permanent contract. It is also why Windows is different: there, the syscall numbers change between builds without warning, and the stable contract is one level higher, in <code>kernel32.dll</code> and <code>ntdll.dll</code>. Programs are expected to call the DLL, which knows the current numbers. Two coherent designs, opposite choices, and the difference explains a great deal about how software is distributed on each platform.</p>
+
+<h4>What a "library function" is versus a system call</h4>
+
+<p>A distinction people routinely blur. <code>strlen</code> is a library function: it runs entirely in user mode, looping over bytes, never entering the kernel. <code>write</code> is a system call: it must enter the kernel because only the kernel may touch a device. And <code>printf</code> is a library function that <em>eventually</em> makes a system call — it formats into a buffer in user memory and calls <code>write</code> when the buffer fills or a newline appears.</p>
+
+<p>That buffering is not a detail; it is a performance strategy, and it has a famous failure mode. Because <code>printf</code> to a pipe is fully buffered (typically 4 KB) rather than line-buffered as it is to a terminal, a program that prints steadily and then crashes shows all its output when run interactively and loses the last chunk when run under a pipe or redirected into a log file. Every language has a version of this problem. It is the origin of "my logs stop just before the crash".</p>
+
+<p>The general principle underneath is worth stating plainly, because it is the reason for a whole category of optimisation in this document: <strong>a system call costs far more than an instruction, so software batches work in user space to make fewer of them.</strong> [EXPLAIN] Buffered output, the page cache, socket buffers, <code>writev</code>, <code>sendfile</code>, <code>epoll</code>, and <code>io_uring</code> are all instances of that one sentence.</p>
+
+<h4>Seeing them: strace</h4>
+
+<p><code>strace</code> shows every system call a process makes, with arguments and return values. [USE] It is the single most direct way to see this node and it works on any program in any language, because every program is ultimately doing this and nothing else.</p>
+
+<pre><code>$ strace -f -e trace=openat,read,write,epoll_wait node server.js
+$ strace -c -f node -e 'require("fs").readFileSync("/etc/hostname")'
+</code></pre>
+
+<p>The <code>-c</code> form prints a summary table: how many of each call, and how much time in each. Running it against a Node process doing real work is genuinely worth doing once, and the shape of the output is instructive — an idle Node server is a process sitting in a single <code>epoll_wait</code>, and a Node server under load is <code>epoll_wait</code>, then a burst of <code>read</code>, <code>write</code>, <code>futex</code>, and back. That is the whole runtime, visible.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Every asynchronous API in Node is a system call plus a strategy for not waiting on it.</strong> The mapping is direct and worth memorising, because it makes Node's design legible:</p>
+
+<ul>
+<li><code>fs.readFile</code> → <code>openat</code>, <code>fstat</code>, <code>read</code>, <code>close</code> — issued on a <strong>threadpool</strong> thread, because regular files cannot usefully be polled for readiness (Node 19 explains exactly why).</li>
+<li><code>net</code>, <code>http</code>, <code>dgram</code> → <code>socket</code>, <code>bind</code>, <code>listen</code>, <code>accept4</code>, <code>read</code>, <code>write</code> — driven by <code>epoll</code> on the main thread, never the threadpool.</li>
+<li><code>setTimeout</code> → no dedicated call; the delay becomes the timeout argument to <code>epoll_wait</code>. Node 8 and Node 20.</li>
+<li><code>child_process.spawn</code> → <code>clone</code>/<code>fork</code>, <code>execve</code>, <code>pipe2</code>, <code>waitpid</code>. Nodes 14, 31 and 35.</li>
+<li><code>crypto.pbkdf2</code>, <code>zlib</code>, <code>dns.lookup</code> → no syscall at all for the work itself; they are pure computation pushed to the threadpool because they would otherwise block the loop. Note that <code>dns.lookup</code> is in this list because it calls <code>getaddrinfo</code>, which is a blocking library function, whereas <code>dns.resolve</code> speaks DNS over a socket and is genuinely asynchronous — a distinction that has caused real production incidents.</li>
+</ul>
+
+<p><strong>The console.log gotcha, explained properly.</strong> In Node, <code>process.stdout</code> is synchronous when it points at a file or a TTY, and asynchronous when it points at a pipe. That is not a quirk; it follows from this node. Writing to a terminal or a regular file will not block for long, so Node does the <code>write</code> syscall immediately and inline. Writing to a pipe can block indefinitely if the reader is slow, so Node makes it non-blocking and buffers. The consequences are real: logging heavily in a hot path is a synchronous syscall per call when you run it in a terminal, which slows the loop measurably; and when the same code runs in Docker or under a process manager — where stdout <em>is</em> a pipe — output can be lost on an abrupt exit because it was still in Node's buffer. That is the <code>printf</code> failure mode from two sections ago, arriving in your production logs.</p>
+
+<p><strong>Seccomp: a container is partly defined by which syscalls it may make.</strong> <code>seccomp-bpf</code> lets a process install a filter — a small program, checked and run by the kernel — that inspects each syscall's number and arguments and decides allow, deny, or kill. Docker applies a default profile that blocks about 44 of the roughly 350 calls, including <code>mount</code>, <code>reboot</code>, <code>kexec_load</code>, and the ones for loading kernel modules. This is why some tooling fails inside a container with <code>EPERM</code> for no apparent reason and works with <code>--security-opt seccomp=unconfined</code>. Kubernetes exposes the same thing as <code>seccompProfile: RuntimeDefault</code>, and turning it on is one of the cheapest genuine security improvements available for a Node workload, because a Node server needs a small syscall set and an exploit needs a larger one.</p>
+
+<p><strong>gVisor puts a second kernel in user space.</strong> Google's gVisor intercepts a container's syscalls and services them in a user-mode process called Sentry rather than passing them to the host kernel, so that a container escape has to break Sentry first. It works because this node's interface is the <em>complete</em> boundary — if you implement all 350 calls, you have implemented Linux as far as any program can tell. It is also why gVisor is slower: every syscall now costs several real crossings instead of one.</p>
+
+<p><strong>Syscall count is a real performance axis you can measure.</strong> A loop doing <code>fs.appendFileSync</code> per log line makes an <code>openat</code>, <code>write</code>, and <code>close</code> per line — three crossings each. Holding the descriptor open and batching lines makes one crossing per batch. On a busy service this is not a micro-optimisation; it is the difference between logging costing one percent of your loop and twenty. The same reasoning is why <code>res.write</code> called forty times per response is worse than building the body and writing once, why HTTP keep-alive matters (a new connection is <code>socket</code> plus <code>connect</code> plus a TLS handshake), and why <code>io_uring</code> — which lets a process submit thousands of operations through a shared memory ring with zero or one crossings — is the most significant kernel interface added in twenty years. Node has experimental <code>io_uring</code> support in libuv for some file operations from libuv 1.45 (2023) onward.</p>
+
+<p><strong>What you can do at this point:</strong> explain what a system call is at the instruction level, name the ABI, read <code>strace</code> output, map any Node API to the calls it makes, explain why the syscall boundary rather than the C library is Linux's stable contract, and explain seccomp as a filter on this exact interface.</p>
+
+<p><strong>What's still broken:</strong> there is a wall, a door, and code running. But "the running program" is still just bytes at an address with an instruction pointer. There is no name for it, no owner, no accounting, nothing that could be stopped and restarted, nothing the kernel could keep a list of. If two programs are to share this machine, the kernel needs a data structure representing one of them — everything it owns, everything it is allowed to do, and everything needed to pause it and resume it later as if nothing happened.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
   This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
   elaboration.json live alongside it and are fetched at runtime — do not inline
   that data here.
@@ -675,6 +844,175 @@
 <p><strong>What you can do at this point:</strong> explain what asynchronous execution physically is, trace a network packet from the wire to a JavaScript callback naming every layer, and read the <code>si</code> column in <code>top</code> and <code>/proc/interrupts</code> to see whether a machine's interrupt load is balanced.</p>
 
 <p><strong>What's still broken:</strong> everything in this node is code sitting in memory, and from Node 0 any program can write to any memory address. A job can overwrite the interrupt table and point the timer handler at its own code. A job can execute <code>cli</code>, disable interrupts, and loop forever, at which point no device and no clock can ever regain control and the machine is dead until someone cuts the power. A job can write directly to the disk controller and destroy another user's data. The monitor is a convention that programs are politely following, and conventions are not enforcement. The machine needs a distinction it does not currently have: some code is allowed to do these things, and other code is not.</p>
+
+<h3>Node 3 — privilege: one bit that splits the machine in two</h3>
+
+<p><strong>The limitation:</strong> every mechanism built so far — the monitor, the interrupt table, the device drivers — is ordinary bytes in ordinary memory, and any program can overwrite them, disable interrupts, or drive the hardware itself. Protection is currently a request, not a rule.</p>
+
+<p>Software cannot fix this. Whatever check you write in software runs as instructions that the offending program could simply jump past, or overwrite, or never call. A guard that the guarded party can remove is not a guard. <strong>The enforcement has to be in the hardware, below the level at which any instruction can reach it.</strong> [EXPLAIN]</p>
+
+<h4>The mode bit</h4>
+
+<p>The mechanism is one bit inside the processor, not in memory, holding the current <strong>mode</strong>. Two values. Call them <em>kernel mode</em> (also supervisor mode, privileged mode, ring 0) and <em>user mode</em> (unprivileged, ring 3).</p>
+
+<p>Certain instructions are then declared <strong>privileged</strong>. If the processor decodes one while the mode bit says user mode, it does not execute it. Instead it raises an exception — one of the three entry types from Node 2 — which transfers control to a handler that the kernel installed. The user program does not get to decide what happens next; the hardware has already taken control away from it.</p>
+
+<p>On x86-64 the privileged set includes, concretely:</p>
+
+<ul>
+<li><code>cli</code> and <code>sti</code> — disable and enable interrupts. This closes Node 2's hole where a program could freeze the machine permanently.</li>
+<li><code>lidt</code> — load the interrupt descriptor table register. A user program cannot repoint the interrupt table at its own code.</li>
+<li><code>mov cr3, ...</code> — change the page table root. This is Node 10's mechanism and it is the one that makes memory isolation possible at all.</li>
+<li><code>in</code> and <code>out</code> — read and write hardware I/O ports. A user program cannot address the disk controller directly.</li>
+<li><code>hlt</code> — stop the processor until the next interrupt. This is what an idle machine executes, and it is why an idle server draws less power.</li>
+</ul>
+
+<p>Notice what this list is. It is exactly the set of things the operating system needs in order to remain in control: control of the clock, control of the interrupt table, control of memory mapping, control of devices. Everything else — arithmetic, loads, stores, jumps, function calls — is unprivileged, which is why the vast majority of a normal program's instructions run at full speed with no involvement from anything.</p>
+
+<h4>The other half: memory protection</h4>
+
+<p>The mode bit alone is not enough, because a user program could still write over the kernel's memory with an ordinary <code>mov</code> instruction, which is not privileged. So the hardware must also enforce which addresses a program may touch, and the check has to happen on every single memory access without slowing the machine down.</p>
+
+<p>The earliest form was two extra registers: a <strong>base</strong> and a <strong>limit</strong>. Every address the program produces has base added to it and is checked against limit; out of range raises an exception. Both registers are loadable only in kernel mode. This is crude — it gives each program one contiguous region — but it establishes the shape of the answer, which is that <em>address translation and permission checking happen in hardware, on every access, from tables only the kernel can modify.</em> Node 10 replaces base-and-limit with page tables, which are the modern form, but the principle is fixed here.</p>
+
+<p>The violation, when it happens, is an exception that lands in a kernel handler, and on Unix systems that handler's normal response is to deliver the signal <code>SIGSEGV</code> to the offending process, whose default action is to terminate it. <strong>"Segmentation fault" is the user-visible name of this exact hardware event.</strong> [EXPLAIN] The word "segmentation" is a fossil from an older scheme where memory was divided into segments; the mechanism today is paging, but the message stayed.</p>
+
+<h4>The single most useful thing to understand about the kernel</h4>
+
+<p>It is very common, and completely wrong, to picture the kernel as a program that is running alongside your programs — a big process that takes its turn. Correct this now, because a great deal downstream depends on it.</p>
+
+<p><strong>The kernel is not a process. It is a mode the processor is in.</strong> [EXPLAIN]</p>
+
+<p>There is one processor, executing one instruction stream. Most of the time that stream is your program's instructions and the mode bit says user. When your program makes a request, or a device interrupts, or an instruction faults, the processor switches the mode bit to kernel and jumps to kernel code — <em>the same processor, continuing to execute, now with different permissions and running different instructions</em>. When it is finished it flips the bit back and resumes where it was. There is no scheduling in between, no other program involved. The kernel is a body of code that your process executes, on your process's time, with the privilege bit raised.</p>
+
+<p>Three things follow immediately and they are all observable:</p>
+
+<p>When you run <code>top</code> and see <code>us</code> and <code>sy</code>, you are seeing this split measured. <code>us</code> is time your process spent executing with the mode bit at user; <code>sy</code> is time <em>your process</em> spent executing kernel code on its own behalf. A process doing heavy file or network work can show most of its time in <code>sy</code>, and that time is still charged to it. This is also why <code>process.cpuUsage()</code> in Node returns <code>{ user, system }</code> as two separate numbers.</p>
+
+<p>When a kernel bug is hit, there is no process to kill — the failing code <em>is</em> the system — so the machine panics, which is why a kernel bug takes down everything and a user-space bug takes down one process. That asymmetry is the entire argument of Node 41's microkernel debate.</p>
+
+<p>And the boundary crossing is a real cost that you can count, which is Node 40's subject and the reason interfaces like <code>io_uring</code> were designed.</p>
+
+<h4>How the split was found, historically</h4>
+
+<p>The Ferranti Atlas Supervisor (1962) had it, as did the Burroughs B5000 the same year. The design that thought hardest about it was <strong>Multics</strong> — Multiplexed Information and Computing Service — a joint MIT, Bell Labs and General Electric project begun in 1965 whose stated goal was a computing utility that many mutually untrusting users could share. Multics generalised two modes into <strong>eight protection rings</strong>, numbered 0 (most privileged) outward, with hardware checking on every cross-ring call. It was, in security terms, far ahead of anything that followed.</p>
+
+<p>Multics was also enormous, late, and slow, and in 1969 Bell Labs withdrew. Two of its people, Ken Thompson and Dennis Ritchie, then wrote a much smaller system on a spare PDP-7, which Brian Kernighan named <strong>Unics</strong> as a joke on Multics — one of everything where Multics had many — and which became <strong>Unix</strong>. That withdrawal is the single most consequential event in this document: Linux, macOS, iOS, Android, and every server you deploy to are descendants of the small thing built in reaction to the large one.</p>
+
+<p>Intel's x86 line inherited the ring model, offering four rings (0 to 3) when the 80286 introduced protected mode in 1982 and the 80386 completed it in 1985. In practice essentially every operating system uses only ring 0 and ring 3, because the paging hardware only distinguishes "supervisor" from "user" anyway and because portable kernels cannot rely on a feature x86 alone has. Rings 1 and 2 sat unused for thirty years, then found a use in early paravirtualised Xen, and then hardware virtualisation added a genuinely new level below ring 0 — informally "ring −1" — where a hypervisor runs, which is Node 29.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>This is the boundary that defines what your language can and cannot do.</strong> There is no JavaScript that opens a file. There cannot be. Opening a file requires talking to a storage controller, which requires privileged instructions, which user-mode code cannot execute. Every capability your runtime appears to have — files, sockets, timers, spawning processes, allocating memory, knowing the time — is a request across this boundary, and the complete list of things your program can ask for is the list of system calls, which is Node 4. When people say a language is "sandboxed", what they usually mean is that a layer above this one narrows the list further.</p>
+
+<p><strong>Native crashes in Node are this node firing.</strong> A JavaScript error throws an exception you can catch. A crash inside a native addon — <code>better-sqlite3</code>, <code>sharp</code>, <code>bcrypt</code>, anything with a <code>.node</code> file — reaching a bad pointer produces a memory access violation, an exception in hardware, a <code>SIGSEGV</code>, and process death with no JavaScript stack, because by the time the signal is delivered there is nothing left to unwind. This is precisely why <code>process.on('uncaughtException')</code> cannot save you from it: the failure happened below the level at which V8 has any say. It is also why a crash of this kind is a real argument for running workloads in separate processes with a supervisor — a design decision Node 5 and Node 31 make concrete.</p>
+
+<p><strong>Browser site isolation is this idea copied upward.</strong> A browser tab runs untrusted code from the internet, so it needs the same guarantee: this code may compute, and may ask for things, but may not touch anything else. Originally that was enforced in software inside one process — V8 <em>isolates</em> and <em>contexts</em> separating one site's objects from another's. Spectre, in January 2018, broke that: speculative execution let code read memory in its own address space that it had no logical right to, and software-level separation within a process is not a defence against a hardware side channel. Chrome's response, shipped fully in Chrome 67 (May 2018), was <strong>Site Isolation</strong> — put each site in its own operating system process, so that the boundary is the hardware one from this node rather than a software convention. This is why your browser shows dozens of processes in the task manager, why memory use went up by roughly ten to thirteen percent, and why <code>SharedArrayBuffer</code> requires cross-origin isolation headers before it is handed back to you. A JavaScript feature is gated on a processor's speculation behaviour, mediated by a 1962 idea about rings.</p>
+
+<p><strong>WebAssembly is a software re-derivation of the same design.</strong> A Wasm module has a <em>linear memory</em> — a single <code>ArrayBuffer</code> — and every memory access it makes is bounds-checked against that buffer's length. It cannot form a pointer to anything outside. It has no instruction that reaches the host. Its only way out is a list of imported functions the host chose to provide — which is a system call table, built in software, with the host as the kernel. WASI, the WebAssembly System Interface, makes the resemblance total: it is a POSIX-shaped syscall list for Wasm. If you understand Node 3 and Node 4, you understand Wasm's security model completely, because it is the same model.</p>
+
+<p><strong>Container privilege flags are ring-0 access.</strong> <code>docker run --privileged</code> means: do not drop the capabilities that would let this container reconfigure the kernel. It is not a general "more permissions" switch; it specifically re-grants abilities like loading kernel modules, changing the interrupt configuration, and accessing raw devices — the kernel-mode powers of this node, exposed to a process. That is why running a container privileged is close to giving it the host, and why the fix for a container that needs one specific ability is a single capability (<code>--cap-add NET_ADMIN</code>) rather than the whole set. Node 25 breaks capabilities down properly.</p>
+
+<p><strong>eBPF is the interesting modern exception.</strong> It lets ordinary user-space tools load small programs that run <em>in kernel mode</em>, attached to kernel events. Since Node 3 says that is exactly what must never be allowed, the resolution is worth knowing: the kernel runs a <strong>verifier</strong> over the bytecode before loading it, statically proving that it terminates, that every memory access is in bounds, and that it only calls an allowed set of helpers. It is a proof obligation substituting for a hardware boundary, and it is how modern observability (Node 39), modern container networking (Cilium), and modern security policy are implemented.</p>
+
+<p><strong>What you can do at this point:</strong> explain why an operating system cannot be enforced in software, state precisely what the kernel is (a mode, not a process), read <code>us</code> versus <code>sy</code> correctly, and explain what a segmentation fault physically is and why no JavaScript handler can catch one.</p>
+
+<p><strong>What's still broken:</strong> the wall is now absolute, and that is useless. A user program can execute arithmetic and nothing else — it cannot read input, cannot write output, cannot allocate memory, cannot even stop cleanly. A program that cannot affect the world is not a program. What is needed is a door in the wall: a way for user code to deliberately enter kernel mode, but only at an address the kernel chose, running code the kernel wrote, with the kernel deciding whether the request is permitted.</p>
+
+<h3>Node 4 — the system call: the only door</h3>
+
+<p><strong>The limitation:</strong> user mode can compute but cannot do anything, and kernel mode can do anything but must not be enterable at an address the user program picks.</p>
+
+<p>The resolution reuses the third entry type from Node 2 — the software interrupt. A single instruction exists whose entire effect is: <em>switch the mode bit to kernel, and jump to one specific address that the kernel registered in advance.</em> The user program controls <em>when</em> the crossing happens. It does not control <em>where</em> it lands. That asymmetry is the whole design, and everything else is detail.</p>
+
+<p>The instruction is a <strong>trap</strong>, and the resulting request is a <strong>system call</strong> — syscall. It is the complete and only interface between every program on the machine and the machine itself. [EXPLAIN] Linux has roughly 350 of them on x86-64. That number is the true size of the API you are programming against, whatever language you write in.</p>
+
+<h4>The instruction, and the agreement around it</h4>
+
+<p>Since the destination is fixed, the request itself has to be encoded some other way, and the only place available is the registers. So there is a convention — an <strong>ABI</strong>, an Application Binary Interface — fixing which register holds what. On Linux x86-64 it is:</p>
+
+<ul>
+<li><code>rax</code> — the system call <em>number</em>. 0 is <code>read</code>, 1 is <code>write</code>, 2 is <code>open</code>, 60 is <code>exit</code>. These numbers are permanent; changing one would break every binary ever compiled.</li>
+<li><code>rdi</code>, <code>rsi</code>, <code>rdx</code>, <code>r10</code>, <code>r8</code>, <code>r9</code> — up to six arguments, in that order.</li>
+<li>the <code>syscall</code> instruction — trap.</li>
+<li><code>rax</code> on return — the result. A negative value between −1 and −4095 means failure, and its negation is the error number: 2 is <code>ENOENT</code> (no such file), 13 is <code>EACCES</code> (permission denied), 9 is <code>EBADF</code> (bad file descriptor), 11 is <code>EAGAIN</code> (try again — the one that Node 19 turns into an entire architecture). These are the same strings you see in Node errors, because Node passes them straight through.</li>
+</ul>
+
+<p>Writing "hi" to the terminal, complete, with nothing hidden:</p>
+
+<pre><code>mov rax, 1          ; syscall number 1 = write
+mov rdi, 1          ; first argument: file descriptor 1 = standard output
+mov rsi, message    ; second argument: address of the bytes
+mov rdx, 2          ; third argument: how many bytes
+syscall             ; trap into the kernel
+</code></pre>
+
+<p>That is <code>console.log("hi")</code> at the bottom. Every layer between — your JavaScript, V8, Node's C++ bindings, libuv, glibc's <code>write</code> wrapper — exists to arrange those five lines and interpret the answer.</p>
+
+<h4>What the processor and the kernel actually do in the crossing</h4>
+
+<p>Worth walking once in full, because the cost of it drives design decisions in Nodes 19, 20, 23 and 40.</p>
+
+<ol>
+<li>The <code>syscall</code> instruction saves the return address into <code>rcx</code> and the flags into <code>r11</code>, sets the mode bit to kernel, and loads <code>rip</code> from a special register (<code>MSR_LSTAR</code>) that only kernel mode could ever have written. The kernel wrote it at boot. There is no way for user code to influence the destination.</li>
+<li>The kernel's entry code executes <code>swapgs</code>, which swaps in a pointer to this processor's per-core kernel data — because at this instant the kernel does not yet know where anything of its own is.</li>
+<li>It switches to a <strong>kernel stack</strong>. Every process has two stacks: its user stack, and a small kernel stack (typically 16 KB on x86-64) used only while executing kernel code on its behalf. It must switch, because trusting the user stack pointer would let a program point it at kernel memory.</li>
+<li>It saves the full user register set onto that kernel stack. This saved block is called the <em>pt_regs</em> structure, and it is what <code>ptrace</code> and debuggers read, and what Node 6's context switch will save further.</li>
+<li>It checks <code>rax</code> against the size of the syscall table and uses it as an index: <code>sys_call_table[rax]</code>. Another array lookup, exactly like the IDT.</li>
+<li>Before touching any pointer the user passed, it validates it. A user program can pass any address at all, including a kernel address, and if the kernel dereferenced it directly, every process could read kernel memory by calling <code>read</code> with a kernel buffer. So all user memory is accessed through <code>copy_from_user</code> and <code>copy_to_user</code>, which check the address range and handle faults. This is the single most security-critical code in the kernel and the historical source of a long line of vulnerabilities.</li>
+<li>The work happens.</li>
+<li>The return value is placed in <code>rax</code>, registers are restored, and <code>sysret</code> flips the mode bit back and returns to the saved address.</li>
+</ol>
+
+<p>The cost of all that, on modern hardware, is roughly 50 to 100 nanoseconds in the best case — a few hundred instructions' worth of time to do nothing but cross a line. It used to be less. The Meltdown vulnerability, disclosed 3 January 2018, forced a mitigation called <strong>KPTI</strong> (Kernel Page Table Isolation) which unmaps kernel memory from the user page table entirely, so every crossing now also reloads the page table root and flushes address translations. On some workloads that cost five to thirty percent of throughput, and it hit syscall-heavy workloads — databases, network servers, exactly your servers — hardest. If you administered anything in early 2018 and watched cloud instance performance drop after a host reboot, that was this.</p>
+
+<h4>The syscall boundary is the actual stable contract on Linux</h4>
+
+<p>This point separates people who understand Linux from people who use it. Linus Torvalds's rule, stated repeatedly and with force, is <strong>"we do not break userspace"</strong>: the kernel's internal structures change freely between versions, but the syscall interface is permanent. A binary compiled against Linux 2.6 in 2005 will still run on Linux 6.x, because syscall number 1 is still <code>write</code> and it still takes the same three arguments.</p>
+
+<p>This is why a statically linked Go binary can be dropped into a container built <code>FROM scratch</code> — no libraries, no shell, no filesystem to speak of — and simply work. Go's runtime issues syscalls directly rather than going through the C library, so the binary depends on nothing but the kernel's permanent contract. It is also why Windows is different: there, the syscall numbers change between builds without warning, and the stable contract is one level higher, in <code>kernel32.dll</code> and <code>ntdll.dll</code>. Programs are expected to call the DLL, which knows the current numbers. Two coherent designs, opposite choices, and the difference explains a great deal about how software is distributed on each platform.</p>
+
+<h4>What a "library function" is versus a system call</h4>
+
+<p>A distinction people routinely blur. <code>strlen</code> is a library function: it runs entirely in user mode, looping over bytes, never entering the kernel. <code>write</code> is a system call: it must enter the kernel because only the kernel may touch a device. And <code>printf</code> is a library function that <em>eventually</em> makes a system call — it formats into a buffer in user memory and calls <code>write</code> when the buffer fills or a newline appears.</p>
+
+<p>That buffering is not a detail; it is a performance strategy, and it has a famous failure mode. Because <code>printf</code> to a pipe is fully buffered (typically 4 KB) rather than line-buffered as it is to a terminal, a program that prints steadily and then crashes shows all its output when run interactively and loses the last chunk when run under a pipe or redirected into a log file. Every language has a version of this problem. It is the origin of "my logs stop just before the crash".</p>
+
+<p>The general principle underneath is worth stating plainly, because it is the reason for a whole category of optimisation in this document: <strong>a system call costs far more than an instruction, so software batches work in user space to make fewer of them.</strong> [EXPLAIN] Buffered output, the page cache, socket buffers, <code>writev</code>, <code>sendfile</code>, <code>epoll</code>, and <code>io_uring</code> are all instances of that one sentence.</p>
+
+<h4>Seeing them: strace</h4>
+
+<p><code>strace</code> shows every system call a process makes, with arguments and return values. [USE] It is the single most direct way to see this node and it works on any program in any language, because every program is ultimately doing this and nothing else.</p>
+
+<pre><code>$ strace -f -e trace=openat,read,write,epoll_wait node server.js
+$ strace -c -f node -e 'require("fs").readFileSync("/etc/hostname")'
+</code></pre>
+
+<p>The <code>-c</code> form prints a summary table: how many of each call, and how much time in each. Running it against a Node process doing real work is genuinely worth doing once, and the shape of the output is instructive — an idle Node server is a process sitting in a single <code>epoll_wait</code>, and a Node server under load is <code>epoll_wait</code>, then a burst of <code>read</code>, <code>write</code>, <code>futex</code>, and back. That is the whole runtime, visible.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Every asynchronous API in Node is a system call plus a strategy for not waiting on it.</strong> The mapping is direct and worth memorising, because it makes Node's design legible:</p>
+
+<ul>
+<li><code>fs.readFile</code> → <code>openat</code>, <code>fstat</code>, <code>read</code>, <code>close</code> — issued on a <strong>threadpool</strong> thread, because regular files cannot usefully be polled for readiness (Node 19 explains exactly why).</li>
+<li><code>net</code>, <code>http</code>, <code>dgram</code> → <code>socket</code>, <code>bind</code>, <code>listen</code>, <code>accept4</code>, <code>read</code>, <code>write</code> — driven by <code>epoll</code> on the main thread, never the threadpool.</li>
+<li><code>setTimeout</code> → no dedicated call; the delay becomes the timeout argument to <code>epoll_wait</code>. Node 8 and Node 20.</li>
+<li><code>child_process.spawn</code> → <code>clone</code>/<code>fork</code>, <code>execve</code>, <code>pipe2</code>, <code>waitpid</code>. Nodes 14, 31 and 35.</li>
+<li><code>crypto.pbkdf2</code>, <code>zlib</code>, <code>dns.lookup</code> → no syscall at all for the work itself; they are pure computation pushed to the threadpool because they would otherwise block the loop. Note that <code>dns.lookup</code> is in this list because it calls <code>getaddrinfo</code>, which is a blocking library function, whereas <code>dns.resolve</code> speaks DNS over a socket and is genuinely asynchronous — a distinction that has caused real production incidents.</li>
+</ul>
+
+<p><strong>The console.log gotcha, explained properly.</strong> In Node, <code>process.stdout</code> is synchronous when it points at a file or a TTY, and asynchronous when it points at a pipe. That is not a quirk; it follows from this node. Writing to a terminal or a regular file will not block for long, so Node does the <code>write</code> syscall immediately and inline. Writing to a pipe can block indefinitely if the reader is slow, so Node makes it non-blocking and buffers. The consequences are real: logging heavily in a hot path is a synchronous syscall per call when you run it in a terminal, which slows the loop measurably; and when the same code runs in Docker or under a process manager — where stdout <em>is</em> a pipe — output can be lost on an abrupt exit because it was still in Node's buffer. That is the <code>printf</code> failure mode from two sections ago, arriving in your production logs.</p>
+
+<p><strong>Seccomp: a container is partly defined by which syscalls it may make.</strong> <code>seccomp-bpf</code> lets a process install a filter — a small program, checked and run by the kernel — that inspects each syscall's number and arguments and decides allow, deny, or kill. Docker applies a default profile that blocks about 44 of the roughly 350 calls, including <code>mount</code>, <code>reboot</code>, <code>kexec_load</code>, and the ones for loading kernel modules. This is why some tooling fails inside a container with <code>EPERM</code> for no apparent reason and works with <code>--security-opt seccomp=unconfined</code>. Kubernetes exposes the same thing as <code>seccompProfile: RuntimeDefault</code>, and turning it on is one of the cheapest genuine security improvements available for a Node workload, because a Node server needs a small syscall set and an exploit needs a larger one.</p>
+
+<p><strong>gVisor puts a second kernel in user space.</strong> Google's gVisor intercepts a container's syscalls and services them in a user-mode process called Sentry rather than passing them to the host kernel, so that a container escape has to break Sentry first. It works because this node's interface is the <em>complete</em> boundary — if you implement all 350 calls, you have implemented Linux as far as any program can tell. It is also why gVisor is slower: every syscall now costs several real crossings instead of one.</p>
+
+<p><strong>Syscall count is a real performance axis you can measure.</strong> A loop doing <code>fs.appendFileSync</code> per log line makes an <code>openat</code>, <code>write</code>, and <code>close</code> per line — three crossings each. Holding the descriptor open and batching lines makes one crossing per batch. On a busy service this is not a micro-optimisation; it is the difference between logging costing one percent of your loop and twenty. The same reasoning is why <code>res.write</code> called forty times per response is worse than building the body and writing once, why HTTP keep-alive matters (a new connection is <code>socket</code> plus <code>connect</code> plus a TLS handshake), and why <code>io_uring</code> — which lets a process submit thousands of operations through a shared memory ring with zero or one crossings — is the most significant kernel interface added in twenty years. Node has experimental <code>io_uring</code> support in libuv for some file operations from libuv 1.45 (2023) onward.</p>
+
+<p><strong>What you can do at this point:</strong> explain what a system call is at the instruction level, name the ABI, read <code>strace</code> output, map any Node API to the calls it makes, explain why the syscall boundary rather than the C library is Linux's stable contract, and explain seccomp as a filter on this exact interface.</p>
+
+<p><strong>What's still broken:</strong> there is a wall, a door, and code running. But "the running program" is still just bytes at an address with an instruction pointer. There is no name for it, no owner, no accounting, nothing that could be stopped and restarted, nothing the kernel could keep a list of. If two programs are to share this machine, the kernel needs a data structure representing one of them — everything it owns, everything it is allowed to do, and everything needed to pause it and resume it later as if nothing happened.</p>
     </div>
   </div>
 

@@ -1,0 +1,80 @@
+<h3>Node 33 — compiling, linking, and the ELF file</h3>
+
+<p><strong>The limitation:</strong> programs have been assumed to exist as bytes in a file, with nothing said about how source text becomes those bytes.</p>
+
+<h4>The pipeline</h4>
+
+<p>Four stages, and they are separate programs, which is why each can fail with its own kind of error:</p>
+
+<ol>
+<li><strong>Preprocessing</strong> — textual substitution: includes, macros, conditional compilation. Output is still source.</li>
+<li><strong>Compiling</strong> — parse, type-check, optimise, and emit assembly for one translation unit. The compiler sees <em>one file at a time</em> and nothing else, which is the fact that makes stage 4 necessary.</li>
+<li><strong>Assembling</strong> — turn assembly text into machine code (Node 0), producing an <strong>object file</strong>.</li>
+<li><strong>Linking</strong> — combine object files into one executable.</li>
+</ol>
+
+<h4>What an object file contains, and why linking is a real problem</h4>
+
+<p>An object file holds machine code for its own functions, but the compiler could not know the addresses of anything defined elsewhere. So it emits placeholders and two tables describing them:</p>
+
+<ul>
+<li><strong>The symbol table</strong> — names this file <em>defines</em> (with offsets) and names it <em>references</em> but does not define (undefined symbols).</li>
+<li><strong>Relocations</strong> — a list of positions in the code that contain a placeholder, and instructions for how to patch each one once the real address is known.</li>
+</ul>
+
+<p>The linker then does exactly two things. <strong>Symbol resolution</strong>: for every undefined symbol, find the object file that defines it. <strong>Relocation</strong>: assign final addresses to everything and patch every placeholder. [EXPLAIN]</p>
+
+<p>Its two failure modes are the two ways that can go wrong, and both have exact counterparts in your daily work:</p>
+
+<ul>
+<li><strong>Undefined reference</strong> — nothing defines this symbol. A missing library, a typo, or a declaration with no definition.</li>
+<li><strong>Multiple definition</strong> — two objects define the same symbol and the linker cannot choose.</li>
+</ul>
+
+<p>A <strong>static library</strong> (<code>.a</code>) is just an archive of object files with an index. The linker pulls out only the members that resolve something still undefined — which is why link order matters in C and why a library listed before the code that uses it silently contributes nothing.</p>
+
+<h4>ELF</h4>
+
+<p>The output format on Linux is <strong>ELF</strong> — Executable and Linkable Format, adopted from System V in the 1990s, replacing the older <code>a.out</code>. (macOS uses Mach-O; Windows uses PE/COFF. Same concepts, different containers.)</p>
+
+<p>The structure worth knowing is that ELF has <em>two</em> views of the same bytes:</p>
+
+<ul>
+<li><strong>Section headers</strong> — the linker's view. Fine-grained: <code>.text</code> (code), <code>.rodata</code> (constants), <code>.data</code> (initialised globals), <code>.bss</code> (zero-initialised globals, which occupy no space in the file — only a size — which is why a program with a 100 MB zeroed array is a small file), <code>.symtab</code>, <code>.debug_*</code>.</li>
+<li><strong>Program headers</strong> — the <em>loader's</em> view. Coarse: a handful of <strong>segments</strong>, each of which is a region to <code>mmap</code> into memory with given permissions. This is the direct input to Node 11's address space layout: one read-execute segment for code, one read-only for constants, one read-write for data.</li>
+</ul>
+
+<p>Useful tools: <code>readelf -h</code> (header — architecture, type, entry point), <code>readelf -l</code> (segments), <code>nm</code> (symbols), <code>objdump -d</code> (disassembly), <code>file</code> (a one-line summary including whether it is static or dynamic). [USE]</p>
+
+<p>Two ELF types matter. <code>ET_EXEC</code> is a fixed-address executable. <code>ET_DYN</code> is position-independent — loadable at any address, which is what ASLR (Node 10) requires, and which is why essentially all modern binaries are built as <em>position-independent executables</em> and why <code>file</code> reports them, confusingly, as "shared object".</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>A JavaScript bundler is a linker. The correspondence is exact rather than suggestive, and internalising it makes bundler behaviour predictable.</strong> [EXPLAIN]</p>
+
+<table>
+<tr><th>Linking</th><th>Bundling</th></tr>
+<tr><td>object file (<code>.o</code>)</td><td>module (one <code>.js</code> file after transform)</td></tr>
+<tr><td>undefined symbol</td><td><code>import { x } from 'y'</code></td></tr>
+<tr><td>defined symbol</td><td><code>export</code></td></tr>
+<tr><td>symbol resolution</td><td>module resolution — walking <code>node_modules</code>, <code>exports</code> maps, aliases</td></tr>
+<tr><td>undefined reference</td><td><code>Module not found</code> / <code>does not provide an export named</code></td></tr>
+<tr><td>multiple definition</td><td>two copies of React — and the resulting hook errors</td></tr>
+<tr><td>static library (<code>.a</code>)</td><td>a package in <code>node_modules</code></td></tr>
+<tr><td>dead code elimination (<code>--gc-sections</code>)</td><td>tree shaking</td></tr>
+<tr><td>relocation</td><td>rewriting import references to bundle-internal identifiers</td></tr>
+<tr><td>stripping symbols</td><td>minification</td></tr>
+<tr><td>DWARF debug info</td><td>source maps</td></tr>
+<tr><td>shared library, loaded at run time (Node 34)</td><td>code splitting and <code>import()</code></td></tr>
+<tr><td>link order affecting what gets pulled in</td><td>side effects, and <code>"sideEffects": false</code></td></tr>
+</table>
+
+<p>Several bundler behaviours become obvious once you read that table. <strong>Tree shaking requires static imports</strong> for the same reason dead-code elimination requires static references: a linker cannot remove a function if something might look it up by name at run time, and a bundler cannot remove an export if the module might be accessed dynamically. That is why ES modules can be tree-shaken and CommonJS's <code>require</code> largely cannot — <code>require(someVariable)</code> is unresolvable at build time, exactly like a function pointer defeats a linker's reachability analysis. <strong><code>"sideEffects": false</code></strong> in a <code>package.json</code> is you telling the bundler that importing a module for its side effects alone never happens, which lets it drop unreferenced modules entirely — the same promise <code>--gc-sections</code> relies on. And <strong>two copies of React</strong> is a multiple-definition problem that the JavaScript module system, unlike a linker, does not report as an error: it silently gives you two module instances with two separate pieces of internal state, which is why hooks fail with an error about an invalid hook call rather than about duplication.</p>
+
+<p><strong>Native Node addons are this node exactly.</strong> A <code>.node</code> file is an ELF shared object compiled from C++ by <code>node-gyp</code>, linking against the Node and V8 headers. Hence: it is architecture-specific and platform-specific (Node 0), which is why <code>npm install</code> on your Mac produces artefacts a Linux container cannot load; it must match the ABI of the Node version, which is what <code>NODE_MODULE_VERSION mismatch</code> means, and what N-API was introduced to fix by providing a stable ABI across Node versions; and it needs a compiler toolchain at install time unless the package ships prebuilt binaries, which is what <code>prebuild-install</code> and <code>node-pre-gyp</code> do and why <code>sharp</code> installs instantly on common platforms and slowly on unusual ones.</p>
+
+<p><strong>The stages explain the errors.</strong> A syntax error is stage 2; a missing header is stage 1; <code>undefined reference to ...</code> is stage 4. In the TypeScript world the parallel is worth drawing carefully: <code>tsc</code> is stages 1–3 per file and there is <em>no linker</em> — type errors are compile-time and module resolution happens at run time or at bundle time. That is precisely why a project can type-check cleanly and fail at run time with a module-not-found error: the two checks are performed by different tools looking at different things, and <code>tsc</code>'s <code>paths</code> being satisfied does not mean the runtime's resolver will agree.</p>
+
+<p><strong>What you can do at this point:</strong> describe the four stages and attribute an error to the right one, explain what an object file's symbol table and relocations are for and what a linker does, read an ELF file's two views, and map every bundler concept to its linker counterpart well enough to predict tree-shaking and duplicate-module behaviour.</p>
+
+<p><strong>What's still broken:</strong> the executable still contains unresolved references — to <code>printf</code>, to <code>malloc</code>, to every library function. Baking a copy of every library into every program means one security fix requires rebuilding everything on the machine, and a hundred programs carrying a hundred copies of the same code. The alternative introduces a whole new failure surface, and it is the reason an Alpine image sometimes will not run your binary.</p>

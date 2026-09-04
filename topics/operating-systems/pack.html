@@ -2545,7 +2545,172 @@ process.on('SIGINT',  () =&gt; shutdown('SIGINT'));
 
 <p><strong>What you can do at this point:</strong> explain the socket API and the four-tuple, explain both backlog queues and use accept-queue overflow to detect a blocked event loop, distinguish flow control from congestion control and explain slow start's effect on response times, explain <code>TIME_WAIT</code> and derive port exhaustion and <code>SO_REUSEADDR</code>/<code>SO_REUSEPORT</code>, decode every common network error code by mechanism, explain a Kubernetes Service as netfilter rules and why gRPC balances badly over it, and recognise conntrack exhaustion and PMTU black holes.</p>
 
-<p><strong>What's still broken:</strong> everything in Parts I to VII assumed a running program existed. Nothing has explained how a text file becomes machine code, how that code finds the library functions it calls, what <code>execve</code> does with the resulting file, or how the machine gets from powered-off to running any of it.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
+<p><strong>What's still broken:</strong> everything in Parts I to VII assumed a running program existed. Nothing has explained how a text file becomes machine code, how that code finds the library functions it calls, what <code>execve</code> does with the resulting file, or how the machine gets from powered-off to running any of it.</p>
+
+<h3>PART VIII — FROM SOURCE TO RUNNING, AND FROM POWER-ON TO PID 1</h3>
+
+<p>Five nodes. Everything so far assumed a running program existed. This part builds one: source to object to executable, how it finds the library code it calls, what <code>execve</code> does with the file, how the machine gets from powered-off to running init, and what init then does. It also contains the most productive analogy-free parallel in this document — a JavaScript bundler is a linker, and every one of its concepts has an exact counterpart here.</p>
+
+<h3>Node 33 — compiling, linking, and the ELF file</h3>
+
+<p><strong>The limitation:</strong> programs have been assumed to exist as bytes in a file, with nothing said about how source text becomes those bytes.</p>
+
+<h4>The pipeline</h4>
+
+<p>Four stages, and they are separate programs, which is why each can fail with its own kind of error:</p>
+
+<ol>
+<li><strong>Preprocessing</strong> — textual substitution: includes, macros, conditional compilation. Output is still source.</li>
+<li><strong>Compiling</strong> — parse, type-check, optimise, and emit assembly for one translation unit. The compiler sees <em>one file at a time</em> and nothing else, which is the fact that makes stage 4 necessary.</li>
+<li><strong>Assembling</strong> — turn assembly text into machine code (Node 0), producing an <strong>object file</strong>.</li>
+<li><strong>Linking</strong> — combine object files into one executable.</li>
+</ol>
+
+<h4>What an object file contains, and why linking is a real problem</h4>
+
+<p>An object file holds machine code for its own functions, but the compiler could not know the addresses of anything defined elsewhere. So it emits placeholders and two tables describing them:</p>
+
+<ul>
+<li><strong>The symbol table</strong> — names this file <em>defines</em> (with offsets) and names it <em>references</em> but does not define (undefined symbols).</li>
+<li><strong>Relocations</strong> — a list of positions in the code that contain a placeholder, and instructions for how to patch each one once the real address is known.</li>
+</ul>
+
+<p>The linker then does exactly two things. <strong>Symbol resolution</strong>: for every undefined symbol, find the object file that defines it. <strong>Relocation</strong>: assign final addresses to everything and patch every placeholder. [EXPLAIN]</p>
+
+<p>Its two failure modes are the two ways that can go wrong, and both have exact counterparts in your daily work:</p>
+
+<ul>
+<li><strong>Undefined reference</strong> — nothing defines this symbol. A missing library, a typo, or a declaration with no definition.</li>
+<li><strong>Multiple definition</strong> — two objects define the same symbol and the linker cannot choose.</li>
+</ul>
+
+<p>A <strong>static library</strong> (<code>.a</code>) is just an archive of object files with an index. The linker pulls out only the members that resolve something still undefined — which is why link order matters in C and why a library listed before the code that uses it silently contributes nothing.</p>
+
+<h4>ELF</h4>
+
+<p>The output format on Linux is <strong>ELF</strong> — Executable and Linkable Format, adopted from System V in the 1990s, replacing the older <code>a.out</code>. (macOS uses Mach-O; Windows uses PE/COFF. Same concepts, different containers.)</p>
+
+<p>The structure worth knowing is that ELF has <em>two</em> views of the same bytes:</p>
+
+<ul>
+<li><strong>Section headers</strong> — the linker's view. Fine-grained: <code>.text</code> (code), <code>.rodata</code> (constants), <code>.data</code> (initialised globals), <code>.bss</code> (zero-initialised globals, which occupy no space in the file — only a size — which is why a program with a 100 MB zeroed array is a small file), <code>.symtab</code>, <code>.debug_*</code>.</li>
+<li><strong>Program headers</strong> — the <em>loader's</em> view. Coarse: a handful of <strong>segments</strong>, each of which is a region to <code>mmap</code> into memory with given permissions. This is the direct input to Node 11's address space layout: one read-execute segment for code, one read-only for constants, one read-write for data.</li>
+</ul>
+
+<p>Useful tools: <code>readelf -h</code> (header — architecture, type, entry point), <code>readelf -l</code> (segments), <code>nm</code> (symbols), <code>objdump -d</code> (disassembly), <code>file</code> (a one-line summary including whether it is static or dynamic). [USE]</p>
+
+<p>Two ELF types matter. <code>ET_EXEC</code> is a fixed-address executable. <code>ET_DYN</code> is position-independent — loadable at any address, which is what ASLR (Node 10) requires, and which is why essentially all modern binaries are built as <em>position-independent executables</em> and why <code>file</code> reports them, confusingly, as "shared object".</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>A JavaScript bundler is a linker. The correspondence is exact rather than suggestive, and internalising it makes bundler behaviour predictable.</strong> [EXPLAIN]</p>
+
+<table>
+<tr><th>Linking</th><th>Bundling</th></tr>
+<tr><td>object file (<code>.o</code>)</td><td>module (one <code>.js</code> file after transform)</td></tr>
+<tr><td>undefined symbol</td><td><code>import { x } from 'y'</code></td></tr>
+<tr><td>defined symbol</td><td><code>export</code></td></tr>
+<tr><td>symbol resolution</td><td>module resolution — walking <code>node_modules</code>, <code>exports</code> maps, aliases</td></tr>
+<tr><td>undefined reference</td><td><code>Module not found</code> / <code>does not provide an export named</code></td></tr>
+<tr><td>multiple definition</td><td>two copies of React — and the resulting hook errors</td></tr>
+<tr><td>static library (<code>.a</code>)</td><td>a package in <code>node_modules</code></td></tr>
+<tr><td>dead code elimination (<code>--gc-sections</code>)</td><td>tree shaking</td></tr>
+<tr><td>relocation</td><td>rewriting import references to bundle-internal identifiers</td></tr>
+<tr><td>stripping symbols</td><td>minification</td></tr>
+<tr><td>DWARF debug info</td><td>source maps</td></tr>
+<tr><td>shared library, loaded at run time (Node 34)</td><td>code splitting and <code>import()</code></td></tr>
+<tr><td>link order affecting what gets pulled in</td><td>side effects, and <code>"sideEffects": false</code></td></tr>
+</table>
+
+<p>Several bundler behaviours become obvious once you read that table. <strong>Tree shaking requires static imports</strong> for the same reason dead-code elimination requires static references: a linker cannot remove a function if something might look it up by name at run time, and a bundler cannot remove an export if the module might be accessed dynamically. That is why ES modules can be tree-shaken and CommonJS's <code>require</code> largely cannot — <code>require(someVariable)</code> is unresolvable at build time, exactly like a function pointer defeats a linker's reachability analysis. <strong><code>"sideEffects": false</code></strong> in a <code>package.json</code> is you telling the bundler that importing a module for its side effects alone never happens, which lets it drop unreferenced modules entirely — the same promise <code>--gc-sections</code> relies on. And <strong>two copies of React</strong> is a multiple-definition problem that the JavaScript module system, unlike a linker, does not report as an error: it silently gives you two module instances with two separate pieces of internal state, which is why hooks fail with an error about an invalid hook call rather than about duplication.</p>
+
+<p><strong>Native Node addons are this node exactly.</strong> A <code>.node</code> file is an ELF shared object compiled from C++ by <code>node-gyp</code>, linking against the Node and V8 headers. Hence: it is architecture-specific and platform-specific (Node 0), which is why <code>npm install</code> on your Mac produces artefacts a Linux container cannot load; it must match the ABI of the Node version, which is what <code>NODE_MODULE_VERSION mismatch</code> means, and what N-API was introduced to fix by providing a stable ABI across Node versions; and it needs a compiler toolchain at install time unless the package ships prebuilt binaries, which is what <code>prebuild-install</code> and <code>node-pre-gyp</code> do and why <code>sharp</code> installs instantly on common platforms and slowly on unusual ones.</p>
+
+<p><strong>The stages explain the errors.</strong> A syntax error is stage 2; a missing header is stage 1; <code>undefined reference to ...</code> is stage 4. In the TypeScript world the parallel is worth drawing carefully: <code>tsc</code> is stages 1–3 per file and there is <em>no linker</em> — type errors are compile-time and module resolution happens at run time or at bundle time. That is precisely why a project can type-check cleanly and fail at run time with a module-not-found error: the two checks are performed by different tools looking at different things, and <code>tsc</code>'s <code>paths</code> being satisfied does not mean the runtime's resolver will agree.</p>
+
+<p><strong>What you can do at this point:</strong> describe the four stages and attribute an error to the right one, explain what an object file's symbol table and relocations are for and what a linker does, read an ELF file's two views, and map every bundler concept to its linker counterpart well enough to predict tree-shaking and duplicate-module behaviour.</p>
+
+<p><strong>What's still broken:</strong> the executable still contains unresolved references — to <code>printf</code>, to <code>malloc</code>, to every library function. Baking a copy of every library into every program means one security fix requires rebuilding everything on the machine, and a hundred programs carrying a hundred copies of the same code. The alternative introduces a whole new failure surface, and it is the reason an Alpine image sometimes will not run your binary.</p>
+
+<h3>Node 34 — dynamic linking, libc, and why Alpine sometimes breaks things</h3>
+
+<p><strong>The limitation:</strong> static linking copies every library into every program, so one security fix means rebuilding everything, and a hundred programs carry a hundred copies of the same code.</p>
+
+<h4>Deferring the link to run time</h4>
+
+<p><strong>Dynamic linking</strong> leaves references unresolved in the executable and records instead <em>which libraries</em> are needed. At run time, a program called the <strong>dynamic linker</strong> — <code>/lib64/ld-linux-x86-64.so.2</code> on Linux, itself named in the executable's <code>PT_INTERP</code> segment — maps the required shared objects into the address space and performs relocation before the program's first instruction runs.</p>
+
+<p>The benefits: one copy of libc in memory shared by every process, since its code pages are mapped from one set of physical frames (Node 10, Node 14); a security fix in a library takes effect for every program on the next start; and executables are far smaller.</p>
+
+<p>The costs, all real: startup does work that used to be done at build time; the deployment environment must supply compatible libraries; and version mismatches become a run-time failure class rather than a build-time one.</p>
+
+<h4>The machinery: PLT and GOT</h4>
+
+<p>Worth knowing because it explains both lazy binding and a security mitigation you have configured without knowing.</p>
+
+<p>A call to a library function does not jump to the function. It jumps to a stub in the <strong>Procedure Linkage Table</strong>, which reads an address from the <strong>Global Offset Table</strong> and jumps there. Initially each GOT entry points back into the linker, so the first call to a function triggers resolution — the linker finds the real address, writes it into the GOT, and jumps. Every subsequent call goes straight through. That is <strong>lazy binding</strong>: symbols are resolved on first use, so a program that never calls a function never pays to resolve it.</p>
+
+<p>Because the GOT is written at run time it is a natural attack target — overwrite an entry and redirect a call. The mitigation is <strong>RELRO</strong>: resolve everything eagerly at startup and mark the GOT read-only. <code>LD_BIND_NOW=1</code> or linking with <code>-z now</code> enables full RELRO, trading slightly slower startup for a closed attack surface, and it is standard on hardened builds.</p>
+
+<h4>Finding libraries, and the variables involved</h4>
+
+<p>The search order at run time: <code>DT_RPATH</code> in the binary (deprecated), then <code>LD_LIBRARY_PATH</code> from the environment, then <code>DT_RUNPATH</code>, then the cache built by <code>ldconfig</code> from <code>/etc/ld.so.conf</code>, then the default directories.</p>
+
+<p><code>ldd &lt;binary&gt;</code> lists what it needs and where each was found; <code>not found</code> lines are exactly the cause of <code>error while loading shared libraries: libfoo.so.1: cannot open shared object file</code>. [USE]</p>
+
+<p><strong><code>LD_PRELOAD</code></strong> is the interesting one: a list of libraries loaded <em>before</em> all others, so their symbols win. This lets you replace any library function in any program without recompiling it. Legitimate uses are common — swapping in jemalloc (Node 12) with a single environment variable, injecting tracing or fault injection, or making a program use a different DNS resolver. It is also a classic persistence technique for attackers, which is why it is ignored for setuid binaries.</p>
+
+<h4>Versioning, and the error you will meet</h4>
+
+<p>A shared library has a <strong>soname</strong> like <code>libssl.so.3</code>, where the number is an ABI version. Binaries record the soname, so incompatible versions can coexist. glibc goes further with <strong>symbol versioning</strong>, keeping multiple implementations of a function under versioned names (<code>memcpy@GLIBC_2.2.5</code>) so that old binaries keep old behaviour.</p>
+
+<p>The practical consequence is an asymmetry worth internalising: <strong>glibc is backward compatible but not forward compatible.</strong> A binary built against glibc 2.31 runs on a system with 2.36. A binary built against 2.36 fails on 2.31 with <code>version 'GLIBC_2.34' not found</code>. So <em>build on the oldest system you must support</em>, which is why release pipelines pin an old base image, and why building in a modern container and running on an older host fails in this specific way.</p>
+
+<h4>musl versus glibc: what Alpine actually changes</h4>
+
+<p>Alpine Linux uses <strong>musl</strong> rather than <strong>glibc</strong> — a different, smaller, MIT-licensed C library. The image is small (about 5 MB base) and that is genuinely valuable. The differences are also genuine and worth knowing before choosing:</p>
+
+<ul>
+<li><strong>Binaries are not interchangeable.</strong> Anything compiled against glibc will not run, which is why prebuilt native modules often fail on Alpine and fall back to compiling from source — turning a fast install into a slow one, and requiring a toolchain in the image.</li>
+<li><strong>DNS resolution differs.</strong> musl has no NSS, so it ignores <code>/etc/nsswitch.conf</code>, and it queries A and AAAA records in parallel over the same socket. Some resolvers and middleboxes handle that badly, producing intermittent resolution failures that are very hard to reproduce. It also historically did not honour <code>search</code> domains the same way, which matters inside Kubernetes (Node 32).</li>
+<li><strong>musl's allocator is slower under multi-threaded allocation-heavy load.</strong> This is measurable in Node workloads, and it was significant enough that the Node project stopped treating Alpine builds as fully tier-1 supported. Benchmarks vary, and the honest statement is: test your own workload rather than assume either way.</li>
+<li><strong>Default thread stack size is much smaller</strong> (128 KB versus glibc's 8 MB), which can produce stack overflows in code that is fine elsewhere.</li>
+</ul>
+
+<p>The practical recommendation for Node images, stated plainly: <strong><code>node:20-slim</code> (Debian-based, glibc, around 75 MB) is the safer default; <code>node:20-alpine</code> is worth it when image size genuinely matters and you have tested your dependency tree on it.</strong> A <em>distroless</em> image (Google's <code>gcr.io/distroless/nodejs20</code>) is another option — glibc, no shell, no package manager, minimal attack surface — with the trade that you cannot <code>exec</code> into it and must debug with ephemeral containers (Node 28).</p>
+
+<h4>Static linking's return</h4>
+
+<p>Go statically links by default and produces a binary depending on nothing but the kernel's syscall ABI (Node 4). Hence <code>FROM scratch</code> images of a few megabytes containing exactly one file. Rust with the musl target does the same. Node cannot — it is a large C++ program with a dynamic-linking-dependent addon system — though single-executable applications (Node 20+) bundle your JavaScript into the binary, which is a related but different idea.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Node's module system is dynamic linking, one level up, and the parallel continues from Node 33.</strong> <code>require()</code> at run time resolves a name to a file, loads it, executes it, caches it. That is: symbol lookup, mapping, initialisation, and a load cache — the dynamic linker's job. The module cache (<code>require.cache</code>) is why a module executes once no matter how many times it is required, which is exactly why a shared object's initialisation runs once. Dynamic <code>import()</code> is lazy loading, and the bundler's code-split chunks are shared objects fetched on demand. And <code>node_modules</code>'s nested resolution is the reason two versions of a package can coexist in one program — something the ELF dynamic linker cannot easily do, and a genuine advantage of npm's design that people rarely credit.</p>
+
+<p><strong>The multi-stage build for a Node service, with every line explained by this part:</strong></p>
+
+<pre><code>FROM node:20-slim AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci                    # native addons compiled here (Node 33),
+                              # against this image's glibc
+COPY . .
+RUN npm run build
+
+FROM node:20-slim             # same base ⇒ same libc ⇒ addons still load
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev         # no compiler, no dev deps in the final image
+COPY --from=build /app/dist ./dist
+USER node                     # Node 25
+CMD ["node", "dist/server.js"]  # exec form ⇒ node is PID 1 ⇒ signals work (Node 30)
+</code></pre>
+
+<p><strong>Copying <code>node_modules</code> from the host into an image is broken for two independent reasons from this part</strong>: the native addons were compiled for your host's architecture (Node 33) and against your host's libc (this node). Both fail at run time with errors that do not obviously say so — <code>invalid ELF header</code> for the first, <code>cannot open shared object file</code> or a symbol version error for the second. <code>.dockerignore</code> containing <code>node_modules</code> is not a size optimisation; it is a correctness requirement.</p>
+
+<p><strong>What you can do at this point:</strong> explain dynamic linking including PLT/GOT and lazy binding, use <code>ldd</code> and <code>LD_PRELOAD</code>, explain glibc's compatibility asymmetry and derive the build-on-the-oldest rule, state the real trade-offs of Alpine versus slim versus distroless with reasons rather than preferences, and explain why host <code>node_modules</code> must never be copied into an image.</p>
+
+<p><strong>What's still broken:</strong> the file is complete and loadable, and nothing has said what happens when you actually run it — what <code>execve</code> does to the calling process, how the shell turns a command line into a process tree, or how <code>npm start</code> becomes five processes.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
   This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
   elaboration.json live alongside it and are fetched at runtime — do not inline
   that data here.
@@ -5137,6 +5302,171 @@ process.on('SIGINT',  () =&gt; shutdown('SIGINT'));
 <p><strong>What you can do at this point:</strong> explain the socket API and the four-tuple, explain both backlog queues and use accept-queue overflow to detect a blocked event loop, distinguish flow control from congestion control and explain slow start's effect on response times, explain <code>TIME_WAIT</code> and derive port exhaustion and <code>SO_REUSEADDR</code>/<code>SO_REUSEPORT</code>, decode every common network error code by mechanism, explain a Kubernetes Service as netfilter rules and why gRPC balances badly over it, and recognise conntrack exhaustion and PMTU black holes.</p>
 
 <p><strong>What's still broken:</strong> everything in Parts I to VII assumed a running program existed. Nothing has explained how a text file becomes machine code, how that code finds the library functions it calls, what <code>execve</code> does with the resulting file, or how the machine gets from powered-off to running any of it.</p>
+
+<h3>PART VIII — FROM SOURCE TO RUNNING, AND FROM POWER-ON TO PID 1</h3>
+
+<p>Five nodes. Everything so far assumed a running program existed. This part builds one: source to object to executable, how it finds the library code it calls, what <code>execve</code> does with the file, how the machine gets from powered-off to running init, and what init then does. It also contains the most productive analogy-free parallel in this document — a JavaScript bundler is a linker, and every one of its concepts has an exact counterpart here.</p>
+
+<h3>Node 33 — compiling, linking, and the ELF file</h3>
+
+<p><strong>The limitation:</strong> programs have been assumed to exist as bytes in a file, with nothing said about how source text becomes those bytes.</p>
+
+<h4>The pipeline</h4>
+
+<p>Four stages, and they are separate programs, which is why each can fail with its own kind of error:</p>
+
+<ol>
+<li><strong>Preprocessing</strong> — textual substitution: includes, macros, conditional compilation. Output is still source.</li>
+<li><strong>Compiling</strong> — parse, type-check, optimise, and emit assembly for one translation unit. The compiler sees <em>one file at a time</em> and nothing else, which is the fact that makes stage 4 necessary.</li>
+<li><strong>Assembling</strong> — turn assembly text into machine code (Node 0), producing an <strong>object file</strong>.</li>
+<li><strong>Linking</strong> — combine object files into one executable.</li>
+</ol>
+
+<h4>What an object file contains, and why linking is a real problem</h4>
+
+<p>An object file holds machine code for its own functions, but the compiler could not know the addresses of anything defined elsewhere. So it emits placeholders and two tables describing them:</p>
+
+<ul>
+<li><strong>The symbol table</strong> — names this file <em>defines</em> (with offsets) and names it <em>references</em> but does not define (undefined symbols).</li>
+<li><strong>Relocations</strong> — a list of positions in the code that contain a placeholder, and instructions for how to patch each one once the real address is known.</li>
+</ul>
+
+<p>The linker then does exactly two things. <strong>Symbol resolution</strong>: for every undefined symbol, find the object file that defines it. <strong>Relocation</strong>: assign final addresses to everything and patch every placeholder. [EXPLAIN]</p>
+
+<p>Its two failure modes are the two ways that can go wrong, and both have exact counterparts in your daily work:</p>
+
+<ul>
+<li><strong>Undefined reference</strong> — nothing defines this symbol. A missing library, a typo, or a declaration with no definition.</li>
+<li><strong>Multiple definition</strong> — two objects define the same symbol and the linker cannot choose.</li>
+</ul>
+
+<p>A <strong>static library</strong> (<code>.a</code>) is just an archive of object files with an index. The linker pulls out only the members that resolve something still undefined — which is why link order matters in C and why a library listed before the code that uses it silently contributes nothing.</p>
+
+<h4>ELF</h4>
+
+<p>The output format on Linux is <strong>ELF</strong> — Executable and Linkable Format, adopted from System V in the 1990s, replacing the older <code>a.out</code>. (macOS uses Mach-O; Windows uses PE/COFF. Same concepts, different containers.)</p>
+
+<p>The structure worth knowing is that ELF has <em>two</em> views of the same bytes:</p>
+
+<ul>
+<li><strong>Section headers</strong> — the linker's view. Fine-grained: <code>.text</code> (code), <code>.rodata</code> (constants), <code>.data</code> (initialised globals), <code>.bss</code> (zero-initialised globals, which occupy no space in the file — only a size — which is why a program with a 100 MB zeroed array is a small file), <code>.symtab</code>, <code>.debug_*</code>.</li>
+<li><strong>Program headers</strong> — the <em>loader's</em> view. Coarse: a handful of <strong>segments</strong>, each of which is a region to <code>mmap</code> into memory with given permissions. This is the direct input to Node 11's address space layout: one read-execute segment for code, one read-only for constants, one read-write for data.</li>
+</ul>
+
+<p>Useful tools: <code>readelf -h</code> (header — architecture, type, entry point), <code>readelf -l</code> (segments), <code>nm</code> (symbols), <code>objdump -d</code> (disassembly), <code>file</code> (a one-line summary including whether it is static or dynamic). [USE]</p>
+
+<p>Two ELF types matter. <code>ET_EXEC</code> is a fixed-address executable. <code>ET_DYN</code> is position-independent — loadable at any address, which is what ASLR (Node 10) requires, and which is why essentially all modern binaries are built as <em>position-independent executables</em> and why <code>file</code> reports them, confusingly, as "shared object".</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>A JavaScript bundler is a linker. The correspondence is exact rather than suggestive, and internalising it makes bundler behaviour predictable.</strong> [EXPLAIN]</p>
+
+<table>
+<tr><th>Linking</th><th>Bundling</th></tr>
+<tr><td>object file (<code>.o</code>)</td><td>module (one <code>.js</code> file after transform)</td></tr>
+<tr><td>undefined symbol</td><td><code>import { x } from 'y'</code></td></tr>
+<tr><td>defined symbol</td><td><code>export</code></td></tr>
+<tr><td>symbol resolution</td><td>module resolution — walking <code>node_modules</code>, <code>exports</code> maps, aliases</td></tr>
+<tr><td>undefined reference</td><td><code>Module not found</code> / <code>does not provide an export named</code></td></tr>
+<tr><td>multiple definition</td><td>two copies of React — and the resulting hook errors</td></tr>
+<tr><td>static library (<code>.a</code>)</td><td>a package in <code>node_modules</code></td></tr>
+<tr><td>dead code elimination (<code>--gc-sections</code>)</td><td>tree shaking</td></tr>
+<tr><td>relocation</td><td>rewriting import references to bundle-internal identifiers</td></tr>
+<tr><td>stripping symbols</td><td>minification</td></tr>
+<tr><td>DWARF debug info</td><td>source maps</td></tr>
+<tr><td>shared library, loaded at run time (Node 34)</td><td>code splitting and <code>import()</code></td></tr>
+<tr><td>link order affecting what gets pulled in</td><td>side effects, and <code>"sideEffects": false</code></td></tr>
+</table>
+
+<p>Several bundler behaviours become obvious once you read that table. <strong>Tree shaking requires static imports</strong> for the same reason dead-code elimination requires static references: a linker cannot remove a function if something might look it up by name at run time, and a bundler cannot remove an export if the module might be accessed dynamically. That is why ES modules can be tree-shaken and CommonJS's <code>require</code> largely cannot — <code>require(someVariable)</code> is unresolvable at build time, exactly like a function pointer defeats a linker's reachability analysis. <strong><code>"sideEffects": false</code></strong> in a <code>package.json</code> is you telling the bundler that importing a module for its side effects alone never happens, which lets it drop unreferenced modules entirely — the same promise <code>--gc-sections</code> relies on. And <strong>two copies of React</strong> is a multiple-definition problem that the JavaScript module system, unlike a linker, does not report as an error: it silently gives you two module instances with two separate pieces of internal state, which is why hooks fail with an error about an invalid hook call rather than about duplication.</p>
+
+<p><strong>Native Node addons are this node exactly.</strong> A <code>.node</code> file is an ELF shared object compiled from C++ by <code>node-gyp</code>, linking against the Node and V8 headers. Hence: it is architecture-specific and platform-specific (Node 0), which is why <code>npm install</code> on your Mac produces artefacts a Linux container cannot load; it must match the ABI of the Node version, which is what <code>NODE_MODULE_VERSION mismatch</code> means, and what N-API was introduced to fix by providing a stable ABI across Node versions; and it needs a compiler toolchain at install time unless the package ships prebuilt binaries, which is what <code>prebuild-install</code> and <code>node-pre-gyp</code> do and why <code>sharp</code> installs instantly on common platforms and slowly on unusual ones.</p>
+
+<p><strong>The stages explain the errors.</strong> A syntax error is stage 2; a missing header is stage 1; <code>undefined reference to ...</code> is stage 4. In the TypeScript world the parallel is worth drawing carefully: <code>tsc</code> is stages 1–3 per file and there is <em>no linker</em> — type errors are compile-time and module resolution happens at run time or at bundle time. That is precisely why a project can type-check cleanly and fail at run time with a module-not-found error: the two checks are performed by different tools looking at different things, and <code>tsc</code>'s <code>paths</code> being satisfied does not mean the runtime's resolver will agree.</p>
+
+<p><strong>What you can do at this point:</strong> describe the four stages and attribute an error to the right one, explain what an object file's symbol table and relocations are for and what a linker does, read an ELF file's two views, and map every bundler concept to its linker counterpart well enough to predict tree-shaking and duplicate-module behaviour.</p>
+
+<p><strong>What's still broken:</strong> the executable still contains unresolved references — to <code>printf</code>, to <code>malloc</code>, to every library function. Baking a copy of every library into every program means one security fix requires rebuilding everything on the machine, and a hundred programs carrying a hundred copies of the same code. The alternative introduces a whole new failure surface, and it is the reason an Alpine image sometimes will not run your binary.</p>
+
+<h3>Node 34 — dynamic linking, libc, and why Alpine sometimes breaks things</h3>
+
+<p><strong>The limitation:</strong> static linking copies every library into every program, so one security fix means rebuilding everything, and a hundred programs carry a hundred copies of the same code.</p>
+
+<h4>Deferring the link to run time</h4>
+
+<p><strong>Dynamic linking</strong> leaves references unresolved in the executable and records instead <em>which libraries</em> are needed. At run time, a program called the <strong>dynamic linker</strong> — <code>/lib64/ld-linux-x86-64.so.2</code> on Linux, itself named in the executable's <code>PT_INTERP</code> segment — maps the required shared objects into the address space and performs relocation before the program's first instruction runs.</p>
+
+<p>The benefits: one copy of libc in memory shared by every process, since its code pages are mapped from one set of physical frames (Node 10, Node 14); a security fix in a library takes effect for every program on the next start; and executables are far smaller.</p>
+
+<p>The costs, all real: startup does work that used to be done at build time; the deployment environment must supply compatible libraries; and version mismatches become a run-time failure class rather than a build-time one.</p>
+
+<h4>The machinery: PLT and GOT</h4>
+
+<p>Worth knowing because it explains both lazy binding and a security mitigation you have configured without knowing.</p>
+
+<p>A call to a library function does not jump to the function. It jumps to a stub in the <strong>Procedure Linkage Table</strong>, which reads an address from the <strong>Global Offset Table</strong> and jumps there. Initially each GOT entry points back into the linker, so the first call to a function triggers resolution — the linker finds the real address, writes it into the GOT, and jumps. Every subsequent call goes straight through. That is <strong>lazy binding</strong>: symbols are resolved on first use, so a program that never calls a function never pays to resolve it.</p>
+
+<p>Because the GOT is written at run time it is a natural attack target — overwrite an entry and redirect a call. The mitigation is <strong>RELRO</strong>: resolve everything eagerly at startup and mark the GOT read-only. <code>LD_BIND_NOW=1</code> or linking with <code>-z now</code> enables full RELRO, trading slightly slower startup for a closed attack surface, and it is standard on hardened builds.</p>
+
+<h4>Finding libraries, and the variables involved</h4>
+
+<p>The search order at run time: <code>DT_RPATH</code> in the binary (deprecated), then <code>LD_LIBRARY_PATH</code> from the environment, then <code>DT_RUNPATH</code>, then the cache built by <code>ldconfig</code> from <code>/etc/ld.so.conf</code>, then the default directories.</p>
+
+<p><code>ldd &lt;binary&gt;</code> lists what it needs and where each was found; <code>not found</code> lines are exactly the cause of <code>error while loading shared libraries: libfoo.so.1: cannot open shared object file</code>. [USE]</p>
+
+<p><strong><code>LD_PRELOAD</code></strong> is the interesting one: a list of libraries loaded <em>before</em> all others, so their symbols win. This lets you replace any library function in any program without recompiling it. Legitimate uses are common — swapping in jemalloc (Node 12) with a single environment variable, injecting tracing or fault injection, or making a program use a different DNS resolver. It is also a classic persistence technique for attackers, which is why it is ignored for setuid binaries.</p>
+
+<h4>Versioning, and the error you will meet</h4>
+
+<p>A shared library has a <strong>soname</strong> like <code>libssl.so.3</code>, where the number is an ABI version. Binaries record the soname, so incompatible versions can coexist. glibc goes further with <strong>symbol versioning</strong>, keeping multiple implementations of a function under versioned names (<code>memcpy@GLIBC_2.2.5</code>) so that old binaries keep old behaviour.</p>
+
+<p>The practical consequence is an asymmetry worth internalising: <strong>glibc is backward compatible but not forward compatible.</strong> A binary built against glibc 2.31 runs on a system with 2.36. A binary built against 2.36 fails on 2.31 with <code>version 'GLIBC_2.34' not found</code>. So <em>build on the oldest system you must support</em>, which is why release pipelines pin an old base image, and why building in a modern container and running on an older host fails in this specific way.</p>
+
+<h4>musl versus glibc: what Alpine actually changes</h4>
+
+<p>Alpine Linux uses <strong>musl</strong> rather than <strong>glibc</strong> — a different, smaller, MIT-licensed C library. The image is small (about 5 MB base) and that is genuinely valuable. The differences are also genuine and worth knowing before choosing:</p>
+
+<ul>
+<li><strong>Binaries are not interchangeable.</strong> Anything compiled against glibc will not run, which is why prebuilt native modules often fail on Alpine and fall back to compiling from source — turning a fast install into a slow one, and requiring a toolchain in the image.</li>
+<li><strong>DNS resolution differs.</strong> musl has no NSS, so it ignores <code>/etc/nsswitch.conf</code>, and it queries A and AAAA records in parallel over the same socket. Some resolvers and middleboxes handle that badly, producing intermittent resolution failures that are very hard to reproduce. It also historically did not honour <code>search</code> domains the same way, which matters inside Kubernetes (Node 32).</li>
+<li><strong>musl's allocator is slower under multi-threaded allocation-heavy load.</strong> This is measurable in Node workloads, and it was significant enough that the Node project stopped treating Alpine builds as fully tier-1 supported. Benchmarks vary, and the honest statement is: test your own workload rather than assume either way.</li>
+<li><strong>Default thread stack size is much smaller</strong> (128 KB versus glibc's 8 MB), which can produce stack overflows in code that is fine elsewhere.</li>
+</ul>
+
+<p>The practical recommendation for Node images, stated plainly: <strong><code>node:20-slim</code> (Debian-based, glibc, around 75 MB) is the safer default; <code>node:20-alpine</code> is worth it when image size genuinely matters and you have tested your dependency tree on it.</strong> A <em>distroless</em> image (Google's <code>gcr.io/distroless/nodejs20</code>) is another option — glibc, no shell, no package manager, minimal attack surface — with the trade that you cannot <code>exec</code> into it and must debug with ephemeral containers (Node 28).</p>
+
+<h4>Static linking's return</h4>
+
+<p>Go statically links by default and produces a binary depending on nothing but the kernel's syscall ABI (Node 4). Hence <code>FROM scratch</code> images of a few megabytes containing exactly one file. Rust with the musl target does the same. Node cannot — it is a large C++ program with a dynamic-linking-dependent addon system — though single-executable applications (Node 20+) bundle your JavaScript into the binary, which is a related but different idea.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Node's module system is dynamic linking, one level up, and the parallel continues from Node 33.</strong> <code>require()</code> at run time resolves a name to a file, loads it, executes it, caches it. That is: symbol lookup, mapping, initialisation, and a load cache — the dynamic linker's job. The module cache (<code>require.cache</code>) is why a module executes once no matter how many times it is required, which is exactly why a shared object's initialisation runs once. Dynamic <code>import()</code> is lazy loading, and the bundler's code-split chunks are shared objects fetched on demand. And <code>node_modules</code>'s nested resolution is the reason two versions of a package can coexist in one program — something the ELF dynamic linker cannot easily do, and a genuine advantage of npm's design that people rarely credit.</p>
+
+<p><strong>The multi-stage build for a Node service, with every line explained by this part:</strong></p>
+
+<pre><code>FROM node:20-slim AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci                    # native addons compiled here (Node 33),
+                              # against this image's glibc
+COPY . .
+RUN npm run build
+
+FROM node:20-slim             # same base ⇒ same libc ⇒ addons still load
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev         # no compiler, no dev deps in the final image
+COPY --from=build /app/dist ./dist
+USER node                     # Node 25
+CMD ["node", "dist/server.js"]  # exec form ⇒ node is PID 1 ⇒ signals work (Node 30)
+</code></pre>
+
+<p><strong>Copying <code>node_modules</code> from the host into an image is broken for two independent reasons from this part</strong>: the native addons were compiled for your host's architecture (Node 33) and against your host's libc (this node). Both fail at run time with errors that do not obviously say so — <code>invalid ELF header</code> for the first, <code>cannot open shared object file</code> or a symbol version error for the second. <code>.dockerignore</code> containing <code>node_modules</code> is not a size optimisation; it is a correctness requirement.</p>
+
+<p><strong>What you can do at this point:</strong> explain dynamic linking including PLT/GOT and lazy binding, use <code>ldd</code> and <code>LD_PRELOAD</code>, explain glibc's compatibility asymmetry and derive the build-on-the-oldest rule, state the real trade-offs of Alpine versus slim versus distroless with reasons rather than preferences, and explain why host <code>node_modules</code> must never be copied into an image.</p>
+
+<p><strong>What's still broken:</strong> the file is complete and loadable, and nothing has said what happens when you actually run it — what <code>execve</code> does to the calling process, how the shell turns a command line into a process tree, or how <code>npm start</code> becomes five processes.</p>
     </div>
   </div>
 

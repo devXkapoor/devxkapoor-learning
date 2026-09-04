@@ -1,0 +1,61 @@
+<h3>Node 35 — <code>execve</code>, and how a command becomes a process tree</h3>
+
+<p><strong>The limitation:</strong> a complete, loadable executable exists on disk and nothing has said what running it does.</p>
+
+<h4>What <code>execve</code> does</h4>
+
+<p><code>execve(path, argv, envp)</code> <strong>replaces the program running in the current process.</strong> It does not create a process. The PID stays the same, the parent stays the same, open file descriptors stay open, credentials stay as they are — but the address space is destroyed and rebuilt.</p>
+
+<p>In order:</p>
+
+<ol>
+<li><strong>Permission check</strong> — is the file executable by this process? Is it setuid, and if so whose identity does the new program take (Node 25)?</li>
+<li><strong>Read the header.</strong> If it starts with <code>#!</code>, this is a script: read the interpreter path from that first line, and re-run <code>execve</code> on <em>the interpreter</em> with the script's path as an argument. This is the <strong>shebang</strong>, and it is handled by the kernel rather than the shell. Two details bite: the interpreter path must be absolute, which is why <code>#!/usr/bin/env node</code> is used — <code>env</code> is at a known location and finds <code>node</code> on <code>PATH</code>; and only one argument is portably allowed after the interpreter.</li>
+<li><strong>Tear down the old address space.</strong> Every mapping from Node 11 is discarded. This is why <code>fork</code>-then-<code>exec</code> copies essentially nothing (Node 14) — the copy-on-write pages are dropped before any are written.</li>
+<li><strong>Map the new program's segments</strong> from its ELF program headers (Node 33), demand-paged so almost nothing is read yet (Node 13).</li>
+<li><strong>Build a new stack</strong> containing <code>argv</code>, <code>envp</code>, and the <em>auxiliary vector</em> — kernel-supplied values like the page size, the vDSO address (Node 8), and the ASLR seed.</li>
+<li><strong>Close descriptors marked close-on-exec</strong> (Node 22); everything else survives, which is what makes redirection work.</li>
+<li><strong>Reset signal handlers</strong> to default — the handler code no longer exists. The signal <em>mask</em>, however, is inherited, which is a genuine trap: a process that blocked a signal and then execs passes that block to the new program, and there are real bugs where a service never receives <code>SIGTERM</code> because something up the chain blocked it.</li>
+<li><strong>Jump to the interpreter</strong> named in <code>PT_INTERP</code> — the dynamic linker (Node 34) — which maps the shared libraries, performs relocations, runs initialisers, and finally jumps to the program's entry point.</li>
+<li>The C runtime sets up its own state and calls <code>main</code>.</li>
+</ol>
+
+<p><strong><code>execve</code> only returns on failure.</strong> If it succeeds there is nothing to return to, because the code that called it no longer exists.</p>
+
+<h4>The environment</h4>
+
+<p><code>envp</code> is a plain array of <code>KEY=VALUE</code> strings copied onto the new stack. That is all an environment variable is: <strong>per-process memory, inherited by copy at <code>exec</code>, with no kernel involvement after that.</strong> [EXPLAIN] Everything about their behaviour follows:</p>
+
+<ul>
+<li>A child cannot modify its parent's environment. There is no channel to do so.</li>
+<li>Changing a variable after a process starts does not affect it — hence restarting a service after editing its configuration.</li>
+<li><code>process.env.FOO = 'x'</code> in Node modifies your copy and affects only children spawned afterwards.</li>
+<li><strong>They are visible.</strong> <code>/proc/&lt;pid&gt;/environ</code> exposes them to anyone who can read that file, and <code>ps eww</code> shows them. This is why <em>secrets in environment variables are a compromise rather than a best practice</em> — they leak into crash dumps, error reporting payloads, subprocess environments, and CI logs. The 12-factor recommendation is about configuration; for secrets, mounted files with restrictive permissions (Kubernetes secret volumes, and the reason <code>_FILE</code>-suffixed variables are a common convention) are meaningfully better.</li>
+<li><code>PATH</code> is searched by the <em>shell</em> or by <code>execvp</code>, not by <code>execve</code> — the bare syscall requires a full path. This is why <code>child_process.spawn('node')</code> can fail with <code>ENOENT</code> in an environment with a minimal <code>PATH</code>, and why <code>ENOENT</code> from <code>spawn</code> means "the program was not found", not "your file argument was not found", which misleads people every time.</li>
+</ul>
+
+<h4>What the shell does with one command line</h4>
+
+<p>Typing <code>ls -l | grep .js &gt; out.txt</code> produces, in order: tokenising and expansion (globs, variables, command substitution, all done by the shell — which is why <code>rm *.txt</code> is expanded before <code>rm</code> ever sees it, and why a filename containing a space breaks unquoted scripts); creating a pipe; forking twice; wiring descriptors with <code>dup2</code> in each child (Node 22); <code>execve</code> in each; and <code>waitpid</code> in the parent to collect statuses.</p>
+
+<p>Also worth knowing: a shell puts each pipeline in its own <strong>process group</strong>, and the terminal has a <em>foreground</em> group. Ctrl-C sends <code>SIGINT</code> to every process in the foreground group, which is why it interrupts a whole pipeline. Backgrounding with <code>&amp;</code> means the group is not the foreground one, and a background process that reads from the terminal receives <code>SIGTTIN</code> and stops.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong><code>npm start</code> is a process tree, and knowing its shape explains a family of bugs.</strong> A typical chain is: your shell → <code>npm</code> (a Node process) → <code>sh -c "node server.js"</code> → <code>node server.js</code>. Four processes, three <code>fork</code>/<code>exec</code> pairs. The consequences:</p>
+
+<ul>
+<li><strong>Signals do not reach the bottom.</strong> <code>SIGTERM</code> to <code>npm</code> is not automatically forwarded through the shell to your server. In a container this is Node 30's PID 1 problem compounded — which is why the correct production entrypoint is <code>CMD ["node", "server.js"]</code>, not <code>CMD ["npm", "start"]</code>. Running npm in production containers costs you signal handling, a process, memory, and startup time, for no benefit.</li>
+<li><strong>Exit codes are relayed</strong>, sometimes badly, and <code>npm</code> adds its own error output on a non-zero exit which obscures the real one.</li>
+<li><strong><code>node_modules/.bin</code> is prepended to <code>PATH</code></strong> by npm before running a script — which is the entire mechanism by which <code>"test": "jest"</code> finds <code>jest</code>, and it is <code>PATH</code> plus symbolic links (Node 21) plus a shebang, nothing more.</li>
+</ul>
+
+<p><strong><code>exec</code> in a shell script is this system call exposed.</strong> An entrypoint script that ends with <code>exec node server.js</code> <em>replaces</em> the shell with Node, so Node becomes PID 1 and receives signals directly. Without <code>exec</code>, the shell stays as PID 1 with Node as its child, and shutdown breaks. <strong>This single word is the difference between a container that shuts down gracefully and one that does not</strong>, and it is the standard fix for entrypoint scripts that need to do setup before starting the app.</p>
+
+<p><strong><code>spawn</code> versus <code>exec</code> in Node.</strong> <code>child_process.spawn</code> is <code>fork</code>+<code>execve</code> directly, streaming output. <code>child_process.exec</code> runs the command <em>through a shell</em> and buffers the output — so it supports pipes and globs, and it is a <strong>command injection vulnerability</strong> if any part of the string comes from user input, because the shell will interpret <code>;</code>, <code>&amp;&amp;</code>, backticks and <code>$()</code>. Use <code>spawn</code> with an argument array, where each argument is passed as a separate <code>argv</code> entry and no shell is involved. Also recall Node 22: <code>exec</code>'s <code>maxBuffer</code> deadlock on chatty children.</p>
+
+<p><strong>The setuid check in step 1 explains a Docker security control.</strong> <code>allowPrivilegeEscalation: false</code> in a Kubernetes security context sets the <code>no_new_privs</code> bit, which makes the kernel ignore setuid bits at <code>execve</code>. So even if a setuid-root binary exists in the image, executing it grants nothing. It is a one-line, near-zero-cost mitigation for a whole class of container escape, and it operates precisely at step 1 of this node.</p>
+
+<p><strong>What you can do at this point:</strong> describe <code>execve</code> step by step including the shebang and what survives it, explain environment variables as inherited stack memory and derive every consequence including why they are poor secret storage, explain what a shell does with a command line and what process groups are for, explain <code>npm start</code>'s process tree and why <code>exec</code> in an entrypoint matters, and choose correctly between <code>spawn</code> and <code>exec</code> on security grounds.</p>
+
+<p><strong>What's still broken:</strong> every process so far has a parent. Following the chain upward reaches PID 1, and PID 1 has no parent — it was started by the kernel. But the kernel is itself a program in a file, so something had to load <em>it</em>, on a machine where nothing is running at all.</p>

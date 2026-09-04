@@ -1,0 +1,43 @@
+<h3>Node 36 — boot: from no electricity to PID 1</h3>
+
+<p><strong>The limitation:</strong> every process has a parent, the chain ends at PID 1, and PID 1 was started by the kernel — which is itself a program in a file that something had to load, on a machine where nothing is running.</p>
+
+<p>The bootstrap problem, stated exactly: to load a program you need a program. The resolution is that the first program is not loaded at all — <strong>it is physically present in non-volatile memory, at an address the processor is wired to start from.</strong></p>
+
+<h4>Power-on</h4>
+
+<p>When power is applied, the processor's registers are set to hardware-defined values. On x86 the instruction pointer starts at <code>0xFFFFFFF0</code>, sixteen bytes below the top of the address space, and the chipset arranges for the <strong>firmware</strong> flash chip on the motherboard to be visible there. So the first instruction executed by any x86 machine is a jump into firmware, and that fact is fixed in silicon. Before even that, on any modern machine, other processors have already run: Intel's Management Engine or AMD's Platform Security Processor initialises and, on secure-boot systems, verifies the firmware before the main processor is released.</p>
+
+<h4>Firmware: BIOS then UEFI</h4>
+
+<p><strong>BIOS</strong> — Basic Input/Output System, from the original IBM PC in 1981 — runs a power-on self test, initialises the memory controller and basic devices, and then does something remarkably crude: reads the <strong>first 512-byte sector</strong> of the boot device into memory at <code>0x7C00</code>, checks that its last two bytes are <code>0x55 0xAA</code>, and jumps to it. That sector is the <strong>Master Boot Record</strong>. It has 512 bytes total, of which 64 are the partition table and 2 are the signature — leaving <strong>446 bytes for code</strong>, which is not enough to do anything except load a larger loader. Hence multi-stage bootloaders. BIOS also starts the processor in <em>16-bit real mode</em>, compatible with the 1978 8086, so an operating system's first job is to switch modes.</p>
+
+<p><strong>UEFI</strong> replaced it and is what any machine built in the last decade uses. It is a small operating system in its own right: it understands the FAT32 filesystem, so it can read <em>files</em> from an EFI System Partition rather than raw sectors; it starts the processor in 32- or 64-bit mode; it has a boot manager with a variable store (<code>efibootmgr</code> edits it); and it supports <strong>Secure Boot</strong>, verifying each stage's cryptographic signature before executing it. That chain is why an unsigned kernel module fails to load on a Secure Boot system, and why installing a proprietary GPU driver requires enrolling a key or disabling the feature.</p>
+
+<h4>The bootloader</h4>
+
+<p>GRUB2 on most Linux systems, systemd-boot on some, and cloud images often use a minimal one. Its job: present a choice of kernels, then load the kernel image and the <strong>initramfs</strong> into memory, assemble the kernel command line, and jump to the kernel's entry point.</p>
+
+<p>The kernel command line is worth knowing because it is where several things you configure end up: <code>root=UUID=...</code> (which filesystem to mount as <code>/</code>), <code>ro</code>, <code>quiet</code>, and options like <code>systemd.unified_cgroup_hierarchy=1</code> (Node 27), <code>transparent_hugepage=never</code> (Node 10), <code>nvme_core.io_timeout</code>, or <code>mitigations=off</code> (Node 40 — a real performance choice with a real security cost). It is visible at run time in <code>/proc/cmdline</code>.</p>
+
+<h4>The kernel starts</h4>
+
+<p>The kernel image is compressed with a small decompressor stub at the front, which unpacks the real kernel into memory. Then, in rough order: set up early page tables and switch to virtual addressing (Node 10); initialise the interrupt descriptor table (Node 2); detect processors and bring the secondary cores out of halt; initialise the memory allocator, the scheduler (Node 7), and the timers (Node 8); initialise built-in drivers; and mount the <strong>initramfs</strong>.</p>
+
+<p>The initramfs deserves an explanation because its existence is a chicken-and-egg fix. The kernel must mount the root filesystem, which requires a driver for the storage controller and for the filesystem — but those may be modules living <em>on</em> that filesystem. So the bootloader loads a small compressed archive into memory, the kernel unpacks it as a temporary root, and it contains exactly the modules and tools needed to find and mount the real root: storage drivers, LVM, disk encryption (this is where the passphrase prompt comes from), and network filesystem support. Once the real root is mounted, the initramfs is discarded.</p>
+
+<p>Finally the kernel executes <code>/sbin/init</code> as <strong>PID 1</strong> — its only <code>exec</code>, and the first user-mode process on the machine. Every process that will ever run descends from it (Node 5). If it cannot be started, the kernel panics with <code>Kernel panic - not syncing: No working init found</code>, which is what a broken <code>initrd</code> or a wrong <code>root=</code> parameter produces.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>A container has no boot, and that is the whole reason it starts in milliseconds.</strong> [EXPLAIN] Nothing in this node happens: no firmware, no bootloader, no kernel decompression, no device initialisation, no initramfs, no init system. Starting a container is <code>clone()</code> plus <code>execve()</code> (Node 28) on a kernel that is already running. A virtual machine, by contrast, performs this entire sequence — virtual firmware, virtual bootloader, a full kernel boot — which is why it takes seconds and why <strong>Firecracker's 125-millisecond boot (Node 29) is an engineering achievement</strong>: it is a stripped virtual machine monitor that skips almost all of the legacy sequence, uses a minimal kernel with direct boot, and emulates five devices.</p>
+
+<p><strong>Cloud instance startup is this node plus a configuration phase.</strong> An EC2 instance boots the sequence above, then <code>cloud-init</code> runs as an early service: it fetches instance metadata from the link-local address <code>169.254.169.254</code>, sets the hostname, installs SSH keys, grows the root partition to the volume size, and runs your user-data script. Understanding that it is an ordinary service explains why user-data runs once by default, why its logs are in <code>/var/log/cloud-init-output.log</code>, and why the metadata endpoint being reachable from your application is a security concern — SSRF against it was the mechanism of the 2019 Capital One breach, and IMDSv2's session-token requirement exists to make that harder.</p>
+
+<p><strong>The kernel is the one thing containers do not bring with them</strong>, which follows from Node 26 and lands here concretely. Your Alpine container running on an Ubuntu host uses the Ubuntu kernel. So a container cannot require a newer kernel feature than the host provides, and features like cgroups v2, io_uring, and newer seccomp actions depend on the <em>host</em>. This is why "it works on my machine" can be a kernel version difference, and why managed Kubernetes providers publish node image versions as a meaningful thing to track.</p>
+
+<p><strong>Immutable infrastructure is a statement about this node.</strong> Rather than booting a machine and configuring it, you build an image containing the configuration and boot that. The boot sequence is unchanged; what changes is that no step after it modifies the system. Container images are the same principle, one layer up, without the boot.</p>
+
+<p><strong>What you can do at this point:</strong> explain the bootstrap problem and how the first instruction is reached, describe the BIOS and UEFI paths and what Secure Boot verifies, explain what the initramfs is for, describe kernel startup through to PID 1, explain precisely why containers start in milliseconds and virtual machines do not, and explain cloud-init and the instance metadata service.</p>
+
+<p><strong>What's still broken:</strong> PID 1 is running and the machine has exactly one process. Something must now start every service, in the right order, with the right dependencies, restarting them when they fail — and the design of that program was the most divisive argument in Linux for a decade.</p>

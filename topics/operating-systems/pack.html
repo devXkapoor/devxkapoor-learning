@@ -2317,7 +2317,155 @@ USER nodejs
 
 <p><strong>What you can do at this point:</strong> explain what a hypervisor is and why x86 was hard to virtualise, name the three historical solutions and what hardware support changed, compare containers and VMs on the axes that matter and say why the usual answer is both, explain what Firecracker and gVisor and Kata are for, explain Docker Desktop's and WSL2's architecture and the performance consequences, and explain a serverless cold start mechanically.</p>
 
-<p><strong>What's still broken:</strong> processes are now isolated in every dimension, which leaves the opposite problem. They need to talk — to each other, to the outside world, and to receive instructions like "shut down cleanly". None of that has been built, and the first piece of it is the reason your container ignores <code>docker stop</code>.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
+<p><strong>What's still broken:</strong> processes are now isolated in every dimension, which leaves the opposite problem. They need to talk — to each other, to the outside world, and to receive instructions like "shut down cleanly". None of that has been built, and the first piece of it is the reason your container ignores <code>docker stop</code>.</p>
+
+<h3>PART VII — TALKING: SIGNALS, IPC, AND THE NETWORK</h3>
+
+<p>Three nodes. How a process is told something happened, how two processes exchange data, and what the kernel does with a packet between the wire and your socket. By the end, graceful shutdown, <code>EADDRINUSE</code>, <code>ECONNRESET</code>, connection pooling, and a Kubernetes rolling update all have exact mechanical explanations.</p>
+
+<h3>Node 30 — signals, and why your container ignores <code>docker stop</code></h3>
+
+<p><strong>The limitation:</strong> a process is isolated and running, and nothing can tell it that something happened — that a user pressed Ctrl-C, that its child exited, that the system is shutting down.</p>
+
+<h4>What a signal is</h4>
+
+<p>A <strong>signal</strong> is a software interrupt delivered to a process: a small integer, and nothing else. No payload, no arguments, no return value. It is the mechanism from Node 2, applied one level up — asynchronous delivery that interrupts whatever the process was doing.</p>
+
+<p>Delivery works like this. The kernel sets a bit in the target's pending-signal mask in its <code>task_struct</code>. When that process is next about to return to user mode — from a syscall, an interrupt, or a context switch — the kernel checks for pending signals. For each one it either applies the default action, or, if a handler is installed, arranges the stack so that the process resumes <em>inside the handler</em> and returns to where it was afterwards. <strong>So a signal is delivered when the process next runs, not at the instant it is sent</strong>, which is why signalling a stopped or uninterruptibly-sleeping process appears to do nothing (Node 5's <code>D</code> state).</p>
+
+<h4>The ones you need</h4>
+
+<table>
+<tr><th>Signal</th><th>№</th><th>Default</th><th>What it means</th></tr>
+<tr><td><code>SIGHUP</code></td><td>1</td><td>terminate</td><td>The terminal went away. Daemons reuse it as "reload your config".</td></tr>
+<tr><td><code>SIGINT</code></td><td>2</td><td>terminate</td><td>Ctrl-C.</td></tr>
+<tr><td><code>SIGQUIT</code></td><td>3</td><td>terminate + core</td><td>Ctrl-\. In the JVM, dumps all thread stacks.</td></tr>
+<tr><td><code>SIGKILL</code></td><td>9</td><td>terminate</td><td><strong>Cannot be caught, blocked, or ignored.</strong> The kernel destroys the process.</td></tr>
+<tr><td><code>SIGSEGV</code></td><td>11</td><td>terminate + core</td><td>Invalid memory access (Node 3).</td></tr>
+<tr><td><code>SIGPIPE</code></td><td>13</td><td>terminate</td><td>Wrote to a pipe or socket with no reader (Node 22).</td></tr>
+<tr><td><code>SIGTERM</code></td><td>15</td><td>terminate</td><td>Please shut down. The polite request, and the default of <code>kill</code>.</td></tr>
+<tr><td><code>SIGCHLD</code></td><td>17</td><td>ignore</td><td>A child changed state. This is how you know to reap (Node 5).</td></tr>
+<tr><td><code>SIGSTOP</code>/<code>SIGCONT</code></td><td>19/18</td><td>stop/resume</td><td>Ctrl-Z and <code>fg</code>. <code>SIGSTOP</code> also cannot be caught.</td></tr>
+<tr><td><code>SIGUSR1</code>/<code>SIGUSR2</code></td><td>10/12</td><td>terminate</td><td>Reserved for the application to define.</td></tr>
+</table>
+
+<p><strong>The number matters because of exit codes.</strong> A process killed by signal N reports <code>128 + N</code>. 137 is <code>SIGKILL</code>, 143 is <code>SIGTERM</code>, 139 is <code>SIGSEGV</code>, 130 is <code>SIGINT</code>. You can now decode any of them without looking anything up. [EXPLAIN]</p>
+
+<h4>The three restrictions that cause real bugs</h4>
+
+<p><strong>One: <code>SIGKILL</code> and <code>SIGSTOP</code> cannot be handled.</strong> Deliberately — there must be a way to stop a process that refuses to cooperate. So there is no such thing as cleanup on <code>SIGKILL</code>: no flush, no close, no final log line. Every graceful-shutdown design must therefore happen on <code>SIGTERM</code>, and the OOM killer's use of <code>SIGKILL</code> (Node 13) is why an OOM kill gives you nothing.</p>
+
+<p><strong>Two: what a handler may do is severely restricted.</strong> A handler runs at an arbitrary point in the program — possibly in the middle of <code>malloc</code>, holding the allocator's lock. Calling <code>malloc</code> from the handler then deadlocks against the interrupted code. POSIX defines a short list of <em>async-signal-safe</em> functions that may be called; <code>printf</code> and <code>malloc</code> are not on it. The standard technique is the <strong>self-pipe trick</strong>: the handler writes one byte to a pipe and returns, and the main loop reads the pipe as an ordinary event. Linux later added <code>signalfd</code>, which turns signals into a readable descriptor directly. <strong>libuv uses exactly this</strong>, which is why in Node your <code>process.on('SIGTERM')</code> callback is ordinary JavaScript with no restrictions at all — by the time it runs, it is a normal event-loop callback, not a signal handler.</p>
+
+<p><strong>Three: standard signals do not queue.</strong> The pending set is a bitmask, so ten <code>SIGCHLD</code>s arriving while one is blocked result in <em>one</em> pending bit. This is why a <code>SIGCHLD</code> handler must reap in a loop — <code>while (waitpid(-1, &amp;st, WNOHANG) &gt; 0);</code> — rather than reaping once. Real-time signals (<code>SIGRTMIN</code>..<code>SIGRTMAX</code>) do queue and carry a small value, and are rarely used.</p>
+
+<h4>PID 1 is special, and this is the node's payoff</h4>
+
+<p>Two kernel behaviours attach specifically to PID 1 <em>in its PID namespace</em>:</p>
+
+<p><strong>Signals with default actions are not delivered to it.</strong> The kernel refuses, on the grounds that killing init would take down the system. So if PID 1 has <em>not installed a handler</em> for <code>SIGTERM</code>, the signal is silently discarded.</p>
+
+<p><strong>It inherits orphans and is expected to reap them</strong> (Node 5).</p>
+
+<p>Now put that together with Node 28: <strong>your container's entrypoint is PID 1.</strong> Therefore:</p>
+
+<ul>
+<li><code>docker stop</code> sends <code>SIGTERM</code>, waits ten seconds, then sends <code>SIGKILL</code>. A Node process as PID 1 with no <code>SIGTERM</code> handler <em>ignores the first signal entirely</em> and is killed at ten seconds, dropping every in-flight request. The container appears to "take ten seconds to stop", and the cause is not slowness — it is that the polite request was discarded.</li>
+<li>If your entrypoint is a shell (<code>CMD npm start</code>, which runs <code>sh -c "npm start"</code>), the shell is PID 1 and <strong>does not forward signals to its child</strong>. Your Node process never even hears about the shutdown. This is what <code>ENTRYPOINT ["node", "server.js"]</code> — exec form, not shell form — fixes, and it is the most common Dockerfile defect in the wild.</li>
+<li>If your app spawns subprocesses, nothing reaps them, and zombies accumulate. <code>docker run --init</code> inserts <code>tini</code> as PID 1 to forward signals and reap; Kubernetes' <code>shareProcessNamespace</code> makes the pause container do it.</li>
+</ul>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Correct graceful shutdown in Node, with every line justified:</strong></p>
+
+<pre><code>const server = app.listen(3000);
+let shuttingDown = false;
+
+async function shutdown(signal) {
+  if (shuttingDown) return;          // a second Ctrl-C shouldn't re-enter
+  shuttingDown = true;
+
+  // 1. Fail readiness first, so the load balancer stops sending new work
+  //    BEFORE we stop accepting it. Ordering matters — see below.
+  healthy = false;
+  await sleep(5000);                 // let the LB notice (its probe period)
+
+  // 2. Stop accepting new connections; existing ones finish.
+  server.close(() =&gt; console.log('http closed'));
+  server.closeIdleConnections?.();   // Node 18.2+: drop keep-alive idlers
+
+  // 3. Drain the rest: queue workers, then the DB pool.
+  await worker.close();
+  await pool.end();
+
+  // 4. A hard deadline, below the orchestrator's grace period, so we
+  //    always exit on our own terms rather than being SIGKILLed.
+  setTimeout(() =&gt; process.exit(1), 10000).unref();
+}
+
+process.on('SIGTERM', () =&gt; shutdown('SIGTERM'));
+process.on('SIGINT',  () =&gt; shutdown('SIGINT'));
+</code></pre>
+
+<p><strong>The ordering in step 1 is the part people get wrong, and it is a race between two systems.</strong> In Kubernetes, when a pod is deleted, two things happen <em>concurrently</em>: the kubelet sends <code>SIGTERM</code>, and the endpoints controller removes the pod from the Service's endpoint list. The second propagates through kube-proxy or the service mesh on every node, which takes time. <strong>If you stop accepting connections the instant you get <code>SIGTERM</code>, traffic still being routed to you is refused</strong> — visible to users as a burst of 502s during every deploy. Delaying the actual shutdown by a few seconds (or using a <code>preStop</code> hook with a sleep) lets the removal propagate first. This is one of the most common causes of "we get errors during every rolling update", and it is not a bug in Kubernetes; it is a distributed-systems race that your process is expected to absorb.</p>
+
+<p><strong><code>terminationGracePeriodSeconds</code> is the <code>SIGKILL</code> deadline</strong> — 30 seconds by default. Your own hard timeout must be below it, or you never exit cleanly. If your requests can legitimately take longer, raise the grace period rather than hoping.</p>
+
+<p><strong><code>SIGPIPE</code> and <code>EPIPE</code>.</strong> Node ignores <code>SIGPIPE</code> and surfaces the condition as an <code>EPIPE</code> error on the stream instead — which is why a write to a socket the client already closed emits an <code>'error'</code> event, and why an unhandled <code>'error'</code> listener on a stream crashes the process. A client that navigates away mid-response is the common cause, and it is normal traffic rather than a fault.</p>
+
+<p><strong><code>SIGHUP</code> as reload.</strong> nginx, Postgres, and most daemons re-read their configuration on <code>SIGHUP</code> rather than restarting — this is convention, not kernel behaviour, and it is why <code>nginx -s reload</code> keeps connections alive. <code>SIGUSR1</code> and <code>SIGUSR2</code> are similarly conventional: <code>SIGUSR1</code> on a Node process opens the debugger port, which is a genuinely useful way to attach a profiler to a running production process.</p>
+
+<p><strong><code>kill</code> does not mean kill.</strong> The command sends a signal, defaulting to <code>SIGTERM</code>. <code>kill -9</code> is <code>SIGKILL</code>. Reaching for <code>-9</code> first is a habit worth losing: it skips every cleanup path the program has, and if <code>SIGTERM</code> did not work, the reason is worth knowing — usually a missing handler, a shell as PID 1, or a <code>D</code>-state hang that <code>-9</code> will not fix either.</p>
+
+<p><strong>What you can do at this point:</strong> explain what a signal is and how delivery works, name the ones that matter and derive exit codes from them, explain why <code>SIGKILL</code> cannot be handled and what that implies for cleanup, explain handler restrictions and how libuv sidesteps them, explain PID 1's two special behaviours and diagnose the "container ignores <code>docker stop</code>" family of bugs, and write a correct graceful shutdown including the endpoint-removal race.</p>
+
+<p><strong>What's still broken:</strong> a signal carries one integer. Processes need to exchange actual data.</p>
+
+<h3>Node 31 — inter-process communication</h3>
+
+<p><strong>The limitation:</strong> a signal carries one integer, and isolated processes need to exchange data.</p>
+
+<p>Every mechanism below trades the same three things: how fast it is, whether the parties must be related, and whether it works across machines. Knowing the trade is more useful than memorising the list.</p>
+
+<h4>The mechanisms</h4>
+
+<p><strong>Pipes</strong> (Node 22) — a kernel buffer, unidirectional, between related processes. Built-in backpressure. A <strong>named pipe</strong> or FIFO (<code>mkfifo</code>) is the same object given a filesystem name, so unrelated processes can use it. Both copy data through the kernel: one copy in, one copy out.</p>
+
+<p><strong>Unix domain sockets</strong> — the same API as network sockets (<code>socket</code>, <code>bind</code>, <code>listen</code>, <code>accept</code>) with a filesystem path instead of an address, and no networking underneath. Bidirectional, supporting both stream and datagram semantics, and typically two to three times faster than a TCP connection over loopback because the entire protocol stack is skipped. Two abilities make them special:</p>
+
+<ul>
+<li><strong>They can pass file descriptors.</strong> <code>SCM_RIGHTS</code> in a control message transfers an open descriptor to another process, where it lands as a new number in that process's table referring to the same open file description (Node 22). <em>This is how Node's <code>cluster</code> module hands a listening socket to workers</em>, and how systemd socket activation works.</li>
+<li><strong>They can pass verified credentials.</strong> <code>SO_PEERCRED</code> tells you the connecting process's real UID, GID and PID, checked by the kernel and unforgeable. This is how the Docker daemon authorises access via <code>/var/run/docker.sock</code> — which is also why <strong>mounting that socket into a container is equivalent to giving it root on the host</strong>, since anything that can talk to the daemon can start a privileged container.</li>
+</ul>
+
+<p><strong>Shared memory</strong> — the fastest possible, because there is no copy at all: the same physical frames appear in two address spaces (Node 10). POSIX <code>shm_open</code> plus <code>mmap</code>, or the older System V <code>shmget</code>, or simply <code>mmap</code> of a file with <code>MAP_SHARED</code>. The cost is that it provides <em>no synchronisation whatsoever</em> — you are back in Node 16's territory and must supply your own atomics or locks, and a shared-memory bug is a data race across a process boundary. Postgres's <code>shared_buffers</code> is a shared mapping, and its internal LWLocks are the synchronisation over it.</p>
+
+<p><strong>Message queues</strong> — kernel-held queues of discrete messages with priorities. POSIX (<code>mq_open</code>) or System V (<code>msgget</code>). Preserve message boundaries, which streams do not. Rarely used in modern application code, largely because user-space brokers are more capable.</p>
+
+<p><strong>Semaphores and futexes</strong> (Node 17) — synchronisation rather than data transfer, but shared between processes when placed in shared memory.</p>
+
+<p><strong>Network sockets</strong> — Node 32, and the only one that crosses machines.</p>
+
+<h4>The trade, stated as a decision</h4>
+
+<p>Copies through the kernel cost about the same as a system call plus a memory copy — fine for kilobytes, wasteful for megabytes. Shared memory costs nothing per byte and everything in complexity. Unix sockets are the right default for local IPC because they are as fast as anything that copies, use the same API as networking so code ports trivially, and carry descriptors and credentials. <strong>Reach for shared memory only when profiling proves the copy is the bottleneck</strong>, which is much rarer than people assume.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Node's <code>cluster</code> IPC channel is a Unix socket pair.</strong> <code>child.send(obj)</code> serialises to JSON (or, since Node 8, the richer V8 serialisation for some types), writes to the socket, and the parent's <code>'message'</code> event fires from an ordinary event-loop read. So messaging between cluster workers costs serialisation plus two copies plus two syscalls per message — cheap for coordination and completely wrong for a shared cache. <strong>The listening socket, by contrast, is passed once as a descriptor</strong> using <code>SCM_RIGHTS</code>, which is why every worker can <code>accept</code> on the same port without any of them binding it.</p>
+
+<p><strong><code>worker_threads</code> is not IPC at all</strong>, and the contrast is instructive. Workers are threads in one process (Node 15), so their <code>postMessage</code> is an in-memory structured clone with no kernel involvement — no syscall, no socket, just a copy on the heap. <code>transferList</code> avoids even the copy. And <code>SharedArrayBuffer</code> is shared memory, with <code>Atomics</code> as the synchronisation, which is precisely this node's shared-memory row with all of its hazards.</p>
+
+<p><strong>nginx to your Node app over a Unix socket.</strong> <code>proxy_pass http://unix:/run/app.sock;</code> instead of <code>http://127.0.0.1:3000</code> avoids the entire TCP stack: no three-way handshake, no ephemeral port allocation, no <code>TIME_WAIT</code> accumulation (Node 32), and lower latency. It also means the service is unreachable from the network by construction, with filesystem permissions as the access control. The same applies to Postgres — <code>psql</code> on the same host connects over <code>/var/run/postgresql/.s.PGSQL.5432</code> by default, and switching an application from <code>host=localhost</code> to <code>host=/var/run/postgresql</code> is a real, free latency reduction for a high-query-rate service. It is also why <code>pg_hba.conf</code> distinguishes <code>local</code> from <code>host</code> lines, with <code>peer</code> authentication on the former using <code>SO_PEERCRED</code>.</p>
+
+<p><strong><code>/var/run/docker.sock</code>, restated because it matters.</strong> The Docker daemon listens on a Unix socket and authorises by peer credentials. Mounting it into a container — common for CI runners and for tools that inspect containers — hands that container the ability to create privileged containers, mount the host filesystem, and read every secret on the machine. It is a full host compromise waiting to happen, and the alternatives are a rootless daemon, a socket proxy that whitelists specific API calls, or building images with a daemonless tool such as Kaniko or BuildKit's rootless mode.</p>
+
+<p><strong>Redis as an IPC broker across processes and machines.</strong> Once you have several Node processes — cluster workers, replicas in Kubernetes, serverless instances — nothing in this node works between them, because they may not share a machine. That is the mechanical reason Redis ends up in so many architectures: it is the shared mutable state that separate address spaces (Node 5) cannot have. Rate limiter counters, session stores, cache, pub/sub for websocket fan-out, and BullMQ's queues are all one problem — <em>state that must be visible to processes with separate address spaces</em> — solved by putting it in a process that everyone can reach over a socket. Recognising that unifies half of a typical backend architecture.</p>
+
+<p><strong>What you can do at this point:</strong> list the IPC mechanisms with their trade-offs and choose correctly, explain descriptor passing and why <code>cluster</code> needs it, explain peer credentials and why the Docker socket is dangerous, explain why <code>worker_threads</code> messaging is not IPC, and explain Redis's role in an architecture as a consequence of address-space isolation.</p>
+
+<p><strong>What's still broken:</strong> all of this is local. The moment two processes are on different machines, everything changes — packets are lost, reordered, duplicated and delayed, there is no shared kernel to arbitrate, and the connection abstraction that hides all of it is the most elaborate thing in the operating system.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
   This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
   elaboration.json live alongside it and are fetched at runtime — do not inline
   that data here.
@@ -4681,6 +4829,154 @@ USER nodejs
 <p><strong>What you can do at this point:</strong> explain what a hypervisor is and why x86 was hard to virtualise, name the three historical solutions and what hardware support changed, compare containers and VMs on the axes that matter and say why the usual answer is both, explain what Firecracker and gVisor and Kata are for, explain Docker Desktop's and WSL2's architecture and the performance consequences, and explain a serverless cold start mechanically.</p>
 
 <p><strong>What's still broken:</strong> processes are now isolated in every dimension, which leaves the opposite problem. They need to talk — to each other, to the outside world, and to receive instructions like "shut down cleanly". None of that has been built, and the first piece of it is the reason your container ignores <code>docker stop</code>.</p>
+
+<h3>PART VII — TALKING: SIGNALS, IPC, AND THE NETWORK</h3>
+
+<p>Three nodes. How a process is told something happened, how two processes exchange data, and what the kernel does with a packet between the wire and your socket. By the end, graceful shutdown, <code>EADDRINUSE</code>, <code>ECONNRESET</code>, connection pooling, and a Kubernetes rolling update all have exact mechanical explanations.</p>
+
+<h3>Node 30 — signals, and why your container ignores <code>docker stop</code></h3>
+
+<p><strong>The limitation:</strong> a process is isolated and running, and nothing can tell it that something happened — that a user pressed Ctrl-C, that its child exited, that the system is shutting down.</p>
+
+<h4>What a signal is</h4>
+
+<p>A <strong>signal</strong> is a software interrupt delivered to a process: a small integer, and nothing else. No payload, no arguments, no return value. It is the mechanism from Node 2, applied one level up — asynchronous delivery that interrupts whatever the process was doing.</p>
+
+<p>Delivery works like this. The kernel sets a bit in the target's pending-signal mask in its <code>task_struct</code>. When that process is next about to return to user mode — from a syscall, an interrupt, or a context switch — the kernel checks for pending signals. For each one it either applies the default action, or, if a handler is installed, arranges the stack so that the process resumes <em>inside the handler</em> and returns to where it was afterwards. <strong>So a signal is delivered when the process next runs, not at the instant it is sent</strong>, which is why signalling a stopped or uninterruptibly-sleeping process appears to do nothing (Node 5's <code>D</code> state).</p>
+
+<h4>The ones you need</h4>
+
+<table>
+<tr><th>Signal</th><th>№</th><th>Default</th><th>What it means</th></tr>
+<tr><td><code>SIGHUP</code></td><td>1</td><td>terminate</td><td>The terminal went away. Daemons reuse it as "reload your config".</td></tr>
+<tr><td><code>SIGINT</code></td><td>2</td><td>terminate</td><td>Ctrl-C.</td></tr>
+<tr><td><code>SIGQUIT</code></td><td>3</td><td>terminate + core</td><td>Ctrl-\. In the JVM, dumps all thread stacks.</td></tr>
+<tr><td><code>SIGKILL</code></td><td>9</td><td>terminate</td><td><strong>Cannot be caught, blocked, or ignored.</strong> The kernel destroys the process.</td></tr>
+<tr><td><code>SIGSEGV</code></td><td>11</td><td>terminate + core</td><td>Invalid memory access (Node 3).</td></tr>
+<tr><td><code>SIGPIPE</code></td><td>13</td><td>terminate</td><td>Wrote to a pipe or socket with no reader (Node 22).</td></tr>
+<tr><td><code>SIGTERM</code></td><td>15</td><td>terminate</td><td>Please shut down. The polite request, and the default of <code>kill</code>.</td></tr>
+<tr><td><code>SIGCHLD</code></td><td>17</td><td>ignore</td><td>A child changed state. This is how you know to reap (Node 5).</td></tr>
+<tr><td><code>SIGSTOP</code>/<code>SIGCONT</code></td><td>19/18</td><td>stop/resume</td><td>Ctrl-Z and <code>fg</code>. <code>SIGSTOP</code> also cannot be caught.</td></tr>
+<tr><td><code>SIGUSR1</code>/<code>SIGUSR2</code></td><td>10/12</td><td>terminate</td><td>Reserved for the application to define.</td></tr>
+</table>
+
+<p><strong>The number matters because of exit codes.</strong> A process killed by signal N reports <code>128 + N</code>. 137 is <code>SIGKILL</code>, 143 is <code>SIGTERM</code>, 139 is <code>SIGSEGV</code>, 130 is <code>SIGINT</code>. You can now decode any of them without looking anything up. [EXPLAIN]</p>
+
+<h4>The three restrictions that cause real bugs</h4>
+
+<p><strong>One: <code>SIGKILL</code> and <code>SIGSTOP</code> cannot be handled.</strong> Deliberately — there must be a way to stop a process that refuses to cooperate. So there is no such thing as cleanup on <code>SIGKILL</code>: no flush, no close, no final log line. Every graceful-shutdown design must therefore happen on <code>SIGTERM</code>, and the OOM killer's use of <code>SIGKILL</code> (Node 13) is why an OOM kill gives you nothing.</p>
+
+<p><strong>Two: what a handler may do is severely restricted.</strong> A handler runs at an arbitrary point in the program — possibly in the middle of <code>malloc</code>, holding the allocator's lock. Calling <code>malloc</code> from the handler then deadlocks against the interrupted code. POSIX defines a short list of <em>async-signal-safe</em> functions that may be called; <code>printf</code> and <code>malloc</code> are not on it. The standard technique is the <strong>self-pipe trick</strong>: the handler writes one byte to a pipe and returns, and the main loop reads the pipe as an ordinary event. Linux later added <code>signalfd</code>, which turns signals into a readable descriptor directly. <strong>libuv uses exactly this</strong>, which is why in Node your <code>process.on('SIGTERM')</code> callback is ordinary JavaScript with no restrictions at all — by the time it runs, it is a normal event-loop callback, not a signal handler.</p>
+
+<p><strong>Three: standard signals do not queue.</strong> The pending set is a bitmask, so ten <code>SIGCHLD</code>s arriving while one is blocked result in <em>one</em> pending bit. This is why a <code>SIGCHLD</code> handler must reap in a loop — <code>while (waitpid(-1, &amp;st, WNOHANG) &gt; 0);</code> — rather than reaping once. Real-time signals (<code>SIGRTMIN</code>..<code>SIGRTMAX</code>) do queue and carry a small value, and are rarely used.</p>
+
+<h4>PID 1 is special, and this is the node's payoff</h4>
+
+<p>Two kernel behaviours attach specifically to PID 1 <em>in its PID namespace</em>:</p>
+
+<p><strong>Signals with default actions are not delivered to it.</strong> The kernel refuses, on the grounds that killing init would take down the system. So if PID 1 has <em>not installed a handler</em> for <code>SIGTERM</code>, the signal is silently discarded.</p>
+
+<p><strong>It inherits orphans and is expected to reap them</strong> (Node 5).</p>
+
+<p>Now put that together with Node 28: <strong>your container's entrypoint is PID 1.</strong> Therefore:</p>
+
+<ul>
+<li><code>docker stop</code> sends <code>SIGTERM</code>, waits ten seconds, then sends <code>SIGKILL</code>. A Node process as PID 1 with no <code>SIGTERM</code> handler <em>ignores the first signal entirely</em> and is killed at ten seconds, dropping every in-flight request. The container appears to "take ten seconds to stop", and the cause is not slowness — it is that the polite request was discarded.</li>
+<li>If your entrypoint is a shell (<code>CMD npm start</code>, which runs <code>sh -c "npm start"</code>), the shell is PID 1 and <strong>does not forward signals to its child</strong>. Your Node process never even hears about the shutdown. This is what <code>ENTRYPOINT ["node", "server.js"]</code> — exec form, not shell form — fixes, and it is the most common Dockerfile defect in the wild.</li>
+<li>If your app spawns subprocesses, nothing reaps them, and zombies accumulate. <code>docker run --init</code> inserts <code>tini</code> as PID 1 to forward signals and reap; Kubernetes' <code>shareProcessNamespace</code> makes the pause container do it.</li>
+</ul>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Correct graceful shutdown in Node, with every line justified:</strong></p>
+
+<pre><code>const server = app.listen(3000);
+let shuttingDown = false;
+
+async function shutdown(signal) {
+  if (shuttingDown) return;          // a second Ctrl-C shouldn't re-enter
+  shuttingDown = true;
+
+  // 1. Fail readiness first, so the load balancer stops sending new work
+  //    BEFORE we stop accepting it. Ordering matters — see below.
+  healthy = false;
+  await sleep(5000);                 // let the LB notice (its probe period)
+
+  // 2. Stop accepting new connections; existing ones finish.
+  server.close(() =&gt; console.log('http closed'));
+  server.closeIdleConnections?.();   // Node 18.2+: drop keep-alive idlers
+
+  // 3. Drain the rest: queue workers, then the DB pool.
+  await worker.close();
+  await pool.end();
+
+  // 4. A hard deadline, below the orchestrator's grace period, so we
+  //    always exit on our own terms rather than being SIGKILLed.
+  setTimeout(() =&gt; process.exit(1), 10000).unref();
+}
+
+process.on('SIGTERM', () =&gt; shutdown('SIGTERM'));
+process.on('SIGINT',  () =&gt; shutdown('SIGINT'));
+</code></pre>
+
+<p><strong>The ordering in step 1 is the part people get wrong, and it is a race between two systems.</strong> In Kubernetes, when a pod is deleted, two things happen <em>concurrently</em>: the kubelet sends <code>SIGTERM</code>, and the endpoints controller removes the pod from the Service's endpoint list. The second propagates through kube-proxy or the service mesh on every node, which takes time. <strong>If you stop accepting connections the instant you get <code>SIGTERM</code>, traffic still being routed to you is refused</strong> — visible to users as a burst of 502s during every deploy. Delaying the actual shutdown by a few seconds (or using a <code>preStop</code> hook with a sleep) lets the removal propagate first. This is one of the most common causes of "we get errors during every rolling update", and it is not a bug in Kubernetes; it is a distributed-systems race that your process is expected to absorb.</p>
+
+<p><strong><code>terminationGracePeriodSeconds</code> is the <code>SIGKILL</code> deadline</strong> — 30 seconds by default. Your own hard timeout must be below it, or you never exit cleanly. If your requests can legitimately take longer, raise the grace period rather than hoping.</p>
+
+<p><strong><code>SIGPIPE</code> and <code>EPIPE</code>.</strong> Node ignores <code>SIGPIPE</code> and surfaces the condition as an <code>EPIPE</code> error on the stream instead — which is why a write to a socket the client already closed emits an <code>'error'</code> event, and why an unhandled <code>'error'</code> listener on a stream crashes the process. A client that navigates away mid-response is the common cause, and it is normal traffic rather than a fault.</p>
+
+<p><strong><code>SIGHUP</code> as reload.</strong> nginx, Postgres, and most daemons re-read their configuration on <code>SIGHUP</code> rather than restarting — this is convention, not kernel behaviour, and it is why <code>nginx -s reload</code> keeps connections alive. <code>SIGUSR1</code> and <code>SIGUSR2</code> are similarly conventional: <code>SIGUSR1</code> on a Node process opens the debugger port, which is a genuinely useful way to attach a profiler to a running production process.</p>
+
+<p><strong><code>kill</code> does not mean kill.</strong> The command sends a signal, defaulting to <code>SIGTERM</code>. <code>kill -9</code> is <code>SIGKILL</code>. Reaching for <code>-9</code> first is a habit worth losing: it skips every cleanup path the program has, and if <code>SIGTERM</code> did not work, the reason is worth knowing — usually a missing handler, a shell as PID 1, or a <code>D</code>-state hang that <code>-9</code> will not fix either.</p>
+
+<p><strong>What you can do at this point:</strong> explain what a signal is and how delivery works, name the ones that matter and derive exit codes from them, explain why <code>SIGKILL</code> cannot be handled and what that implies for cleanup, explain handler restrictions and how libuv sidesteps them, explain PID 1's two special behaviours and diagnose the "container ignores <code>docker stop</code>" family of bugs, and write a correct graceful shutdown including the endpoint-removal race.</p>
+
+<p><strong>What's still broken:</strong> a signal carries one integer. Processes need to exchange actual data.</p>
+
+<h3>Node 31 — inter-process communication</h3>
+
+<p><strong>The limitation:</strong> a signal carries one integer, and isolated processes need to exchange data.</p>
+
+<p>Every mechanism below trades the same three things: how fast it is, whether the parties must be related, and whether it works across machines. Knowing the trade is more useful than memorising the list.</p>
+
+<h4>The mechanisms</h4>
+
+<p><strong>Pipes</strong> (Node 22) — a kernel buffer, unidirectional, between related processes. Built-in backpressure. A <strong>named pipe</strong> or FIFO (<code>mkfifo</code>) is the same object given a filesystem name, so unrelated processes can use it. Both copy data through the kernel: one copy in, one copy out.</p>
+
+<p><strong>Unix domain sockets</strong> — the same API as network sockets (<code>socket</code>, <code>bind</code>, <code>listen</code>, <code>accept</code>) with a filesystem path instead of an address, and no networking underneath. Bidirectional, supporting both stream and datagram semantics, and typically two to three times faster than a TCP connection over loopback because the entire protocol stack is skipped. Two abilities make them special:</p>
+
+<ul>
+<li><strong>They can pass file descriptors.</strong> <code>SCM_RIGHTS</code> in a control message transfers an open descriptor to another process, where it lands as a new number in that process's table referring to the same open file description (Node 22). <em>This is how Node's <code>cluster</code> module hands a listening socket to workers</em>, and how systemd socket activation works.</li>
+<li><strong>They can pass verified credentials.</strong> <code>SO_PEERCRED</code> tells you the connecting process's real UID, GID and PID, checked by the kernel and unforgeable. This is how the Docker daemon authorises access via <code>/var/run/docker.sock</code> — which is also why <strong>mounting that socket into a container is equivalent to giving it root on the host</strong>, since anything that can talk to the daemon can start a privileged container.</li>
+</ul>
+
+<p><strong>Shared memory</strong> — the fastest possible, because there is no copy at all: the same physical frames appear in two address spaces (Node 10). POSIX <code>shm_open</code> plus <code>mmap</code>, or the older System V <code>shmget</code>, or simply <code>mmap</code> of a file with <code>MAP_SHARED</code>. The cost is that it provides <em>no synchronisation whatsoever</em> — you are back in Node 16's territory and must supply your own atomics or locks, and a shared-memory bug is a data race across a process boundary. Postgres's <code>shared_buffers</code> is a shared mapping, and its internal LWLocks are the synchronisation over it.</p>
+
+<p><strong>Message queues</strong> — kernel-held queues of discrete messages with priorities. POSIX (<code>mq_open</code>) or System V (<code>msgget</code>). Preserve message boundaries, which streams do not. Rarely used in modern application code, largely because user-space brokers are more capable.</p>
+
+<p><strong>Semaphores and futexes</strong> (Node 17) — synchronisation rather than data transfer, but shared between processes when placed in shared memory.</p>
+
+<p><strong>Network sockets</strong> — Node 32, and the only one that crosses machines.</p>
+
+<h4>The trade, stated as a decision</h4>
+
+<p>Copies through the kernel cost about the same as a system call plus a memory copy — fine for kilobytes, wasteful for megabytes. Shared memory costs nothing per byte and everything in complexity. Unix sockets are the right default for local IPC because they are as fast as anything that copies, use the same API as networking so code ports trivially, and carry descriptors and credentials. <strong>Reach for shared memory only when profiling proves the copy is the bottleneck</strong>, which is much rarer than people assume.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Node's <code>cluster</code> IPC channel is a Unix socket pair.</strong> <code>child.send(obj)</code> serialises to JSON (or, since Node 8, the richer V8 serialisation for some types), writes to the socket, and the parent's <code>'message'</code> event fires from an ordinary event-loop read. So messaging between cluster workers costs serialisation plus two copies plus two syscalls per message — cheap for coordination and completely wrong for a shared cache. <strong>The listening socket, by contrast, is passed once as a descriptor</strong> using <code>SCM_RIGHTS</code>, which is why every worker can <code>accept</code> on the same port without any of them binding it.</p>
+
+<p><strong><code>worker_threads</code> is not IPC at all</strong>, and the contrast is instructive. Workers are threads in one process (Node 15), so their <code>postMessage</code> is an in-memory structured clone with no kernel involvement — no syscall, no socket, just a copy on the heap. <code>transferList</code> avoids even the copy. And <code>SharedArrayBuffer</code> is shared memory, with <code>Atomics</code> as the synchronisation, which is precisely this node's shared-memory row with all of its hazards.</p>
+
+<p><strong>nginx to your Node app over a Unix socket.</strong> <code>proxy_pass http://unix:/run/app.sock;</code> instead of <code>http://127.0.0.1:3000</code> avoids the entire TCP stack: no three-way handshake, no ephemeral port allocation, no <code>TIME_WAIT</code> accumulation (Node 32), and lower latency. It also means the service is unreachable from the network by construction, with filesystem permissions as the access control. The same applies to Postgres — <code>psql</code> on the same host connects over <code>/var/run/postgresql/.s.PGSQL.5432</code> by default, and switching an application from <code>host=localhost</code> to <code>host=/var/run/postgresql</code> is a real, free latency reduction for a high-query-rate service. It is also why <code>pg_hba.conf</code> distinguishes <code>local</code> from <code>host</code> lines, with <code>peer</code> authentication on the former using <code>SO_PEERCRED</code>.</p>
+
+<p><strong><code>/var/run/docker.sock</code>, restated because it matters.</strong> The Docker daemon listens on a Unix socket and authorises by peer credentials. Mounting it into a container — common for CI runners and for tools that inspect containers — hands that container the ability to create privileged containers, mount the host filesystem, and read every secret on the machine. It is a full host compromise waiting to happen, and the alternatives are a rootless daemon, a socket proxy that whitelists specific API calls, or building images with a daemonless tool such as Kaniko or BuildKit's rootless mode.</p>
+
+<p><strong>Redis as an IPC broker across processes and machines.</strong> Once you have several Node processes — cluster workers, replicas in Kubernetes, serverless instances — nothing in this node works between them, because they may not share a machine. That is the mechanical reason Redis ends up in so many architectures: it is the shared mutable state that separate address spaces (Node 5) cannot have. Rate limiter counters, session stores, cache, pub/sub for websocket fan-out, and BullMQ's queues are all one problem — <em>state that must be visible to processes with separate address spaces</em> — solved by putting it in a process that everyone can reach over a socket. Recognising that unifies half of a typical backend architecture.</p>
+
+<p><strong>What you can do at this point:</strong> list the IPC mechanisms with their trade-offs and choose correctly, explain descriptor passing and why <code>cluster</code> needs it, explain peer credentials and why the Docker socket is dangerous, explain why <code>worker_threads</code> messaging is not IPC, and explain Redis's role in an architecture as a consequence of address-space isolation.</p>
+
+<p><strong>What's still broken:</strong> all of this is local. The moment two processes are on different machines, everything changes — packets are lost, reordered, duplicated and delayed, there is no shared kernel to arbitrate, and the connection abstraction that hides all of it is the most elaborate thing in the operating system.</p>
     </div>
   </div>
 

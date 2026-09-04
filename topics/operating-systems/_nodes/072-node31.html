@@ -1,0 +1,44 @@
+<h3>Node 31 — inter-process communication</h3>
+
+<p><strong>The limitation:</strong> a signal carries one integer, and isolated processes need to exchange data.</p>
+
+<p>Every mechanism below trades the same three things: how fast it is, whether the parties must be related, and whether it works across machines. Knowing the trade is more useful than memorising the list.</p>
+
+<h4>The mechanisms</h4>
+
+<p><strong>Pipes</strong> (Node 22) — a kernel buffer, unidirectional, between related processes. Built-in backpressure. A <strong>named pipe</strong> or FIFO (<code>mkfifo</code>) is the same object given a filesystem name, so unrelated processes can use it. Both copy data through the kernel: one copy in, one copy out.</p>
+
+<p><strong>Unix domain sockets</strong> — the same API as network sockets (<code>socket</code>, <code>bind</code>, <code>listen</code>, <code>accept</code>) with a filesystem path instead of an address, and no networking underneath. Bidirectional, supporting both stream and datagram semantics, and typically two to three times faster than a TCP connection over loopback because the entire protocol stack is skipped. Two abilities make them special:</p>
+
+<ul>
+<li><strong>They can pass file descriptors.</strong> <code>SCM_RIGHTS</code> in a control message transfers an open descriptor to another process, where it lands as a new number in that process's table referring to the same open file description (Node 22). <em>This is how Node's <code>cluster</code> module hands a listening socket to workers</em>, and how systemd socket activation works.</li>
+<li><strong>They can pass verified credentials.</strong> <code>SO_PEERCRED</code> tells you the connecting process's real UID, GID and PID, checked by the kernel and unforgeable. This is how the Docker daemon authorises access via <code>/var/run/docker.sock</code> — which is also why <strong>mounting that socket into a container is equivalent to giving it root on the host</strong>, since anything that can talk to the daemon can start a privileged container.</li>
+</ul>
+
+<p><strong>Shared memory</strong> — the fastest possible, because there is no copy at all: the same physical frames appear in two address spaces (Node 10). POSIX <code>shm_open</code> plus <code>mmap</code>, or the older System V <code>shmget</code>, or simply <code>mmap</code> of a file with <code>MAP_SHARED</code>. The cost is that it provides <em>no synchronisation whatsoever</em> — you are back in Node 16's territory and must supply your own atomics or locks, and a shared-memory bug is a data race across a process boundary. Postgres's <code>shared_buffers</code> is a shared mapping, and its internal LWLocks are the synchronisation over it.</p>
+
+<p><strong>Message queues</strong> — kernel-held queues of discrete messages with priorities. POSIX (<code>mq_open</code>) or System V (<code>msgget</code>). Preserve message boundaries, which streams do not. Rarely used in modern application code, largely because user-space brokers are more capable.</p>
+
+<p><strong>Semaphores and futexes</strong> (Node 17) — synchronisation rather than data transfer, but shared between processes when placed in shared memory.</p>
+
+<p><strong>Network sockets</strong> — Node 32, and the only one that crosses machines.</p>
+
+<h4>The trade, stated as a decision</h4>
+
+<p>Copies through the kernel cost about the same as a system call plus a memory copy — fine for kilobytes, wasteful for megabytes. Shared memory costs nothing per byte and everything in complexity. Unix sockets are the right default for local IPC because they are as fast as anything that copies, use the same API as networking so code ports trivially, and carry descriptors and credentials. <strong>Reach for shared memory only when profiling proves the copy is the bottleneck</strong>, which is much rarer than people assume.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Node's <code>cluster</code> IPC channel is a Unix socket pair.</strong> <code>child.send(obj)</code> serialises to JSON (or, since Node 8, the richer V8 serialisation for some types), writes to the socket, and the parent's <code>'message'</code> event fires from an ordinary event-loop read. So messaging between cluster workers costs serialisation plus two copies plus two syscalls per message — cheap for coordination and completely wrong for a shared cache. <strong>The listening socket, by contrast, is passed once as a descriptor</strong> using <code>SCM_RIGHTS</code>, which is why every worker can <code>accept</code> on the same port without any of them binding it.</p>
+
+<p><strong><code>worker_threads</code> is not IPC at all</strong>, and the contrast is instructive. Workers are threads in one process (Node 15), so their <code>postMessage</code> is an in-memory structured clone with no kernel involvement — no syscall, no socket, just a copy on the heap. <code>transferList</code> avoids even the copy. And <code>SharedArrayBuffer</code> is shared memory, with <code>Atomics</code> as the synchronisation, which is precisely this node's shared-memory row with all of its hazards.</p>
+
+<p><strong>nginx to your Node app over a Unix socket.</strong> <code>proxy_pass http://unix:/run/app.sock;</code> instead of <code>http://127.0.0.1:3000</code> avoids the entire TCP stack: no three-way handshake, no ephemeral port allocation, no <code>TIME_WAIT</code> accumulation (Node 32), and lower latency. It also means the service is unreachable from the network by construction, with filesystem permissions as the access control. The same applies to Postgres — <code>psql</code> on the same host connects over <code>/var/run/postgresql/.s.PGSQL.5432</code> by default, and switching an application from <code>host=localhost</code> to <code>host=/var/run/postgresql</code> is a real, free latency reduction for a high-query-rate service. It is also why <code>pg_hba.conf</code> distinguishes <code>local</code> from <code>host</code> lines, with <code>peer</code> authentication on the former using <code>SO_PEERCRED</code>.</p>
+
+<p><strong><code>/var/run/docker.sock</code>, restated because it matters.</strong> The Docker daemon listens on a Unix socket and authorises by peer credentials. Mounting it into a container — common for CI runners and for tools that inspect containers — hands that container the ability to create privileged containers, mount the host filesystem, and read every secret on the machine. It is a full host compromise waiting to happen, and the alternatives are a rootless daemon, a socket proxy that whitelists specific API calls, or building images with a daemonless tool such as Kaniko or BuildKit's rootless mode.</p>
+
+<p><strong>Redis as an IPC broker across processes and machines.</strong> Once you have several Node processes — cluster workers, replicas in Kubernetes, serverless instances — nothing in this node works between them, because they may not share a machine. That is the mechanical reason Redis ends up in so many architectures: it is the shared mutable state that separate address spaces (Node 5) cannot have. Rate limiter counters, session stores, cache, pub/sub for websocket fan-out, and BullMQ's queues are all one problem — <em>state that must be visible to processes with separate address spaces</em> — solved by putting it in a process that everyone can reach over a socket. Recognising that unifies half of a typical backend architecture.</p>
+
+<p><strong>What you can do at this point:</strong> list the IPC mechanisms with their trade-offs and choose correctly, explain descriptor passing and why <code>cluster</code> needs it, explain peer credentials and why the Docker socket is dangerous, explain why <code>worker_threads</code> messaging is not IPC, and explain Redis's role in an architecture as a consequence of address-space isolation.</p>
+
+<p><strong>What's still broken:</strong> all of this is local. The moment two processes are on different machines, everything changes — packets are lost, reordered, duplicated and delayed, there is no shared kernel to arbitrate, and the connection abstraction that hides all of it is the most elaborate thing in the operating system.</p>

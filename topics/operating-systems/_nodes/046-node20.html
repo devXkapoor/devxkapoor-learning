@@ -1,0 +1,128 @@
+<h3>Node 20 — the event loop, completely</h3>
+
+<p><strong>The limitation:</strong> <code>epoll_wait</code> reports ready descriptors. Nothing decides what runs, in what order, or how timers and threadpool completions and promise callbacks interleave with it.</p>
+
+<p>The event loop is a <strong>scheduler in user space</strong>. Everything from Node 7 applies to it, with one decisive difference: it has no timer interrupt and no privileged mode, so it is <em>cooperative</em>. It regains control only when a callback returns. Hold that as the frame for this entire node.</p>
+
+<h4>The loop, at its simplest</h4>
+
+<pre><code>while (there is still work to do) {
+    timeout = time until the nearest timer expires
+    ready   = epoll_wait(epfd, events, max, timeout)
+    for (each ready descriptor) run its callback
+    run any timers that are now due
+    run any completions posted by threadpool threads
+}
+</code></pre>
+
+<p>That is genuinely it. Everything below is the elaboration libuv adds so that the ordering is well-defined.</p>
+
+<h4>libuv's phases, in order</h4>
+
+<p>One iteration of the loop — a <strong>tick</strong> — passes through these phases in this fixed order. Each phase has its own queue and drains it fully (subject to a limit, so one phase cannot starve the rest) before moving on.</p>
+
+<ol>
+<li><strong>timers</strong> — callbacks whose <code>setTimeout</code> or <code>setInterval</code> deadline has passed. Note it runs <em>first</em>, which is why a timer scheduled during the poll phase does not fire until the next iteration.</li>
+<li><strong>pending callbacks</strong> — a small set of system operations deferred from the previous iteration, chiefly certain TCP errors like <code>ECONNREFUSED</code>.</li>
+<li><strong>idle, prepare</strong> — internal to libuv. Nothing you write lands here.</li>
+<li><strong>poll</strong> — the heart. Compute a timeout, call <code>epoll_wait</code>, and run the I/O callbacks for whatever is ready. <em>This is the only phase that ever blocks.</em></li>
+<li><strong>check</strong> — <code>setImmediate</code> callbacks. This phase exists precisely so that there is a way to say "after the current poll phase, before any timers".</li>
+<li><strong>close callbacks</strong> — <code>'close'</code> events, e.g. <code>socket.on('close')</code>.</li>
+</ol>
+
+<p><strong>The poll timeout is the whole trick, and it is worth stating exactly:</strong></p>
+
+<ul>
+<li>If there are <code>setImmediate</code> callbacks pending, the timeout is <strong>0</strong> — poll must not block, because there is work waiting in the check phase.</li>
+<li>Otherwise, if there are timers pending, the timeout is <strong>the time until the nearest one</strong>. This is how <code>setTimeout</code> is implemented: there is no timer syscall and no timer thread, just an argument to <code>epoll_wait</code>. [EXPLAIN]</li>
+<li>Otherwise, the timeout is <strong>infinite</strong> — block until something happens. This is why an idle Node process consumes exactly zero CPU, and why it is a single blocked <code>epoll_wait</code> in <code>strace</code>.</li>
+<li>If there is nothing at all pending — no handles, no requests, no timers — the loop exits and the process ends. <strong>This is why Node exits on its own and why a forgotten <code>setInterval</code> or an unclosed server keeps it alive forever.</strong> There is no "main is finished" concept; there is only "no work remains".</li>
+</ul>
+
+<h4>The two queues that are not phases</h4>
+
+<p>This is where most confusion lives, and the rule is simple once stated properly.</p>
+
+<p><strong><code>process.nextTick</code></strong> and <strong>the microtask queue</strong> (promise reactions, <code>queueMicrotask</code>, <code>async</code> function resumptions) are <em>not</em> phases. They are drained <strong>after every single callback, and between every phase transition</strong>, and they are drained <em>completely</em> — including anything added while draining.</p>
+
+<p>The priority is: <code>nextTick</code> queue first, entirely; then the microtask queue, entirely; then continue.</p>
+
+<p>Three consequences, all of which appear in interviews and in real bugs:</p>
+
+<p><strong>Starvation is possible.</strong> A <code>process.nextTick</code> that schedules another <code>process.nextTick</code> loops forever without the loop ever advancing. No I/O is served, no timer fires, the process appears hung at 100% CPU. The same is true of a promise chain that recursively resolves. <code>setImmediate</code> cannot do this, because it lands in the check phase of the <em>next</em> iteration — which is exactly the difference between the two and the reason to prefer <code>setImmediate</code> for yielding.</p>
+
+<p><strong><code>await</code> is a microtask, not a phase.</strong> An <code>async</code> function is a state machine: it runs synchronously until the first <code>await</code>, then returns a promise and suspends. When the awaited promise settles, the continuation is queued as a <em>microtask</em>. So the code after an <code>await</code> runs before any timer and before any I/O callback — <code>await</code> is a very cheap yield, not a trip through the loop. Also worth knowing: <code>await</code> on a non-promise value still yields, still costs a microtask turn, and <code>return await p</code> inside a <code>try</code> differs from <code>return p</code> because the former keeps the frame alive to catch a rejection.</p>
+
+<p><strong>The classic non-determinism.</strong> At the top level of a module, <code>setTimeout(f, 0)</code> versus <code>setImmediate(g)</code> have <em>no guaranteed order</em>. The timer is clamped to 1 ms; whether that millisecond has elapsed by the time the loop first reaches the timers phase depends on how long process startup took, so the answer varies between runs on the same machine. Inside an I/O callback the order <em>is</em> guaranteed: <code>setImmediate</code> always runs first, because the loop is in the poll phase and check comes immediately after, while timers are a full iteration away. Being able to explain <em>why</em> it is nondeterministic in one place and deterministic in the other is the actual test of understanding the phases.</p>
+
+<pre><code>console.log('1: sync');
+setTimeout(()  =&gt; console.log('5: timers phase'), 0);
+setImmediate(() =&gt; console.log('6: check phase'));
+process.nextTick(() =&gt; console.log('3: nextTick queue'));
+Promise.resolve().then(() =&gt; console.log('4: microtask queue'));
+console.log('2: sync');
+// 1, 2 → then nextTick → then microtasks → then the loop starts.
+// 5 and 6 may swap; everything before them will not.
+</code></pre>
+
+<h4>The browser's event loop: the same idea, one more responsibility</h4>
+
+<p>The browser runs the same model with an extra job — it must paint — and that changes the structure in ways that matter for every React application.</p>
+
+<p>Per iteration the browser: takes <strong>one</strong> task from a task queue (a click handler, a <code>setTimeout</code>, a parsed network response) and runs it to completion; then performs a <strong>microtask checkpoint</strong>, draining that queue entirely; then, <em>if it is time to render</em> (typically capped at the display's refresh rate, 60 Hz meaning roughly every 16.7 ms), it runs the rendering steps.</p>
+
+<p>The rendering steps, in order: run <code>requestAnimationFrame</code> callbacks; recalculate style; do layout; update the compositing tree; paint. Then, if there is time left before the next frame, run <code>requestIdleCallback</code> callbacks.</p>
+
+<p>Everything about frontend performance follows from that ordering:</p>
+
+<ul>
+<li><strong>One task per iteration, microtasks drained fully.</strong> So a long task blocks rendering entirely — this is precisely what Interaction to Next Paint measures, and why the guidance is to break work into chunks under 50 ms. And an infinite microtask chain freezes the page harder than an infinite task loop, because rendering never gets a turn at all.</li>
+<li><strong><code>requestAnimationFrame</code> runs immediately before style and layout</strong>, which is why it is the correct place to make visual changes: they are applied in the same frame, with no intermediate paint. <code>setTimeout(f, 16)</code> is not equivalent — it lands in a task queue with no relationship to the frame boundary, so it produces jitter and dropped frames.</li>
+<li><strong>Layout thrashing</strong> is this ordering violated. Reading a geometric property (<code>offsetHeight</code>, <code>getBoundingClientRect</code>, <code>scrollTop</code>) forces the browser to flush pending style and layout <em>right now</em> to give a correct answer. Alternating writes and reads in a loop forces a full layout per iteration — a hundred elements becomes a hundred layouts. Batching all reads and then all writes turns it into one. This is the single most common cause of janky scroll handlers, and <code>requestAnimationFrame</code> plus batching is the standard fix.</li>
+<li><strong><code>requestIdleCallback</code> is <code>SCHED_IDLE</code></strong> from Node 7, for the main thread — and its deadline argument is the browser telling you how much of the frame remains.</li>
+</ul>
+
+<p><strong>React's scheduler sits on top of all of this</strong>, as Node 7 described: it slices rendering into units, yields roughly every 5 ms so the browser can take input and paint, and assigns lanes by priority. It uses a <code>MessageChannel</code> rather than <code>setTimeout</code> to schedule its continuations, specifically to avoid the 4 ms clamp from Node 8. Concurrent React is a cooperative scheduler running inside a cooperative scheduler running inside a preemptive one, and every layer of that stack is a node in this document.</p>
+
+<h4>Measuring it, and the only metric that matters</h4>
+
+<p><strong>Event loop delay</strong> is the time between when a callback was due and when it actually ran. Non-zero delay means the loop was busy; large delay means something blocked it. Node exposes it properly through <code>perf_hooks</code>:</p>
+
+<pre><code>const { monitorEventLoopDelay, performance } = require('node:perf_hooks');
+const h = monitorEventLoopDelay({ resolution: 10 });
+h.enable();
+setInterval(() =&gt; {
+  console.log('p50', h.percentile(50) / 1e6, 'p99', h.percentile(99) / 1e6);
+  console.log('ELU', performance.eventLoopUtilization().utilization);
+  h.reset();
+}, 5000);
+</code></pre>
+
+<p><strong>Export both of these from every Node service.</strong> [USE] The delay histogram tells you whether the loop is being blocked and by how much; <em>event loop utilisation</em> — the fraction of time the loop spent working rather than waiting in <code>epoll_wait</code> — tells you how close to saturated the process is, and is the right signal for autoscaling and for load-shedding decisions, far better than CPU percentage. A p99 delay of 200 ms with 40% CPU is a completely legible diagnosis: something synchronous and slow, not enough work overall.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>One request, through every layer built so far.</strong> Reading this once, slowly, with the node references, is the point of Part IV:</p>
+
+<ol>
+<li>A packet arrives. NIC writes it to memory by DMA and raises an interrupt (<strong>Node 2</strong>).</li>
+<li>The driver's handler schedules a softirq; the softirq walks the packet up through IP and TCP and appends the payload to a socket's receive buffer (<strong>Node 32</strong>).</li>
+<li>That socket's wait-queue callback fires and pushes its descriptor onto the epoll ready list (<strong>Node 19</strong>).</li>
+<li>Your process, sleeping in <code>epoll_wait</code> with the scheduler having given the core to someone else (<strong>Nodes 5, 7</strong>), is marked runnable. The scheduler picks it. A context switch restores its registers and page table (<strong>Nodes 6, 10</strong>).</li>
+<li><code>epoll_wait</code> returns with the ready list. The loop is in its poll phase.</li>
+<li>libuv maps the descriptor to a handle and invokes its callback, which issues <code>read</code> (<strong>Node 4</strong>) and copies bytes from the kernel's socket buffer into a <code>Buffer</code> — memory outside the V8 heap (<strong>Node 11</strong>).</li>
+<li>Node's HTTP parser consumes the bytes. On a complete request, it calls into V8 to invoke your handler — JIT-compiled machine code (<strong>Node 0</strong>) executing on the main thread.</li>
+<li>Your handler <code>await</code>s a database query. The function suspends; a promise is returned; the query is written to a socket; <strong>the loop moves on and serves other connections.</strong> The whole architecture pays off exactly here.</li>
+<li>The database replies. Steps 1–5 again. The promise resolves, queueing a microtask; the microtask resumes your function's state machine.</li>
+<li>You call <code>res.json(...)</code>. Node writes to the socket; if the send buffer is full, <code>write</code> returns short and libuv registers for writability (<strong>Node 19</strong>).</li>
+<li>Objects allocated during the request die; V8's scavenger reclaims them in under a millisecond (<strong>Node 11</strong>).</li>
+<li>The loop returns to <code>epoll_wait</code>. If nothing is pending, the process sleeps at zero CPU.</li>
+</ol>
+
+<p><strong>The complete list of things that block the loop</strong>, since every one of them is now derivable: any <code>*Sync</code> call; <code>JSON.parse</code> or <code>JSON.stringify</code> on a large object; a synchronous crypto or compression call; a regular expression with catastrophic backtracking (ReDoS — a real denial-of-service vector, and the reason <code>safe-regex</code> and RE2 exist); a large synchronous loop over an array; a deep <code>structuredClone</code>; template rendering of a large page; and — easily missed — a very large number of pending microtasks, since they drain fully before the loop advances. Each blocks <em>every</em> connection in the process, because there is one thread and it is not preemptible (<strong>Node 7</strong>).</p>
+
+<p><strong>And the fixes, matched to the cause:</strong> chunk the work with <code>setImmediate</code> to yield between chunks; move it to a worker thread if it is CPU-bound (<strong>Node 15</strong>); move it to a separate process or a queue if it is heavy or slow; stream instead of buffering; or push it into the database, where it belongs, if it is really a data operation. Reaching for <code>UV_THREADPOOL_SIZE</code> does nothing for main-thread blocking, and knowing why is the difference between guessing and diagnosing.</p>
+
+<p><strong>What you can do at this point:</strong> name libuv's phases in order and explain what happens in each, derive the poll timeout, explain exactly why Node exits when it does, place <code>nextTick</code>, microtasks, <code>await</code>, <code>setTimeout</code> and <code>setImmediate</code> against each other and predict any ordering question, explain the browser loop's rendering steps and layout thrashing, instrument event loop delay and utilisation, and trace one request through every mechanism in Parts I to IV.</p>
+
+<p><strong>What's still broken:</strong> everything in Part IV assumed descriptors already existed — sockets and files handed over ready-made. Nothing has said what a file <em>is</em>, why the same small integer refers to a file, a socket, a pipe and a terminal, what happens to bytes after <code>write</code> returns, or why a database's <code>fsync</code> is the slowest thing it does.</p>

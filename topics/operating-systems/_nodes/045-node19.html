@@ -1,0 +1,81 @@
+<h3>Node 19 — readiness: select, poll, epoll, and why files are different</h3>
+
+<p><strong>The limitation:</strong> the architecture requires one thread waiting on many connections, and no system call can wait on more than one descriptor.</p>
+
+<h4>First: non-blocking mode</h4>
+
+<p>Before there can be a "wait on many" call there must be a way to <em>not</em> wait. Setting <code>O_NONBLOCK</code> on a descriptor changes its semantics: <code>read</code> on an empty socket returns immediately with −1 and <code>errno = EAGAIN</code> (identically <code>EWOULDBLOCK</code>) instead of sleeping.</p>
+
+<p>That alone is not a solution. A loop over ten thousand non-blocking descriptors, calling <code>read</code> on each, makes ten thousand system calls per pass and almost all of them return <code>EAGAIN</code>. At 50–100 nanoseconds each (Node 4), one pass costs a millisecond of pure overhead and finds, typically, nothing. This is polling, and Node 2 already established when polling loses.</p>
+
+<p>So the requirement is precise: <strong>one call that takes a set of descriptors and returns when at least one is ready, or a timeout elapses.</strong> That call is where the entire event loop comes from.</p>
+
+<h4>select (1983) — the first attempt</h4>
+
+<p>From 4.2BSD. You pass three bitmaps — descriptors to watch for readability, writability, and errors — plus a timeout. It blocks until something is ready, then <em>modifies your bitmaps in place</em> to indicate which.</p>
+
+<p>Three problems, all structural:</p>
+
+<ul>
+<li><strong><code>FD_SETSIZE</code> is 1024</strong>, compiled into the bitmap type. Not a tunable — a hard ceiling. Ten thousand connections is not expressible.</li>
+<li><strong>You rebuild and re-pass the entire set on every call</strong>, because the call destroys it. The kernel then copies it in and scans all of it. O(n) per call in both directions, every iteration, forever.</li>
+<li><strong>The return tells you how many are ready, not which.</strong> You scan all n to find them. Another O(n).</li>
+</ul>
+
+<p>At 10,000 descriptors with 10 ready, every loop iteration copies and scans 10,000 entries twice to find 10. <strong>The cost is proportional to the number of connections you have, not to the number of events that happened</strong> — which is the exact wrong scaling property, since real servers hold many mostly-idle connections. That sentence is the whole node.</p>
+
+<h4>poll (1986) — one problem fixed, two left</h4>
+
+<p>System V's version takes an array of <code>struct pollfd</code> instead of bitmaps, each holding a descriptor, the events wanted, and a field the kernel fills in with events that occurred. The array is not destroyed, so it need not be rebuilt, and there is no fixed limit.</p>
+
+<p>But the array is still passed in full on every call, still copied into the kernel, still scanned entirely, and still scanned by you on return. The O(n) per call remains, which means <code>poll</code> was an ergonomic improvement rather than an architectural one. It is still the right choice for small descriptor counts and it is what libuv uses on platforms lacking anything better.</p>
+
+<h4>epoll (2002) — the fix, and why it is a fix</h4>
+
+<p>Linux 2.5.44, by Davide Libenzi. The insight is that the watch set changes rarely and is queried constantly, so it should live <em>in the kernel</em> rather than being re-uploaded every iteration. Three calls instead of one:</p>
+
+<ul>
+<li><code>epoll_create1()</code> — create a kernel-side set, returning a descriptor that refers to it.</li>
+<li><code>epoll_ctl(epfd, ADD|MOD|DEL, fd, events)</code> — register interest in one descriptor. Called once per connection, not once per loop.</li>
+<li><code>epoll_wait(epfd, events, maxevents, timeout)</code> — block until something is ready, and return <strong>only the ready ones</strong>.</li>
+</ul>
+
+<p>The mechanism inside is what makes it O(1). When you register a descriptor, the kernel attaches a callback to that socket's wait queue — the same wait queue from Node 18 step 4. When data arrives and the network softirq (Node 2) appends it to the socket buffer, that callback runs and <strong>pushes the descriptor onto the epoll instance's ready list</strong>. So the ready list is maintained continuously by the events themselves. <code>epoll_wait</code> does not scan anything; it hands back the list.</p>
+
+<p><strong>The cost becomes proportional to the number of events, not the number of connections.</strong> [EXPLAIN] A hundred thousand idle connections cost nothing to wait on. That property — and only that property — is what makes a modern server possible, and it is the correct answer when an interviewer asks what makes epoll better than select.</p>
+
+<p><strong>Level-triggered versus edge-triggered</strong> is the one real subtlety. Level-triggered (the default) reports a descriptor as ready as long as data <em>remains</em> unread — so a partial read is safe, and the next <code>epoll_wait</code> reports it again. Edge-triggered (<code>EPOLLET</code>) reports only on a <em>transition</em> from not-ready to ready, so if you do not drain the socket completely you will never be told about the remainder and the connection hangs silently. Edge-triggered requires reading in a loop until <code>EAGAIN</code>, and it is faster because it avoids repeated notifications. libuv uses level-triggered, which is the safer choice; nginx uses edge-triggered.</p>
+
+<p>Every platform has its own version — <strong>kqueue</strong> on BSD and macOS (Jonathan Lemon, FreeBSD 4.1, 2000, and in some respects a better design than epoll since it handles timers, signals and file events through one interface), <strong>IOCP</strong> on Windows (a completion-based rather than readiness-based model), and <code>event ports</code> on Solaris. <strong>libuv exists to hide these four behind one interface</strong>, which is most of its reason to exist and why "Node is built on libuv" is a meaningful statement rather than trivia.</p>
+
+<h4>The crucial exception: regular files</h4>
+
+<p>Here is the fact that explains the strangest thing about Node's architecture, and it is routinely omitted.</p>
+
+<p><strong>A regular file is always "ready".</strong> [EXPLAIN] Readiness notification answers "will this operation block?", and for a socket that is a meaningful question — the data either has arrived or has not. For a file on disk, the answer is always yes, you can read it; the question is <em>how long the read will take</em>, which readiness cannot express. <code>epoll</code> flatly refuses regular files: adding one returns <code>EPERM</code>.</p>
+
+<p>Nor is <code>O_NONBLOCK</code> any help — on a regular file it is simply ignored. A <code>read</code> that must fetch from the disk will block for however long the disk takes, and there is no interface in the readiness model that avoids it.</p>
+
+<p>So a single-threaded event loop <em>cannot</em> do file I/O without blocking. There are only three possible responses:</p>
+
+<ol>
+<li><strong>Use threads.</strong> Hand the blocking call to a pool thread and post the result back to the loop. This is what libuv does, and it is the entire reason <code>UV_THREADPOOL_SIZE</code> exists.</li>
+<li><strong>Use a genuine asynchronous file interface.</strong> Linux's <code>aio</code> (POSIX AIO) has existed for years and is widely regarded as broken — it silently falls back to blocking in many configurations and only works with <code>O_DIRECT</code>.</li>
+<li><strong><code>io_uring</code></strong> (Jens Axboe, Linux 5.1, May 2019), which is a <em>completion</em>-based interface built on two shared-memory ring buffers between user space and the kernel: you write submission entries into one ring and read completions from the other, with zero or one system calls for thousands of operations. It works properly for files, sockets, and much else, and it is the first genuinely good asynchronous I/O interface Linux has had. libuv has used it for some file operations since 1.45 (2023), gated on kernel version.</li>
+</ol>
+
+<p>The mixed model — sockets on epoll, files on threads — is therefore not an inconsistency in Node's design. It is a direct consequence of the kernel interfaces available. Knowing this makes several Node behaviours predictable rather than mysterious.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>An idle Node server is one thread in <code>epoll_wait</code>, and you can see it.</strong> <code>strace -p $(pgrep -n node)</code> on an idle server prints one line: a blocked <code>epoll_wait</code>. That is the entire runtime at rest. Under load, it becomes <code>epoll_wait</code> returning, a burst of <code>read</code>/<code>write</code>/<code>futex</code>, and back. Watching that once makes the event loop concrete in a way no diagram does. [USE]</p>
+
+<p><strong>Threadpool saturation is a specific, diagnosable failure and it comes straight from the exception above.</strong> Four threads by default. If four file reads are in flight, the fifth queues. Crucially, <code>dns.lookup</code> also uses the pool — because <code>getaddrinfo</code> is a blocking library call — and so do <code>crypto.pbkdf2</code>, <code>scrypt</code>, <code>randomBytes</code> for large sizes, and <code>zlib</code>. <strong>So a slow DNS server can stall your file reads</strong>, which is a genuinely surprising coupling until you know the pool is shared. Symptoms: rising latency on file or DNS operations while the main thread is idle and CPU is low. Fixes: raise <code>UV_THREADPOOL_SIZE</code> (bounded by cores for CPU-bound work, per Node 6), use <code>dns.resolve</code> instead of <code>dns.lookup</code> where possible since it uses sockets and epoll, and move heavy crypto and compression to worker threads or out of the process.</p>
+
+<p><strong>The <code>ulimit -n</code> ceiling.</strong> Each connection is a descriptor and each process has a limit — often 1024 by default, which is a fossil of <code>select</code>'s <code>FD_SETSIZE</code>. Hitting it produces <code>EMFILE: too many open files</code>, and it is one of the classic production failures, usually caused by descriptors leaking rather than by real concurrency: HTTP responses never consumed, streams never closed, connections without keep-alive timeouts. Diagnose with <code>ls /proc/&lt;pid&gt;/fd | wc -l</code> and <code>lsof -p</code>. Raise with <code>ulimit -n</code>, <code>LimitNOFILE=</code> in a systemd unit, or a container's ulimit settings — but always check for a leak first, because a leak will exhaust any limit.</p>
+
+<p><strong>Backpressure is <code>epoll</code>'s write side, and it is why streams have the API they do.</strong> A socket's send buffer is finite. When it is full, a non-blocking <code>write</code> returns <code>EAGAIN</code> having written fewer bytes than asked, and the correct response is to register for <code>EPOLLOUT</code> and resume when the socket becomes writable. libuv does that for you, and Node surfaces it as <code>stream.write()</code> returning <code>false</code> and later emitting <code>'drain'</code>. <strong>Ignoring that return value means Node buffers the unwritten data in your heap, without limit</strong> — which is how a service streaming a large file to a slow client runs out of memory. <code>pipeline()</code> and <code>pipe()</code> handle it correctly, which is the actual reason to prefer them over manual <code>write</code> loops.</p>
+
+<p><strong>What you can do at this point:</strong> explain the progression select → poll → epoll in terms of what scales with what, explain edge versus level triggering, explain <em>why</em> regular files cannot be polled and what that forces on Node's architecture, diagnose threadpool saturation and descriptor exhaustion, and explain backpressure as the write side of readiness.</p>
+
+<p><strong>What's still broken:</strong> there is now one call that reports many ready descriptors. That is a mechanism, not a program. Something has to loop on it, decide the order in which the resulting work runs, interleave timers and completed threadpool tasks and promise callbacks, and decide what happens when a callback schedules more work. That something is a scheduler, in user space, and it is the last node of this part.</p>

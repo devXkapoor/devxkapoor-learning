@@ -1,0 +1,101 @@
+<h3>Node 37 — init, systemd, and what a "service" is</h3>
+
+<p><strong>The limitation:</strong> PID 1 is running and the machine has exactly one process. Something must start every service, in the right order, and keep it running.</p>
+
+<h4>What PID 1 has to do</h4>
+
+<p>Four jobs, and every one of them recurs in your orchestration tooling:</p>
+
+<ol>
+<li><strong>Start services</strong>, respecting dependencies — the network before anything that binds a port, the database before the application.</li>
+<li><strong>Supervise them</strong> — notice when one dies and decide whether to restart it, with a backoff so a crash loop does not consume the machine.</li>
+<li><strong>Reap orphans</strong> (Node 5). PID 1 inherits every process whose parent died and must collect their exit statuses or the PID space leaks.</li>
+<li><strong>Shut down cleanly</strong> — signal everything, in dependency order, with a deadline (Node 30).</li>
+</ol>
+
+<h4>SysV init, and why it was replaced</h4>
+
+<p>The traditional design: <code>/etc/inittab</code> named a <em>runlevel</em> (a number: 3 for multi-user text, 5 for graphical, 0 halt, 6 reboot), and each runlevel had a directory of shell scripts run in filename order — <code>S10network</code>, <code>S20ssh</code>, <code>S99myapp</code>. Each script accepted <code>start</code>, <code>stop</code>, <code>restart</code> and <code>status</code>.</p>
+
+<p>Its problems were structural rather than cosmetic:</p>
+
+<ul>
+<li><strong>Strictly sequential.</strong> Ordering was expressed by numbering, so nothing could start in parallel even when independent. Boot took as long as the sum of every service.</li>
+<li><strong>No real dependency model.</strong> Numbers encode order, not requirement. If a service needed the network, the best you could do was pick a higher number and hope.</li>
+<li><strong>No supervision.</strong> Once a script forked a daemon and exited, init had no relationship with it. A crashed service stayed dead. Every project therefore invented its own supervisor — <code>daemontools</code>, <code>runit</code>, <code>supervisord</code>, <code>monit</code>, and in the Node world <code>forever</code> and <code>pm2</code>.</li>
+<li><strong>Tracking processes was guesswork.</strong> A "daemonised" process double-forks to detach from its parent, so init loses track of it entirely. Scripts wrote PID files, which go stale, which is why <code>service foo status</code> so often lied.</li>
+</ul>
+
+<h4>systemd</h4>
+
+<p>Written by Lennart Poettering and Kay Sievers at Red Hat, first released in 2010 and adopted by essentially every major distribution between 2012 and 2015 — over sustained and often bitter objection, on the grounds that it was doing far more than an init system should. Whatever one's view of that argument, it is what runs on the servers you deploy to, and its design decisions are worth understanding because they solve the four problems above directly.</p>
+
+<p><strong>Units, declared not scripted.</strong> A unit file is configuration rather than code. Types include <code>.service</code> (a process), <code>.socket</code>, <code>.timer</code> (a cron replacement), <code>.mount</code>, <code>.target</code> (a grouping, replacing runlevels), and <code>.path</code>.</p>
+
+<p><strong>Real dependencies, and ordering separated from requirement.</strong> <code>Requires=</code> states that another unit must be active; <code>After=</code> states ordering. These are <em>independent</em>, which is the key improvement — you can require without ordering and order without requiring — and it means everything not explicitly ordered can start in parallel. Boot times fell substantially.</p>
+
+<p><strong>Supervision by cgroup.</strong> systemd puts each service in its own cgroup (Node 27), so it knows every process belonging to that service regardless of forking or daemonising. No PID files, no guessing, and <code>systemctl stop</code> can reliably kill the whole tree. This also means resource limits are available to any service: <code>MemoryMax=</code>, <code>CPUQuota=</code>, <code>TasksMax=</code>.</p>
+
+<p><strong>Socket activation.</strong> systemd can create the listening socket itself and pass the descriptor to the service when a connection arrives (Nodes 22, 31). Two consequences: services can start on demand, and dependency ordering becomes less important, because a client connecting to a not-yet-started service simply waits in the accept queue (Node 32) rather than being refused.</p>
+
+<p><strong>Journald.</strong> Logs are captured from the service's stdout and stderr — which are pipes systemd created (Node 22) — and stored as structured, indexed records with metadata. <code>journalctl -u myapp -f</code>, <code>journalctl -p err --since "1 hour ago"</code>, and <code>journalctl -k</code> for the kernel ring buffer.</p>
+
+<h4>A real unit file</h4>
+
+<pre><code>[Unit]
+Description=My Node API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple                       # the main process is the one we exec
+User=nodeapp                      # Node 25 — never root
+WorkingDirectory=/srv/api
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/api.env      # secrets as a file, not inline (Node 35)
+ExecStart=/usr/bin/node /srv/api/dist/server.js
+Restart=on-failure                # supervision
+RestartSec=5
+TimeoutStopSec=30                 # then SIGKILL (Node 30)
+KillSignal=SIGTERM
+MemoryMax=1G                      # Node 27 — cgroup limit, no container needed
+CPUQuota=200%
+NoNewPrivileges=true              # Node 35
+ProtectSystem=strict              # read-only /usr, /boot, /etc
+PrivateTmp=true                   # its own /tmp — a mount namespace (Node 26)
+
+[Install]
+WantedBy=multi-user.target
+</code></pre>
+
+<p>Note what the last few lines are: <strong>systemd applies namespaces and cgroups to ordinary services.</strong> <code>PrivateTmp</code> is a mount namespace. <code>ProtectSystem</code> is a read-only bind mount. <code>MemoryMax</code> is <code>memory.max</code>. These are the container mechanisms from Part VI, available without any container at all — which is a genuinely useful thing to know when someone insists containers are the only way to isolate a service.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Kubernetes is a distributed init system, and the correspondence is close enough to be worth stating field by field.</strong> [EXPLAIN]</p>
+
+<table>
+<tr><th>systemd</th><th>Kubernetes</th></tr>
+<tr><td>unit file</td><td>Deployment / Pod spec</td></tr>
+<tr><td><code>Restart=on-failure</code></td><td><code>restartPolicy</code> and the kubelet's CrashLoopBackOff</td></tr>
+<tr><td><code>RestartSec</code> with backoff</td><td>exponential backoff, capped at five minutes</td></tr>
+<tr><td><code>After=</code> / <code>Requires=</code></td><td>init containers, readiness gates</td></tr>
+<tr><td><code>MemoryMax</code>, <code>CPUQuota</code></td><td><code>resources.limits</code> — the same cgroup files (Node 27)</td></tr>
+<tr><td><code>TimeoutStopSec</code></td><td><code>terminationGracePeriodSeconds</code></td></tr>
+<tr><td>journald</td><td>the container runtime's log driver, plus a shipper</td></tr>
+<tr><td><code>.timer</code> units</td><td><code>CronJob</code></td></tr>
+<tr><td>socket activation</td><td>Service plus readiness probes</td></tr>
+<tr><td>cgroup-based process tracking</td><td>the same cgroups, per container</td></tr>
+</table>
+
+<p>The genuine differences are that Kubernetes schedules across machines, and that it is <em>declarative with a reconciliation loop</em> — you state a desired state and a controller continuously works to make reality match, rather than issuing imperative start and stop commands. But the per-machine mechanisms are identical, because on each node the kubelet is ultimately writing cgroup files and calling <code>clone()</code>.</p>
+
+<p><strong>PM2 and its container-era irrelevance.</strong> PM2 gives you supervision, clustering (Node 5), log rotation and restarts — a userspace init system for Node. On a bare virtual machine it is reasonable, though systemd does the same job with better process tracking. <strong>Inside a container it is usually wrong</strong>: it adds a process, obscures the exit code (so Kubernetes cannot see that your app crashed, because PM2 is still alive and healthy), duplicates restart logic the orchestrator already has, and breaks signal propagation exactly as Node 30 described. One process per container, restart handled by the orchestrator, is the correct shape.</p>
+
+<p><strong>CrashLoopBackOff, decoded.</strong> It is supervision plus backoff, and it means the container's main process is exiting. The diagnosis follows from the exit code, which you can now read entirely from Node 30: 137 is <code>SIGKILL</code> (usually OOM — check <code>lastState.terminated.reason</code> for <code>OOMKilled</code>); 143 is <code>SIGTERM</code>; 139 is a segmentation fault in a native module; 1 is your application throwing; 127 is "command not found", meaning your entrypoint path is wrong or a library is missing (Node 34). <code>kubectl logs --previous</code> retrieves the dead container's output, which is the step people forget.</p>
+
+<p><strong>Docker's restart policies are a small init system</strong> — <code>no</code>, <code>on-failure[:max]</code>, <code>always</code>, <code>unless-stopped</code> — and Docker Compose's <code>depends_on</code> is <code>After=</code>. Note that <code>depends_on</code> only waits for the container to <em>start</em>, not to be ready, which is why <code>condition: service_healthy</code> and a <code>healthcheck</code> exist, and why so many compose setups have a wait-for-it script. That is exactly the ordering-versus-readiness distinction systemd solved with socket activation.</p>
+
+<p><strong>What you can do at this point:</strong> state the four jobs of PID 1, explain what was structurally wrong with SysV init, write and read a systemd unit file including its isolation directives, explain why systemd tracks processes by cgroup, map Kubernetes concepts to their systemd counterparts, explain why PM2 inside a container is usually a mistake, and diagnose a CrashLoopBackOff from its exit code alone.</p>
+
+<p><strong>What's still broken:</strong> the system is now complete — it boots, runs services, isolates them, schedules them, and shuts them down. What is missing is any way to <em>see inside it</em> while it runs. Every number in every dashboard you have ever looked at comes from somewhere specific, and Part IX is where.</p>

@@ -1,0 +1,69 @@
+<h3>Node 16 — races, atomicity, and why the hardware does not do what you wrote</h3>
+
+<p><strong>The limitation:</strong> two threads share memory and can write the same location at the same time.</p>
+
+<h4>The smallest possible example, and why it is not a coding mistake</h4>
+
+<p>Two threads each run <code>counter++</code> a million times. The final value is not two million. It is some smaller, unpredictable number, and it changes between runs.</p>
+
+<p>The reason is Node 0. <code>counter++</code> is not an operation the machine has. It compiles to three:</p>
+
+<pre><code>mov  rax, [counter]     ; load
+add  rax, 1             ; add
+mov  [counter], rax     ; store
+</code></pre>
+
+<p>Two threads can interleave between any two of those. Both load 5. Both compute 6. Both store 6. Two increments, one net effect. <strong>Nothing was written incorrectly. The source-level operation simply was not atomic, and no amount of care at the source level can make it so.</strong> [EXPLAIN]</p>
+
+<p><strong>Atomic</strong> means indivisible: an operation that no other thread can observe partway through. It is the central word of this node. A <strong>race condition</strong> is when the result depends on the relative timing of operations that were not made atomic — and a <strong>data race</strong>, specifically, is two threads accessing the same location with at least one write and no synchronisation, which in C and C++ is not merely a bug but formally undefined behaviour, meaning the compiler is entitled to assume it never happens and optimise accordingly.</p>
+
+<p>The property that makes this brutal is that <strong>races are timing-dependent, so they do not reproduce.</strong> A race that fires once in ten million iterations passes every test on your laptop and fails in production twice a week. It is sensitive to core count, to load, to compiler version, to whether a profiler is attached. This is why concurrency correctness must be established by reasoning and by design rather than by testing.</p>
+
+<h4>The hardware layer that makes it stranger</h4>
+
+<p>Three separate mechanisms, each of which independently breaks the assumption that memory operations happen in the order you wrote them.</p>
+
+<p><strong>Caches, and coherence.</strong> Each core has its own L1 and L2 (Node 10). If two cores both hold a copy of the same memory, one core's write would be invisible to the other. Hardware prevents this with a <strong>cache coherence protocol</strong> — MESI, in which every cache line is in one of four states: Modified, Exclusive, Shared, or Invalid. To write a line, a core must first acquire it in Modified state, which requires broadcasting an invalidation and waiting for every other core to drop its copy. <em>Coherence is not free; it is a negotiation over the interconnect costing tens to hundreds of cycles.</em></p>
+
+<p>That cost produces a performance failure with no correctness symptom at all: <strong>false sharing</strong>. Two threads writing to two <em>different</em> variables that happen to occupy the same 64-byte cache line will bounce that line between their cores on every write, because coherence works at line granularity, not variable granularity. The code is correct and the throughput collapses — order-of-magnitude slowdowns are routine. The fix is padding, and the reason high-performance libraries litter their structures with alignment attributes and 64-byte padding is entirely this.</p>
+
+<p><strong>Store buffers, and reordering.</strong> Waiting for a cache line before every write would stall the processor constantly, so writes go into a <em>store buffer</em> and drain later. The consequence is that another core can see this core's operations in a different order than this core issued them. On x86, which has a relatively strong model (TSO, total store order), the only reordering visible is that a store can appear after a subsequent load. On ARM and POWER, which have weak models, almost anything can be reordered. <strong>This is why identical concurrent code can be correct on x86 and broken on ARM</strong> — a fact that stopped being a niche concern when Apple Silicon and AWS Graviton became ordinary development and deployment targets.</p>
+
+<p><strong>The compiler reorders too.</strong> An optimising compiler will hoist a loop-invariant read out of a loop, keep a variable in a register instead of re-reading memory, and merge or eliminate stores. All of that is valid <em>under the assumption that no other thread is looking</em>. A loop polling a flag can be optimised into an infinite loop, because the compiler proved the flag never changes within the thread.</p>
+
+<p>The tools that impose order are <strong>memory barriers</strong> (or fences) — instructions that forbid reordering across them — and the atomic operations that carry ordering semantics with them. The formal framework is a <strong>memory model</strong>, which specifies exactly what a program is allowed to observe. C++11 introduced one, Java has had one since 2004, and JavaScript acquired one in ES2017 alongside <code>SharedArrayBuffer</code>.</p>
+
+<h4>The primitive underneath everything</h4>
+
+<p>Software cannot build atomicity out of non-atomic parts, so the hardware provides it. The essential instruction is <strong>compare-and-swap</strong>: <em>atomically, if this location holds the value I expect, replace it with this new value, and tell me whether it did.</em> On x86 it is <code>lock cmpxchg</code>; the <code>lock</code> prefix is what makes the read-modify-write indivisible. ARM uses a load-linked/store-conditional pair instead.</p>
+
+<p>Compare-and-swap is universal — every lock, every lock-free queue, every reference counter, and every atomic increment is built from it. The characteristic usage is a retry loop: read the value, compute the new one, attempt the swap, and if someone else changed it in between, start again. That shape is <strong>optimistic concurrency</strong>, and you have written it at a higher level: a Postgres <code>UPDATE ... WHERE version = $expected</code> that retries on zero rows affected is compare-and-swap at the row level, and an HTTP <code>If-Match</code> with an ETag is compare-and-swap over the network. [EXPLAIN] The pattern is the same at all three scales and the failure mode is the same: under high contention the retries dominate, and you need a lock instead.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>JavaScript is immune to data races in one specific, narrow sense, and people over-generalise it.</strong> A single JavaScript thread runs one callback to completion before the next begins — <em>run-to-completion semantics</em>. So while your synchronous code runs, nothing else can observe or modify your objects. <code>counter++</code> in JavaScript is safe. That is a genuine and valuable guarantee and it is a large part of why Node code is easier to get right than threaded C.</p>
+
+<p>It is also narrower than it looks. It protects you from <em>data</em> races, not from <em>race conditions</em>, and the distinction is the difference between a working system and a broken one:</p>
+
+<pre><code>// This has a race condition, in single-threaded JavaScript.
+async function transfer(from, to, amount) {
+  const balance = await db.getBalance(from);   // ← await: other code runs here
+  if (balance &lt; amount) throw new Error("insufficient");
+  await db.setBalance(from, balance - amount); // ← and here
+  await db.setBalance(to, amount);
+}
+</code></pre>
+
+<p><strong>Every <code>await</code> is a yield point.</strong> The function suspends, the event loop runs other callbacks — including another invocation of this same function — and resumes later against state that may have changed. Two concurrent transfers can both read balance 100, both pass the check, and both write 50. This is precisely the interleaving from the top of this node, at a different granularity, and it is why "JavaScript is single-threaded so I don't need to worry about concurrency" is one of the most expensive false beliefs in backend development. The correct fixes are the same ones a threaded program would use: make the operation atomic in the database (<code>UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND balance &gt;= $1</code>, which is one atomic statement, and check the row count), take a lock (<code>SELECT ... FOR UPDATE</code> inside a transaction, or an advisory lock), or use optimistic concurrency with a version column and a retry.</p>
+
+<p><strong>The in-process version of the same bug.</strong> A cache with <code>if (!cache.has(k)) cache.set(k, await fetch(k))</code> will issue N concurrent fetches for N concurrent requests, because every one of them checks before any of them sets. This is <em>cache stampede</em>, and the standard fix is to store the <em>promise</em> rather than the value, so the second caller finds an in-flight promise and awaits it. Recognising it as a check-then-act race is what tells you the fix.</p>
+
+<p><strong><code>Atomics</code> is JavaScript's compare-and-swap, and it exists for exactly one reason.</strong> <code>SharedArrayBuffer</code> is genuinely shared memory between a main thread and workers, so it is the one place JavaScript has real concurrent mutation and therefore real data races. <code>Atomics.add</code>, <code>Atomics.compareExchange</code>, <code>Atomics.load</code> and <code>Atomics.store</code> compile to the <code>lock</code>-prefixed instructions above; <code>Atomics.wait</code> and <code>Atomics.notify</code> are Node 17's futex, exposed to JavaScript. And <code>Atomics.wait</code> is forbidden on the browser main thread, because it blocks — which would freeze the page. This is the entire concurrency toolkit of the language, it maps one-to-one onto this node's hardware, and it exists only because WebAssembly needed real threads.</p>
+
+<p><strong>Database isolation levels are this node's problem at a larger scale.</strong> Read committed, repeatable read, and serializable are exactly a memory model: a specification of which interleavings a transaction is allowed to observe. Postgres's default, read committed, permits <em>non-repeatable reads</em> — two reads of the same row in one transaction can differ — which is the database equivalent of a compiler not being required to re-read a variable. <code>SERIALIZABLE</code> in Postgres is implemented with optimistic concurrency and can abort your transaction with a serialization failure, requiring a retry loop — the same compare-and-swap retry shape from earlier in this node. The parallel is exact, not decorative: <em>a lock, an atomic operation, and a serializable transaction are three scales of one idea.</em></p>
+
+<p><strong>Idempotency in distributed systems is the same problem again.</strong> A client retries a request whose response was lost; the server processes it twice. That is a race between a retry and an original, and the fix — an idempotency key, checked and inserted atomically — is a compare-and-swap over the network. Once you have seen the pattern at the instruction level, the distributed version needs no separate learning.</p>
+
+<p><strong>What you can do at this point:</strong> explain why <code>counter++</code> is not atomic and why races do not reproduce, explain cache coherence and false sharing, explain compiler and processor reordering and why ARM differs from x86, explain compare-and-swap and recognise it at three scales, and — most importantly — explain precisely what JavaScript's single thread does and does not protect you from, with <code>await</code> as the yield point.</p>
+
+<p><strong>What's still broken:</strong> compare-and-swap makes one word atomic. Real critical sections span many operations on many variables, and something must make a whole region exclusive. Building that naively wastes the processor, and building it correctly requires the kernel — but only sometimes, and getting that "only sometimes" right is the difference between a fast program and a slow one.</p>

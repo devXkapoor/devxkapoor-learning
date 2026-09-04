@@ -1,0 +1,52 @@
+<h3>Node 15 — threads: sharing an address space on purpose</h3>
+
+<p><strong>The limitation:</strong> processes are isolated by design, so cooperating work must copy data through the kernel, and one process cannot use more than one core for its own computation.</p>
+
+<p>The answer follows directly from Node 5's list of what a process owns. Take that list and split it in two: the things that are properties of <em>the program as a whole</em>, and the things that are properties of <em>one path of execution through it</em>.</p>
+
+<p><strong>Shared by every thread of a process:</strong> the address space and all its contents — code, globals, heap, and therefore every object; the file descriptor table; the credentials; the current directory; the signal <em>dispositions</em>; the resource limits; the cgroup and namespaces.</p>
+
+<p><strong>Private to each thread:</strong> the registers, including the instruction pointer; the stack; the thread ID; the signal <em>mask</em>; errno; scheduling priority; and thread-local storage.</p>
+
+<p>A <strong>thread</strong> is that private set. [EXPLAIN] Everything else is common ground. It follows immediately that threads can pass data by writing to a shared variable — no copying, no system call, nanoseconds — and that a thread can corrupt every other thread's data by writing to the wrong place, because there is no boundary between them. Both properties come from the same fact and you cannot take one without the other.</p>
+
+<h4>On Linux, a thread is a process with more sharing</h4>
+
+<p>Linux does not implement threads as a separate concept. It has one creation call, <code>clone()</code>, taking flags for what the new task shares with its creator. <code>fork()</code> is <code>clone()</code> with almost nothing shared. Creating a thread is <code>clone()</code> with <code>CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD</code> — share the address space, the filesystem context, the descriptors, the signal handlers, and the thread group.</p>
+
+<p>So the kernel's schedulable unit is a <em>task</em>, and both processes and threads are tasks. This is why threads appear in <code>ps -eLf</code> and in <code>/proc/&lt;pid&gt;/task/</code>, each with its own ID; why <code>top -H</code> shows per-thread CPU; and why the scheduler in Node 7 needs no special knowledge of threads at all. The name for a thread's own ID is the <strong>TID</strong>, and for the main thread it equals the PID.</p>
+
+<p>The history is worth one paragraph because it explains an old debate you will meet in interviews. Threads can be implemented entirely in user space — a library that swaps stacks and registers without the kernel knowing — which is fast to switch and needs no privilege, but has a fatal flaw: <strong>if one such thread makes a blocking system call, the kernel blocks the whole process, and every other thread stops.</strong> The kernel cannot know they exist. That is the "N:1" or green-thread model, used by early Java and by GNU Portable Threads. The alternative, "1:1", gives every user thread a real kernel task, so blocking affects only that thread and multiple threads genuinely run on multiple cores. Linux settled 1:1 with <strong>NPTL</strong> (Native POSIX Thread Library, Ulrich Drepper and Ingo Molnár, 2003), which was a large enough improvement that it became one of the reasons Java became viable on Linux servers.</p>
+
+<p>Modern language runtimes have reintroduced user-space scheduling on top of 1:1 rather than instead of it — Go's goroutines are M:N, with a runtime scheduler multiplexing many goroutines onto a pool of kernel threads and, crucially, <em>intercepting blocking operations</em> so that a goroutine blocking on I/O parks rather than blocking its thread. Java's virtual threads (Project Loom, final in Java 21, September 2023) do the same thing. Both are answers to the same problem the event loop answers, with a different ergonomic choice, and Node 18 gives the numbers that make all three make sense.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>A Node process has threads, and knowing which is which makes profiling possible.</strong> Run <code>top -H -p $(pgrep -n node)</code> on a busy server and you will see, at minimum:</p>
+
+<ul>
+<li>The <strong>main thread</strong>, running the event loop and all your JavaScript. Only one, ever, per process.</li>
+<li>Four <strong>libuv threadpool threads</strong> by default (<code>UV_THREADPOOL_SIZE</code>, max 1024). These execute file system operations, <code>dns.lookup</code>, and the CPU-heavy parts of <code>crypto</code> and <code>zlib</code>. They exist entirely because those operations cannot be done without blocking — Node 19 explains why file I/O in particular resists the event-loop treatment.</li>
+<li>V8's <strong>background threads</strong> — concurrent marking and sweeping for the garbage collector, and background compilation and optimisation.</li>
+<li>Any threads created by native addons, which is why a single <code>sharp</code> image resize can saturate several cores.</li>
+</ul>
+
+<p>Two things follow. A Node process can exceed 100% CPU in <code>top</code> — the claim "Node uses one core" is false at the process level and true only of your JavaScript. And when a Node process is slow, the first diagnostic question is <em>which thread</em>: a busy main thread means a blocked event loop and the fix is in your code; four busy threadpool threads with an idle main thread means threadpool saturation and the fix is sizing or offloading; busy V8 background threads mean GC pressure and the fix is allocation behaviour.</p>
+
+<p><strong><code>worker_threads</code> is a deliberately restricted version of this node.</strong> A worker shares the process — same PID, same descriptor table, same cgroup — but gets <em>its own V8 isolate</em>, which means its own heap, its own copy of every built-in, and no shared JavaScript objects. That last restriction is not a limitation Node imposed for simplicity; it is forced by V8's design, and V8's design is forced by the language. JavaScript has no memory model for concurrently mutated objects, and a garbage collector that can move objects cannot safely do so while another thread holds raw pointers to them. So the boundary is explicit:</p>
+
+<ul>
+<li><code>postMessage</code> <strong>copies</strong>, using the structured clone algorithm — deep, and therefore expensive for large payloads, and unable to carry functions, class instances' prototypes, or DOM nodes.</li>
+<li><code>transferList</code> <strong>moves</strong> an <code>ArrayBuffer</code> — the memory is not copied, ownership passes, and the sender's buffer becomes detached and zero-length. Constant time regardless of size.</li>
+<li><code>SharedArrayBuffer</code> is <strong>genuinely shared</strong> — the same physical pages mapped into both isolates, the one place where JavaScript has real shared mutable memory across threads. It is also the only place where JavaScript can have a data race, which is exactly why <code>Atomics</code> exists and why Node 16 is next.</li>
+</ul>
+
+<p>The practical rule: workers are for <em>CPU-bound</em> work, because I/O-bound work is already handled better by the event loop, and each worker costs a full V8 isolate — on the order of several megabytes and tens of milliseconds to start. A pool created once at boot is the right shape; a worker per request is not. Roughly: workers when the work is computation and you want cores; the threadpool when the work is blocking I/O; a separate process when you want isolation or a separate heap; the event loop for everything else.</p>
+
+<p><strong>Browser Web Workers are the same design with a stricter boundary.</strong> A worker has no DOM, no <code>window</code>, no <code>document</code>. That restriction is not arbitrary either: the DOM is a large mutable object graph with no locking and no memory model, and permitting concurrent access to it would make every DOM operation require synchronisation. So the platform's position is that the DOM is single-threaded, permanently, and workers communicate by message. Every heavy client-side thing — a WebAssembly module, a large parse, a client-side search index, image processing, crypto — belongs in one, and <code>OffscreenCanvas</code> and <code>SharedArrayBuffer</code> exist to make that boundary less painful. Cross-origin isolation headers, from Node 3, are the price of the latter.</p>
+
+<p><strong>Postgres chose processes and MySQL chose threads</strong>, and the trade is exactly this node's: Postgres's per-connection process gives crash isolation and requires shared memory to be arranged explicitly (<code>shared_buffers</code> is a shared mapping); MySQL's per-connection thread is cheaper to create and shares the buffer pool naturally, at the cost that one backend corrupting memory takes the server down. Neither is wrong. Knowing which one a system chose predicts its connection-scaling behaviour immediately.</p>
+
+<p><strong>What you can do at this point:</strong> list precisely what threads share and what they do not, explain why Linux threads are tasks and what <code>clone()</code> unifies, identify every thread in a Node process and use that to localise a performance problem, and explain why <code>worker_threads</code> copies by default and what <code>SharedArrayBuffer</code> and <code>transferList</code> change.</p>
+
+<p><strong>What's still broken:</strong> two threads can now write the same variable at the same time. That sounds like a small problem and it is the hardest one in this document — it is not solvable by being careful, because the hardware does not do what the source code says.</p>

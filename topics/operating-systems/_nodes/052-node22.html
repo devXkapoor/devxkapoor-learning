@@ -1,0 +1,79 @@
+<h3>Node 22 — file descriptors, pipes, and how redirection actually works</h3>
+
+<p><strong>The limitation:</strong> <code>open</code> returns a small integer and nothing has said what it refers to.</p>
+
+<h4>Three tables, not one</h4>
+
+<p>The indirection here is three levels deep, and every confusing thing about descriptors comes from people collapsing it to one. [EXPLAIN]</p>
+
+<ol>
+<li><strong>The per-process descriptor table.</strong> An array in the <code>task_struct</code> (Node 5), indexed by the small integer. Entry <em>N</em> is a pointer to an open file description, plus one flag (close-on-exec). <strong>Descriptor 3 in your process and descriptor 3 in mine are unrelated.</strong></li>
+<li><strong>The system-wide open file table.</strong> Each entry — an <em>open file description</em> — represents one act of opening: the current <strong>offset</strong>, the access mode (read, write, append), the status flags (<code>O_NONBLOCK</code>), and a pointer to the inode.</li>
+<li><strong>The inode table.</strong> One entry per actual file, as in Node 21.</li>
+</ol>
+
+<p>The middle level is the one that carries the meaning:</p>
+
+<ul>
+<li>Calling <code>open()</code> twice on the same path gives <strong>two descriptions</strong> — two independent offsets. Reading through one does not move the other.</li>
+<li><code>dup()</code> and <code>fork()</code> give <strong>two descriptors sharing one description</strong> — one offset. A parent and child both writing to inherited stdout interleave correctly instead of overwriting each other, because they share the file position. That is not a coincidence; it is the reason for this design.</li>
+<li>Closing a descriptor decrements a reference count on the description. The description is destroyed when the count reaches zero.</li>
+</ul>
+
+<h4>Zero, one, two</h4>
+
+<p>By convention — enforced by nothing but universally relied upon — every process starts with:</p>
+
+<ul>
+<li><strong>0: standard input</strong></li>
+<li><strong>1: standard output</strong></li>
+<li><strong>2: standard error</strong></li>
+</ul>
+
+<p>They are separate so that a program's results and its complaints can go to different places, which is what makes <code>./build &gt; out.log 2&gt; err.log</code> possible and why error messages still reach your terminal when output is piped.</p>
+
+<p>The rule that makes all of this work: <strong><code>open</code> always returns the lowest-numbered unused descriptor.</strong> That specification, which sounds like an implementation detail, is what makes redirection expressible without any dedicated mechanism.</p>
+
+<h4>Redirection, derived</h4>
+
+<p><code>ls &gt; out.txt</code>. The shell does this:</p>
+
+<pre><code>pid = fork();                    // Node 14 — child is a copy
+if (pid == 0) {
+    close(1);                    // descriptor 1 is now free
+    open("out.txt", O_WRONLY|O_CREAT|O_TRUNC, 0644);
+                                 // returns 1 — the lowest free number
+    execve("/bin/ls", ...);       // ls replaces the program;
+                                 // descriptors survive exec
+}
+</code></pre>
+
+<p><code>ls</code> writes to descriptor 1 as it always does, knowing nothing. <strong>Redirection is implemented entirely by rearranging the child's descriptor table in the interval between <code>fork</code> and <code>exec</code></strong> — the interval Node 14 said existed for exactly this. No special support in <code>ls</code>, no special support in the kernel. [EXPLAIN] (In practice shells use <code>dup2(fd, 1)</code>, which atomically makes descriptor 1 a copy of another, rather than the close-then-open race above.)</p>
+
+<h4>Pipes</h4>
+
+<p>A <strong>pipe</strong> is a kernel buffer with two descriptors: <code>pipe(fds)</code> fills <code>fds[0]</code> for reading and <code>fds[1]</code> for writing. Bytes written to one end come out the other, in order. The buffer is finite — 64 KB on Linux by default — and that finiteness is the entire mechanism of Unix flow control:</p>
+
+<ul>
+<li><strong>Writing to a full pipe blocks</strong> until the reader consumes. That is <strong>backpressure</strong>, built into the primitive: a fast producer is forced to the speed of a slow consumer with no coordination between them. It is the spooling principle from Node 1, made a kernel object.</li>
+<li><strong>Reading from an empty pipe blocks</strong> until data or until all write ends are closed, at which point <code>read</code> returns 0 — end of file. <em>All</em> write ends: if any process still holds one open, the reader waits forever, which is the classic hang when a shell script forgets to close an inherited descriptor.</li>
+<li><strong>Writing to a pipe with no readers</strong> raises <code>SIGPIPE</code>, whose default action is to kill the process. This is why <code>yes | head -5</code> terminates promptly rather than running forever, and it is a deliberate design: producers die automatically when consumers stop caring.</li>
+</ul>
+
+<p><code>cmd1 | cmd2</code> is then: create a pipe; fork twice; in the first child <code>dup2(fds[1], 1)</code> and close both original ends; in the second <code>dup2(fds[0], 0)</code> and close both; exec both. Two unmodified programs, connected, using nothing but the descriptor table.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong><code>child_process</code> is this node with a JavaScript surface.</strong> The <code>stdio</code> option is literally a specification of the child's descriptor table: <code>'pipe'</code> creates a pipe and hands you a stream; <code>'inherit'</code> passes your own descriptor straight through, so the child writes directly to your terminal or log with no relaying through your process; <code>'ignore'</code> opens <code>/dev/null</code>; and an integer or stream passes a specific descriptor. <code>stdio: ['pipe','pipe','pipe','ipc']</code> — a fourth entry — is what <code>child_process.fork()</code> uses to add the message channel that makes <code>child.send()</code> work. Choosing <code>'inherit'</code> for a build subprocess is not just tidier; it removes your process from the data path entirely.</p>
+
+<p><strong>The classic subprocess deadlock.</strong> A child produces 10 MB on stdout; the parent waits for the child to exit before reading. The pipe fills at 64 KB, the child blocks writing, the parent blocks waiting, and neither moves. This is why <code>execSync</code> has <code>maxBuffer</code> (1 MB by default) and throws <code>ENOBUFS</code> past it, and why the correct pattern for a chatty child is to consume its output continuously — <code>spawn</code> with stream handling, not <code>exec</code> with a callback. It is a bounded-queue deadlock, exactly the shape from Node 17.</p>
+
+<p><strong>Container logging is a pipe.</strong> Docker gives your container's PID 1 a pipe for stdout and stderr, reads from it, and writes to a log driver — a JSON file by default. Consequences that follow directly: <em>if you write to a file inside the container instead of stdout, none of this happens</em> and your logs are invisible to <code>docker logs</code> and to every log shipper; the pipe is why Node treats stdout as asynchronous in a container and synchronous in a terminal (Node 4), so output can be lost on an abrupt exit; and if the log consumer stalls, the pipe fills and <strong>your application blocks on <code>console.log</code></strong>, which is a genuine and very confusing production failure. The 12-factor rule "treat logs as event streams and write to stdout" is a statement about this node.</p>
+
+<p><strong>Descriptor limits and leaks, from Node 19, are a descriptor-table problem</strong>: every socket, every open file, every pipe, every <code>inotify</code> watch, every epoll instance consumes an entry. <code>EMFILE</code> means the table is full. <code>ls -l /proc/&lt;pid&gt;/fd</code> lists exactly what is in it, with symbolic links naming each target — <code>socket:[12345]</code>, <code>pipe:[67890]</code>, or a path. Reading that list is how you find which resource is leaking in about a minute.</p>
+
+<p><strong>Close-on-exec, and why it matters for security.</strong> The <code>FD_CLOEXEC</code> flag makes a descriptor close automatically on <code>execve</code>. Without it, every descriptor you hold is inherited by every subprocess you spawn — including your database connections, your TLS private key file, and your listening sockets. A subprocess that should have no access to the database can read from a socket that is already authenticated. Modern APIs default to close-on-exec for this reason (<code>open</code> with <code>O_CLOEXEC</code>, <code>socket</code> with <code>SOCK_CLOEXEC</code>, <code>epoll_create1(EPOLL_CLOEXEC)</code>), and libuv sets it. It is worth knowing it exists, because when you deliberately want to pass a descriptor — as <code>cluster</code> does with a listening socket, and as systemd does with socket activation (Node 37) — you must clear it.</p>
+
+<p><strong>What you can do at this point:</strong> explain the three-table structure and predict offset-sharing behaviour after <code>dup</code> and <code>fork</code>, derive shell redirection and pipelines from <code>fork</code>/<code>dup2</code>/<code>exec</code>, explain pipe backpressure and <code>SIGPIPE</code>, explain the <code>stdio</code> option in <code>child_process</code> and the subprocess buffer deadlock, explain why containers want stdout logging, and read <code>/proc/&lt;pid&gt;/fd</code> to find a leak.</p>
+
+<p><strong>What's still broken:</strong> <code>write()</code> to a file returns almost instantly, which the page cache in Node 13 already hinted is a lie about durability. If the machine loses power one microsecond after <code>write</code> returns, what survives? That question is the single most important one in storage, and every database's guarantees are an answer to it.</p>

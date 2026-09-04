@@ -1,0 +1,72 @@
+<h3>Node 21 — the file, the inode, and "everything is a file"</h3>
+
+<p><strong>The limitation:</strong> a disk is a large array of numbered blocks with no structure. Programs need named, growable, permission-controlled sequences of bytes.</p>
+
+<h4>The abstraction, and how radical it was</h4>
+
+<p>Unix's definition of a file is deliberately, aggressively minimal: <strong>a file is a finite sequence of bytes, and that is all.</strong> [EXPLAIN]</p>
+
+<p>No records. No fixed-length lines. No file type known to the system. No structure the operating system understands or enforces. This was not the norm — contemporary systems like OS/360 had record-oriented files with formats declared in the JCL from Node 1, and the system knew about fixed-length blocked records and would enforce them. Unix threw all of it away and said: bytes, and the program that opens the file decides what they mean.</p>
+
+<p>The consequence is compositionality. Because no program can assume structure, every program must handle a plain byte stream, and therefore <em>any</em> program's output can be any other program's input. The Unix toolchain philosophy — small programs composed with pipes — is a direct consequence of this one decision about what a file is.</p>
+
+<h4>Separating the name from the file: the inode</h4>
+
+<p>The second key decision. A file's <em>identity</em> and its <em>name</em> are separate things.</p>
+
+<p>The file itself is an <strong>inode</strong> (index node), a fixed-size record on disk holding everything about the file except its name:</p>
+
+<ul>
+<li>type (regular file, directory, symbolic link, device, socket, FIFO)</li>
+<li>permission bits, owner user ID, owner group ID</li>
+<li>size in bytes</li>
+<li>timestamps — <code>mtime</code> (contents last modified), <code>ctime</code> (inode last changed, <em>not</em> creation), <code>atime</code> (last accessed)</li>
+<li>a <strong>link count</strong> — how many names refer to this inode</li>
+<li>pointers to the data blocks</li>
+</ul>
+
+<p>A <strong>directory</strong> is then just a file whose contents are a list of (name → inode number) pairs. Nothing more. Which means:</p>
+
+<ul>
+<li><strong>A file can have several names.</strong> Two directory entries pointing at the same inode are <em>hard links</em>. Neither is "the original"; they are equally the file.</li>
+<li><strong>Deleting is really unlinking.</strong> The call is <code>unlink</code>, and it removes a directory entry and decrements the link count. The data is freed only when the count reaches zero <em>and</em> no process still has it open. <strong>This is why deleting a large log file that a running process still holds open frees no disk space</strong> — a classic and confusing production situation, where <code>du</code> shows the space gone and <code>df</code> shows the disk still full. <code>lsof | grep deleted</code> finds it, and the fix is to restart or signal the holder, or to truncate rather than delete.</li>
+<li><strong>An open file has no name.</strong> Once opened, a process holds a reference to the inode; renaming or deleting the path does not affect it. This is why <code>rename()</code> is atomic and why "write to a temporary file, then rename over the target" is the standard safe-write idiom — readers see either the whole old file or the whole new one, never a partial write.</li>
+<li><strong>Permissions live on the inode, not the name</strong>, so all hard links share them.</li>
+<li><strong>Hard links cannot cross filesystems</strong> (inode numbers are per-filesystem) and cannot point at directories (it would create cycles the tree-walking code cannot handle). <em>Symbolic links</em> are the alternative: a tiny file whose contents are a path string, resolved at every use — so they can cross filesystems, can dangle, and add a resolution step to every access.</li>
+</ul>
+
+<p>Running out of <em>inodes</em> while disk space remains is a real failure and a confusing one: <code>df -h</code> shows space free, writes fail with <code>ENOSPC</code>, and <code>df -i</code> shows 100% inode use. Traditional filesystems allocate a fixed inode table at format time, so millions of tiny files — a cache directory, a poorly configured session store, <code>node_modules</code> multiplied across many builds — can exhaust them.</p>
+
+<h4>"Everything is a file"</h4>
+
+<p>The third decision, and the one with the widest consequences. Unix applies the same interface — <code>open</code>, <code>read</code>, <code>write</code>, <code>close</code>, <code>lseek</code>, <code>ioctl</code> — to things that are not files at all:</p>
+
+<ul>
+<li><strong>Devices.</strong> <code>/dev/sda</code> is the raw disk. <code>/dev/null</code> discards writes and reads as empty. <code>/dev/zero</code> yields endless zero bytes. <code>/dev/urandom</code> yields cryptographic randomness. <code>/dev/tty</code> is the terminal.</li>
+<li><strong>Pipes and sockets</strong> — Node 22 and Node 31.</li>
+<li><strong>Kernel state.</strong> <code>/proc</code> and <code>/sys</code> are filesystems with no disk behind them at all: reading a file there executes kernel code that generates the content on the spot. This is why every tool from <code>ps</code> to <code>top</code> to a container runtime is, mechanically, a program that reads text files. Node 38.</li>
+</ul>
+
+<p>The payoff is that a tool written for files works on all of it. <code>cat</code>, redirection, <code>grep</code>, and your language's file API operate on devices, kernel state, and network connections with no special support. It is the earliest and one of the best examples of a uniform interface paying for itself over decades. [EXPLAIN]</p>
+
+<h4>The VFS: one interface, many implementations</h4>
+
+<p>For that uniformity to work with many different filesystems, the kernel needs a layer of indirection, and it has one: the <strong>Virtual File System</strong>, introduced by Sun in 1985 for NFS and adopted everywhere. The VFS defines a set of operations — look up a name, read, write, create — and every filesystem implements them. ext4, XFS, btrfs, NFS, tmpfs, overlayfs, procfs, and FUSE-based filesystems all plug into the same interface.</p>
+
+<p>So <code>read()</code> is: syscall entry, VFS dispatch on the inode's filesystem type, that filesystem's implementation, the page cache, the block layer, the device driver. The layering is what makes <code>mount</code> possible — attaching any filesystem at any point in the single tree — and mounts are per-<em>namespace</em>, which is the hinge on which containers turn (Node 26).</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Every Docker volume mount is this node.</strong> <code>-v /host/path:/container/path</code> is a bind mount: the same inodes appearing at a second location in the tree. There is no copying and no synchronisation — it is literally the same files, which is why edits on the host appear instantly inside the container. And it is why mounting over a directory <em>hides</em> what was there: the mount replaces what that path resolves to, so bind-mounting your source directory over <code>/app</code> hides the <code>/app/node_modules</code> the image installed. The standard fix — an anonymous volume at <code>/app/node_modules</code> — is a second mount at a deeper path that shadows the first, and knowing the mechanism makes that trick obvious rather than magical.</p>
+
+<p><strong>Atomic writes in application code.</strong> The rename idiom above is the correct way to update a config file, a cache entry, or any file a reader might see mid-write. In Node: <code>fs.writeFile(tmp, data)</code>, then <code>fs.rename(tmp, target)</code>. It only works if both paths are on the same filesystem — <code>rename</code> across filesystems fails with <code>EXDEV</code> and the library falls back to copy-then-delete, which is not atomic. <strong>This is why moving a file from <code>/tmp</code> to a mounted volume in a container often behaves differently from moving within the volume</strong>, and why upload handling should write the temporary file into the destination filesystem.</p>
+
+<p><strong>File watching is not part of this abstraction, and that shows.</strong> There is no portable "tell me when this changes"; Linux has <code>inotify</code>, macOS has FSEvents, and Windows has <code>ReadDirectoryChangesW</code>. Node's <code>fs.watch</code> maps onto them with real differences in behaviour, which is why <code>chokidar</code> exists and why every bundler depends on it. <code>inotify</code> also has per-user limits — <code>fs.inotify.max_user_watches</code>, historically 8192 — and exceeding them produces <code>ENOSPC</code> from a watcher, which is one of the most misleading error codes in Linux since no space is involved. Anyone who has run a dev server on a large repository has hit it.</p>
+
+<p><strong><code>node_modules</code> is an inode problem.</strong> A large project can have hundreds of thousands of small files. That is slow to create, slow to traverse, slow to copy into a Docker build context, and inode-hungry. pnpm's design is a direct response: one content-addressed global store, with hard links (this node) into each project's <code>node_modules</code>, so the same file exists once on disk with many names. Yarn PnP goes further and eliminates the directory entirely, resolving from a single map file. Both are filesystem-level answers to a filesystem-level problem.</p>
+
+<p><strong><code>.dockerignore</code> matters more than people think</strong> for the same reason: the build context is the entire directory tree sent to the daemon, walked file by file. Excluding <code>node_modules</code> and <code>.git</code> often turns a thirty-second context upload into one second.</p>
+
+<p><strong>What you can do at this point:</strong> explain the inode/name separation and derive hard links, atomic rename, and the deleted-but-open-file disk-space puzzle; explain what a directory is; explain "everything is a file" and its payoff; explain the VFS and why bind mounts and mount shadowing behave as they do; and diagnose inode exhaustion and <code>inotify</code> limits.</p>
+
+<p><strong>What's still broken:</strong> <code>open</code> returns a small integer, and nothing has explained what that integer is, why it is per-process, why 0, 1 and 2 are special, or how the shell's <code>|</code> and <code>&gt;</code> are built out of it.</p>

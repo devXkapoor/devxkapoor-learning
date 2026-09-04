@@ -1080,7 +1080,137 @@ nonvoluntary_ctxt_switches:     46
 
 <p><strong>What you can do at this point:</strong> explain why <code>malloc</code> is not a system call, why freed memory does not reduce RSS, and what fragmentation costs; account fully for the gap between <code>heapUsed</code> and container memory; state the three layers of allocation and where a garbage collector sits; derive a heap cap from a container limit rather than guessing; and recognise the signature of a native leak.</p>
 
-<p><strong>What's still broken:</strong> the allocator can hand out memory only if the kernel has frames to give. Nothing has said what happens when it does not — when every frame is spoken for and another allocation arrives. That question has three answers, and one of them is the reason for exit code 137.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
+<p><strong>What's still broken:</strong> the allocator can hand out memory only if the kernel has frames to give. Nothing has said what happens when it does not — when every frame is spoken for and another allocation arrives. That question has three answers, and one of them is the reason for exit code 137.</p>
+
+<h3>Node 13 — demand paging, the page cache, swap, and the OOM killer</h3>
+
+<p><strong>The limitation:</strong> physical frames are finite, and nothing has said what happens when they run out.</p>
+
+<h4>Nothing is loaded until it is touched</h4>
+
+<p>Start with what the page fault made possible. When a program is executed, the kernel does <em>not</em> read it into memory. It sets up page table entries marked not-present, recording where on disk each page lives, and jumps to the entry point. The first instruction immediately faults; the kernel reads that one page; execution proceeds. Pages arrive as they are needed, and pages of a hundred-megabyte binary that are never executed are never read.</p>
+
+<p>That is <strong>demand paging</strong>, and its consequences are worth stating: a program starts in milliseconds regardless of size, memory holds only what is actually used, and a process can have far more mapped than the machine has. It is also why the very first request to a freshly started server is slower than the ones after it — the code paths it exercises are being faulted in — which is a real and measurable effect in serverless cold starts, in JVM and .NET warm-up, and in the first request to a newly rolled-out Kubernetes pod.</p>
+
+<h4>The page cache: free memory is wasted memory</h4>
+
+<p>Once pages of a file are in memory, throwing them away when the process closes the file would be foolish. So the kernel keeps them, in the <strong>page cache</strong>, and uses <em>all otherwise-unused memory</em> for it.</p>
+
+<p>This is the single most misread thing on a Linux dashboard. <strong>Every ordinary file read and write goes through the page cache.</strong> [EXPLAIN] A <code>read</code> checks the cache first and only touches the disk on a miss. A <code>write</code> copies your bytes into a cache page, marks it dirty, and <em>returns immediately</em> — no disk has moved. Kernel threads write dirty pages back later, governed by <code>vm.dirty_ratio</code>, <code>vm.dirty_background_ratio</code> and <code>vm.dirty_expire_centisecs</code>. Node 23 covers what that means for durability, which is a great deal.</p>
+
+<p>So on a healthy server, <code>free -m</code> shows very little "free" memory and a large "buff/cache" figure, and that is <em>correct and desirable</em>. Free memory is doing nothing; cached memory is saving disk reads and is instantly reclaimable. The column to read is <strong><code>available</code></strong>, which is free plus reclaimable cache — the honest answer to "how much could a new process get". Anyone reporting a memory problem because <code>free</code> is small is reading the wrong column, and it is worth being able to say so precisely.</p>
+
+<h4>Choosing what to evict</h4>
+
+<p>When frames are needed and none are free, something must go. The theoretically optimal policy is to evict the page that will be used furthest in the future, which requires knowing the future, so it exists only as a benchmark. The practical approximation is <strong>least recently used</strong>, and true LRU is also too expensive — it would mean updating a timestamp on every single memory access.</p>
+
+<p>So hardware and kernel cooperate cheaply. The processor sets the <em>accessed</em> bit in a page table entry on any access (Node 10). The kernel periodically clears those bits and, on the next pass, sees which were set again. That is the <strong>clock</strong> or <strong>second-chance</strong> algorithm. Linux refines it into two lists, <em>active</em> and <em>inactive</em>: a page must be referenced while on the inactive list to be promoted to active, which stops a single large sequential file read from evicting the entire useful working set — a failure mode with the excellent name <em>cache pollution</em>, and the reason a nightly backup used to make a database slow for an hour afterwards.</p>
+
+<p>The concept underneath is Peter Denning's <strong>working set</strong> (1968): the set of pages a process has touched in the recent past, which is a good predictor of what it will touch next. If the sum of all processes' working sets exceeds physical memory, the machine enters <strong>thrashing</strong> — every process constantly faults in a page by evicting a page another process is about to need, and the machine spends all its time moving pages and none doing work. Thrashing does not degrade gracefully; it collapses. A thrashing machine shows near-zero user CPU, huge <code>major faults</code>, and enormous disk activity, and it is often easier to reboot than to log into.</p>
+
+<h4>Swap: extending memory onto disk</h4>
+
+<p>File-backed pages can always be evicted, because the file is their home. Anonymous pages — heap, stack, anonymous <code>mmap</code> — have nowhere to go unless a dedicated area exists. That is <strong>swap</strong>. With it, total memory is RAM plus swap; without it, anonymous memory can never be evicted at all.</p>
+
+<p><code>vm.swappiness</code> (0–200, default 60) biases the kernel between reclaiming file pages and swapping anonymous ones. Low values favour keeping anonymous memory resident. Note that <code>swappiness=0</code> does not disable swap; it makes the kernel avoid it until it is nearly desperate.</p>
+
+<p>The reason swap has a bad reputation is latency. A page from RAM is 80 nanoseconds; from an SSD, around 100 microseconds — a thousand times slower; from a spinning disk, ten thousand times. A process whose active data is swapped out is not slow, it is unusable. Hence <strong>Kubernetes historically refused to run at all with swap enabled</strong>: swap makes memory limits unenforceable and makes latency unpredictable, and the scheduler's model assumes memory is memory. Support for swap on nodes has been reintroduced gradually (beta from 1.28, with further work through 1.30+), but the default position for a latency-sensitive service remains: no swap, and size the memory correctly.</p>
+
+<h4>Overcommit, and the killer</h4>
+
+<p>Linux, by default, grants more address space than it has memory to back. It has to, in practice: <code>fork</code> plus copy-on-write (Node 14) means a doubling of address space that will almost never be realised, programs routinely reserve large sparse regions they never touch, and V8 is one of them. <code>vm.overcommit_memory</code> controls the policy — 0 is a heuristic (the default), 1 always says yes, 2 refuses beyond a computed limit.</p>
+
+<p>The consequence is that the machine can promise more than it can deliver, and the debt comes due at a page fault: a process touches a page it was legitimately given, and there is no frame. There is nothing sensible to return — the faulting instruction cannot be failed, because <code>mov</code> has no error path.</p>
+
+<p>So the kernel picks a process and kills it. The <strong>OOM killer</strong> scores every process, roughly by memory footprint, adjusted by <code>oom_score_adj</code> (−1000 to +1000, where −1000 makes a process exempt), and sends the highest scorer <code>SIGKILL</code>. Not <code>SIGTERM</code>. <strong><code>SIGKILL</code> cannot be caught, blocked, or handled</strong> (Node 30), so the process gets no chance to flush anything, close anything, finish an in-flight request, or log a word about it. It simply ceases.</p>
+
+<p>The evidence is in the kernel log — <code>dmesg -T | grep -i "killed process"</code>, or <code>journalctl -k</code> — and it is the first place to look when a process vanishes with no application log entry explaining why. [USE]</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Exit code 137, decoded.</strong> A process killed by a signal reports, by shell convention, <code>128 + signal number</code>. <code>SIGKILL</code> is 9. So <strong>137 means killed by <code>SIGKILL</code></strong>, and in a container that almost always means the cgroup's memory limit was hit and the cgroup OOM killer fired. (143 is <code>128 + 15</code>, <code>SIGTERM</code> — a normal shutdown. 139 is <code>128 + 11</code>, <code>SIGSEGV</code> — Node 3.) Kubernetes reports it as <code>OOMKilled</code> in the container's <code>lastState.terminated.reason</code>. [EXPLAIN] You can derive all of these rather than memorising them, which is exactly the point of this document.</p>
+
+<p><strong>The cgroup memory limit is a separate, per-container OOM domain</strong>, which is why a container is killed on a machine with plenty of free memory: it exhausted <em>its</em> budget, not the machine's. Node 27 covers the mechanism; the operational points are that <code>memory.max</code> is a hard wall enforced by killing, while <code>memory.high</code> is a soft limit that throttles reclaim instead — meaning a container over <code>memory.high</code> gets slow rather than dead, which is often the behaviour you actually want, and which Kubernetes does not expose directly.</p>
+
+<p><strong>A container's page cache counts against its memory limit, and this kills containers that have no memory leak at all.</strong> [EXPLAIN] This one is genuinely non-obvious and causes real incidents. If your containerised service writes heavily to a file — logs, a temp file, an upload buffer, a SQLite database — those dirty and clean page-cache pages are charged to the container's cgroup. The kernel will reclaim cache before killing, so it usually works out, but under memory pressure combined with heavy write throughput a container can be OOM-killed while its actual anonymous usage is far below the limit. Symptoms: <code>OOMKilled</code> with a flat heap graph and a healthy <code>process.memoryUsage()</code>. Remedies: log to stdout and let the runtime handle it rather than writing files, put genuinely large scratch data on a volume mounted with different semantics, and read <code>memory.stat</code> in the container to see the split between <code>anon</code> and <code>file</code>.</p>
+
+<p><strong>Why a Node process gets no graceful shutdown on OOM.</strong> Because it is <code>SIGKILL</code>. Your <code>process.on('SIGTERM')</code> handler, your connection draining, your "finish in-flight requests" logic — none of it runs. This is the strongest argument for sizing memory generously and for setting a heap cap (Node 12) so that V8 hits <em>its</em> limit first: a V8 heap-limit failure throws a JavaScript <code>FATAL ERROR: Reached heap limit</code> with a stack trace and can trigger a heap snapshot via <code>--heapsnapshot-near-heap-limit</code>, which is diagnosable. A kernel OOM kill produces one line in the host's kernel log and nothing else. <strong>Choosing which limit you hit first is a real design decision.</strong></p>
+
+<p><strong>Postgres is built on the page cache and its configuration only makes sense in that light.</strong> Postgres deliberately keeps <code>shared_buffers</code> modest — the conventional 25% of RAM — rather than claiming everything, because it expects the operating system's page cache to hold the rest. A page can therefore exist twice, once in shared buffers and once in the page cache: <em>double buffering</em>, wasteful in principle and accepted in practice because the kernel's cache is good and its readahead is good. <code>effective_cache_size</code> is not an allocation at all; it is a <em>hint to the query planner</em> about how much total caching it can assume, and setting it too low makes the planner avoid index scans it should be choosing. And this is why running Postgres in a container with a tight memory limit performs badly in a way that adding <code>shared_buffers</code> does not fix: you have taken away the page cache it was designed to rely on.</p>
+
+<p><strong>Cold starts are demand paging.</strong> A serverless function's first invocation faults in the runtime, the dependency tree, and the JIT-compiled code, page by page from storage. That is a large part of why a cold start is hundreds of milliseconds while a warm one is single digits, why bundle size affects cold start more than it affects steady-state performance, and why techniques that pre-warm — snapshots, AWS Lambda SnapStart, V8 startup snapshots, Node's <code>--snapshot-blob</code> — attack it by having the pages already laid out rather than by making the code faster.</p>
+
+<p><strong>What you can do at this point:</strong> read <code>free -m</code> correctly and explain why low free memory is healthy, explain demand paging and cold starts, describe eviction and thrashing, derive exit codes 137/143/139 from signal numbers, explain why an OOM kill gives no graceful shutdown, explain why a container with no leak can still be OOMKilled by its own log writes, and explain why Postgres wants the page cache.</p>
+
+<p><strong>What's still broken:</strong> overcommit was justified above by "<code>fork</code> plus copy-on-write", which has been referenced four times now and never explained. It is also the mechanism behind the strangest system call in Unix, the one that returns twice.</p>
+
+<h3>Node 14 — fork, copy-on-write, and the pattern that is everywhere</h3>
+
+<p><strong>The limitation:</strong> processes must be created, and copying an entire address space to do it would make process creation cost as much as the process's whole memory.</p>
+
+<h4>The call that returns twice</h4>
+
+<p>Unix's process creation call is <code>fork()</code>. It takes no arguments. It creates a new process that is a duplicate of the caller — same program, same memory contents, same open file descriptors, same current directory, same credentials, same instruction pointer.</p>
+
+<p>Which raises the obvious question: if the child is identical and resumes at the same instruction, how does either one know which it is? The answer is the one piece of asymmetry in the whole call. <strong><code>fork()</code> returns twice.</strong> In the parent it returns the child's PID, a positive number. In the child it returns 0. (And −1 in the parent on failure, with no child.)</p>
+
+<pre><code>pid_t pid = fork();
+if (pid == 0) {
+    /* child: this is a completely separate process */
+    execve("/usr/bin/node", argv, envp);   /* becomes a different program */
+} else if (pid &gt; 0) {
+    /* parent: pid is the child's process ID */
+    waitpid(pid, &amp;status, 0);              /* collect the exit status */
+} else {
+    /* failed */
+}
+</code></pre>
+
+<p>That is every process on your machine except PID 1. It is also, at bottom, what <code>child_process.spawn</code> does, what a shell does for every command you type, what a shell pipeline does twice, and what Postgres does per connection.</p>
+
+<p>The design is genuinely unusual — most systems have a single "create a process running this program" call, as Windows does with <code>CreateProcess</code> and its ten arguments. The Unix split into <code>fork</code> then <code>execve</code> exists because it makes the interval between them a place where the child can configure itself using perfectly ordinary calls: close a descriptor, redirect one onto another, change directory, drop privileges, set a resource limit, join a namespace. <strong>Shell redirection, pipes, and every container runtime's setup step live in that interval</strong>, and none of them needed a special API. Node 22 and Node 26 both depend on it.</p>
+
+<h4>Copy-on-write</h4>
+
+<p>Duplicating an address space by copying it would mean a process using 2 GB takes 2 GB and a substantial amount of time to fork — and then, in the overwhelmingly common case, immediately calls <code>execve</code> and throws all of it away.</p>
+
+<p>So no copy is made. Instead:</p>
+
+<ol>
+<li>The child gets its own page table, whose entries point at <em>the same physical frames</em> as the parent's.</li>
+<li>Every writable page is marked <strong>read-only</strong> in both page tables, and flagged internally as copy-on-write.</li>
+<li>Both run. Reads are free and fully shared.</li>
+<li>When either writes to such a page, the hardware raises a protection fault — Node 10's page fault, again.</li>
+<li>The kernel sees the copy-on-write flag, allocates a fresh frame, copies the 4 KB, points the writer's entry at the copy, and marks both writable again. The instruction is re-executed and succeeds.</li>
+</ol>
+
+<p><strong>Only pages actually written are ever copied, one page at a time, at the moment of writing.</strong> [EXPLAIN] A fork of a 2 GB process costs the page tables and nothing else — a millisecond or two — and if the child immediately <code>exec</code>s, essentially zero pages are ever copied. This is why overcommit (Node 13) is not merely a permissive default but a practical necessity: the kernel promised 2 GB twice and expects to deliver it once.</p>
+
+<p>Two refinements exist for the fork-then-exec case: <code>vfork</code>, which shares the address space and suspends the parent until the child execs (fast, dangerous, largely historical), and <code>posix_spawn</code>, which packages the whole sequence into one call so the library can pick the best mechanism. Linux implements all of them, plus <code>fork</code> itself, on top of one general call, <code>clone()</code>, whose flags say exactly what is shared and what is copied — address space, descriptor table, signal handlers, namespaces. Node 15 will show that a <em>thread</em> is the same <code>clone()</code> with more flags set to "share", and Node 26 that a <em>container</em> is the same call with namespace flags set. <strong>Threads, processes and containers are one system call with different arguments.</strong> That is the single most clarifying fact in Part VI.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Redis <code>BGSAVE</code> is the textbook case, and it bites people in production.</strong> To write a point-in-time snapshot without blocking, Redis calls <code>fork()</code>; the child has a frozen, consistent view of the dataset and writes it out at leisure while the parent keeps serving. Copy-on-write makes this nearly free — <em>if the parent is not writing</em>. Under a heavy write load, the parent dirties pages, each of which is copied, and <strong>memory usage can approach double the dataset size during the save</strong>. Redis's documentation warns about exactly this, and it is why <code>vm.overcommit_memory=1</code> is Redis's explicit recommendation: with the default heuristic, the <code>fork</code> itself can fail on a machine with slightly more than half its memory in use. A Redis instance that dies during background saves is usually this.</p>
+
+<p><strong>Postgres forks per connection</strong>, which is where Node 6's connection-pool argument comes from. The postmaster process accepts a connection and forks a backend; copy-on-write makes the fork cheap, but each backend then accumulates its own private memory for sorts, caches, and query state, so the cost is real and grows with activity. That is the mechanical reason <code>max_connections</code> is small and pooling is mandatory.</p>
+
+<p><strong>You cannot safely <code>fork()</code> a Node process, and it is important to know why.</strong> <code>fork</code> duplicates only the calling thread. Every other thread in the process ceases to exist in the child — but every lock they were holding remains held, forever, by a thread that is not there. If a libuv threadpool thread or a V8 background compiler thread held the allocator's lock at the instant of the fork, the child deadlocks the first time it allocates. POSIX's rule for this is that between <code>fork</code> and <code>exec</code> in a multithreaded program you may only call <em>async-signal-safe</em> functions, a very short list that excludes <code>malloc</code>. Node is thoroughly multithreaded, so it does not expose <code>fork()</code>. Note the naming trap: <code>cluster.fork()</code> and <code>child_process.fork()</code> are <strong>not</strong> this system call — they spawn a brand-new <code>node</code> process (<code>posix_spawn</code>, then <code>execve</code>) with an IPC channel attached. The name is inherited vocabulary, and confusing the two is a common interview stumble.</p>
+
+<p><strong>Copy-on-write is a pattern, not a kernel detail, and naming it pays off repeatedly.</strong> [EXPLAIN] The same idea — <em>share until someone writes, then diverge only the part that changed</em> — appears at every level of your stack:</p>
+
+<ul>
+<li><strong>Docker images.</strong> An image is a stack of read-only layers; a running container adds one thin writable layer on top. Reading a file finds it in a lower layer. Writing it triggers a <em>copy-up</em>: the whole file is copied into the writable layer first, then modified. That is copy-on-write at file granularity (Node 24), and it is why writing to a large file inside a container is slow the first time, why a container that rewrites a 2 GB file needs 2 GB of writable-layer space, and why databases in containers must use volumes rather than the layered filesystem.</li>
+<li><strong>Filesystem snapshots.</strong> btrfs, ZFS, LVM and every cloud provider's disk snapshot are copy-on-write at block granularity — the snapshot costs nothing until the original changes.</li>
+<li><strong>Postgres MVCC.</strong> An <code>UPDATE</code> does not overwrite a row; it writes a new version and leaves the old one visible to transactions that started earlier. That is copy-on-write for durability and isolation, and the reason <code>VACUUM</code> must exist is that the old versions accumulate.</li>
+<li><strong>Git.</strong> Objects are immutable and content-addressed; a commit that changes one file shares every unchanged blob and tree with its parent. Branching is free for exactly the reason forking is.</li>
+<li><strong>React and Immutable.js.</strong> Updating a nested state object creates new objects only along the path from the root to the change, sharing every untouched subtree. That is <em>structural sharing</em>, which is copy-on-write in a heap, and it is why an identity comparison at the top is a valid change check — the same reasoning as the copy-on-write page fault.</li>
+</ul>
+
+<p>When you meet a new system that claims cheap snapshots, cheap branching, or cheap forking, this is almost always the mechanism, and knowing the pattern lets you immediately ask the right question: <em>what does it cost when things do get written?</em></p>
+
+<p><strong>What you can do at this point:</strong> explain <code>fork</code> including the double return and why the split from <code>exec</code> is a good design, explain copy-on-write through the page fault, explain why Redis can double its memory during a save and why Node does not expose <code>fork</code>, and recognise copy-on-write in Docker layers, Postgres MVCC, Git, and React state.</p>
+
+<p><strong>What's still broken:</strong> processes are isolated, which was the goal, and that isolation is now in the way. Two processes cannot share a variable, so any work that must cooperate closely pays a copying cost through the kernel. And a process still runs one instruction stream, so a machine with sixteen cores runs one program on one of them. Something is needed that shares an address space by design.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
   This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
   elaboration.json live alongside it and are fetched at runtime — do not inline
   that data here.
@@ -2207,6 +2337,136 @@ nonvoluntary_ctxt_switches:     46
 <p><strong>What you can do at this point:</strong> explain why <code>malloc</code> is not a system call, why freed memory does not reduce RSS, and what fragmentation costs; account fully for the gap between <code>heapUsed</code> and container memory; state the three layers of allocation and where a garbage collector sits; derive a heap cap from a container limit rather than guessing; and recognise the signature of a native leak.</p>
 
 <p><strong>What's still broken:</strong> the allocator can hand out memory only if the kernel has frames to give. Nothing has said what happens when it does not — when every frame is spoken for and another allocation arrives. That question has three answers, and one of them is the reason for exit code 137.</p>
+
+<h3>Node 13 — demand paging, the page cache, swap, and the OOM killer</h3>
+
+<p><strong>The limitation:</strong> physical frames are finite, and nothing has said what happens when they run out.</p>
+
+<h4>Nothing is loaded until it is touched</h4>
+
+<p>Start with what the page fault made possible. When a program is executed, the kernel does <em>not</em> read it into memory. It sets up page table entries marked not-present, recording where on disk each page lives, and jumps to the entry point. The first instruction immediately faults; the kernel reads that one page; execution proceeds. Pages arrive as they are needed, and pages of a hundred-megabyte binary that are never executed are never read.</p>
+
+<p>That is <strong>demand paging</strong>, and its consequences are worth stating: a program starts in milliseconds regardless of size, memory holds only what is actually used, and a process can have far more mapped than the machine has. It is also why the very first request to a freshly started server is slower than the ones after it — the code paths it exercises are being faulted in — which is a real and measurable effect in serverless cold starts, in JVM and .NET warm-up, and in the first request to a newly rolled-out Kubernetes pod.</p>
+
+<h4>The page cache: free memory is wasted memory</h4>
+
+<p>Once pages of a file are in memory, throwing them away when the process closes the file would be foolish. So the kernel keeps them, in the <strong>page cache</strong>, and uses <em>all otherwise-unused memory</em> for it.</p>
+
+<p>This is the single most misread thing on a Linux dashboard. <strong>Every ordinary file read and write goes through the page cache.</strong> [EXPLAIN] A <code>read</code> checks the cache first and only touches the disk on a miss. A <code>write</code> copies your bytes into a cache page, marks it dirty, and <em>returns immediately</em> — no disk has moved. Kernel threads write dirty pages back later, governed by <code>vm.dirty_ratio</code>, <code>vm.dirty_background_ratio</code> and <code>vm.dirty_expire_centisecs</code>. Node 23 covers what that means for durability, which is a great deal.</p>
+
+<p>So on a healthy server, <code>free -m</code> shows very little "free" memory and a large "buff/cache" figure, and that is <em>correct and desirable</em>. Free memory is doing nothing; cached memory is saving disk reads and is instantly reclaimable. The column to read is <strong><code>available</code></strong>, which is free plus reclaimable cache — the honest answer to "how much could a new process get". Anyone reporting a memory problem because <code>free</code> is small is reading the wrong column, and it is worth being able to say so precisely.</p>
+
+<h4>Choosing what to evict</h4>
+
+<p>When frames are needed and none are free, something must go. The theoretically optimal policy is to evict the page that will be used furthest in the future, which requires knowing the future, so it exists only as a benchmark. The practical approximation is <strong>least recently used</strong>, and true LRU is also too expensive — it would mean updating a timestamp on every single memory access.</p>
+
+<p>So hardware and kernel cooperate cheaply. The processor sets the <em>accessed</em> bit in a page table entry on any access (Node 10). The kernel periodically clears those bits and, on the next pass, sees which were set again. That is the <strong>clock</strong> or <strong>second-chance</strong> algorithm. Linux refines it into two lists, <em>active</em> and <em>inactive</em>: a page must be referenced while on the inactive list to be promoted to active, which stops a single large sequential file read from evicting the entire useful working set — a failure mode with the excellent name <em>cache pollution</em>, and the reason a nightly backup used to make a database slow for an hour afterwards.</p>
+
+<p>The concept underneath is Peter Denning's <strong>working set</strong> (1968): the set of pages a process has touched in the recent past, which is a good predictor of what it will touch next. If the sum of all processes' working sets exceeds physical memory, the machine enters <strong>thrashing</strong> — every process constantly faults in a page by evicting a page another process is about to need, and the machine spends all its time moving pages and none doing work. Thrashing does not degrade gracefully; it collapses. A thrashing machine shows near-zero user CPU, huge <code>major faults</code>, and enormous disk activity, and it is often easier to reboot than to log into.</p>
+
+<h4>Swap: extending memory onto disk</h4>
+
+<p>File-backed pages can always be evicted, because the file is their home. Anonymous pages — heap, stack, anonymous <code>mmap</code> — have nowhere to go unless a dedicated area exists. That is <strong>swap</strong>. With it, total memory is RAM plus swap; without it, anonymous memory can never be evicted at all.</p>
+
+<p><code>vm.swappiness</code> (0–200, default 60) biases the kernel between reclaiming file pages and swapping anonymous ones. Low values favour keeping anonymous memory resident. Note that <code>swappiness=0</code> does not disable swap; it makes the kernel avoid it until it is nearly desperate.</p>
+
+<p>The reason swap has a bad reputation is latency. A page from RAM is 80 nanoseconds; from an SSD, around 100 microseconds — a thousand times slower; from a spinning disk, ten thousand times. A process whose active data is swapped out is not slow, it is unusable. Hence <strong>Kubernetes historically refused to run at all with swap enabled</strong>: swap makes memory limits unenforceable and makes latency unpredictable, and the scheduler's model assumes memory is memory. Support for swap on nodes has been reintroduced gradually (beta from 1.28, with further work through 1.30+), but the default position for a latency-sensitive service remains: no swap, and size the memory correctly.</p>
+
+<h4>Overcommit, and the killer</h4>
+
+<p>Linux, by default, grants more address space than it has memory to back. It has to, in practice: <code>fork</code> plus copy-on-write (Node 14) means a doubling of address space that will almost never be realised, programs routinely reserve large sparse regions they never touch, and V8 is one of them. <code>vm.overcommit_memory</code> controls the policy — 0 is a heuristic (the default), 1 always says yes, 2 refuses beyond a computed limit.</p>
+
+<p>The consequence is that the machine can promise more than it can deliver, and the debt comes due at a page fault: a process touches a page it was legitimately given, and there is no frame. There is nothing sensible to return — the faulting instruction cannot be failed, because <code>mov</code> has no error path.</p>
+
+<p>So the kernel picks a process and kills it. The <strong>OOM killer</strong> scores every process, roughly by memory footprint, adjusted by <code>oom_score_adj</code> (−1000 to +1000, where −1000 makes a process exempt), and sends the highest scorer <code>SIGKILL</code>. Not <code>SIGTERM</code>. <strong><code>SIGKILL</code> cannot be caught, blocked, or handled</strong> (Node 30), so the process gets no chance to flush anything, close anything, finish an in-flight request, or log a word about it. It simply ceases.</p>
+
+<p>The evidence is in the kernel log — <code>dmesg -T | grep -i "killed process"</code>, or <code>journalctl -k</code> — and it is the first place to look when a process vanishes with no application log entry explaining why. [USE]</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Exit code 137, decoded.</strong> A process killed by a signal reports, by shell convention, <code>128 + signal number</code>. <code>SIGKILL</code> is 9. So <strong>137 means killed by <code>SIGKILL</code></strong>, and in a container that almost always means the cgroup's memory limit was hit and the cgroup OOM killer fired. (143 is <code>128 + 15</code>, <code>SIGTERM</code> — a normal shutdown. 139 is <code>128 + 11</code>, <code>SIGSEGV</code> — Node 3.) Kubernetes reports it as <code>OOMKilled</code> in the container's <code>lastState.terminated.reason</code>. [EXPLAIN] You can derive all of these rather than memorising them, which is exactly the point of this document.</p>
+
+<p><strong>The cgroup memory limit is a separate, per-container OOM domain</strong>, which is why a container is killed on a machine with plenty of free memory: it exhausted <em>its</em> budget, not the machine's. Node 27 covers the mechanism; the operational points are that <code>memory.max</code> is a hard wall enforced by killing, while <code>memory.high</code> is a soft limit that throttles reclaim instead — meaning a container over <code>memory.high</code> gets slow rather than dead, which is often the behaviour you actually want, and which Kubernetes does not expose directly.</p>
+
+<p><strong>A container's page cache counts against its memory limit, and this kills containers that have no memory leak at all.</strong> [EXPLAIN] This one is genuinely non-obvious and causes real incidents. If your containerised service writes heavily to a file — logs, a temp file, an upload buffer, a SQLite database — those dirty and clean page-cache pages are charged to the container's cgroup. The kernel will reclaim cache before killing, so it usually works out, but under memory pressure combined with heavy write throughput a container can be OOM-killed while its actual anonymous usage is far below the limit. Symptoms: <code>OOMKilled</code> with a flat heap graph and a healthy <code>process.memoryUsage()</code>. Remedies: log to stdout and let the runtime handle it rather than writing files, put genuinely large scratch data on a volume mounted with different semantics, and read <code>memory.stat</code> in the container to see the split between <code>anon</code> and <code>file</code>.</p>
+
+<p><strong>Why a Node process gets no graceful shutdown on OOM.</strong> Because it is <code>SIGKILL</code>. Your <code>process.on('SIGTERM')</code> handler, your connection draining, your "finish in-flight requests" logic — none of it runs. This is the strongest argument for sizing memory generously and for setting a heap cap (Node 12) so that V8 hits <em>its</em> limit first: a V8 heap-limit failure throws a JavaScript <code>FATAL ERROR: Reached heap limit</code> with a stack trace and can trigger a heap snapshot via <code>--heapsnapshot-near-heap-limit</code>, which is diagnosable. A kernel OOM kill produces one line in the host's kernel log and nothing else. <strong>Choosing which limit you hit first is a real design decision.</strong></p>
+
+<p><strong>Postgres is built on the page cache and its configuration only makes sense in that light.</strong> Postgres deliberately keeps <code>shared_buffers</code> modest — the conventional 25% of RAM — rather than claiming everything, because it expects the operating system's page cache to hold the rest. A page can therefore exist twice, once in shared buffers and once in the page cache: <em>double buffering</em>, wasteful in principle and accepted in practice because the kernel's cache is good and its readahead is good. <code>effective_cache_size</code> is not an allocation at all; it is a <em>hint to the query planner</em> about how much total caching it can assume, and setting it too low makes the planner avoid index scans it should be choosing. And this is why running Postgres in a container with a tight memory limit performs badly in a way that adding <code>shared_buffers</code> does not fix: you have taken away the page cache it was designed to rely on.</p>
+
+<p><strong>Cold starts are demand paging.</strong> A serverless function's first invocation faults in the runtime, the dependency tree, and the JIT-compiled code, page by page from storage. That is a large part of why a cold start is hundreds of milliseconds while a warm one is single digits, why bundle size affects cold start more than it affects steady-state performance, and why techniques that pre-warm — snapshots, AWS Lambda SnapStart, V8 startup snapshots, Node's <code>--snapshot-blob</code> — attack it by having the pages already laid out rather than by making the code faster.</p>
+
+<p><strong>What you can do at this point:</strong> read <code>free -m</code> correctly and explain why low free memory is healthy, explain demand paging and cold starts, describe eviction and thrashing, derive exit codes 137/143/139 from signal numbers, explain why an OOM kill gives no graceful shutdown, explain why a container with no leak can still be OOMKilled by its own log writes, and explain why Postgres wants the page cache.</p>
+
+<p><strong>What's still broken:</strong> overcommit was justified above by "<code>fork</code> plus copy-on-write", which has been referenced four times now and never explained. It is also the mechanism behind the strangest system call in Unix, the one that returns twice.</p>
+
+<h3>Node 14 — fork, copy-on-write, and the pattern that is everywhere</h3>
+
+<p><strong>The limitation:</strong> processes must be created, and copying an entire address space to do it would make process creation cost as much as the process's whole memory.</p>
+
+<h4>The call that returns twice</h4>
+
+<p>Unix's process creation call is <code>fork()</code>. It takes no arguments. It creates a new process that is a duplicate of the caller — same program, same memory contents, same open file descriptors, same current directory, same credentials, same instruction pointer.</p>
+
+<p>Which raises the obvious question: if the child is identical and resumes at the same instruction, how does either one know which it is? The answer is the one piece of asymmetry in the whole call. <strong><code>fork()</code> returns twice.</strong> In the parent it returns the child's PID, a positive number. In the child it returns 0. (And −1 in the parent on failure, with no child.)</p>
+
+<pre><code>pid_t pid = fork();
+if (pid == 0) {
+    /* child: this is a completely separate process */
+    execve("/usr/bin/node", argv, envp);   /* becomes a different program */
+} else if (pid &gt; 0) {
+    /* parent: pid is the child's process ID */
+    waitpid(pid, &amp;status, 0);              /* collect the exit status */
+} else {
+    /* failed */
+}
+</code></pre>
+
+<p>That is every process on your machine except PID 1. It is also, at bottom, what <code>child_process.spawn</code> does, what a shell does for every command you type, what a shell pipeline does twice, and what Postgres does per connection.</p>
+
+<p>The design is genuinely unusual — most systems have a single "create a process running this program" call, as Windows does with <code>CreateProcess</code> and its ten arguments. The Unix split into <code>fork</code> then <code>execve</code> exists because it makes the interval between them a place where the child can configure itself using perfectly ordinary calls: close a descriptor, redirect one onto another, change directory, drop privileges, set a resource limit, join a namespace. <strong>Shell redirection, pipes, and every container runtime's setup step live in that interval</strong>, and none of them needed a special API. Node 22 and Node 26 both depend on it.</p>
+
+<h4>Copy-on-write</h4>
+
+<p>Duplicating an address space by copying it would mean a process using 2 GB takes 2 GB and a substantial amount of time to fork — and then, in the overwhelmingly common case, immediately calls <code>execve</code> and throws all of it away.</p>
+
+<p>So no copy is made. Instead:</p>
+
+<ol>
+<li>The child gets its own page table, whose entries point at <em>the same physical frames</em> as the parent's.</li>
+<li>Every writable page is marked <strong>read-only</strong> in both page tables, and flagged internally as copy-on-write.</li>
+<li>Both run. Reads are free and fully shared.</li>
+<li>When either writes to such a page, the hardware raises a protection fault — Node 10's page fault, again.</li>
+<li>The kernel sees the copy-on-write flag, allocates a fresh frame, copies the 4 KB, points the writer's entry at the copy, and marks both writable again. The instruction is re-executed and succeeds.</li>
+</ol>
+
+<p><strong>Only pages actually written are ever copied, one page at a time, at the moment of writing.</strong> [EXPLAIN] A fork of a 2 GB process costs the page tables and nothing else — a millisecond or two — and if the child immediately <code>exec</code>s, essentially zero pages are ever copied. This is why overcommit (Node 13) is not merely a permissive default but a practical necessity: the kernel promised 2 GB twice and expects to deliver it once.</p>
+
+<p>Two refinements exist for the fork-then-exec case: <code>vfork</code>, which shares the address space and suspends the parent until the child execs (fast, dangerous, largely historical), and <code>posix_spawn</code>, which packages the whole sequence into one call so the library can pick the best mechanism. Linux implements all of them, plus <code>fork</code> itself, on top of one general call, <code>clone()</code>, whose flags say exactly what is shared and what is copied — address space, descriptor table, signal handlers, namespaces. Node 15 will show that a <em>thread</em> is the same <code>clone()</code> with more flags set to "share", and Node 26 that a <em>container</em> is the same call with namespace flags set. <strong>Threads, processes and containers are one system call with different arguments.</strong> That is the single most clarifying fact in Part VI.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Redis <code>BGSAVE</code> is the textbook case, and it bites people in production.</strong> To write a point-in-time snapshot without blocking, Redis calls <code>fork()</code>; the child has a frozen, consistent view of the dataset and writes it out at leisure while the parent keeps serving. Copy-on-write makes this nearly free — <em>if the parent is not writing</em>. Under a heavy write load, the parent dirties pages, each of which is copied, and <strong>memory usage can approach double the dataset size during the save</strong>. Redis's documentation warns about exactly this, and it is why <code>vm.overcommit_memory=1</code> is Redis's explicit recommendation: with the default heuristic, the <code>fork</code> itself can fail on a machine with slightly more than half its memory in use. A Redis instance that dies during background saves is usually this.</p>
+
+<p><strong>Postgres forks per connection</strong>, which is where Node 6's connection-pool argument comes from. The postmaster process accepts a connection and forks a backend; copy-on-write makes the fork cheap, but each backend then accumulates its own private memory for sorts, caches, and query state, so the cost is real and grows with activity. That is the mechanical reason <code>max_connections</code> is small and pooling is mandatory.</p>
+
+<p><strong>You cannot safely <code>fork()</code> a Node process, and it is important to know why.</strong> <code>fork</code> duplicates only the calling thread. Every other thread in the process ceases to exist in the child — but every lock they were holding remains held, forever, by a thread that is not there. If a libuv threadpool thread or a V8 background compiler thread held the allocator's lock at the instant of the fork, the child deadlocks the first time it allocates. POSIX's rule for this is that between <code>fork</code> and <code>exec</code> in a multithreaded program you may only call <em>async-signal-safe</em> functions, a very short list that excludes <code>malloc</code>. Node is thoroughly multithreaded, so it does not expose <code>fork()</code>. Note the naming trap: <code>cluster.fork()</code> and <code>child_process.fork()</code> are <strong>not</strong> this system call — they spawn a brand-new <code>node</code> process (<code>posix_spawn</code>, then <code>execve</code>) with an IPC channel attached. The name is inherited vocabulary, and confusing the two is a common interview stumble.</p>
+
+<p><strong>Copy-on-write is a pattern, not a kernel detail, and naming it pays off repeatedly.</strong> [EXPLAIN] The same idea — <em>share until someone writes, then diverge only the part that changed</em> — appears at every level of your stack:</p>
+
+<ul>
+<li><strong>Docker images.</strong> An image is a stack of read-only layers; a running container adds one thin writable layer on top. Reading a file finds it in a lower layer. Writing it triggers a <em>copy-up</em>: the whole file is copied into the writable layer first, then modified. That is copy-on-write at file granularity (Node 24), and it is why writing to a large file inside a container is slow the first time, why a container that rewrites a 2 GB file needs 2 GB of writable-layer space, and why databases in containers must use volumes rather than the layered filesystem.</li>
+<li><strong>Filesystem snapshots.</strong> btrfs, ZFS, LVM and every cloud provider's disk snapshot are copy-on-write at block granularity — the snapshot costs nothing until the original changes.</li>
+<li><strong>Postgres MVCC.</strong> An <code>UPDATE</code> does not overwrite a row; it writes a new version and leaves the old one visible to transactions that started earlier. That is copy-on-write for durability and isolation, and the reason <code>VACUUM</code> must exist is that the old versions accumulate.</li>
+<li><strong>Git.</strong> Objects are immutable and content-addressed; a commit that changes one file shares every unchanged blob and tree with its parent. Branching is free for exactly the reason forking is.</li>
+<li><strong>React and Immutable.js.</strong> Updating a nested state object creates new objects only along the path from the root to the change, sharing every untouched subtree. That is <em>structural sharing</em>, which is copy-on-write in a heap, and it is why an identity comparison at the top is a valid change check — the same reasoning as the copy-on-write page fault.</li>
+</ul>
+
+<p>When you meet a new system that claims cheap snapshots, cheap branching, or cheap forking, this is almost always the mechanism, and knowing the pattern lets you immediately ask the right question: <em>what does it cost when things do get written?</em></p>
+
+<p><strong>What you can do at this point:</strong> explain <code>fork</code> including the double return and why the split from <code>exec</code> is a good design, explain copy-on-write through the page fault, explain why Redis can double its memory during a save and why Node does not expose <code>fork</code>, and recognise copy-on-write in Docker layers, Postgres MVCC, Git, and React state.</p>
+
+<p><strong>What's still broken:</strong> processes are isolated, which was the goal, and that isolation is now in the way. Two processes cannot share a variable, so any work that must cooperate closely pays a copying cost through the kernel. And a process still runs one instruction stream, so a machine with sixteen cores runs one program on one of them. Something is needed that shares an address space by design.</p>
     </div>
   </div>
 

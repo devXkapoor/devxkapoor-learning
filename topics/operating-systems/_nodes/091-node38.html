@@ -1,0 +1,63 @@
+<h3>Node 38 — <code>/proc</code>, <code>/sys</code>, and where every metric comes from</h3>
+
+<p><strong>The limitation:</strong> the system is complete and opaque. Nothing can see inside it.</p>
+
+<h4>A filesystem that is not a filesystem</h4>
+
+<p><code>/proc</code> is a <strong>procfs</strong> mount — a filesystem with no storage behind it. Reading a file there does not read a disk; it calls a kernel function that generates the content at that instant. Writing to one calls a function that changes kernel state.</p>
+
+<p>This is Node 21's "everything is a file" used as the kernel's entire user interface, and the payoff is total: <strong>every diagnostic tool on Linux is a program that reads text files.</strong> [EXPLAIN] <code>ps</code>, <code>top</code>, <code>free</code>, <code>uptime</code>, <code>vmstat</code>, <code>lsof</code>, your Prometheus node exporter, your APM agent, your container runtime — all of them are parsing <code>/proc</code>. There is no privileged metrics API. Knowing this means you are never dependent on a tool being installed: <code>cat</code> is enough.</p>
+
+<h4>The per-process files that matter</h4>
+
+<p>Under <code>/proc/&lt;pid&gt;/</code>, and the six worth knowing cold:</p>
+
+<ul>
+<li><strong><code>status</code></strong> — human-readable summary: state (Node 5), thread count, <code>VmRSS</code> and <code>VmSize</code> (Node 10), UID and GID, capabilities (Node 25), signal masks (Node 30), and the two context-switch counters (Node 6).</li>
+<li><strong><code>stat</code></strong> — the same in a single machine-readable line: 52 fields including <code>utime</code> and <code>stime</code> in clock ticks, minor and major faults (Node 10), and the start time. <em>This is the file <code>top</code> reads.</em></li>
+<li><strong><code>maps</code></strong> and <strong><code>smaps_rollup</code></strong> — the address space, region by region, with RSS and PSS totals (Node 11).</li>
+<li><strong><code>fd/</code></strong> — one symbolic link per open descriptor, naming its target. <code>ls -l /proc/&lt;pid&gt;/fd</code> is the descriptor-leak diagnosis from Node 19, and it works with no tooling at all.</li>
+<li><strong><code>limits</code></strong> — the effective resource limits, which is how you check whether <code>ulimit -n</code> actually applied to a running service rather than to your shell.</li>
+<li><strong><code>cmdline</code></strong> and <strong><code>environ</code></strong> — arguments and environment, NUL-separated (Node 35, including the secret-exposure point).</li>
+<li><strong><code>task/</code></strong> — one subdirectory per thread, each with the same files. This is how <code>top -H</code> works and how you attribute CPU to a specific thread in a Node process (Node 15).</li>
+<li><strong><code>stack</code></strong> and <strong><code>wchan</code></strong> — the kernel-side stack and the function the process is sleeping in. For a <code>D</code>-state hang, <code>cat /proc/&lt;pid&gt;/stack</code> tells you exactly which kernel operation it is stuck in.</li>
+</ul>
+
+<h4>The system-wide ones</h4>
+
+<ul>
+<li><strong><code>/proc/stat</code></strong> — cumulative processor time since boot, per core, split into user, nice, system, idle, iowait, irq and softirq. <strong>These are counters, not percentages.</strong> Every CPU percentage you have ever seen is computed by sampling this twice and dividing the deltas — which is why a tool's first sample is meaningless and why "average CPU since boot" is a different and usually useless number.</li>
+<li><strong><code>/proc/meminfo</code></strong> — <code>MemTotal</code>, <code>MemFree</code>, <code>MemAvailable</code>, <code>Buffers</code>, <code>Cached</code>, <code>Dirty</code>, <code>Writeback</code>, <code>SwapTotal</code>. This is what <code>free -m</code> formats, and Node 13's point about reading <code>MemAvailable</code> rather than <code>MemFree</code> lives here.</li>
+<li><strong><code>/proc/loadavg</code></strong> — the 1, 5 and 15 minute load averages, plus the running/total task counts. Worth restating from Node 5: <strong>Linux load average counts running <em>and</em> uninterruptibly-sleeping tasks</strong>, so a machine with a hung disk shows a load of 40 with idle processors. Load average is not a CPU metric on Linux, and treating it as one is a common and consequential misreading.</li>
+<li><strong><code>/proc/interrupts</code></strong> — per-IRQ, per-core counts (Node 2). Uneven distribution across cores on a network-heavy machine is diagnosable here.</li>
+<li><strong><code>/proc/net/tcp</code></strong> and <code>tcp6</code> — every socket with its state and queue depths. This is what <code>ss</code> and <code>netstat</code> read (Node 32).</li>
+<li><strong><code>/proc/pressure/</code></strong> — PSI (Node 27), the stall-time metrics.</li>
+<li><strong><code>/proc/sys/</code></strong> — the writable half. Every <code>sysctl</code> is a file here: <code>vm.swappiness</code>, <code>net.core.somaxconn</code>, <code>fs.file-max</code>, <code>vm.overcommit_memory</code>. <code>sysctl -w</code> is a file write, and <code>/etc/sysctl.d/</code> makes it survive a reboot.</li>
+</ul>
+
+<p><code>/sys</code> (sysfs) is the newer, more structured counterpart, exposing the device model — block devices, network interfaces, cgroups (Node 27 is entirely <code>/sys/fs/cgroup</code>), CPU frequency scaling, and the I/O scheduler selection from Node 23.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Container metrics are the same files, in the container's namespaces.</strong> A Prometheus node exporter reads <code>/proc</code> and <code>/sys</code>; cAdvisor reads <code>/sys/fs/cgroup</code> for per-container CPU, memory and I/O. When you look at a Grafana panel showing container memory, the number came from <code>memory.current</code> in a cgroup file. When you look at CPU throttling, it came from <code>cpu.stat</code>'s <code>nr_throttled</code>. There is no other source.</p>
+
+<p><strong>And the namespace gap from Node 26 lands here as a practical problem.</strong> <code>/proc/cpuinfo</code> and <code>/proc/meminfo</code> inside a container show the <em>host's</em> values, because those files are not namespaced. So any library or runtime that sizes itself from them is wrong inside a container. This is why the JVM needed <code>UseContainerSupport</code>, why Node added <code>os.availableParallelism()</code>, and why <code>lscpu</code> in a one-core pod reports 64 cores. The correct source is the cgroup files, and tools like <code>lxcfs</code> exist to present a namespace-correct <code>/proc</code> by mounting a FUSE filesystem over it.</p>
+
+<p><strong>Reading these directly is often faster than any tooling.</strong> A practical sequence for a misbehaving Node process, using nothing but <code>cat</code>:</p>
+
+<pre><code>PID=$(pgrep -n node)
+cat /proc/$PID/status | grep -E 'State|Threads|VmRSS|ctxt'
+ls /proc/$PID/fd | wc -l                    # descriptor count vs the limit
+grep 'Max open files' /proc/$PID/limits
+cat /proc/$PID/stack                        # if it is in D state
+cat /sys/fs/cgroup/cpu.stat                 # nr_throttled — Node 27
+grep -E '^(anon|file) ' /sys/fs/cgroup/memory.stat
+</code></pre>
+
+<p>Six commands, and between them they distinguish a blocked event loop, a descriptor leak, CPU throttling, page-cache-driven memory pressure, and a storage hang — the five most common production failures in this document. [USE]</p>
+
+<p><strong>Node's own metrics come from the same place.</strong> <code>process.memoryUsage().rss</code> reads <code>/proc/self/statm</code>. <code>process.cpuUsage()</code> uses <code>getrusage</code>. <code>os.loadavg()</code> reads <code>/proc/loadavg</code>. And what Node <em>cannot</em> tell you — its own cgroup limits, its throttling, its accept-queue depth — you read from these files yourself. Exporting <code>nr_throttled</code> and event-loop delay (Node 20) side by side is a genuinely high-value pair of custom metrics for any containerised Node service.</p>
+
+<p><strong>What you can do at this point:</strong> explain what procfs is and why every Linux tool is a text parser, name the per-process and system-wide files that matter and what each answers, explain why CPU percentages require two samples, correct the common misreading of Linux load average, explain why container CPU and memory detection is wrong and where the right numbers live, and diagnose the five common failures with <code>cat</code> alone.</p>
+
+<p><strong>What's still broken:</strong> <code>/proc</code> gives you state — a snapshot of what <em>is</em>. It cannot tell you what <em>happened</em>: which function consumed the CPU, which syscall was slow, which query caused the disk activity. Observing behaviour rather than state needs a different mechanism.</p>

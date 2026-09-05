@@ -1,0 +1,73 @@
+<h3>Node 39 — tracing: ptrace, perf, and eBPF</h3>
+
+<p><strong>The limitation:</strong> <code>/proc</code> shows state, not behaviour. It cannot say which function burned the processor or which syscall was slow.</p>
+
+<h4>ptrace: one process controlling another</h4>
+
+<p><code>ptrace()</code> lets one process attach to another and control its execution: stop it, read and write its registers and memory, single-step it, and intercept every system call entry and exit. It is the mechanism behind every debugger — <code>gdb</code>, <code>lldb</code>, and <code>strace</code> from Node 4.</p>
+
+<p>A breakpoint, mechanically, is this: the debugger writes the one-byte instruction <code>0xCC</code> (<code>int3</code>) over the first byte of the target instruction, saving the original. When the process reaches it, the processor raises an exception (Node 2), which becomes <code>SIGTRAP</code>, which suspends the process and notifies the debugger. To continue, the debugger restores the original byte, single-steps one instruction, re-inserts the breakpoint, and resumes. <strong>A debugger is a program that edits your machine code while it runs</strong>, which is only possible because of Node 0's stored-program property.</p>
+
+<p>The cost is severe: <code>strace</code> stops the traced process twice per system call, so a syscall-heavy program can slow by an order of magnitude. That makes <code>ptrace</code> excellent for correctness debugging and unusable for production performance work.</p>
+
+<p>It is also a security-sensitive capability — attaching to a process means reading all its memory, including its keys — so it is gated by <code>CAP_SYS_PTRACE</code> (Node 25) and by <code>/proc/sys/kernel/yama/ptrace_scope</code>, which by default permits attaching only to descendants. This is why <code>strace</code> on someone else's process needs <code>sudo</code>, and why <code>docker run --cap-add=SYS_PTRACE</code> is required to debug inside a container.</p>
+
+<h4>perf: sampling instead of intercepting</h4>
+
+<p>The alternative to observing every event is to sample. <code>perf</code> uses the processor's <strong>performance monitoring unit</strong> — hardware counters that can be programmed to raise an interrupt every N events. Set it to interrupt every ten million cycles, record the instruction pointer and call stack at each interrupt, and after a few seconds you have a statistical picture of where time went, at an overhead of one to two percent.</p>
+
+<p>The counters are hardware and go far beyond cycles: instructions retired, cache misses at each level, branch mispredictions, TLB misses (Node 10). <code>perf stat</code> on a workload tells you not just that it is slow but <em>why</em> — a low instructions-per-cycle figure with high cache misses is a memory-layout problem, not an algorithmic one.</p>
+
+<pre><code>perf stat -d ./workload            # counters: IPC, cache misses, branch misses
+perf record -F 99 -g -p &lt;pid&gt; -- sleep 30
+perf report                        # or fold into a flame graph
+</code></pre>
+
+<p>A <strong>flame graph</strong> (Brendan Gregg, 2011) aggregates those sampled stacks: width is the proportion of samples in which a function was on the stack, and the vertical axis is stack depth. <em>Width means time; the ordering left to right is alphabetical and carries no meaning</em> — a point people get wrong constantly. A wide plateau at the top is a function burning CPU in itself; a wide tower is a deep call path.</p>
+
+<h4>eBPF: programs that run in the kernel</h4>
+
+<p>The modern answer, and the most significant change in Linux observability in twenty years. <strong>eBPF</strong> lets you load a small program into the kernel, attached to a kernel function, a tracepoint, a syscall, a network hook, or a user-space function, which runs on every occurrence and writes results into a map that user space reads.</p>
+
+<p>Node 3 said user code must never run privileged, so the resolution matters: the kernel runs a <strong>verifier</strong> over the bytecode before accepting it, statically proving that it terminates (no unbounded loops), that every memory access is in bounds, and that it calls only permitted helpers. It is then JIT-compiled to native code. <em>A proof obligation substituting for a hardware boundary.</em></p>
+
+<p>The consequence is aggregation <em>in the kernel</em>. Rather than copying every event to user space and analysing it there — <code>strace</code>'s fatal cost — an eBPF program can, say, compute a latency histogram of every disk I/O in the kernel and hand you the finished histogram. Overhead falls to the point where it is acceptable in production.</p>
+
+<p>The tools built on it, worth knowing by name: <code>bpftrace</code> (a small scripting language for one-off questions), the BCC collection (<code>execsnoop</code>, <code>opensnoop</code>, <code>biolatency</code>, <code>tcplife</code>, <code>runqlat</code>, <code>profile</code>), <code>bpftop</code>, and at the platform level Cilium for container networking and policy, Pixie and Parca for continuous profiling, and Falco for runtime security.</p>
+
+<pre><code># every process executed anywhere on the machine, as it happens
+execsnoop-bpfcc
+
+# a histogram of block-device latency (Node 23)
+biolatency-bpfcc 10 1
+
+# how long tasks wait in the run queue before running (Node 7)
+runqlat-bpfcc
+
+# one-off: count syscalls by name for one process
+bpftrace -e 'tracepoint:raw_syscalls:sys_enter /pid == 1234/ { @[probe] = count(); }'
+</code></pre>
+
+<p><code>runqlat</code> deserves a note: it measures scheduler wait time, which is precisely the CPU-contention signal that utilisation cannot show you. A container being throttled (Node 27) shows up there directly.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>Profiling a Node process has three layers and you must pick the right one.</strong> [EXPLAIN] This is the single most useful practical content of this node.</p>
+
+<ul>
+<li><strong>JavaScript-level.</strong> <code>node --prof</code> then <code>--prof-process</code>, or the Chrome DevTools CPU profiler via <code>node --inspect</code>, or <code>0x</code>, or a continuous profiler. These use V8's own sampling profiler and give you <em>your function names</em>. This is where you start, and it answers "which of my functions is hot".</li>
+<li><strong>Native-level.</strong> <code>perf record</code> on the Node process. By default the JIT-compiled frames appear as unresolved addresses, because the machine code was generated at run time and no symbol table describes it (Node 0, Node 33). <code>node --perf-basic-prof</code> makes V8 write a map file of address ranges to JavaScript function names, which <code>perf</code> then reads. This is what you need when the time is in V8, in libuv, in a native addon, or in the kernel — <em>things the JavaScript profiler cannot see at all</em>.</li>
+<li><strong>Kernel-level.</strong> eBPF tools, for when the answer is "waiting on the disk", "waiting in the run queue", or "spending its time in <code>futex</code>".</li>
+</ul>
+
+<p>The diagnostic sequence that follows: if event-loop delay is high (Node 20) and CPU is high, use the JavaScript profiler. If CPU is high but no JavaScript function accounts for it, use <code>perf</code> — the answer is usually garbage collection, JSON serialisation, TLS, or an addon. If CPU is low and latency is high, the process is waiting, and the eBPF tools tell you for what.</p>
+
+<p><strong>Heap profiling is a separate axis.</strong> <code>node --inspect</code> plus DevTools' heap snapshots, or <code>v8.writeHeapSnapshot()</code>, or <code>--heapsnapshot-near-heap-limit</code> to capture one automatically as the process approaches its limit (Node 12). Comparing two snapshots taken minutes apart and sorting by retained size is the standard leak hunt. And Node 11's warning applies: a <em>buffer</em> leak does not appear in a heap snapshot, because those bytes are outside V8's heap — that one shows as rising RSS with a flat heap, and you find it with <code>perf</code> or by auditing addon usage.</p>
+
+<p><strong>Continuous profiling in production is now normal.</strong> Because sampling costs one to two percent, running a profiler permanently across a fleet is affordable, and it changes the economics of performance work: instead of trying to reproduce a problem, you look at what the process was doing when it happened. Pyroscope, Parca, Datadog's and Google's profilers all do this, and the underlying mechanism is this node.</p>
+
+<p><strong>Kubernetes debugging tools are these mechanisms with permissions attached.</strong> <code>kubectl debug</code> creates an ephemeral container in the target pod's namespaces (Node 26), which is how you get tooling into a distroless image. Profiling inside a container generally needs <code>SYS_PTRACE</code> or <code>SYS_ADMIN</code>, and eBPF needs privileged access or <code>CAP_BPF</code> — which is why observability agents are among the few workloads that legitimately run privileged, and why they are also a serious supply-chain risk.</p>
+
+<p><strong>What you can do at this point:</strong> explain how a debugger sets a breakpoint and why <code>strace</code> is too slow for production, explain sampling profilers and what hardware counters tell you, read a flame graph correctly, explain eBPF's verifier as the resolution of Node 3's rule, choose the right profiling layer for a Node symptom, and explain why a buffer leak is invisible in a heap snapshot.</p>
+
+<p><strong>What's still broken:</strong> one number has been referenced repeatedly without being confronted — the cost of crossing between user mode and the kernel. It has grown, for reasons that are not about software design, and the response to it is reshaping how I/O is done.</p>

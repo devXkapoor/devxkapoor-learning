@@ -239,6 +239,122 @@ const DK = (() => {
     return headings.length;
   }
 
+  // Every class that participates in the disclosure hierarchy. Used to work out
+  // which blocks are a given block's *immediate* children, regardless of how
+  // many wrapper divs sit between them.
+  const BLOCK_SEL =
+    "details.part-block, details.node-block, details.el-block, details.sub-block";
+
+  // The blocks whose nearest block ancestor is this one. Needed because the
+  // levels are not always direct DOM children: an elaboration sub-block sits
+  // inside .node-body > .prose, not directly under .node-body.
+  function childBlocks(details) {
+    const body = details.querySelector(":scope > .node-body");
+    if (!body) return [];
+    return Array.from(body.querySelectorAll(BLOCK_SEL)).filter(
+      (d) => d.parentElement && d.parentElement.closest(BLOCK_SEL) === details
+    );
+  }
+
+  // Wraps each run of loose (non-block) children in a .prose div.
+  //
+  // This is what fixes the landscape's width. .prose carries a 68ch cap, so if
+  // it wraps the blocks from the outside it constrains the boxes themselves,
+  // not just the text. Applied on the *inside* it lands within .node-body,
+  // where `.node-body .prose { max-width: none }` cancels the cap — which is
+  // exactly how the elaboration tab ends up full width.
+  function wrapLooseProse(container) {
+    let run = [];
+    const flush = () => {
+      const meaningful = run.some(
+        (n) => n.nodeType === 1 || (n.textContent || "").trim()
+      );
+      if (meaningful) {
+        const box = document.createElement("div");
+        box.className = "prose";
+        container.insertBefore(box, run[0]);
+        run.forEach((n) => box.appendChild(n));
+      }
+      run = [];
+    };
+    Array.from(container.childNodes).forEach((n) => {
+      const isBlock =
+        n.nodeType === 1 &&
+        (n.tagName === "DETAILS" || n.classList.contains("prose"));
+      if (isBlock) flush();
+      else run.push(n);
+    });
+    flush();
+  }
+
+  // Builds a multi-level disclosure tree out of one flat run of prose.
+  //
+  // `spec` is ordered outermost-first, e.g.
+  //   [{ match: "h3.part", cls: "part-block" },
+  //    { match: "h3",      cls: "node-block" },
+  //    { match: "h4",      cls: "sub-block"  }]
+  //
+  // Each level consumes only headings matching its own selector, so a plain
+  // <h3> does not terminate an <h3 class="part"> section — the part keeps its
+  // nodes, and recursion then splits them. makeSectionsCollapsible is left
+  // exactly as it was; callers opt in to nesting by using this instead.
+  function makeSectionsNested(root, spec) {
+    if (!root || !spec || !spec.length) return 0;
+    const level = spec[0];
+    const rest = spec.slice(1);
+    const heads = Array.from(root.children).filter(
+      (el) => el.matches && el.matches(level.match)
+    );
+
+    // A level that matches nothing falls through to the next one rather than
+    // stopping. So a section with no nodes still gets its sub-sections split,
+    // and a topic with no parts at all still nests node over sub-section.
+    if (!heads.length) {
+      if (!rest.length) {
+        wrapLooseProse(root);
+        return 0;
+      }
+      return makeSectionsNested(root, rest);
+    }
+
+    heads.forEach((h) => {
+      const details = document.createElement("details");
+      details.className = level.cls;
+
+      const summary = document.createElement("summary");
+      summary.className = "node-summary";
+      summary.innerHTML =
+        `<span class="node-chevron">${ICON.chevron}</span>` +
+        `<span class="node-title">${h.innerHTML}</span>`;
+      details.appendChild(summary);
+
+      const body = document.createElement("div");
+      body.className = "node-body";
+      details.appendChild(body);
+
+      root.insertBefore(details, h);
+      h.remove();
+
+      // Absorb everything up to the next heading *at this same level*.
+      while (
+        details.nextSibling &&
+        !(
+          details.nextSibling.nodeType === 1 &&
+          details.nextSibling.matches &&
+          details.nextSibling.matches(level.match)
+        )
+      ) {
+        body.appendChild(details.nextSibling);
+      }
+
+      if (rest.length) makeSectionsNested(body, rest);
+      wrapLooseProse(body);
+    });
+
+    wrapLooseProse(root);
+    return heads.length;
+  }
+
   // Adds a "Collapse" control at the *end* of an open block, so you never have
   // to scroll back up to the header to close something you've finished reading.
   // Long elaboration sections make this the difference between usable and not.
@@ -280,9 +396,11 @@ const DK = (() => {
 
   // Local expand/collapse for the sub-blocks inside one node.
   function addLocalControls(details) {
-    const body = details.querySelector(".node-body");
+    const body = details.querySelector(":scope > .node-body");
     if (!body) return;
-    const subs = body.querySelectorAll("details.sub-block");
+    // Immediate children only — a part must count its nodes, not its nodes'
+    // sub-sections as well.
+    const subs = childBlocks(details);
     if (!subs.length || body.querySelector(":scope > .node-local")) return;
 
     const bar = document.createElement("div");
@@ -303,6 +421,10 @@ const DK = (() => {
 
   // Applies footers and local controls across a whole tree of blocks.
   function decorateBlocks(root) {
+    root.querySelectorAll("details.part-block").forEach((d) => {
+      addLocalControls(d);
+      addBlockFooter(d, "Collapse this part");
+    });
     root.querySelectorAll("details.node-block, details.el-block").forEach((d) => {
       addLocalControls(d);
       addBlockFooter(d, "Collapse this section");
@@ -324,7 +446,7 @@ const DK = (() => {
     bar.addEventListener("click", (e) => {
       const act = e.target.dataset && e.target.dataset.act;
       if (!act) return;
-      targetRoot.querySelectorAll("details.node-block, details.el-block, details.sub-block").forEach((d) => {
+      targetRoot.querySelectorAll(BLOCK_SEL).forEach((d) => {
         d.open = act === "expand";
       });
     });
@@ -3055,7 +3177,7 @@ const DK = (() => {
     };
   })();
 
-  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllPrep, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, setTheme, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount, buildMarkdown, buildBackup, importBackup, plainText, highlight, addCopyButtons, makeSectionsCollapsible, addExpandControls, addBlockFooter, addLocalControls, decorateBlocks, revealHash, ICON, reader };
+  return { basePath, fetchJSON, loadTracker, loadAllRecall, loadAllPrep, loadAllElaboration, statusOf, runBoot, initTheme, wireThemeToggle, setTheme, getMark, setMark, renderDeck, MARK_TYPES, getNotes, setNotes, noteCount, buildMarkdown, buildBackup, importBackup, plainText, highlight, addCopyButtons, makeSectionsCollapsible, makeSectionsNested, addExpandControls, addBlockFooter, addLocalControls, decorateBlocks, revealHash, ICON, reader };
 })();
 
 // Apply theme immediately on script load (before body renders) to avoid a flash.

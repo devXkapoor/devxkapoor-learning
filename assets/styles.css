@@ -1083,6 +1083,54 @@ details.sub-block > summary.node-summary:hover { color: var(--accent); }
 details.sub-block > .node-body { padding: 2px 16px 14px; }
 details.sub-block > .node-body > *:first-child { margin-top: 14px; }
 
+/* Level 1 — the part. Deliberately NOT a card: a part groups cards, so giving
+   it its own panel and border would nest a box in a box and halve the apparent
+   width of everything inside it. It is a header band with a rule under it, and
+   its children are the node cards sitting on the page ground exactly as they
+   did when the landscape was flat. */
+details.part-block { margin: 30px 0 16px; }
+details.part-block:first-child { margin-top: 4px; }
+details.part-block > summary.node-summary {
+  padding: 12px 2px;
+  font-size: 12.5px;
+  letter-spacing: 0.09em;
+  font-weight: 600;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+details.part-block[open] > summary.node-summary { color: var(--accent); }
+/* Same specificity as the rule above, or the shared hover rule wins and only
+   the chevron changes colour. */
+details.part-block > summary.node-summary:hover {
+  color: var(--accent);
+  background: transparent;
+}
+details.part-block > .node-body {
+  padding: 0;
+  border-top: none;
+  margin-top: 0;
+}
+details.part-block > .node-body > *:first-child { margin-top: 16px; }
+details.part-block > .node-foot {
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  margin-top: 4px;
+}
+
+/* A node's own closing lines — "What you can do at this point" and "What's
+   still broken" — belong to the node, not to whichever sub-section happened to
+   be last, so they are hoisted back out and separated by a rule. */
+.node-close {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+
+@media (max-width: 640px) {
+  details.part-block > summary.node-summary { padding: 11px 2px; font-size: 11.5px; }
+  details.part-block { margin: 22px 0 12px; }
+}
+
 /* Local expand/collapse inside one node. */
 .node-local {
   display: flex;

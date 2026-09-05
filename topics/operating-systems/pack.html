@@ -19,8 +19,8 @@
 <link rel="manifest" href="../../manifest.webmanifest">
 <meta name="theme-color" content="#080d16">
 <link rel="apple-touch-icon" href="../../assets/icons/icon-192.png">
-<link rel="stylesheet" href="../../assets/styles.css?v=5c109ddfa6">
-<script src="../../assets/globals.js?v=58a0eb29e6"></script>
+<link rel="stylesheet" href="../../assets/styles.css?v=66d7644feb">
+<script src="../../assets/globals.js?v=9945aaac21"></script>
 </head>
 <body>
 
@@ -50,7 +50,9 @@
 
   <div id="tab-landscape">
     <div class="prose">
-      <p>This is the landscape for operating systems, written as a <strong>causal chain</strong>. It is not a list of topics. Each node exists because the node before it left something specifically broken, and every node ends by naming what is still broken so that the next node has a reason to exist. Read top to bottom and you should end up able to <em>derive</em> most of an operating system rather than memorise it.</p>
+      <h3 class="part">How to read this</h3>
+
+<p>This is the landscape for operating systems, written as a <strong>causal chain</strong>. It is not a list of topics. Each node exists because the node before it left something specifically broken, and every node ends by naming what is still broken so that the next node has a reason to exist. Read top to bottom and you should end up able to <em>derive</em> most of an operating system rather than memorise it.</p>
 
 <p>It starts at absolute zero — a wire with electricity in it or not — and assumes nothing whatsoever. Every term is defined before it is used. Every mechanism is given its origin: who hit the problem, in what year, on what machine, and what they tried that failed first. Nothing is explained by analogy. An analogy tells you what something is <em>like</em>; this document is about what things <em>are</em>.</p>
 
@@ -83,7 +85,7 @@
 
 <p>Ten parts. Part I builds the machine and shows why software must sit between it and you. Part II introduces the process and the sharing of the processor. Part III does memory. Part IV does concurrency and arrives at the event loop with everything needed to explain it exactly. Part V does files and storage. Part VI does isolation, and by the end of it a container is fully assembled from parts you have already seen. Part VII does communication. Part VIII takes a source file all the way to a running process, and the machine all the way from power-on. Part IX is how you see inside a running system. Part X is the history threaded properly and one complete end-to-end lifecycle.</p>
 
-<h3>PART I — THE BARE MACHINE, AND WHY IT CANNOT BE SHARED</h3>
+<h3 class="part">PART I — THE BARE MACHINE, AND WHY IT CANNOT BE SHARED</h3>
 
 <p>Five nodes. By the end of them there is a processor, a memory, a running program, a way for the outside world to interrupt that program, a hardware wall that stops the program from wrecking the machine, and exactly one legal door through that wall. That door is the system call, and every line of code you have ever written eventually goes through it.</p>
 
@@ -201,9 +203,11 @@
 
 <p><strong>Speculative execution reaches all the way into your web app.</strong> The out-of-order machinery mentioned above is what made Spectre possible, and the mitigation on the web side was to remove precise timing from JavaScript: <code>performance.now()</code> was deliberately coarsened, and <code>SharedArrayBuffer</code> was disabled in browsers in January 2018 and only restored behind the <code>Cross-Origin-Opener-Policy</code> and <code>Cross-Origin-Embedder-Policy</code> headers. If you have ever had to set those two headers to make a WebAssembly threading library work, the reason is a processor optimisation described three paragraphs ago.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> describe, without hand-waving, what a computer is — a memory of numbered bytes holding both data and instructions, and a processor that repeats fetch, decode, execute, advance — and explain why it is binary, why instructions being data is the decisive idea, and what your JavaScript actually becomes before it runs.</p>
 
 <p><strong>What's still broken:</strong> the machine runs exactly one program, and a human being is the loader. Between one program ending and the next beginning, a person walks across a room. The processor — the most expensive thing in the building — sits idle for the overwhelming majority of every hour, waiting on humans and on cards. Nobody can share the machine, because there is nothing in it that could arbitrate. The first fix is obvious once stated: if loading the next program is itself a job, then a <em>program</em> could do it.</p>
+</div>
 
 <h3>Node 1 — the program that loads the next program</h3>
 
@@ -258,6 +262,7 @@
 
 <p><strong>Cron is batch processing with a clock.</strong> A daemon holds a table of jobs and times, and at each minute runs whatever is due, capturing output and mailing it somewhere. It has the monitor's exact structure with a scheduling predicate bolted on, and it has the monitor's exact failure modes: if a run takes longer than the interval, the next one starts anyway and you now have two, which is why every real cron job needs a lock. Kubernetes <code>CronJob</code> makes that explicit as <code>concurrencyPolicy: Forbid</code> — a field that exists because of a problem inherent to this node.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain what an operating system minimally is — a program that stays resident and arranges for other programs to run — and recognise the batch model in the pipeline tooling you use, including which of its ancient failure modes your configuration is guarding against.</p>
 
 <p><strong>What's still broken:</strong> three things, and each one is fatal.</p>
@@ -269,6 +274,7 @@
 <p>Third, and worst: the monitor is just bytes in memory, at addresses the job can write to. A job with a bad array index overwrites the monitor and the next job loads into a corrupted system. There is no mechanism anywhere in Node 0's machine that could prevent this, because the processor's only rule is fetch, decode, execute.</p>
 
 <p>The first of those needs a new piece of hardware: a way for a device to get the processor's attention rather than the processor having to ask.</p>
+</div>
 
 <h3>Node 2 — the interrupt, and the birth of asynchrony</h3>
 
@@ -360,9 +366,11 @@
 
 <p><strong>And "top half / bottom half" is a pattern you already write.</strong> A webhook endpoint that validates a signature, pushes a job onto a queue, and returns <code>202 Accepted</code> in four milliseconds is a top half. The worker that processes it is a bottom half. You arrived at that design because the sender times out, which is the same pressure — <em>get out of the handler fast, do the real work where you are allowed to take your time</em> — that shaped the Linux network stack. It is the same pattern at a different scale, and recognising it as such is worth more than either instance alone.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain what asynchronous execution physically is, trace a network packet from the wire to a JavaScript callback naming every layer, and read the <code>si</code> column in <code>top</code> and <code>/proc/interrupts</code> to see whether a machine's interrupt load is balanced.</p>
 
 <p><strong>What's still broken:</strong> everything in this node is code sitting in memory, and from Node 0 any program can write to any memory address. A job can overwrite the interrupt table and point the timer handler at its own code. A job can execute <code>cli</code>, disable interrupts, and loop forever, at which point no device and no clock can ever regain control and the machine is dead until someone cuts the power. A job can write directly to the disk controller and destroy another user's data. The monitor is a convention that programs are politely following, and conventions are not enforcement. The machine needs a distinction it does not currently have: some code is allowed to do these things, and other code is not.</p>
+</div>
 
 <h3>Node 3 — privilege: one bit that splits the machine in two</h3>
 
@@ -434,9 +442,11 @@
 
 <p><strong>eBPF is the interesting modern exception.</strong> It lets ordinary user-space tools load small programs that run <em>in kernel mode</em>, attached to kernel events. Since Node 3 says that is exactly what must never be allowed, the resolution is worth knowing: the kernel runs a <strong>verifier</strong> over the bytecode before loading it, statically proving that it terminates, that every memory access is in bounds, and that it only calls an allowed set of helpers. It is a proof obligation substituting for a hardware boundary, and it is how modern observability (Node 39), modern container networking (Cilium), and modern security policy are implemented.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain why an operating system cannot be enforced in software, state precisely what the kernel is (a mode, not a process), read <code>us</code> versus <code>sy</code> correctly, and explain what a segmentation fault physically is and why no JavaScript handler can catch one.</p>
 
 <p><strong>What's still broken:</strong> the wall is now absolute, and that is useless. A user program can execute arithmetic and nothing else — it cannot read input, cannot write output, cannot allocate memory, cannot even stop cleanly. A program that cannot affect the world is not a program. What is needed is a door in the wall: a way for user code to deliberately enter kernel mode, but only at an address the kernel chose, running code the kernel wrote, with the kernel deciding whether the request is permitted.</p>
+</div>
 
 <h3>Node 4 — the system call: the only door</h3>
 
@@ -529,11 +539,13 @@ $ strace -c -f node -e 'require("fs").readFileSync("/etc/hostname")'
 
 <p><strong>Syscall count is a real performance axis you can measure.</strong> A loop doing <code>fs.appendFileSync</code> per log line makes an <code>openat</code>, <code>write</code>, and <code>close</code> per line — three crossings each. Holding the descriptor open and batching lines makes one crossing per batch. On a busy service this is not a micro-optimisation; it is the difference between logging costing one percent of your loop and twenty. The same reasoning is why <code>res.write</code> called forty times per response is worse than building the body and writing once, why HTTP keep-alive matters (a new connection is <code>socket</code> plus <code>connect</code> plus a TLS handshake), and why <code>io_uring</code> — which lets a process submit thousands of operations through a shared memory ring with zero or one crossings — is the most significant kernel interface added in twenty years. Node has experimental <code>io_uring</code> support in libuv for some file operations from libuv 1.45 (2023) onward.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain what a system call is at the instruction level, name the ABI, read <code>strace</code> output, map any Node API to the calls it makes, explain why the syscall boundary rather than the C library is Linux's stable contract, and explain seccomp as a filter on this exact interface.</p>
 
 <p><strong>What's still broken:</strong> there is a wall, a door, and code running. But "the running program" is still just bytes at an address with an instruction pointer. There is no name for it, no owner, no accounting, nothing that could be stopped and restarted, nothing the kernel could keep a list of. If two programs are to share this machine, the kernel needs a data structure representing one of them — everything it owns, everything it is allowed to do, and everything needed to pause it and resume it later as if nothing happened.</p>
+</div>
 
-<h3>PART II — THE PROCESS, AND SHARING ONE PROCESSOR</h3>
+<h3 class="part">PART II — THE PROCESS, AND SHARING ONE PROCESSOR</h3>
 
 <p>Four nodes. The kernel gets a data structure for "a running program", a mechanism for putting one down and picking another up, a policy for deciding which, and a clock to make the whole thing possible. By the end of this part the machine genuinely runs many programs at once, and you can explain precisely why your Node event loop stalls, why a Kubernetes CPU limit makes latency worse rather than better, and what <code>setTimeout(fn, 0)</code> actually promises.</p>
 
@@ -606,9 +618,11 @@ $ strace -c -f node -e 'require("fs").readFileSync("/etc/hostname")'
 
 <p><strong>Everything <code>ps</code> and <code>top</code> print comes from this structure.</strong> They read <code>/proc/&lt;pid&gt;/</code>, which is a view onto the <code>task_struct</code> rendered as text (Node 38). <code>/proc/&lt;pid&gt;/status</code> is the fields; <code>/proc/&lt;pid&gt;/fd/</code> is the descriptor table as symbolic links; <code>/proc/&lt;pid&gt;/maps</code> is the address space; <code>/proc/&lt;pid&gt;/limits</code> is the resource limits; <code>/proc/&lt;pid&gt;/cmdline</code> is the arguments. Debugging a stuck Node process starts by reading those five files, and doing so tells you more in thirty seconds than most application-level instrumentation.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> state precisely what a process is by listing what the kernel keeps for it, read process states and correctly diagnose a <code>D</code>-state hang and a zombie leak, explain why cluster workers share nothing and worker threads share almost everything, and explain why a container's PID 1 needs a signal handler.</p>
 
 <p><strong>What's still broken:</strong> the kernel now has a record of many processes, but the processor still executes exactly one instruction stream. There is a list of programs and one machine, and no mechanism yet for putting one program down mid-execution, in a way that lets it be picked back up later without it ever noticing.</p>
+</div>
 
 <h3>Node 6 — the context switch, and what it costs</h3>
 
@@ -679,9 +693,11 @@ nonvoluntary_ctxt_switches:     46
 
 <p><strong>Threadpool sizing is this node in one variable.</strong> libuv's threadpool defaults to four threads, and people commonly raise <code>UV_THREADPOOL_SIZE</code> when file or crypto work is queueing. Raising it beyond the number of cores does not add capacity — it adds context switching, because more runnable threads than cores means the kernel starts rotating them, paying the full cost above each time while getting no extra work done. The correct value is bounded by cores for CPU-bound work (crypto, zlib) and can exceed cores for genuinely blocking work (file I/O that waits on a disk), and the way to tell which you have is whether the threads are in <code>R</code> or in <code>D</code>.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain what a context switch is mechanically, why a thread switch is cheaper than a process switch and by exactly which step, read voluntary versus nonvoluntary switch counts to distinguish an I/O-bound process from a starved one, and give the numeric argument for the event loop rather than the slogan.</p>
 
 <p><strong>What's still broken:</strong> the kernel can now swap processes, but nothing decides <em>which</em> process and <em>for how long</em>. Worse, a switch can currently only happen when a process voluntarily enters the kernel. A program with an infinite loop that makes no system calls never enters the kernel, so the kernel never gets a chance to take the processor back — exactly the failure from Node 1, still unfixed.</p>
+</div>
 
 <h3>Node 7 — the scheduler: deciding who runs, and taking the processor back</h3>
 
@@ -759,9 +775,11 @@ nonvoluntary_ctxt_switches:     46
 
 <p><strong>Container CPU detection is a related trap.</strong> <code>os.cpus().length</code> reports the <em>host's</em> cores, not your quota, because the kernel has no per-container view of that (Node 26 explains why namespaces do not cover this). So a library sizing a pool as <code>cpus().length</code> inside a container limited to one core creates 64 threads that will fight over 100 milliseconds of quota. Node added <code>os.availableParallelism()</code> in v18.14 for this reason, and libraries that read cgroup files directly exist because of it.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain preemption and why it requires a timer interrupt, describe CFS's virtual-runtime model well enough to predict its behaviour, use <code>nice</code>, explain the two-stacked-schedulers framing for Node and React, and diagnose CPU throttling in a container from the specific symptom of high latency at low utilisation.</p>
 
 <p><strong>What's still broken:</strong> the timer interrupt was introduced as a bare mechanism — something fires periodically. But "periodically" hides a great deal. How often, and what does the rate cost? What does the machine do when nothing is running at all? And a scheduler needs to answer questions like "has this task run for 3 milliseconds", which requires a notion of time that is accurate, cheap to read, and — critically — never goes backwards. The clock deserves its own node, because almost everything you believe about time in a computer is wrong in a way that has cost people money.</p>
+</div>
 
 <h3>Node 8 — time: the clock, and every lie you were told about it</h3>
 
@@ -832,11 +850,13 @@ nonvoluntary_ctxt_switches:     46
 
 <p><strong>Across machines, timestamps cannot order events, and this is a hard limit rather than an engineering shortfall.</strong> Two servers' clocks differ by milliseconds at best. So if server A writes at its 10:00:00.100 and server B writes at its 10:00:00.050, you cannot conclude B happened first. Systems that need ordering therefore do not use wall clocks: they use logical clocks (Lamport timestamps, vector clocks), hybrid logical clocks (CockroachDB), or, in Google Spanner's case, an explicitly bounded uncertainty interval maintained by GPS and atomic clocks in every datacentre — TrueTime returns a range rather than an instant, and the database <em>waits out</em> the uncertainty before committing. That design exists because the alternative is incorrect. For your own systems the practical version is: use database-generated sequences or monotonic IDs (ULID, Snowflake) for ordering, not client timestamps, and never resolve a conflict with "last write wins by wall clock" unless you have accepted that it will sometimes discard the newer write.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> name the clock sources and pick the right one for a purpose, explain why intervals must never be measured with <code>Date.now()</code>, explain the vDSO and why <code>Date.now()</code> makes no syscall, explain exactly what <code>setTimeout</code> promises and what timer throttling does to polling code, and explain why cross-machine timestamps cannot order events.</p>
 
 <p><strong>What's still broken:</strong> the processor is now genuinely shared — many processes, fairly scheduled, preemptible, with an accurate clock. But they all still live in one memory. Every process from Node 5 has an address space in its <code>task_struct</code>, and nothing has yet explained how two processes can both use address <code>0x400000</code> for different data, how a program compiled on one machine can be loaded at any address on another, or how one process is prevented from reading another's memory. Base-and-limit from Node 3 was a sketch. Part III replaces it.</p>
+</div>
 
-<h3>PART III — MEMORY</h3>
+<h3 class="part">PART III — MEMORY</h3>
 
 <p>Six nodes, and the part with the highest density of things you have already been bitten by. It builds the reason two programs can both use address <code>0x400000</code>, the exact meaning of every number in a memory graph, why a Node container reports far more memory than its heap, what <code>OOMKilled</code> and exit code 137 actually are, and why <code>fork()</code> is nearly free.</p>
 
@@ -875,7 +895,9 @@ nonvoluntary_ctxt_switches:     46
 
 <p>One mechanism satisfies all five.</p>
 
+<div class="node-close prose">
 <p><strong>What's still broken:</strong> everything above. Contiguity is the root of it, so the fix is to abandon contiguity.</p>
+</div>
 
 <h3>Node 10 — virtual memory: the page table, the MMU, and the page fault</h3>
 
@@ -959,9 +981,11 @@ nonvoluntary_ctxt_switches:     46
 
 <p><strong>Cache-line and page thinking explains real JavaScript performance.</strong> A <code>Float64Array</code> of a million numbers is eight megabytes of contiguous, sequentially-prefetchable memory. An array of a million <code>{x, y}</code> objects is a million pointers to a million separately allocated objects scattered over the heap — each access a potential cache miss, each miss around eighty nanoseconds. The factor between them on a numeric loop is routinely five to twenty times, and it is not V8 being clever or stupid; it is the memory hierarchy from this node. It is the same reason columnar databases exist.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain paging from the address split upward, state exactly what the page table entry flags do, explain the page fault as one mechanism serving six purposes, read RSS versus VSZ versus PSS correctly, distinguish major from minor faults when diagnosing, and explain why huge pages matter for a database and why V8 compresses pointers.</p>
 
 <p><strong>What's still broken:</strong> a process now has an address space, but nothing has said what is <em>in</em> it — where the code goes, where the stack goes, why the heap grows upward, what happens when the stack grows into something, or how a program asks for more memory in the first place.</p>
+</div>
 
 <h3>Node 11 — the address space: what is actually in a process's memory</h3>
 
@@ -1053,9 +1077,11 @@ nonvoluntary_ctxt_switches:     46
 
 <p><strong>Node's own limits are per-region, not per-process</strong>, and this is the reason for the standard sizing rule: set <code>--max-old-space-size</code> meaningfully <em>below</em> your container's memory limit, because RSS will exceed old space by hundreds of megabytes of binary, code, stacks, buffers and fragmentation. A container limited to 512 MB running Node with a default heap cap will usually be killed by the kernel before V8 ever decides to collect aggressively — which is Node 13, and one of the most common container misconfigurations in production.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> read <code>/proc/&lt;pid&gt;/maps</code>, explain why null dereferences fault and why W^X exists and what it costs a JIT, explain a stack overflow at both the V8 and the hardware level, name the four kinds of <code>mmap</code>, describe V8's spaces and the generational hypothesis, and read all five numbers from <code>process.memoryUsage()</code> correctly.</p>
 
 <p><strong>What's still broken:</strong> <code>mmap</code> hands out whole pages. Real programs allocate sixteen bytes at a time, millions of times. Something has to sit between them, and that something has properties that will surprise you.</p>
+</div>
 
 <h3>Node 12 — the allocator, and why freed memory does not come back</h3>
 
@@ -1126,9 +1152,11 @@ nonvoluntary_ctxt_switches:     46
 
 <p><strong>Native addons allocate outside everything V8 knows about.</strong> <code>sharp</code>, <code>canvas</code>, <code>better-sqlite3</code> and their kind call <code>malloc</code> directly. V8 has no idea that memory exists, so it does not count towards the heap limit and does not create GC pressure — meaning a leak in native code produces a steadily climbing RSS with a perfectly flat heap graph and no GC activity at all. <code>ExternalMemoryAccounting</code> (<code>napi_adjust_external_memory</code>) exists so well-behaved addons can tell V8 about it; many do not. When RSS climbs and the heap does not, look at the addons before you look at your JavaScript.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain why <code>malloc</code> is not a system call, why freed memory does not reduce RSS, and what fragmentation costs; account fully for the gap between <code>heapUsed</code> and container memory; state the three layers of allocation and where a garbage collector sits; derive a heap cap from a container limit rather than guessing; and recognise the signature of a native leak.</p>
 
 <p><strong>What's still broken:</strong> the allocator can hand out memory only if the kernel has frames to give. Nothing has said what happens when it does not — when every frame is spoken for and another allocation arrives. That question has three answers, and one of them is the reason for exit code 137.</p>
+</div>
 
 <h3>Node 13 — demand paging, the page cache, swap, and the OOM killer</h3>
 
@@ -1188,9 +1216,11 @@ nonvoluntary_ctxt_switches:     46
 
 <p><strong>Cold starts are demand paging.</strong> A serverless function's first invocation faults in the runtime, the dependency tree, and the JIT-compiled code, page by page from storage. That is a large part of why a cold start is hundreds of milliseconds while a warm one is single digits, why bundle size affects cold start more than it affects steady-state performance, and why techniques that pre-warm — snapshots, AWS Lambda SnapStart, V8 startup snapshots, Node's <code>--snapshot-blob</code> — attack it by having the pages already laid out rather than by making the code faster.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> read <code>free -m</code> correctly and explain why low free memory is healthy, explain demand paging and cold starts, describe eviction and thrashing, derive exit codes 137/143/139 from signal numbers, explain why an OOM kill gives no graceful shutdown, explain why a container with no leak can still be OOMKilled by its own log writes, and explain why Postgres wants the page cache.</p>
 
 <p><strong>What's still broken:</strong> overcommit was justified above by "<code>fork</code> plus copy-on-write", which has been referenced four times now and never explained. It is also the mechanism behind the strangest system call in Unix, the one that returns twice.</p>
+</div>
 
 <h3>Node 14 — fork, copy-on-write, and the pattern that is everywhere</h3>
 
@@ -1256,11 +1286,13 @@ if (pid == 0) {
 
 <p>When you meet a new system that claims cheap snapshots, cheap branching, or cheap forking, this is almost always the mechanism, and knowing the pattern lets you immediately ask the right question: <em>what does it cost when things do get written?</em></p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain <code>fork</code> including the double return and why the split from <code>exec</code> is a good design, explain copy-on-write through the page fault, explain why Redis can double its memory during a save and why Node does not expose <code>fork</code>, and recognise copy-on-write in Docker layers, Postgres MVCC, Git, and React state.</p>
 
 <p><strong>What's still broken:</strong> processes are isolated, which was the goal, and that isolation is now in the way. Two processes cannot share a variable, so any work that must cooperate closely pays a copying cost through the kernel. And a process still runs one instruction stream, so a machine with sixteen cores runs one program on one of them. Something is needed that shares an address space by design.</p>
+</div>
 
-<h3>PART IV — DOING MORE THAN ONE THING AT ONCE</h3>
+<h3 class="part">PART IV — DOING MORE THAN ONE THING AT ONCE</h3>
 
 <p>Six nodes, and the destination is the event loop — explained not as a diagram but as the specific thing it is: a userspace scheduler built on one system call, arrived at because two earlier designs failed for reasons you will be able to state numerically. Along the way, why a race condition is a hardware fact rather than a coding mistake, why <code>SharedArrayBuffer</code> needs <code>Atomics</code>, and what <code>await</code> actually costs.</p>
 
@@ -1313,9 +1345,11 @@ if (pid == 0) {
 
 <p><strong>Postgres chose processes and MySQL chose threads</strong>, and the trade is exactly this node's: Postgres's per-connection process gives crash isolation and requires shared memory to be arranged explicitly (<code>shared_buffers</code> is a shared mapping); MySQL's per-connection thread is cheaper to create and shares the buffer pool naturally, at the cost that one backend corrupting memory takes the server down. Neither is wrong. Knowing which one a system chose predicts its connection-scaling behaviour immediately.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> list precisely what threads share and what they do not, explain why Linux threads are tasks and what <code>clone()</code> unifies, identify every thread in a Node process and use that to localise a performance problem, and explain why <code>worker_threads</code> copies by default and what <code>SharedArrayBuffer</code> and <code>transferList</code> change.</p>
 
 <p><strong>What's still broken:</strong> two threads can now write the same variable at the same time. That sounds like a small problem and it is the hardest one in this document — it is not solvable by being careful, because the hardware does not do what the source code says.</p>
+</div>
 
 <h3>Node 16 — races, atomicity, and why the hardware does not do what you wrote</h3>
 
@@ -1383,9 +1417,11 @@ async function transfer(from, to, amount) {
 
 <p><strong>Idempotency in distributed systems is the same problem again.</strong> A client retries a request whose response was lost; the server processes it twice. That is a race between a retry and an original, and the fix — an idempotency key, checked and inserted atomically — is a compare-and-swap over the network. Once you have seen the pattern at the instruction level, the distributed version needs no separate learning.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain why <code>counter++</code> is not atomic and why races do not reproduce, explain cache coherence and false sharing, explain compiler and processor reordering and why ARM differs from x86, explain compare-and-swap and recognise it at three scales, and — most importantly — explain precisely what JavaScript's single thread does and does not protect you from, with <code>await</code> as the yield point.</p>
 
 <p><strong>What's still broken:</strong> compare-and-swap makes one word atomic. Real critical sections span many operations on many variables, and something must make a whole region exclusive. Building that naively wastes the processor, and building it correctly requires the kernel — but only sometimes, and getting that "only sometimes" right is the difference between a fast program and a slow one.</p>
+</div>
 
 <h3>Node 17 — locks, the futex, and deadlock</h3>
 
@@ -1451,9 +1487,11 @@ async function transfer(from, to, amount) {
 
 <p><strong>In-process JavaScript "locks" are cooperative queues, and they work for a narrow reason.</strong> Libraries like <code>async-mutex</code> hold a promise chain: acquiring returns a promise that resolves when the previous holder releases. No kernel involvement, no atomics needed — because JavaScript's run-to-completion property from Node 16 means the acquire check and the set cannot be interleaved. They are correct within one Node process and give you exactly nothing across cluster workers, which is the mistake people make with them.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain why a spin lock is right in a kernel and wrong in an application, explain the futex's fast path and use futex counts as a contention signal, name the four Coffman conditions and apply lock ordering, explain why Redis being single-threaded is a design rather than a limitation, diagnose Postgres lock waits, and state honestly what a distributed lock does and does not guarantee.</p>
 
 <p><strong>What's still broken:</strong> all of this concerns threads competing for memory. The original problem was different — a program that waits for a device. Node 2 gave the hardware a way to signal readiness, and nothing has yet said what happens to the <em>program</em> in the meantime, or what it costs to have ten thousand of them waiting at once.</p>
+</div>
 
 <h3>Node 18 — blocking I/O, thread-per-connection, and the C10K arithmetic</h3>
 
@@ -1515,9 +1553,11 @@ async function transfer(from, to, amount) {
 
 <p><strong>The <code>Sync</code> functions are the blocking model leaking back in.</strong> <code>fs.readFileSync</code>, <code>execSync</code>, <code>crypto.pbkdf2Sync</code>, and — the one that catches people — <code>JSON.parse</code> on a large payload, which is not named <code>Sync</code> but blocks just as thoroughly. In a thread-per-connection server, blocking for 200 milliseconds delays one client. In an event loop, it delays <em>every</em> client, because there is one thread and it is not preemptible (Node 7). This is why the rule is "sync calls at startup only", why reading a config file synchronously at boot is fine, and why the same call in a request handler is a production incident. Measuring it is <code>perf_hooks</code>' event-loop delay histogram (<code>monitorEventLoopDelay</code>), which is the single most valuable metric a Node service can export.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain exactly what happens to a thread that blocks, give the C10K arithmetic with real numbers, state precisely what the event loop wins at and what it does not, explain why nginx beat Apache and why Node was created, place Go and Loom correctly as the same mechanism with different ergonomics, and recognise your connection pool as a bounded thread pool with head-of-line blocking.</p>
 
 <p><strong>What's still broken:</strong> the architecture is settled — one thread waiting on many connections — and the system call to do it does not exist yet. <code>read</code> blocks on one descriptor. There is no call that means "wait until any of these ten thousand has something for me". Building it turns out to take three attempts across twenty years.</p>
+</div>
 
 <h3>Node 19 — readiness: select, poll, epoll, and why files are different</h3>
 
@@ -1597,9 +1637,11 @@ async function transfer(from, to, amount) {
 
 <p><strong>Backpressure is <code>epoll</code>'s write side, and it is why streams have the API they do.</strong> A socket's send buffer is finite. When it is full, a non-blocking <code>write</code> returns <code>EAGAIN</code> having written fewer bytes than asked, and the correct response is to register for <code>EPOLLOUT</code> and resume when the socket becomes writable. libuv does that for you, and Node surfaces it as <code>stream.write()</code> returning <code>false</code> and later emitting <code>'drain'</code>. <strong>Ignoring that return value means Node buffers the unwritten data in your heap, without limit</strong> — which is how a service streaming a large file to a slow client runs out of memory. <code>pipeline()</code> and <code>pipe()</code> handle it correctly, which is the actual reason to prefer them over manual <code>write</code> loops.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain the progression select → poll → epoll in terms of what scales with what, explain edge versus level triggering, explain <em>why</em> regular files cannot be polled and what that forces on Node's architecture, diagnose threadpool saturation and descriptor exhaustion, and explain backpressure as the write side of readiness.</p>
 
 <p><strong>What's still broken:</strong> there is now one call that reports many ready descriptors. That is a mechanism, not a program. Something has to loop on it, decide the order in which the resulting work runs, interleave timers and completed threadpool tasks and promise callbacks, and decide what happens when a callback schedules more work. That something is a scheduler, in user space, and it is the last node of this part.</p>
+</div>
 
 <h3>Node 20 — the event loop, completely</h3>
 
@@ -1726,11 +1768,13 @@ setInterval(() =&gt; {
 
 <p><strong>And the fixes, matched to the cause:</strong> chunk the work with <code>setImmediate</code> to yield between chunks; move it to a worker thread if it is CPU-bound (<strong>Node 15</strong>); move it to a separate process or a queue if it is heavy or slow; stream instead of buffering; or push it into the database, where it belongs, if it is really a data operation. Reaching for <code>UV_THREADPOOL_SIZE</code> does nothing for main-thread blocking, and knowing why is the difference between guessing and diagnosing.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> name libuv's phases in order and explain what happens in each, derive the poll timeout, explain exactly why Node exits when it does, place <code>nextTick</code>, microtasks, <code>await</code>, <code>setTimeout</code> and <code>setImmediate</code> against each other and predict any ordering question, explain the browser loop's rendering steps and layout thrashing, instrument event loop delay and utilisation, and trace one request through every mechanism in Parts I to IV.</p>
 
 <p><strong>What's still broken:</strong> everything in Part IV assumed descriptors already existed — sockets and files handed over ready-made. Nothing has said what a file <em>is</em>, why the same small integer refers to a file, a socket, a pipe and a terminal, what happens to bytes after <code>write</code> returns, or why a database's <code>fsync</code> is the slowest thing it does.</p>
+</div>
 
-<h3>PART V — FILES, DESCRIPTORS, AND STORAGE</h3>
+<h3 class="part">PART V — FILES, DESCRIPTORS, AND STORAGE</h3>
 
 <p>Four nodes. What a file is beneath the name, why one small integer can refer to a file, a socket, a pipe or a terminal, what happens to your bytes between <code>write</code> returning and the data being safe, and why a Docker image is a stack of filesystems. Part V ends with enough to explain a database's durability guarantees exactly.</p>
 
@@ -1803,9 +1847,11 @@ setInterval(() =&gt; {
 
 <p><strong><code>.dockerignore</code> matters more than people think</strong> for the same reason: the build context is the entire directory tree sent to the daemon, walked file by file. Excluding <code>node_modules</code> and <code>.git</code> often turns a thirty-second context upload into one second.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain the inode/name separation and derive hard links, atomic rename, and the deleted-but-open-file disk-space puzzle; explain what a directory is; explain "everything is a file" and its payoff; explain the VFS and why bind mounts and mount shadowing behave as they do; and diagnose inode exhaustion and <code>inotify</code> limits.</p>
 
 <p><strong>What's still broken:</strong> <code>open</code> returns a small integer, and nothing has explained what that integer is, why it is per-process, why 0, 1 and 2 are special, or how the shell's <code>|</code> and <code>&gt;</code> are built out of it.</p>
+</div>
 
 <h3>Node 22 — file descriptors, pipes, and how redirection actually works</h3>
 
@@ -1883,9 +1929,11 @@ if (pid == 0) {
 
 <p><strong>Close-on-exec, and why it matters for security.</strong> The <code>FD_CLOEXEC</code> flag makes a descriptor close automatically on <code>execve</code>. Without it, every descriptor you hold is inherited by every subprocess you spawn — including your database connections, your TLS private key file, and your listening sockets. A subprocess that should have no access to the database can read from a socket that is already authenticated. Modern APIs default to close-on-exec for this reason (<code>open</code> with <code>O_CLOEXEC</code>, <code>socket</code> with <code>SOCK_CLOEXEC</code>, <code>epoll_create1(EPOLL_CLOEXEC)</code>), and libuv sets it. It is worth knowing it exists, because when you deliberately want to pass a descriptor — as <code>cluster</code> does with a listening socket, and as systemd does with socket activation (Node 37) — you must clear it.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain the three-table structure and predict offset-sharing behaviour after <code>dup</code> and <code>fork</code>, derive shell redirection and pipelines from <code>fork</code>/<code>dup2</code>/<code>exec</code>, explain pipe backpressure and <code>SIGPIPE</code>, explain the <code>stdio</code> option in <code>child_process</code> and the subprocess buffer deadlock, explain why containers want stdout logging, and read <code>/proc/&lt;pid&gt;/fd</code> to find a leak.</p>
 
 <p><strong>What's still broken:</strong> <code>write()</code> to a file returns almost instantly, which the page cache in Node 13 already hinted is a lie about durability. If the machine loses power one microsecond after <code>write</code> returns, what survives? That question is the single most important one in storage, and every database's guarantees are an answer to it.</p>
+</div>
 
 <h3>Node 23 — the disk underneath, and what <code>fsync</code> is for</h3>
 
@@ -1967,9 +2015,11 @@ if (pid == 0) {
 
 <p><strong>Containers and writes.</strong> Writing to a container's filesystem goes through the overlay driver (Node 24), which adds copy-up costs. Writing to a volume goes to the host filesystem directly. <strong>Never run a database on the container's writable layer</strong> — that is the mechanical reason behind the advice, not merely a persistence concern.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain the sequential-versus-random ratio and how it shapes B-trees, WALs and query plans; explain what an SSD's translation layer does and why p99 differs from average; state the four stages of the durability chain and exactly what <code>fsync</code> guarantees; derive the write-ahead log from first principles; explain what each durability setting actually risks; and diagnose an I/O-bound machine with <code>iostat</code> and <code>top</code>.</p>
 
 <p><strong>What's still broken:</strong> the block device is a flat array of numbered blocks. Nothing yet turns that into named files and directories, decides which block holds what, or survives a crash partway through creating a file. And one particular filesystem — a stack of read-only layers with one writable layer on top — is the thing a Docker image actually is.</p>
+</div>
 
 <h3>Node 24 — filesystems, journaling, and the one a Docker image is made of</h3>
 
@@ -2039,11 +2089,13 @@ if (pid == 0) {
 
 <p><strong>Timestamps and reproducible builds.</strong> Filesystem <code>mtime</code> values end up in archives and image layers, so identical inputs produce different layer hashes and the cache misses. This is why reproducible-build tooling normalises timestamps and why <code>SOURCE_DATE_EPOCH</code> exists.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain filesystem layout and extents, explain journaling as a write-ahead log and what <code>data=ordered</code> does and does not protect, write a genuinely safe file update, choose a filesystem for a purpose and say why not NFS for a database, and — most usefully — explain a Docker image entirely in terms of overlayfs, deriving layer caching, image bloat, secret leakage and volume requirements rather than memorising them.</p>
 
 <p><strong>What's still broken:</strong> the filesystem checks permissions, and nothing has said what a permission <em>is</em>, who a user is to the kernel, or why running as root inside a container is dangerous when the container is supposedly isolated. Part VI answers that, and by its end a container will be fully assembled from parts already built.</p>
+</div>
 
-<h3>PART VI — ISOLATION: WHO YOU ARE, WHAT YOU CAN SEE, WHAT YOU MAY USE</h3>
+<h3 class="part">PART VI — ISOLATION: WHO YOU ARE, WHAT YOU CAN SEE, WHAT YOU MAY USE</h3>
 
 <p>Five nodes. Identity and permission, then the three mechanisms — namespaces, cgroups, and layered filesystems — that together <em>are</em> a container. Node 28 assembles one from parts entirely already built, with no new concepts, which is the point: a container is not a technology, it is a configuration of the kernel you have been reading about for twenty-seven nodes.</p>
 
@@ -2115,9 +2167,11 @@ USER nodejs
 
 <p><strong>File permission bugs in Node.</strong> <code>fs.writeFile</code>'s mode argument is subject to <code>umask</code>, so requesting <code>0o600</code> yields <code>0o600</code> only because umask does not usually clear owner bits — but requesting <code>0o666</code> gives you <code>0o644</code>. Writing a secret or a private key requires an explicit <code>fs.chmod</code> after creation, or opening with the right mode and verifying, and an SSH private key with group-readable permissions is silently rejected by <code>ssh</code>, which is a good habit for other tools to copy.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain that a user is a number and what that means across a container boundary, read and reason about permission bits including the directory meanings and the first-match rule, explain setuid and the sticky bit, name the capabilities that matter and explain why <code>CAP_SYS_ADMIN</code> is effectively root, and write a correct non-root container security context justifying every field.</p>
 
 <p><strong>What's still broken:</strong> permissions decide what a process may <em>do</em> to things it can see. Nothing yet limits what it can <em>see</em>. A process can list every other process, every mount, every network interface, and every user on the machine. Two customers' workloads on one machine can watch each other, and no permission bit changes that.</p>
+</div>
 
 <h3>Node 26 — namespaces: giving a process its own view of the machine</h3>
 
@@ -2177,9 +2231,11 @@ USER nodejs
 
 <p><strong>Rootless containers are the user namespace.</strong> Podman's default mode, and Docker's rootless mode, create a user namespace mapping your UID to root inside. The container's processes believe they are root, can install packages and bind low ports inside their own namespace, and on the host are your unprivileged user. This removes the entire class of "container escape gives you host root" and is the direction the ecosystem has moved. The costs are real: some workloads need capabilities that do not survive the mapping, and file ownership inside mounted volumes goes through the ID map, which takes getting used to.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain namespaces as per-process views rather than restrictions, name all seven and what each virtualises, explain precisely what is <em>not</em> namespaced and why that matters for CPU detection and for security, define a Kubernetes pod in terms of shared namespaces and derive its behaviour, and explain rootless containers.</p>
 
 <p><strong>What's still broken:</strong> a namespaced process cannot <em>see</em> the rest of the machine and can still <em>consume</em> all of it. It can allocate every byte of memory, saturate every core, and fill the disk. Isolation of view is not isolation of resources, and multi-tenancy needs both.</p>
+</div>
 
 <h3>Node 27 — cgroups: accounting for and limiting resources</h3>
 
@@ -2241,9 +2297,11 @@ USER nodejs
 
 <p><strong>The systemd connection.</strong> systemd (Node 37) organises every service into a cgroup, so <code>MemoryMax=</code>, <code>CPUQuota=</code>, and <code>TasksMax=</code> in a unit file are this node applied outside containers entirely. <code>systemd-cgtop</code> shows resource use by cgroup, which is often more informative than <code>top</code>, and <code>systemctl status</code> shows the cgroup tree of a service. Running a Node service under systemd with a <code>MemoryMax</code> gives you container-style limits with no container.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain cgroups as a filesystem interface, distinguish weight from quota and explain throttling with the arithmetic, name the three memory thresholds and explain why Kubernetes only exposing the hard one is a limitation, explain why exceeding CPU limits differs from exceeding memory limits, map Kubernetes resource fields to cgroup files, derive QoS classes and their OOM ordering, and size a Node process against a container limit from first principles.</p>
 
 <p><strong>What's still broken:</strong> nothing. Every ingredient of a container now exists — a filesystem view, a process view, a network view, an identity mapping, a resource budget, a syscall filter, and a layered image. Node 28 assembles them, and there is no new concept in it.</p>
+</div>
 
 <h3>Node 28 — the container, assembled</h3>
 
@@ -2304,9 +2362,11 @@ USER nodejs
 
 <p><strong>The security properties, stated honestly.</strong> A container's isolation rests entirely on kernel correctness, because there is one kernel and every container calls into it directly. A kernel privilege-escalation bug reachable from a container is a host compromise. That is a real and different risk profile from a virtual machine, and it is why untrusted multi-tenant workloads use gVisor (Node 4), Kata Containers, or Firecracker microVMs (Node 29) rather than plain containers. The mitigations that matter, in rough order of value: do not run as root; drop all capabilities; keep seccomp enabled; use a read-only root filesystem; and use a user namespace.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> state exactly what a container is, describe an OCI image's three parts and why digests matter, walk the eleven steps of <code>docker run</code> naming the mechanism behind each, place runc/containerd/shim/Docker/Podman/BuildKit correctly, debug a container by entering its namespaces, and state its security properties honestly.</p>
 
 <p><strong>What's still broken:</strong> one kernel, shared. Every container on a machine trusts the same code, and a bug in it is a bug for all of them. Some workloads cannot accept that, and the answer predates containers by forty years.</p>
+</div>
 
 <h3>Node 29 — virtual machines, and where containers are not enough</h3>
 
@@ -2363,11 +2423,13 @@ USER nodejs
 
 <p><strong>Serverless is microVMs with a scheduler.</strong> A Lambda invocation runs inside a Firecracker microVM; a <em>cold start</em> is booting that microVM plus initialising your runtime plus demand-paging your code (Node 13). Understanding that tells you exactly which optimisations work: smaller deployment packages help because there is less to fault in; provisioned concurrency keeps the microVM warm; SnapStart snapshots the initialised state so the boot is replaced by a restore; and choosing more memory also gives more CPU, because Lambda allocates them together — which is why a CPU-bound function can be <em>cheaper</em> at a higher memory setting.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain what a hypervisor is and why x86 was hard to virtualise, name the three historical solutions and what hardware support changed, compare containers and VMs on the axes that matter and say why the usual answer is both, explain what Firecracker and gVisor and Kata are for, explain Docker Desktop's and WSL2's architecture and the performance consequences, and explain a serverless cold start mechanically.</p>
 
 <p><strong>What's still broken:</strong> processes are now isolated in every dimension, which leaves the opposite problem. They need to talk — to each other, to the outside world, and to receive instructions like "shut down cleanly". None of that has been built, and the first piece of it is the reason your container ignores <code>docker stop</code>.</p>
+</div>
 
-<h3>PART VII — TALKING: SIGNALS, IPC, AND THE NETWORK</h3>
+<h3 class="part">PART VII — TALKING: SIGNALS, IPC, AND THE NETWORK</h3>
 
 <p>Three nodes. How a process is told something happened, how two processes exchange data, and what the kernel does with a packet between the wire and your socket. By the end, graceful shutdown, <code>EADDRINUSE</code>, <code>ECONNRESET</code>, connection pooling, and a Kubernetes rolling update all have exact mechanical explanations.</p>
 
@@ -2466,9 +2528,11 @@ process.on('SIGINT',  () =&gt; shutdown('SIGINT'));
 
 <p><strong><code>kill</code> does not mean kill.</strong> The command sends a signal, defaulting to <code>SIGTERM</code>. <code>kill -9</code> is <code>SIGKILL</code>. Reaching for <code>-9</code> first is a habit worth losing: it skips every cleanup path the program has, and if <code>SIGTERM</code> did not work, the reason is worth knowing — usually a missing handler, a shell as PID 1, or a <code>D</code>-state hang that <code>-9</code> will not fix either.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain what a signal is and how delivery works, name the ones that matter and derive exit codes from them, explain why <code>SIGKILL</code> cannot be handled and what that implies for cleanup, explain handler restrictions and how libuv sidesteps them, explain PID 1's two special behaviours and diagnose the "container ignores <code>docker stop</code>" family of bugs, and write a correct graceful shutdown including the endpoint-removal race.</p>
 
 <p><strong>What's still broken:</strong> a signal carries one integer. Processes need to exchange actual data.</p>
+</div>
 
 <h3>Node 31 — inter-process communication</h3>
 
@@ -2511,9 +2575,11 @@ process.on('SIGINT',  () =&gt; shutdown('SIGINT'));
 
 <p><strong>Redis as an IPC broker across processes and machines.</strong> Once you have several Node processes — cluster workers, replicas in Kubernetes, serverless instances — nothing in this node works between them, because they may not share a machine. That is the mechanical reason Redis ends up in so many architectures: it is the shared mutable state that separate address spaces (Node 5) cannot have. Rate limiter counters, session stores, cache, pub/sub for websocket fan-out, and BullMQ's queues are all one problem — <em>state that must be visible to processes with separate address spaces</em> — solved by putting it in a process that everyone can reach over a socket. Recognising that unifies half of a typical backend architecture.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> list the IPC mechanisms with their trade-offs and choose correctly, explain descriptor passing and why <code>cluster</code> needs it, explain peer credentials and why the Docker socket is dangerous, explain why <code>worker_threads</code> messaging is not IPC, and explain Redis's role in an architecture as a consequence of address-space isolation.</p>
 
 <p><strong>What's still broken:</strong> all of this is local. The moment two processes are on different machines, everything changes — packets are lost, reordered, duplicated and delayed, there is no shared kernel to arbitrate, and the connection abstraction that hides all of it is the most elaborate thing in the operating system.</p>
+</div>
 
 <h3>Node 32 — the kernel network stack, from the wire to your socket</h3>
 
@@ -2591,11 +2657,13 @@ process.on('SIGINT',  () =&gt; shutdown('SIGINT'));
 
 <p><strong>DNS in Kubernetes is a latency source people miss.</strong> The default <code>ndots: 5</code> in a pod's <code>/etc/resolv.conf</code> means any name with fewer than five dots is first tried against every search domain — so resolving <code>api.example.com</code> issues four or five failing queries before the right one, for both A and AAAA records. Fixes: a trailing dot to make the name absolute, an explicit <code>dnsConfig</code> with a lower <code>ndots</code>, or NodeLocal DNSCache. Also relevant from Node 19: <code>dns.lookup</code> uses the threadpool, so slow DNS blocks file I/O too.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain the socket API and the four-tuple, explain both backlog queues and use accept-queue overflow to detect a blocked event loop, distinguish flow control from congestion control and explain slow start's effect on response times, explain <code>TIME_WAIT</code> and derive port exhaustion and <code>SO_REUSEADDR</code>/<code>SO_REUSEPORT</code>, decode every common network error code by mechanism, explain a Kubernetes Service as netfilter rules and why gRPC balances badly over it, and recognise conntrack exhaustion and PMTU black holes.</p>
 
 <p><strong>What's still broken:</strong> everything in Parts I to VII assumed a running program existed. Nothing has explained how a text file becomes machine code, how that code finds the library functions it calls, what <code>execve</code> does with the resulting file, or how the machine gets from powered-off to running any of it.</p>
+</div>
 
-<h3>PART VIII — FROM SOURCE TO RUNNING, AND FROM POWER-ON TO PID 1</h3>
+<h3 class="part">PART VIII — FROM SOURCE TO RUNNING, AND FROM POWER-ON TO PID 1</h3>
 
 <p>Five nodes. Everything so far assumed a running program existed. This part builds one: source to object to executable, how it finds the library code it calls, what <code>execve</code> does with the file, how the machine gets from powered-off to running init, and what init then does. It also contains the most productive analogy-free parallel in this document — a JavaScript bundler is a linker, and every one of its concepts has an exact counterpart here.</p>
 
@@ -2676,9 +2744,11 @@ process.on('SIGINT',  () =&gt; shutdown('SIGINT'));
 
 <p><strong>The stages explain the errors.</strong> A syntax error is stage 2; a missing header is stage 1; <code>undefined reference to ...</code> is stage 4. In the TypeScript world the parallel is worth drawing carefully: <code>tsc</code> is stages 1–3 per file and there is <em>no linker</em> — type errors are compile-time and module resolution happens at run time or at bundle time. That is precisely why a project can type-check cleanly and fail at run time with a module-not-found error: the two checks are performed by different tools looking at different things, and <code>tsc</code>'s <code>paths</code> being satisfied does not mean the runtime's resolver will agree.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> describe the four stages and attribute an error to the right one, explain what an object file's symbol table and relocations are for and what a linker does, read an ELF file's two views, and map every bundler concept to its linker counterpart well enough to predict tree-shaking and duplicate-module behaviour.</p>
 
 <p><strong>What's still broken:</strong> the executable still contains unresolved references — to <code>printf</code>, to <code>malloc</code>, to every library function. Baking a copy of every library into every program means one security fix requires rebuilding everything on the machine, and a hundred programs carrying a hundred copies of the same code. The alternative introduces a whole new failure surface, and it is the reason an Alpine image sometimes will not run your binary.</p>
+</div>
 
 <h3>Node 34 — dynamic linking, libc, and why Alpine sometimes breaks things</h3>
 
@@ -2756,9 +2826,11 @@ CMD ["node", "dist/server.js"]  # exec form ⇒ node is PID 1 ⇒ signals work (
 
 <p><strong>Copying <code>node_modules</code> from the host into an image is broken for two independent reasons from this part</strong>: the native addons were compiled for your host's architecture (Node 33) and against your host's libc (this node). Both fail at run time with errors that do not obviously say so — <code>invalid ELF header</code> for the first, <code>cannot open shared object file</code> or a symbol version error for the second. <code>.dockerignore</code> containing <code>node_modules</code> is not a size optimisation; it is a correctness requirement.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain dynamic linking including PLT/GOT and lazy binding, use <code>ldd</code> and <code>LD_PRELOAD</code>, explain glibc's compatibility asymmetry and derive the build-on-the-oldest rule, state the real trade-offs of Alpine versus slim versus distroless with reasons rather than preferences, and explain why host <code>node_modules</code> must never be copied into an image.</p>
 
 <p><strong>What's still broken:</strong> the file is complete and loadable, and nothing has said what happens when you actually run it — what <code>execve</code> does to the calling process, how the shell turns a command line into a process tree, or how <code>npm start</code> becomes five processes.</p>
+</div>
 
 <h3>Node 35 — <code>execve</code>, and how a command becomes a process tree</h3>
 
@@ -2818,9 +2890,11 @@ CMD ["node", "dist/server.js"]  # exec form ⇒ node is PID 1 ⇒ signals work (
 
 <p><strong>The setuid check in step 1 explains a Docker security control.</strong> <code>allowPrivilegeEscalation: false</code> in a Kubernetes security context sets the <code>no_new_privs</code> bit, which makes the kernel ignore setuid bits at <code>execve</code>. So even if a setuid-root binary exists in the image, executing it grants nothing. It is a one-line, near-zero-cost mitigation for a whole class of container escape, and it operates precisely at step 1 of this node.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> describe <code>execve</code> step by step including the shebang and what survives it, explain environment variables as inherited stack memory and derive every consequence including why they are poor secret storage, explain what a shell does with a command line and what process groups are for, explain <code>npm start</code>'s process tree and why <code>exec</code> in an entrypoint matters, and choose correctly between <code>spawn</code> and <code>exec</code> on security grounds.</p>
 
 <p><strong>What's still broken:</strong> every process so far has a parent. Following the chain upward reaches PID 1, and PID 1 has no parent — it was started by the kernel. But the kernel is itself a program in a file, so something had to load <em>it</em>, on a machine where nothing is running at all.</p>
+</div>
 
 <h3>Node 36 — boot: from no electricity to PID 1</h3>
 
@@ -2862,9 +2936,11 @@ CMD ["node", "dist/server.js"]  # exec form ⇒ node is PID 1 ⇒ signals work (
 
 <p><strong>Immutable infrastructure is a statement about this node.</strong> Rather than booting a machine and configuring it, you build an image containing the configuration and boot that. The boot sequence is unchanged; what changes is that no step after it modifies the system. Container images are the same principle, one layer up, without the boot.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain the bootstrap problem and how the first instruction is reached, describe the BIOS and UEFI paths and what Secure Boot verifies, explain what the initramfs is for, describe kernel startup through to PID 1, explain precisely why containers start in milliseconds and virtual machines do not, and explain cloud-init and the instance metadata service.</p>
 
 <p><strong>What's still broken:</strong> PID 1 is running and the machine has exactly one process. Something must now start every service, in the right order, with the right dependencies, restarting them when they fail — and the design of that program was the most divisive argument in Linux for a decade.</p>
+</div>
 
 <h3>Node 37 — init, systemd, and what a "service" is</h3>
 
@@ -2964,11 +3040,13 @@ WantedBy=multi-user.target
 
 <p><strong>Docker's restart policies are a small init system</strong> — <code>no</code>, <code>on-failure[:max]</code>, <code>always</code>, <code>unless-stopped</code> — and Docker Compose's <code>depends_on</code> is <code>After=</code>. Note that <code>depends_on</code> only waits for the container to <em>start</em>, not to be ready, which is why <code>condition: service_healthy</code> and a <code>healthcheck</code> exist, and why so many compose setups have a wait-for-it script. That is exactly the ordering-versus-readiness distinction systemd solved with socket activation.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> state the four jobs of PID 1, explain what was structurally wrong with SysV init, write and read a systemd unit file including its isolation directives, explain why systemd tracks processes by cgroup, map Kubernetes concepts to their systemd counterparts, explain why PM2 inside a container is usually a mistake, and diagnose a CrashLoopBackOff from its exit code alone.</p>
 
 <p><strong>What's still broken:</strong> the system is now complete — it boots, runs services, isolates them, schedules them, and shuts them down. What is missing is any way to <em>see inside it</em> while it runs. Every number in every dashboard you have ever looked at comes from somewhere specific, and Part IX is where.</p>
+</div>
 
-<h3>PART IX — SEEING INSIDE A RUNNING SYSTEM</h3>
+<h3 class="part">PART IX — SEEING INSIDE A RUNNING SYSTEM</h3>
 
 <p>Three nodes. Where every number on every dashboard actually comes from, how to observe a process without modifying it, and what the kernel boundary costs — including the specific mitigations that made it more expensive and the interface built to stop crossing it so often.</p>
 
@@ -3032,9 +3110,11 @@ grep -E '^(anon|file) ' /sys/fs/cgroup/memory.stat
 
 <p><strong>Node's own metrics come from the same place.</strong> <code>process.memoryUsage().rss</code> reads <code>/proc/self/statm</code>. <code>process.cpuUsage()</code> uses <code>getrusage</code>. <code>os.loadavg()</code> reads <code>/proc/loadavg</code>. And what Node <em>cannot</em> tell you — its own cgroup limits, its throttling, its accept-queue depth — you read from these files yourself. Exporting <code>nr_throttled</code> and event-loop delay (Node 20) side by side is a genuinely high-value pair of custom metrics for any containerised Node service.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain what procfs is and why every Linux tool is a text parser, name the per-process and system-wide files that matter and what each answers, explain why CPU percentages require two samples, correct the common misreading of Linux load average, explain why container CPU and memory detection is wrong and where the right numbers live, and diagnose the five common failures with <code>cat</code> alone.</p>
 
 <p><strong>What's still broken:</strong> <code>/proc</code> gives you state — a snapshot of what <em>is</em>. It cannot tell you what <em>happened</em>: which function consumed the CPU, which syscall was slow, which query caused the disk activity. Observing behaviour rather than state needs a different mechanism.</p>
+</div>
 
 <h3>Node 39 — tracing: ptrace, perf, and eBPF</h3>
 
@@ -3106,9 +3186,11 @@ bpftrace -e 'tracepoint:raw_syscalls:sys_enter /pid == 1234/ { @[probe] = count(
 
 <p><strong>Kubernetes debugging tools are these mechanisms with permissions attached.</strong> <code>kubectl debug</code> creates an ephemeral container in the target pod's namespaces (Node 26), which is how you get tooling into a distroless image. Profiling inside a container generally needs <code>SYS_PTRACE</code> or <code>SYS_ADMIN</code>, and eBPF needs privileged access or <code>CAP_BPF</code> — which is why observability agents are among the few workloads that legitimately run privileged, and why they are also a serious supply-chain risk.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain how a debugger sets a breakpoint and why <code>strace</code> is too slow for production, explain sampling profilers and what hardware counters tell you, read a flame graph correctly, explain eBPF's verifier as the resolution of Node 3's rule, choose the right profiling layer for a Node symptom, and explain why a buffer leak is invisible in a heap snapshot.</p>
 
 <p><strong>What's still broken:</strong> one number has been referenced repeatedly without being confronted — the cost of crossing between user mode and the kernel. It has grown, for reasons that are not about software design, and the response to it is reshaping how I/O is done.</p>
+</div>
 
 <h3>Node 40 — the cost of the boundary, and the interface built to stop crossing it</h3>
 
@@ -3161,11 +3243,13 @@ bpftrace -e 'tracepoint:raw_syscalls:sys_enter /pid == 1234/ { @[probe] = count(
 
 <p><strong>The same reasoning scales up unchanged.</strong> A syscall crossing is ~100 ns; a local database round trip is ~200 microseconds — two thousand times more; a cross-region call is ~100 ms. So the N+1 query problem is the syscall-batching problem at a scale where it costs a thousand times as much: 100 queries at 200 µs is 20 ms of pure round-trip time, and one query returning the same rows is 200 µs. <code>DataLoader</code> batching, <code>IN (...)</code> instead of a loop, Redis pipelining, and HTTP/2 multiplexing are all <em>the same optimisation as <code>writev</code></em>, and recognising that is worth more than any of them individually. <strong>Every layer of this document has a boundary, and every layer's optimisation is to cross it less often with more in hand.</strong> [EXPLAIN]</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> state what a syscall costs and why it grew after 2018, explain KPTI and what <code>mitigations=off</code> trades, name the three strategies for crossing less and give an instance of each, explain <code>io_uring</code>'s rings and why completion-based I/O succeeds where readiness cannot, and apply the batching argument uniformly from <code>writev</code> to N+1 queries.</p>
 
 <p><strong>What's still broken:</strong> nothing mechanical. Every part of the machine has now been built. What remains is to look at the whole thing — the ways it has been assembled differently, the actual history that produced this particular arrangement rather than another, and one complete trace through all of it at once.</p>
+</div>
 
-<h3>PART X — DESIGNS, HISTORY, AND THE WHOLE LIFECYCLE</h3>
+<h3 class="part">PART X — DESIGNS, HISTORY, AND THE WHOLE LIFECYCLE</h3>
 
 <p>Four nodes to close. How the same mechanisms have been assembled differently and what that argument was about; the actual history threaded in order, so the chain has dates and people attached; one complete trace of a single click through every mechanism in this document; and the recurring forces named once more, at the end, where they are visible.</p>
 
@@ -3215,9 +3299,11 @@ bpftrace -e 'tracepoint:raw_syscalls:sys_enter /pid == 1234/ { @[probe] = count(
 
 <p>The browser is the clearest working example of the resolution. Chrome moved from one process to process-per-site (Node 3), accepting a large memory cost and constant IPC to gain the hardware isolation boundary — because the threat model demanded it. It is a monolith that became a microkernel where it mattered, which is the honest general answer.</p>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> explain the monolithic and microkernel designs and their trade-offs, describe the 1992 debate accurately and assess it fairly, place Linux, NT, XNU, Android and unikernels on the spectrum, explain why a container escape is a consequence of monolithic design, and map the architecture argument onto monolith versus microservices with the actual latency figures.</p>
 
 <p><strong>What's still broken:</strong> the chain is complete but its history has been delivered in pieces, one date at a time. Seeing it in order — who did what, when, and in response to whom — makes the whole thing considerably easier to hold.</p>
+</div>
 
 <h3>Node 42 — the history, threaded in order</h3>
 
@@ -3311,7 +3397,9 @@ bpftrace -e 'tracepoint:raw_syscalls:sys_enter /pid == 1234/ { @[probe] = count(
 
 <p><strong>Simple things that ship beat elegant things that do not.</strong> Unix over Multics, Linux over Hurd and Minix, Docker over the seven prior container systems, JavaScript over every better-designed language proposed for the browser. This is not an argument against elegance; it is an observation about what actually determines adoption, and it is worth carrying into your own engineering judgement.</p>
 
+<div class="node-close prose">
 <p><strong>What's still broken:</strong> nothing. One trace remains — a single user action, followed through every mechanism in this document at once.</p>
+</div>
 
 <h3>Node 43 — one click, all the way down and back</h3>
 
@@ -3421,7 +3509,9 @@ bpftrace -e 'tracepoint:raw_syscalls:sys_enter /pid == 1234/ { @[probe] = count(
 <li><strong>The old pod is removed.</strong> Endpoint removal and <code>SIGTERM</code> happen concurrently, so the old process must keep serving briefly after the signal or the rollout drops requests (<strong>Node 30</strong>). At <code>terminationGracePeriodSeconds</code> it is <code>SIGKILL</code>ed regardless.</li>
 </ol>
 
+<div class="node-close prose">
 <p><strong>What you can do at this point:</strong> narrate a request end to end without gaps, name the mechanism behind every step, and — the actual skill — given a symptom, enumerate the specific places in these two lists where the time or the failure could be, rather than guessing.</p>
+</div>
 
 <h3>Node 44 — the six forces, seen from the end</h3>
 
@@ -3461,7 +3551,7 @@ bpftrace -e 'tracepoint:raw_syscalls:sys_enter /pid == 1234/ { @[probe] = count(
 
 <p>Six questions. They will not tell you the answer, but they will tell you what the answer must be about, and in this material that is most of the work.</p>
 
-<h3>Where the chain gets misread</h3>
+<h3 class="part">Where the chain gets misread</h3>
 
 <p>Each item is a belief that is common, wrong, and costly, with the correction and the node where the model actually broke.</p>
 
@@ -3509,7 +3599,7 @@ bpftrace -e 'tracepoint:raw_syscalls:sys_enter /pid == 1234/ { @[probe] = count(
 
 <p><strong>"A distributed lock is a lock."</strong> A process holding one can be paused by GC, throttling, or a partition for longer than the lease, after which two holders believe they hold it. Without fencing tokens rejected by the storage layer, it reduces contention rather than guaranteeing correctness. <strong>(Node 17)</strong></p>
 
-<h3>The chain in one paragraph</h3>
+<h3 class="part">The chain in one paragraph</h3>
 
 <p>A wire is either carrying electricity or not, and binary won over decimal because noise is then thrown away at every step instead of accumulating; transistors make switches that other wires operate, gates make arithmetic, flip-flops make registers, and a vast array of numbered byte-boxes makes memory — into which, following the 1945 EDVAC draft, you put <em>instructions as numbers</em>, so a processor is nothing but fetch-decode-execute-advance on a program counter, and one machine ran one program while a human carried cards across a room. Making the loader a program gives you the resident monitor, the batch job, and spooling; making devices signal the processor instead of being polled gives you the interrupt, which is what asynchrony physically is; but a program that can overwrite the monitor makes all of it a convention, so hardware supplies a privilege bit — the kernel is a mode, not a process — with the system call as its single controlled door, and everything you have ever written passes through those roughly 350 entries. The kernel then needs a record of a running program, which is the process: identity, saved registers, an address space, descriptors, credentials, signals, a budget, a view. Saving and restoring registers is a context switch, costing microseconds once cache and TLB damage are counted, and a timer interrupt makes the taking-back involuntary, which is preemption; a scheduler then arbitrates by virtual runtime, and a monotonic clock read cheaply through the vDSO makes the accounting possible. Memory is shared not by giving each process a contiguous run — which fragments, caps size, and forbids sharing — but by cutting both sides into 4 KB pages mapped through a four-level table the MMU walks and the TLB caches, so that one hardware event, the page fault, serves demand loading, lazy allocation, copy-on-write, growable stacks, memory-mapped files and segmentation faults alike; an allocator carves those pages into objects and does not give them back, a garbage collector traces reachability above it, and when frames run out the kernel evicts, swaps, and finally sends an uncatchable <code>SIGKILL</code> that surfaces to you as exit code 137. Threads share the address space to get parallelism, which immediately reintroduces the interleaving that <code>counter++</code> cannot survive, so compare-and-swap and futexes and lock ordering exist — but the original problem was waiting on devices, and thread-per-connection dies on the arithmetic at ten thousand clients, so <code>select</code> became <code>poll</code> became <code>epoll</code>, whose cost scales with events rather than connections, and libuv loops on it in phases with microtasks drained between every callback: that is the event loop, a cooperative scheduler running inside a preemptive one, which is why one slow function stalls every request in the process. Beneath it, a file is a byte sequence with its identity in an inode and its name merely a directory entry, reached through a descriptor that is an index into a per-process table, so redirection and pipes are just table rearrangement between <code>fork</code> and <code>exec</code>; and beneath that, <code>write</code> only reaches the page cache, so durability costs an <code>fsync</code>, which is the tax every write-ahead log in every database is paying, while filesystems journal their metadata and one of them, overlayfs, stacked read-only layers under a writable one, is exactly what a Docker image is. Give a process its own view of the process table, the mounts, the network and the user IDs, put it in a cgroup with a CPU weight and a memory ceiling, drop its capabilities, filter its syscalls, and <code>execve</code> its entrypoint — and you have a container, with no new kernel concept anywhere in it, only a hypervisor's hardware boundary left as the thing you buy when one shared kernel is not enough. Processes then talk: signals carry one integer and PID 1 ignores the ones it has no handler for, which is why your container survives <code>docker stop</code> for ten seconds; Unix sockets carry bytes and descriptors and verified credentials; and the kernel's TCP stack turns a lossy network into an ordered stream with two backlog queues, two independent windows, and a sixty-second <code>TIME_WAIT</code> that quietly explains connection pooling. All of it starts from a compiler and a linker that resolve symbols and patch addresses — the same job a bundler does for your modules — a dynamic linker that defers half of it to run time and thereby makes libc a deployment concern, an <code>execve</code> that replaces a program in place while descriptors and environment survive, a firmware-to-bootloader-to-kernel-to-init sequence that containers skip entirely, and an init system whose four jobs Kubernetes performs again across machines. You watch the running result through <code>/proc</code>, which is why every tool is a text parser, sample it with <code>perf</code>, trace it with eBPF running verified code inside the kernel that Node 3 said must never run there, and pay a boundary cost that rose in 2018 because of speculative execution and is now being designed around by <code>io_uring</code>'s shared rings. Six forces produced all of it — sharing, protection, indirection, latency, the boundary, and compatibility — the ideas were essentially finished by 1970, and what has changed since is scale, cost, licences, and lawsuits.</p>
     </div>
@@ -3549,15 +3639,39 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
   });
 });
 
-// Landscape: split the flat prose into collapsible nodes, closed by default,
-// so 19 nodes read as a navigable list instead of one continuous wall.
+// Landscape: three disclosure levels — part, node, and the node's own
+// sections — matching the elaboration tab exactly.
 (function () {
-  const prose = document.querySelector("#tab-landscape .prose");
-  if (!prose) return;
-  const n = DK.makeSectionsCollapsible(prose, { startOpen: false });
-  DK.addCopyButtons(prose);
-  DK.decorateBlocks(prose);
-  if (n) DK.addExpandControls(document.getElementById("tab-landscape"), prose, n + " nodes");
+  const root = document.querySelector("#tab-landscape .prose");
+  if (!root) return;
+
+  // .prose carries a 68ch cap. Wrapping the blocks from the OUTSIDE it
+  // constrains the boxes themselves, not just the text, which is why the
+  // landscape rendered at roughly 60% of the page while elaboration ran full
+  // width. Drop it here; makeSectionsNested puts a .prose inside each body
+  // instead, where `.node-body .prose { max-width: none }` cancels the cap —
+  // which is precisely how the elaboration tab gets its width.
+  root.classList.remove("prose");
+  root.classList.add("landscape-root");
+
+  const n = DK.makeSectionsNested(root, [
+    { match: "h3.part", cls: "part-block" },
+    { match: "h3",      cls: "node-block" },
+    { match: "h4",      cls: "sub-block"  }
+  ]);
+
+  // Hoist each node's closing lines out of the final sub-section they were
+  // authored into and back onto the node. Before decorateBlocks, so the
+  // collapse footer stays last.
+  root.querySelectorAll("details.node-block").forEach((node) => {
+    const body = node.querySelector(":scope > .node-body");
+    if (!body) return;
+    node.querySelectorAll(".node-close").forEach((close) => body.appendChild(close));
+  });
+
+  DK.addCopyButtons(root);
+  DK.decorateBlocks(root);
+  if (n) DK.addExpandControls(document.getElementById("tab-landscape"), root, n + " sections");
 })();
 
 // If the URL has a #anchor (e.g. from search.html), jump straight to the elaboration tab.

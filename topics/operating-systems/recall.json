@@ -2050,6 +2050,1959 @@
    "t": "Node 20 · The event loop",
    "q": "Match the fixes to the causes.",
    "a": "Chunk with <code>setImmediate</code> to yield between chunks; move CPU-bound work to a worker thread; move heavy or slow work to a separate process or a queue; stream instead of buffering; or push it into the database if it is really a data operation. Raising <code>UV_THREADPOOL_SIZE</code> does nothing for main-thread blocking."
+  },
+  {
+   "n": 294,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "What is Unix's definition of a file, and why was it radical?",
+   "a": "A finite sequence of bytes, and nothing more — no records, no line structure, no type the system knows. Contemporary systems like OS/360 had record-oriented files whose format the system enforced. Throwing that away is what makes any program's output usable as any other's input, and it is the root of the pipe-based toolchain."
+  },
+  {
+   "n": 295,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "What is an inode, and what is not in it?",
+   "a": "A fixed-size on-disk record holding the file's type, permissions, owner, size, timestamps, link count and data block pointers. The <em>name</em> is not in it — names live in directories."
+  },
+  {
+   "n": 296,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "What is a directory?",
+   "a": "A file whose contents are a list of name-to-inode-number pairs. Nothing more."
+  },
+  {
+   "n": 297,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "Why is deleting called <code>unlink</code>?",
+   "a": "It removes a directory entry and decrements the inode's link count. The data is freed only when the count reaches zero <em>and</em> no process still holds the file open."
+  },
+  {
+   "n": 298,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "You deleted a 40 GB log and <code>df</code> still shows the disk full. Why, and what do you do?",
+   "a": "A running process still has it open, so the link count reached zero but the reference count did not. <code>lsof | grep deleted</code> finds the holder; restart or signal it, or truncate the file rather than deleting it next time."
+  },
+  {
+   "n": 299,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "Why is write-temp-then-rename the standard safe-write idiom?",
+   "a": "<code>rename()</code> is atomic with respect to readers: they see either the whole old file or the whole new one, never a partial write. It works because an open file has no name — a reader holding the old inode is unaffected."
+  },
+  {
+   "n": 300,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "Contrast hard links and symbolic links.",
+   "a": "A hard link is another directory entry for the same inode — equally the file, sharing permissions, unable to cross filesystems or point at directories (cycles). A symlink is a tiny file whose contents are a path string, resolved at every use — so it can cross filesystems, can dangle, and adds a resolution step."
+  },
+  {
+   "n": 301,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "How can a disk with free space refuse writes with <code>ENOSPC</code>?",
+   "a": "Inode exhaustion. Traditional filesystems allocate a fixed inode table at format time, so millions of tiny files can use them all. <code>df -h</code> shows space free; <code>df -i</code> shows the truth."
+  },
+  {
+   "n": 302,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "Name four things that are files but are not files.",
+   "a": "Devices (<code>/dev/null</code>, <code>/dev/zero</code>, <code>/dev/urandom</code>, <code>/dev/sda</code>); pipes and sockets; kernel state (<code>/proc</code>, <code>/sys</code> — reading executes kernel code that generates the content); and terminals. The payoff is that every tool written for files works on all of it."
+  },
+  {
+   "n": 303,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "What is the VFS and what does it make possible?",
+   "a": "A kernel layer defining operations (look up, read, write, create) that every filesystem implements — introduced by Sun in 1985 for NFS. It is why ext4, XFS, NFS, tmpfs, overlayfs, procfs and FUSE all live in one tree, and why <code>mount</code> can attach any filesystem at any point."
+  },
+  {
+   "n": 304,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "What is a bind mount, and why does it hide things?",
+   "a": "The same inodes appearing at a second location in the tree — no copy, no sync, literally the same files. A mount replaces what a path resolves to, so bind-mounting your source over <code>/app</code> hides the image's <code>/app/node_modules</code>; an anonymous volume at that deeper path shadows the first mount, which is why that trick works."
+  },
+  {
+   "n": 305,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "Why does moving a file from <code>/tmp</code> to a volume behave differently from moving within it?",
+   "a": "<code>rename</code> across filesystems fails with <code>EXDEV</code>, so the library falls back to copy-then-delete, which is not atomic. Upload handling should write the temporary file into the destination filesystem."
+  },
+  {
+   "n": 306,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "Why does a dev server on a big repo fail with <code>ENOSPC</code> when there is plenty of disk?",
+   "a": "<code>inotify</code> watch limits — <code>fs.inotify.max_user_watches</code>, historically 8192. It is one of the most misleading error codes in Linux, since no space is involved."
+  },
+  {
+   "n": 307,
+   "c": "node-21",
+   "t": "Node 21 · Files and inodes",
+   "q": "What problem is pnpm solving, in this node's terms?",
+   "a": "Hundreds of thousands of small files are slow to create, slow to traverse, slow to send as build context, and inode-hungry. pnpm keeps one content-addressed store and hard-links into each project, so a file exists once on disk with many names; Yarn PnP eliminates the directory entirely."
+  },
+  {
+   "n": 308,
+   "c": "node-22",
+   "t": "Node 22 · Descriptors and pipes",
+   "q": "Describe the three tables behind a file descriptor.",
+   "a": "The per-process descriptor table (the small integer indexes it, and entries hold a pointer plus close-on-exec); the system-wide open file table, where each <em>open file description</em> holds the offset, access mode and status flags; and the inode table. Collapsing these to one is the source of every confusion about descriptors."
+  },
+  {
+   "n": 309,
+   "c": "node-22",
+   "t": "Node 22 · Descriptors and pipes",
+   "q": "Why does opening a file twice give independent offsets while <code>fork</code> gives a shared one?",
+   "a": "Two <code>open</code> calls create two open file descriptions. <code>dup</code> and <code>fork</code> create two descriptors pointing at <em>one</em> description — so a parent and child writing to inherited stdout interleave correctly rather than overwriting each other. That is the reason for the design."
+  },
+  {
+   "n": 310,
+   "c": "node-22",
+   "t": "Node 22 · Descriptors and pipes",
+   "q": "Why are stdout and stderr separate descriptors?",
+   "a": "So results and complaints can go to different places — which is what makes <code>./build &gt; out.log 2&gt; err.log</code> possible and why error messages still reach your terminal when output is piped."
+  },
+  {
+   "n": 311,
+   "c": "node-22",
+   "t": "Node 22 · Descriptors and pipes",
+   "q": "Which one-line specification makes shell redirection possible?",
+   "a": "<code>open</code> always returns the lowest-numbered unused descriptor. Close descriptor 1, then open the file: it becomes descriptor 1."
+  },
+  {
+   "n": 312,
+   "c": "node-22",
+   "t": "Node 22 · Descriptors and pipes",
+   "q": "Derive <code>ls &gt; out.txt</code>.",
+   "a": "<code>fork</code>; in the child, <code>dup2</code> the opened file onto descriptor 1 (or close 1 then open); <code>execve</code> <code>/bin/ls</code>, which keeps descriptors. <code>ls</code> writes to 1 as always, knowing nothing. Redirection is descriptor-table rearrangement in the gap between fork and exec."
+  },
+  {
+   "n": 313,
+   "c": "node-22",
+   "t": "Node 22 · Descriptors and pipes",
+   "q": "What are a pipe's three blocking behaviours, and what does each give you?",
+   "a": "Writing to a full pipe blocks — that is backpressure built into the primitive. Reading an empty one blocks until data or until <em>all</em> write ends close, giving end-of-file. Writing with no readers raises <code>SIGPIPE</code>, which is why <code>yes | head -5</code> terminates: producers die when consumers stop caring."
+  },
+  {
+   "n": 314,
+   "c": "node-22",
+   "t": "Node 22 · Descriptors and pipes",
+   "q": "Why does a shell script sometimes hang waiting on a pipe that should have ended?",
+   "a": "Some process still holds a write end open — often an inherited descriptor a subshell forgot to close — so the reader never sees EOF."
+  },
+  {
+   "n": 315,
+   "c": "node-22",
+   "t": "Node 22 · Descriptors and pipes",
+   "q": "Derive <code>cmd1 | cmd2</code>.",
+   "a": "Create a pipe; fork twice; in the first child <code>dup2(fds[1], 1)</code> and close both original ends; in the second <code>dup2(fds[0], 0)</code> and close both; exec both. Two unmodified programs connected using nothing but the descriptor table."
+  },
+  {
+   "n": 316,
+   "c": "node-22",
+   "t": "Node 22 · Descriptors and pipes",
+   "q": "What does the <code>stdio</code> option in <code>child_process</code> actually specify?",
+   "a": "The child's descriptor table. <code>'pipe'</code> creates a pipe and gives you a stream; <code>'inherit'</code> passes your own descriptor through so the child writes directly to your terminal or log with no relaying; <code>'ignore'</code> opens <code>/dev/null</code>; and <code>'ipc'</code> as a fourth entry is the message channel <code>child_process.fork()</code> uses."
+  },
+  {
+   "n": 317,
+   "c": "node-22",
+   "t": "Node 22 · Descriptors and pipes",
+   "q": "Explain the classic subprocess deadlock and its two fixes.",
+   "a": "The child produces 10 MB on stdout, the parent waits for exit before reading; the pipe fills at 64 KB, the child blocks writing, the parent blocks waiting. It is a bounded-queue deadlock. Fixes: consume output continuously (<code>spawn</code> with streams), or accept <code>exec</code>'s <code>maxBuffer</code> limit and its <code>ENOBUFS</code>."
+  },
+  {
+   "n": 318,
+   "c": "node-22",
+   "t": "Node 22 · Descriptors and pipes",
+   "q": "Why does the 12-factor rule about logging to stdout matter mechanically?",
+   "a": "Docker gives PID 1 a pipe for stdout and stderr and reads from it. Writing to a file inside the container bypasses all of it, so <code>docker logs</code> and every shipper see nothing. It also means a stalled log consumer fills the pipe and your application blocks on <code>console.log</code>."
+  },
+  {
+   "n": 319,
+   "c": "node-22",
+   "t": "Node 22 · Descriptors and pipes",
+   "q": "What is close-on-exec and why does it matter for security?",
+   "a": "Without <code>FD_CLOEXEC</code>, every descriptor you hold is inherited by every subprocess — including database connections, key files, and listening sockets, so a subprocess can read from an already-authenticated socket. Modern APIs default to it, which is why deliberately passing a descriptor (cluster, systemd socket activation) requires clearing it."
+  },
+  {
+   "n": 320,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "Give the two numbers that shape database design.",
+   "a": "A hard disk random read is a seek (4–10 ms) plus half a rotation (4.2 ms at 7200 rpm) — around 8–12 ms. Sequential transfer once positioned is 100–200 MB/s. The ratio is roughly 100 to 1."
+  },
+  {
+   "n": 321,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "Name three database designs that exist because of that ratio.",
+   "a": "B-trees, to keep seeks logarithmic; write-ahead logs, to convert random writes into sequential ones; and the planner's preference for a sequential scan past a certain selectivity, encoded as <code>random_page_cost</code> 4.0 against <code>seq_page_cost</code> 1.0 — which is why lowering it to ~1.1 on SSD is standard and changes plans."
+  },
+  {
+   "n": 322,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "Why does an SSD contain a translation layer?",
+   "a": "Flash is read and written in 4–16 KB pages but erased only in multi-megabyte blocks, and pages cannot be overwritten in place. So the Flash Translation Layer maps logical addresses to physical pages, writing to fresh pages and garbage-collecting stale blocks in the background."
+  },
+  {
+   "n": 323,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "Name three consequences of the FTL you can observe.",
+   "a": "Write amplification (writing 4 KB causes far more flash traffic); latency spikes when garbage collection collides with your writes, so p99 is much worse than the average; and the need for <code>TRIM</code>, without which a full-then-emptied SSD stays slow."
+  },
+  {
+   "n": 324,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "State the latency hierarchy from L1 to a cross-continent round trip.",
+   "a": "L1 ~1 ns; L2 ~4 ns; DRAM ~80 ns; NVMe ~20–80 µs; SATA SSD ~100 µs; same-datacentre network ~100–500 µs; disk seek ~5–10 ms; cross-continent ~100 ms."
+  },
+  {
+   "n": 325,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "Why is the modern I/O scheduler for an NVMe device <code>none</code>?",
+   "a": "The elevator algorithm existed to avoid pathological head movement on spinning disks. NVMe devices have thousands of deep queues and reorder better internally than the kernel can."
+  },
+  {
+   "n": 326,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "Where are your bytes after <code>write()</code> returns, and what survives what?",
+   "a": "In the kernel page cache: survives a process crash including <code>SIGKILL</code>, lost on power failure or panic. Before that they may still be in your language's buffer, lost on a process crash. After writeback they are in the device's volatile write cache, still lost on power failure. Only the medium survives everything."
+  },
+  {
+   "n": 327,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "What does <code>fsync</code> guarantee, and what does <code>fdatasync</code> skip?",
+   "a": "It writes back all dirty pages of that file and issues a cache-flush to the device, returning only when the device says the data is durable. <code>fdatasync</code> may skip metadata that does not affect reading the data back, and is what databases usually use."
+  },
+  {
+   "n": 328,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "Why is <code>fsync</code> the most important number in database performance?",
+   "a": "An in-memory row insert is a microsecond; a committed durable insert is bounded below by one <code>fsync</code> — milliseconds on a disk, tens to hundreds of microseconds on a consumer SSD, near zero on enterprise hardware with power-loss protection. Every durability setting is a decision about how many to do."
+  },
+  {
+   "n": 329,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "What was fsyncgate and what did Postgres change?",
+   "a": "In 2018 it emerged that on Linux, when writeback fails, the error is reported to the next <code>fsync</code> caller and the pages are then marked clean — so a retry returns success while the data is gone. Postgres 12 now panics on <code>fsync</code> failure and recovers from the WAL. The general lesson: an I/O error is not retryable unless you know what the layer beneath did with the failed data."
+  },
+  {
+   "n": 330,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "What is a torn page, and what is Postgres's defence?",
+   "a": "A power cut partway through writing an 8 KB page leaves half new and half old, because hardware only guarantees atomicity at sector granularity. <code>full_page_writes</code> writes the entire page image into the WAL on its first modification after each checkpoint — roughly doubling WAL volume, and the reason disabling it is tempting and wrong."
+  },
+  {
+   "n": 331,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "Derive the write-ahead log from first principles.",
+   "a": "Modifying a row means a random write, possibly across several pages, which cannot be made atomic. So append a description of the change to a sequential log, <code>fsync</code> it, and report the commit; update the data pages lazily later; replay the log after a crash. One random write becomes one sequential append plus one <code>fsync</code>."
+  },
+  {
+   "n": 332,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "What does <code>synchronous_commit = off</code> actually risk?",
+   "a": "Not corruption — only the loss of the last fraction of a second of committed transactions. A reasonable trade for analytics ingestion or event logging and a bad one for payments. Also note group commit: concurrent commits share one <code>fsync</code>, so throughput scales far better than single-transaction latency suggests."
+  },
+  {
+   "n": 333,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "What do <code>innodb_flush_log_at_trx_commit</code> 1, 2 and 0 mean?",
+   "a": "1 flushes per commit (durable, default); 2 writes to the page cache per commit and flushes each second, so it survives a process crash but not a power cut; 0 does neither."
+  },
+  {
+   "n": 334,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "Which three <code>iostat</code> and <code>top</code> numbers diagnose storage, and what does each mean?",
+   "a": "<code>await</code> — average request latency, the number that matters. <code>aqu-sz</code> — queue depth; high <code>await</code> with a deep queue means saturation. <code>%util</code> — misleading on parallel-queue devices. And <code>wa</code> in <code>top</code>: high <code>wa</code> with low user CPU means the machine is storage-bound."
+  },
+  {
+   "n": 335,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "Why did a database that was fast for three weeks become permanently slow?",
+   "a": "Exhausted burst credits on a burstable cloud volume (or a burstable instance). It drops to a baseline that can be a fraction of what you tested against, and no query tuning fixes it."
+  },
+  {
+   "n": 336,
+   "c": "node-23",
+   "t": "Node 23 · Storage and fsync",
+   "q": "Why must a database never run on a container's writable layer?",
+   "a": "Every first write to a file pays a full copy-up through the overlay driver. Volumes go to the host filesystem directly. It is a mechanical cost, not just a persistence concern."
+  },
+  {
+   "n": 337,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "What does a filesystem lay out on a device?",
+   "a": "A superblock (size, block size, where everything is, a clean/dirty flag); allocation structures for free blocks and inodes; the inode table; and the data blocks."
+  },
+  {
+   "n": 338,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "Why did extents replace indirect blocks?",
+   "a": "Indirect blocks describe a large file with hundreds of thousands of pointers. An extent is a start block plus a length, so a contiguous 1 GB file needs a handful of records. It is a large part of why ext4 outperforms ext3 on big files."
+  },
+  {
+   "n": 339,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "Why is <code>fsck</code> unacceptable on a server, and what replaced it?",
+   "a": "Scanning a multi-terabyte filesystem takes hours during which the machine is down. Journaling replaced it: write a description of the intended updates to a journal and flush, perform them, mark the entry complete, and after a crash replay only the incomplete entries — bounded work in seconds."
+  },
+  {
+   "n": 340,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "What do ext4's three data modes guarantee?",
+   "a": "<code>data=journal</code>: data and metadata both journaled, safest, everything written twice. <code>data=ordered</code> (default): metadata journaled, but data blocks forced to disk before the metadata referencing them, so you never see another file's old contents. <code>data=writeback</code>: no ordering, fastest, and after a crash a file can contain arbitrary stale bytes."
+  },
+  {
+   "n": 341,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "Why can a crash leave a file that exists, has the right size, and is full of zeros?",
+   "a": "ext4 journals metadata, not data, and uses delayed allocation. It is documented behaviour of <code>data=ordered</code>, not a bug — which is why applications that care must <code>fsync</code>."
+  },
+  {
+   "n": 342,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "Write a genuinely safe file update.",
+   "a": "Write the temp file; <code>fsync</code> the temp file; <code>rename</code> over the target; <code>fsync</code> the containing directory. The rename alone gives atomicity for readers but not durability against power loss."
+  },
+  {
+   "n": 343,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "What is tmpfs and what is its container trap?",
+   "a": "A filesystem in RAM backed by the page cache and swap — <code>/dev/shm</code>, much of <code>/run</code>, Docker's <code>--tmpfs</code>, and Kubernetes' memory-medium <code>emptyDir</code>. Its contents count against your cgroup memory limit, so writing a few gigabytes into one gets the container OOMKilled for reasons the error does not explain."
+  },
+  {
+   "n": 344,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "Why should a database never live on NFS?",
+   "a": "Network filesystems break local assumptions: locking is advisory and unreliable, <code>fsync</code> semantics vary, latency is milliseconds, and an unresponsive server puts your process into unkillable <code>D</code> state."
+  },
+  {
+   "n": 345,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "Describe overlayfs's three operations.",
+   "a": "Read: search the upper layer, then each lower layer in order, first hit wins. Write to a lower-layer file: <em>copy-up</em> the entire file into the upper layer first, then modify. Delete a lower-layer file: create a whiteout marker in the upper layer to hide it."
+  },
+  {
+   "n": 346,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "Explain layer sharing and why ten containers from one image are cheap.",
+   "a": "The lower directories are one set of files on disk, mounted read-only into every container; each container adds only a thin writable upper layer. It is also why a common base image across services is a real saving."
+  },
+  {
+   "n": 347,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "Why does <code>RUN rm -rf /var/lib/apt/lists/*</code> in a separate instruction not shrink the image?",
+   "a": "The earlier layer still contains the files; the later layer only adds whiteouts. This is also how credentials leak: a secret deleted in a later instruction is still extractable from the layer where it was added. Hence multi-stage builds and BuildKit <code>--mount=type=secret</code>."
+  },
+  {
+   "n": 348,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "Why is <code>COPY package*.json</code> then <code>RUN npm ci</code> then <code>COPY . .</code> not a style convention?",
+   "a": "A layer's cache is invalidated when its inputs change, and every layer after it is then rebuilt. This order puts the slow, rarely-invalidated step above the fast, always-invalidated one. Reversed, dependencies reinstall on every source change."
+  },
+  {
+   "n": 349,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "Why is a bind mount slow on Docker Desktop?",
+   "a": "Linux containers there run inside a virtual machine, so the mount crosses from the host filesystem into the VM through a protocol (osxfs, then gRPC-FUSE, now VirtioFS). Every <code>stat</code> crosses it, and a bundler statting a hundred thousand files becomes an order of magnitude slower. Keep <code>node_modules</code> in a named volume, and on Windows work inside the WSL2 filesystem rather than <code>/mnt/c</code>."
+  },
+  {
+   "n": 350,
+   "c": "node-24",
+   "t": "Node 24 · Filesystems",
+   "q": "Why does <code>import Button from './button'</code> work on a Mac and fail in CI?",
+   "a": "APFS is case-insensitive by default; ext4 is case-sensitive. It is one of the most common works-on-my-machine failures in JavaScript projects and it is one line of filesystem behaviour."
+  },
+  {
+   "n": 351,
+   "c": "node-25",
+   "t": "Node 25 · Permissions",
+   "q": "What is a user, to the kernel?",
+   "a": "An unsigned integer in the process's credentials. Usernames exist only in <code>/etc/passwd</code>, read by ordinary library code in user space to render numbers as names."
+  },
+  {
+   "n": 352,
+   "c": "node-25",
+   "t": "Node 25 · Permissions",
+   "q": "Why does a container writing to a bind mount produce confusing ownership?",
+   "a": "UID 1000 inside and UID 1000 on the host are the same user to the kernel, regardless of what either side's <code>/etc/passwd</code> calls it — unless a user namespace maps them."
+  },
+  {
+   "n": 353,
+   "c": "node-25",
+   "t": "Node 25 · Permissions",
+   "q": "How does the permission check pick which bits apply?",
+   "a": "First match wins: if you are the owner, only the owner bits apply, even if the group bits would grant more. A file you own with mode <code>044</code> is one you cannot read and everyone else can."
+  },
+  {
+   "n": 354,
+   "c": "node-25",
+   "t": "Node 25 · Permissions",
+   "q": "What do r, w and x mean on a <em>directory</em>?",
+   "a": "r lists the names; w creates, deletes and renames entries — which is why deleting a file is governed by the directory's permissions, not the file's; x is search, permitting traversal to something inside. x without r lets you open a file whose exact name you know while preventing listing."
+  },
+  {
+   "n": 355,
+   "c": "node-25",
+   "t": "Node 25 · Permissions",
+   "q": "What are setuid, setgid and the sticky bit?",
+   "a": "setuid runs a program as the file's owner — how <code>passwd</code> edits <code>/etc/shadow</code>, and a permanent source of privilege escalation. setgid does the same for groups and makes directory contents inherit the group. The sticky bit on a directory restricts deletion to each file's owner, which is why <code>/tmp</code> is <code>1777</code>."
+  },
+  {
+   "n": 356,
+   "c": "node-25",
+   "t": "Node 25 · Permissions",
+   "q": "What is umask and why does it surprise people?",
+   "a": "A mask of bits removed from the mode of newly created files — the common <code>022</code> turns a requested 666 into 644. It is per-process state inherited by children, so a daemon's umask can differ from your shell's."
+  },
+  {
+   "n": 357,
+   "c": "node-25",
+   "t": "Node 25 · Permissions",
+   "q": "Why do capabilities exist, and name five.",
+   "a": "Because all-or-nothing root means a server that needs to bind port 80 must start as root, leaving a window in which any bug is total compromise. <code>CAP_NET_BIND_SERVICE</code>, <code>CAP_NET_ADMIN</code>, <code>CAP_NET_RAW</code> (why <code>ping</code> often fails in a container), <code>CAP_SYS_PTRACE</code>, and <code>CAP_SYS_ADMIN</code> — a grab-bag including <code>mount</code>, widely called the new root."
+  },
+  {
+   "n": 358,
+   "c": "node-25",
+   "t": "Node 25 · Permissions",
+   "q": "What does SELinux add beyond permission bits, and where do you meet it?",
+   "a": "Mandatory access control: a policy enforced regardless of ordinary permissions and not overridable by the file's owner. You meet it as the <code>:z</code>/<code>:Z</code> volume mount suffixes on Red Hat systems, where the failure without them is a permission denied the bits say should have worked."
+  },
+  {
+   "n": 359,
+   "c": "node-25",
+   "t": "Node 25 · Permissions",
+   "q": "Justify each field of a hardened Kubernetes securityContext.",
+   "a": "<code>runAsNonRoot</code>/<code>runAsUser</code>: not UID 0, so an escape is not host root. <code>allowPrivilegeEscalation: false</code>: sets <code>no_new_privs</code> so setuid binaries cannot elevate. <code>readOnlyRootFilesystem</code>: with an <code>emptyDir</code> where writes are genuinely needed. <code>capabilities: {drop: [ALL]}</code>. <code>seccompProfile: RuntimeDefault</code>. Each is one mechanism from this document, turned off."
+  },
+  {
+   "n": 360,
+   "c": "node-25",
+   "t": "Node 25 · Permissions",
+   "q": "Why do Node apps listen on 3000 or 8080?",
+   "a": "Ports below 1024 historically required root, so the pattern is a high port as a non-root user with nginx, a load balancer or a Service handling 80 and 443. You can also lower <code>net.ipv4.ip_unprivileged_port_start</code>, and Kubernetes generally sidesteps it."
+  },
+  {
+   "n": 361,
+   "c": "node-25",
+   "t": "Node 25 · Permissions",
+   "q": "What are the three correct fixes for volume ownership mismatch?",
+   "a": "Match the UIDs deliberately (build the image with the host user's UID); use a named volume rather than a bind mount so the runtime handles ownership; or in Kubernetes set <code>fsGroup</code>. The genuinely correct answer is user namespaces. <code>chmod 777</code>, running as root, and chowning on startup are all bad."
+  },
+  {
+   "n": 362,
+   "c": "node-25",
+   "t": "Node 25 · Permissions",
+   "q": "Why might <code>fs.writeFile(path, data, {mode: 0o600})</code> not give you what you asked for?",
+   "a": "The mode is subject to umask. Writing a secret or a private key needs an explicit <code>fs.chmod</code> after creation or verification — and <code>ssh</code> silently rejects a group-readable private key, which is a habit worth copying."
+  },
+  {
+   "n": 363,
+   "c": "node-26",
+   "t": "Node 26 · Namespaces",
+   "q": "State the namespace mechanism in one sentence.",
+   "a": "Every global resource the kernel names becomes a per-process pointer to a table, so processes sharing a pointer see the same table and processes with different pointers see different ones."
+  },
+  {
+   "n": 364,
+   "c": "node-26",
+   "t": "Node 26 · Namespaces",
+   "q": "Why is a namespace not a restriction?",
+   "a": "It changes what <em>exists</em> as far as that process is concerned. A process in its own PID namespace does not fail to kill PID 4321; there is no PID 4321 in its numbering. Isolation by construction rather than by check — which is why it is cheap and complete for what it covers."
+  },
+  {
+   "n": 365,
+   "c": "node-26",
+   "t": "Node 26 · Namespaces",
+   "q": "Name the seven namespaces and what each virtualises.",
+   "a": "Mount (the mount tree, 2002); PID (the process ID space, 2008); Network (interfaces, routes, firewall rules and the port space, 2009); UTS (hostname, 2006); IPC (System V and POSIX message queues, semaphores, shared memory, 2006); User (UID/GID mapping, completed 2013); Cgroup (position in the cgroup hierarchy, 2016)."
+  },
+  {
+   "n": 366,
+   "c": "node-26",
+   "t": "Node 26 · Namespaces",
+   "q": "Why can two containers both bind port 3000?",
+   "a": "The network namespace has a private port number space. It is the most visible benefit of namespaces and it follows from one sentence."
+  },
+  {
+   "n": 367,
+   "c": "node-26",
+   "t": "Node 26 · Namespaces",
+   "q": "How is a container connected to a network at all?",
+   "a": "A <strong>veth pair</strong> — a virtual cable — with one end inside the namespace and the other attached to a host bridge (<code>docker0</code>), plus iptables NAT rules for published ports."
+  },
+  {
+   "n": 368,
+   "c": "node-26",
+   "t": "Node 26 · Namespaces",
+   "q": "Why is the user namespace the most consequential one?",
+   "a": "It maps UIDs to the parent's, so a process can be root in its namespace with no privilege on the host — the correct solution to volume ownership and the basis of rootless containers. It is also the only namespace an unprivileged user may create, and for that reason a recurring source of kernel privilege-escalation vulnerabilities."
+  },
+  {
+   "n": 369,
+   "c": "node-26",
+   "t": "Node 26 · Namespaces",
+   "q": "Name the three system calls that operate on namespaces and what each is used for.",
+   "a": "<code>clone()</code> with <code>CLONE_NEW*</code> flags creates a process in new namespaces (container creation); <code>unshare()</code> moves the caller into new ones; <code>setns()</code> joins an existing one given a descriptor — which is what <code>docker exec</code> and <code>kubectl exec</code> do."
+  },
+  {
+   "n": 370,
+   "c": "node-26",
+   "t": "Node 26 · Namespaces",
+   "q": "What is <em>not</em> namespaced, and why does each matter?",
+   "a": "The kernel itself (so a kernel bug affects every container and a panic takes them all down — the fundamental difference from a VM); the system clock; most of <code>/proc/sys</code>; and the CPU count and memory totals reported by <code>/proc</code> — which is why <code>os.cpus().length</code>, <code>nproc</code> and <code>lscpu</code> all lie inside a container."
+  },
+  {
+   "n": 371,
+   "c": "node-26",
+   "t": "Node 26 · Namespaces",
+   "q": "Define a Kubernetes pod precisely, and derive four of its behaviours.",
+   "a": "Containers sharing the network and IPC namespaces and usually UTS, with separate mount and PID namespaces. Hence: <code>localhost</code> between them; they cannot both bind 8080; no shared files without a shared volume; and no visibility of each other's processes without <code>shareProcessNamespace</code>."
+  },
+  {
+   "n": 372,
+   "c": "node-26",
+   "t": "Node 26 · Namespaces",
+   "q": "What is the pause container for?",
+   "a": "It holds the pod's network namespace and does nothing but sleep, so the namespace survives individual containers restarting."
+  },
+  {
+   "n": 373,
+   "c": "node-26",
+   "t": "Node 26 · Namespaces",
+   "q": "How does a service mesh sidecar intercept traffic without the application knowing?",
+   "a": "It is in the same network namespace, and iptables rules redirect the application's traffic through it. The application needs no awareness at all."
+  },
+  {
+   "n": 374,
+   "c": "node-26",
+   "t": "Node 26 · Namespaces",
+   "q": "What do Docker's <code>host</code> and <code>none</code> network modes mean mechanically?",
+   "a": "<code>host</code> means <em>not</em> creating a network namespace — the container shares the host's, so there is no NAT, no port mapping, full performance and no isolation. <code>none</code> creates an empty one."
+  },
+  {
+   "n": 375,
+   "c": "node-27",
+   "t": "Node 27 · cgroups",
+   "q": "What is a cgroup and how do you configure one?",
+   "a": "A set of processes plus resource controllers, arranged in a hierarchy exposed as a filesystem — so configuring limits is writing text into files under <code>/sys/fs/cgroup</code>. Google, 2006 (as process containers), merged in Linux 2.6.24 in 2008."
+  },
+  {
+   "n": 376,
+   "c": "node-27",
+   "t": "Node 27 · cgroups",
+   "q": "Distinguish <code>cpu.weight</code> from <code>cpu.max</code>.",
+   "a": "<code>cpu.weight</code> is a relative share (1–10000, default 100), CFS's task weight applied to a group — it only matters under contention, and an uncontended group gets everything. <code>cpu.max</code> is a hard quota written as quota and period: at most N µs per period, after which every task in the group is stopped until the next period, even on an idle machine."
+  },
+  {
+   "n": 377,
+   "c": "node-27",
+   "t": "Node 27 · cgroups",
+   "q": "Do the throttling arithmetic for a one-core limit and five busy threads.",
+   "a": "The 100 ms quota is consumed in 20 ms of wall clock, then the container sleeps for 80 ms. Average utilisation reads as 100% of one core, and every request arriving in those 80 ms takes an extra 80 ms. That is latency spikes at apparently fine CPU."
+  },
+  {
+   "n": 378,
+   "c": "node-27",
+   "t": "Node 27 · cgroups",
+   "q": "State the argument for requests without CPU limits, and the counter-argument.",
+   "a": "Requests give a guaranteed share under contention; limits only add throttling and cannot make anything faster, so for latency-sensitive services limits are pure cost. The counter-argument is that without them a misbehaving container degrades its neighbours. Both are defensible; the decision should be made knowingly."
+  },
+  {
+   "n": 379,
+   "c": "node-27",
+   "t": "Node 27 · cgroups",
+   "q": "Name the three memory thresholds and say which Kubernetes exposes.",
+   "a": "<code>memory.max</code> — hard; exceeding it triggers reclaim and then the cgroup OOM killer. <code>memory.high</code> — soft; above it the kernel throttles allocations and reclaims hard, making the group slow rather than dead. <code>memory.min</code>/<code>low</code> — reclaim protection. Kubernetes exposes only the hard one, which is a genuine gap."
+  },
+  {
+   "n": 380,
+   "c": "node-27",
+   "t": "Node 27 · cgroups",
+   "q": "What does <code>pids.max</code> defend against?",
+   "a": "A fork bomb. Without it one container can exhaust the machine's PID space and nothing anywhere can start a process."
+  },
+  {
+   "n": 381,
+   "c": "node-27",
+   "t": "Node 27 · cgroups",
+   "q": "What is PSI and why is it a better signal than utilisation?",
+   "a": "Pressure Stall Information (Linux 4.20, 2018) reports the fraction of time tasks were stalled waiting for CPU, memory or I/O. Utilisation says how busy something is; pressure says how much your work is being delayed, which is what you actually care about. It is what modern autoscaling and <code>oomd</code> use."
+  },
+  {
+   "n": 382,
+   "c": "node-27",
+   "t": "Node 27 · cgroups",
+   "q": "Map Kubernetes resource fields to cgroup files.",
+   "a": "<code>requests.cpu</code> → <code>cpu.weight</code>; <code>limits.cpu</code> → <code>cpu.max</code> (throttling); <code>requests.memory</code> → scheduling and reclaim protection; <code>limits.memory</code> → <code>memory.max</code> (OOM kill)."
+  },
+  {
+   "n": 383,
+   "c": "node-27",
+   "t": "Node 27 · cgroups",
+   "q": "State the asymmetry between CPU and memory limits and explain why it exists.",
+   "a": "Exceeding a CPU limit makes you slow; exceeding a memory limit makes you dead. CPU is compressible — give a process less and it still runs. Memory is not: there is nothing to give back once the bytes are written."
+  },
+  {
+   "n": 384,
+   "c": "node-27",
+   "t": "Node 27 · cgroups",
+   "q": "What are the QoS classes and what do they determine?",
+   "a": "Guaranteed (requests equal limits everywhere), Burstable, and BestEffort (nothing set, <code>oom_score_adj</code> 1000). They determine who the kernel kills first when the <em>node</em> runs out of memory — so setting requests is a survival decision, not just a scheduling hint."
+  },
+  {
+   "n": 385,
+   "c": "node-27",
+   "t": "Node 27 · cgroups",
+   "q": "How does systemd give you container-style limits with no container?",
+   "a": "It puts every service in its own cgroup, so <code>MemoryMax=</code>, <code>CPUQuota=</code> and <code>TasksMax=</code> in a unit file are exactly these mechanisms. <code>systemd-cgtop</code> shows resource use by cgroup."
+  },
+  {
+   "n": 386,
+   "c": "node-28",
+   "t": "Node 28 · The container",
+   "q": "Define a container in one sentence.",
+   "a": "An ordinary Linux process — visible in the host's process list with a real PID — started with a particular combination of namespaces, cgroups, a layered root filesystem, a credential mapping, a capability set and a syscall filter. The kernel has no container object."
+  },
+  {
+   "n": 387,
+   "c": "node-28",
+   "t": "Node 28 · The container",
+   "q": "What are the three parts of an OCI image?",
+   "a": "Layers (tar archives of filesystem differences, content-addressed); a config (default command, environment, user, and the ordered layer digests); and a manifest listing both, whose own digest is the image's digest. A manifest list maps architectures to manifests."
+  },
+  {
+   "n": 388,
+   "c": "node-28",
+   "t": "Node 28 · The container",
+   "q": "Why should production reference <code>image@sha256:...</code> rather than a tag?",
+   "a": "Digests are immutable; tags are mutable pointers. It is also why <code>imagePullPolicy: Always</code> exists."
+  },
+  {
+   "n": 389,
+   "c": "node-28",
+   "t": "Node 28 · The container",
+   "q": "Walk the eleven steps of <code>docker run</code>.",
+   "a": "Resolve and pull; assemble the overlay filesystem; create the cgroup and write limits; <code>clone()</code> with namespace flags; wire the veth pair and NAT rules; <code>pivot_root</code> and unmount the old root; mount <code>/proc</code>, <code>/sys</code>, <code>/dev</code>; set the hostname; set UID, drop capabilities, set <code>no_new_privs</code>, install seccomp and the LSM label; set environment, working directory and stdio; <code>execve</code> the entrypoint."
+  },
+  {
+   "n": 390,
+   "c": "node-28",
+   "t": "Node 28 · The container",
+   "q": "Why <code>pivot_root</code> rather than <code>chroot</code>?",
+   "a": "<code>pivot_root</code> unmounts the old root afterwards, so the host filesystem is no longer reachable at all. <code>chroot</code> is escapable."
+  },
+  {
+   "n": 391,
+   "c": "node-28",
+   "t": "Node 28 · The container",
+   "q": "Place runc, containerd, the shim, Docker, Podman and BuildKit.",
+   "a": "runc performs the eleven steps from an OCI bundle. containerd manages images, storage, networking and lifecycle and calls runc; Kubernetes talks to it through the CRI. The shim is one small process per container so containerd can restart without killing containers and so someone collects exit statuses. Docker is a developer-facing layer over containerd. Podman is daemonless and rootless by default. BuildKit is the parallel, cache-mount and secret-mount capable builder."
+  },
+  {
+   "n": 392,
+   "c": "node-28",
+   "t": "Node 28 · The container",
+   "q": "Why did removing Docker support from Kubernetes 1.24 change nothing about your images?",
+   "a": "containerd was underneath all along, and Docker-built images are OCI images."
+  },
+  {
+   "n": 393,
+   "c": "node-28",
+   "t": "Node 28 · The container",
+   "q": "How do you debug a distroless container?",
+   "a": "<code>nsenter -t &lt;host-pid&gt; -n -p -m</code> from the host puts a shell into its namespaces with no tooling in the image; <code>docker inspect --format '{{.State.Pid}}'</code> gets the PID. In Kubernetes, <code>kubectl debug</code> creates an ephemeral container in the pod's namespaces."
+  },
+  {
+   "n": 394,
+   "c": "node-28",
+   "t": "Node 28 · The container",
+   "q": "State a container's security properties honestly.",
+   "a": "Isolation rests entirely on kernel correctness, because there is one kernel and every container calls into it directly, so a reachable privilege-escalation bug is a host compromise. That is a different risk profile from a VM, and it is why untrusted multi-tenant workloads use gVisor, Kata or Firecracker. Mitigations by value: not root, drop all capabilities, seccomp, read-only root, user namespace."
+  },
+  {
+   "n": 395,
+   "c": "node-29",
+   "t": "Node 29 · Virtual machines",
+   "q": "How old is virtualisation, and what question was it answering?",
+   "a": "IBM CP-40 and CP-67 from 1967, productised as VM/370 in 1972 and still sold as z/VM. Time-sharing and virtualisation were competing answers to the same question of how to share an expensive machine — one shares an operating system among users, the other gives each user a whole machine."
+  },
+  {
+   "n": 396,
+   "c": "node-29",
+   "t": "Node 29 · Virtual machines",
+   "q": "What is the Popek–Goldberg requirement and why did x86 fail it?",
+   "a": "Every instruction that could reveal or change privileged state must trap when executed unprivileged. Seventeen x86 instructions behaved differently in user mode instead of trapping — <code>popf</code> silently ignoring interrupt-flag changes, for instance — so a guest kernel got wrong answers with no way for the hypervisor to notice."
+  },
+  {
+   "n": 397,
+   "c": "node-29",
+   "t": "Node 29 · Virtual machines",
+   "q": "Name the three historical responses to that failure.",
+   "a": "Binary translation (VMware, 1999 — rewrite the guest's problematic instructions as it executes); paravirtualisation (Xen, 2003 — modify the guest to call the hypervisor explicitly); and hardware virtualisation (Intel VT-x and AMD-V, 2005 — a mode beneath ring 0, which made the cloud economically possible)."
+  },
+  {
+   "n": 398,
+   "c": "node-29",
+   "t": "Node 29 · Virtual machines",
+   "q": "What are second-level address translation and the IOMMU for?",
+   "a": "SLAT (EPT/NPT) lets the MMU walk both the guest's and the hypervisor's page tables in hardware, replacing expensive shadow page tables. The IOMMU translates the addresses a device uses for DMA, which is what makes it safe to hand a physical NIC or GPU directly to a guest."
+  },
+  {
+   "n": 399,
+   "c": "node-29",
+   "t": "Node 29 · Virtual machines",
+   "q": "What is virtio and why does every cloud image boot anywhere?",
+   "a": "Rather than emulating a real device register by register — slow and pointless when the guest knows it is virtualised — virtio defines paravirtual devices with a shared ring-buffer interface. Every Linux guest has the drivers built in."
+  },
+  {
+   "n": 400,
+   "c": "node-29",
+   "t": "Node 29 · Virtual machines",
+   "q": "Compare containers and VMs on six axes.",
+   "a": "Kernel: shared vs its own. Isolation: kernel correctness vs hardware. Start: milliseconds (a <code>clone()</code>) vs seconds (a full boot). Overhead: a process vs a kernel and its memory. Density: hundreds vs tens. Guest OS: must match the host kernel vs anything. Plus: live migration is mature for VMs and essentially absent for containers."
+  },
+  {
+   "n": 401,
+   "c": "node-29",
+   "t": "Node 29 · Virtual machines",
+   "q": "What is Firecracker and why does it exist?",
+   "a": "A minimal KVM-based VMM from AWS (2018, in Rust) emulating five devices, booting a microVM in ~125 ms with ~5 MB overhead. It exists because AWS needed hardware-level isolation between customers' functions with container-like start times. It runs Lambda and Fargate."
+  },
+  {
+   "n": 402,
+   "c": "node-29",
+   "t": "Node 29 · Virtual machines",
+   "q": "Why is the usual production answer both containers and VMs?",
+   "a": "Your Kubernetes nodes are cloud instances: the VM boundary separates tenants, and the container boundary separates your own workloads and gives packaging and density. Presenting it as a choice usually indicates not having run multi-tenant infrastructure."
+  },
+  {
+   "n": 403,
+   "c": "node-29",
+   "t": "Node 29 · Virtual machines",
+   "q": "Explain four Docker Desktop frustrations with one fact.",
+   "a": "Containers run inside a Linux VM because macOS and Windows lack the kernel features. Hence: the memory figure is the VM's allocation; bind mounts cross a filesystem boundary and are slow; <code>--network host</code> means the VM's network, not your Mac's; and <code>host.docker.internal</code> exists to reach the host."
+  },
+  {
+   "n": 404,
+   "c": "node-29",
+   "t": "Node 29 · Virtual machines",
+   "q": "What changed between WSL1 and WSL2, and what does it mean for file performance?",
+   "a": "WSL1 translated Linux syscalls into NT kernel calls — a compatibility layer, fast on Windows files, incomplete, and unable to run Docker. WSL2 runs a real Linux kernel in a lightweight VM, so it is fully compatible, and the filesystem story inverts: files under the Linux root are fast, <code>/mnt/c</code> crosses the boundary. Moving a project inside WSL2 is often a five-to-tenfold build improvement."
+  },
+  {
+   "n": 405,
+   "c": "node-29",
+   "t": "Node 29 · Virtual machines",
+   "q": "Explain a serverless cold start mechanically, and which optimisations follow.",
+   "a": "Booting a microVM plus initialising the runtime plus demand-paging your code. So smaller packages help (less to fault in), provisioned concurrency keeps the VM warm, SnapStart replaces the boot with a restore, and raising memory also raises CPU — which is why a CPU-bound function can be cheaper at a higher memory setting."
+  },
+  {
+   "n": 406,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "What is a signal and how is it delivered?",
+   "a": "A software interrupt: a small integer with no payload. The kernel sets a bit in the target's pending mask; when that process is next about to return to user mode, the kernel applies the default action or arranges the stack so it resumes inside the handler. So a signal is delivered when the process next runs, not when it is sent."
+  },
+  {
+   "n": 407,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "Give the numbers and meanings of the eight signals that matter.",
+   "a": "1 <code>SIGHUP</code> (terminal gone; reused as reload); 2 <code>SIGINT</code> (Ctrl-C); 9 <code>SIGKILL</code> (uncatchable); 11 <code>SIGSEGV</code>; 13 <code>SIGPIPE</code>; 15 <code>SIGTERM</code> (the polite request, <code>kill</code>'s default); 17 <code>SIGCHLD</code>; 19/18 <code>SIGSTOP</code>/<code>SIGCONT</code>."
+  },
+  {
+   "n": 408,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "Why is there no such thing as cleanup on SIGKILL?",
+   "a": "It cannot be caught, blocked or ignored — deliberately, so there is always a way to stop a process that refuses to cooperate. No flush, no close, no final log line. Which is why every graceful shutdown design must live on <code>SIGTERM</code>, and why an OOM kill gives you nothing."
+  },
+  {
+   "n": 409,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "Why may a signal handler not call <code>malloc</code>?",
+   "a": "It runs at an arbitrary point, possibly inside <code>malloc</code> holding the allocator's lock, so calling it deadlocks against the interrupted code. POSIX defines a short list of async-signal-safe functions; <code>printf</code> and <code>malloc</code> are not on it."
+  },
+  {
+   "n": 410,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "What is the self-pipe trick, and why is your Node <code>SIGTERM</code> handler unrestricted?",
+   "a": "The handler writes one byte to a pipe and returns; the main loop reads it as an ordinary event. Linux later added <code>signalfd</code>. libuv does exactly this, so by the time your JavaScript callback runs it is a normal event-loop callback, not a signal handler."
+  },
+  {
+   "n": 411,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "Why must a <code>SIGCHLD</code> handler reap in a loop?",
+   "a": "Standard signals do not queue — the pending set is a bitmask, so ten <code>SIGCHLD</code>s while one is blocked leave one bit. <code>while (waitpid(-1, &amp;st, WNOHANG) &gt; 0);</code>."
+  },
+  {
+   "n": 412,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "What are PID 1's two special kernel behaviours?",
+   "a": "Signals with default actions are not delivered to it — the kernel refuses, so an unhandled <code>SIGTERM</code> is silently discarded. And it inherits orphans and is expected to reap them."
+  },
+  {
+   "n": 413,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "Why does your container appear to take ten seconds to stop?",
+   "a": "<code>docker stop</code> sends <code>SIGTERM</code>, waits ten seconds, then <code>SIGKILL</code>s. Node as PID 1 with no handler discards the first signal entirely. It is not slowness — the polite request was thrown away."
+  },
+  {
+   "n": 414,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "Why does <code>CMD npm start</code> break shutdown?",
+   "a": "It runs <code>sh -c \"npm start\"</code>, so a shell is PID 1 and does not forward signals to its child. Your Node process never hears about the shutdown. <code>ENTRYPOINT [\"node\", \"server.js\"]</code> — exec form — fixes it, and this is the most common Dockerfile defect in the wild."
+  },
+  {
+   "n": 415,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "Why is the ordering in a Kubernetes graceful shutdown a race, and what is the fix?",
+   "a": "When a pod is deleted, <code>SIGTERM</code> and endpoint removal happen <em>concurrently</em>, and the removal takes time to propagate through kube-proxy on every node. Stopping accept immediately refuses traffic still being routed to you — a burst of 502s on every deploy. Delay the actual shutdown a few seconds, or use a <code>preStop</code> sleep."
+  },
+  {
+   "n": 416,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "Write the shape of a correct Node graceful shutdown.",
+   "a": "Fail readiness first and wait for the load balancer's probe period; then <code>server.close()</code> and <code>closeIdleConnections()</code>; then drain workers and the database pool; and set a hard <code>process.exit</code> deadline below <code>terminationGracePeriodSeconds</code> so you always exit on your own terms rather than being <code>SIGKILL</code>ed."
+  },
+  {
+   "n": 417,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "Why does Node give you <code>EPIPE</code> rather than <code>SIGPIPE</code>?",
+   "a": "Node ignores <code>SIGPIPE</code> and surfaces the condition as a stream error, which is why writing to a socket the client already closed emits <code>'error'</code> — and why an unhandled <code>'error'</code> listener crashes the process. A client navigating away mid-response is normal traffic, not a fault."
+  },
+  {
+   "n": 418,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "What is <code>SIGUSR1</code> used for in Node, and why is that useful in production?",
+   "a": "It opens the debugger port, which is a genuinely useful way to attach a profiler to a running production process without restarting it."
+  },
+  {
+   "n": 419,
+   "c": "node-30",
+   "t": "Node 30 · Signals",
+   "q": "Why is reaching for <code>kill -9</code> first a habit worth losing?",
+   "a": "It skips every cleanup path the program has. If <code>SIGTERM</code> did not work the reason is worth knowing — usually a missing handler, a shell as PID 1, or a <code>D</code>-state hang that <code>-9</code> will not fix either."
+  },
+  {
+   "n": 420,
+   "c": "node-31",
+   "t": "Node 31 · IPC",
+   "q": "What three things does every IPC mechanism trade?",
+   "a": "Speed, whether the parties must be related, and whether it works across machines."
+  },
+  {
+   "n": 421,
+   "c": "node-31",
+   "t": "Node 31 · IPC",
+   "q": "What can a Unix domain socket do that a TCP socket cannot?",
+   "a": "Pass file descriptors (<code>SCM_RIGHTS</code>) — transferring an open descriptor to another process, where it becomes a new number referring to the same open file description — and report verified peer credentials (<code>SO_PEERCRED</code>): the connecting process's real UID, GID and PID, checked by the kernel and unforgeable."
+  },
+  {
+   "n": 422,
+   "c": "node-31",
+   "t": "Node 31 · IPC",
+   "q": "Why is shared memory the fastest and also the most dangerous?",
+   "a": "The same physical frames appear in two address spaces, so there is no copy at all — and no synchronisation whatsoever, so you must supply your own atomics or locks, and a bug is a data race across a process boundary."
+  },
+  {
+   "n": 423,
+   "c": "node-31",
+   "t": "Node 31 · IPC",
+   "q": "Give the default choice for local IPC and justify it.",
+   "a": "Unix domain sockets: as fast as anything that copies, the same API as networking so code ports trivially, and they carry descriptors and credentials. Reach for shared memory only when profiling proves the copy is the bottleneck."
+  },
+  {
+   "n": 424,
+   "c": "node-31",
+   "t": "Node 31 · IPC",
+   "q": "What does <code>child.send(obj)</code> cost, and what is it wrong for?",
+   "a": "Serialisation plus two copies plus two syscalls over a Unix socket pair — cheap for coordination, completely wrong for a shared cache. The listening socket, by contrast, is passed once as a descriptor via <code>SCM_RIGHTS</code>."
+  },
+  {
+   "n": 425,
+   "c": "node-31",
+   "t": "Node 31 · IPC",
+   "q": "Why is <code>worker_threads</code> messaging not IPC?",
+   "a": "Workers are threads in one process, so <code>postMessage</code> is an in-memory structured clone with no kernel involvement — no syscall, no socket. <code>transferList</code> avoids even the copy, and <code>SharedArrayBuffer</code> is shared memory with <code>Atomics</code> as the synchronisation."
+  },
+  {
+   "n": 426,
+   "c": "node-31",
+   "t": "Node 31 · IPC",
+   "q": "What do you gain by pointing nginx at a Unix socket instead of loopback TCP?",
+   "a": "No handshake, no ephemeral port allocation, no <code>TIME_WAIT</code> accumulation, and lower latency — plus the service becomes unreachable from the network by construction. The same applies to Postgres, whose <code>local</code> lines in <code>pg_hba.conf</code> use <code>peer</code> authentication via <code>SO_PEERCRED</code>."
+  },
+  {
+   "n": 427,
+   "c": "node-31",
+   "t": "Node 31 · IPC",
+   "q": "Why is mounting <code>/var/run/docker.sock</code> into a container a host compromise?",
+   "a": "The daemon authorises by peer credentials, so anything that can talk to it can start a privileged container, mount the host filesystem, and read every secret on the machine. Alternatives: a rootless daemon, a socket proxy whitelisting specific API calls, or a daemonless builder like Kaniko or rootless BuildKit."
+  },
+  {
+   "n": 428,
+   "c": "node-31",
+   "t": "Node 31 · IPC",
+   "q": "Explain Redis's architectural role as a consequence of Node 5.",
+   "a": "Separate processes have separate address spaces, so once you have cluster workers or replicas across machines, nothing local works between them. Rate limiter counters, session stores, cache, pub/sub for websocket fan-out and BullMQ queues are one problem — state visible to processes with separate address spaces — solved by a process everyone can reach over a socket."
+  },
+  {
+   "n": 429,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "Why does the socket API use file descriptors?",
+   "a": "4.2BSD, 1983, Berkeley: reusing the descriptor meant network endpoints could be read and written like anything else — Node 21's uniform interface paying off again."
+  },
+  {
+   "n": 430,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "What identifies a TCP connection, and why does that matter?",
+   "a": "The four-tuple: source address, source port, destination address, destination port. The kernel hashes it to route an incoming packet to the right socket, and it is what bounds ephemeral port exhaustion."
+  },
+  {
+   "n": 431,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "Name the two backlog queues and what each fills from.",
+   "a": "The SYN queue holds half-open connections awaiting the final ACK (<code>tcp_max_syn_backlog</code>; SYN floods target it, and SYN cookies defend by encoding state into the sequence number). The accept queue holds established connections waiting for your program to call <code>accept()</code> (the <code>listen()</code> backlog, capped by <code>somaxconn</code>) — it fills when your process is not accepting fast enough."
+  },
+  {
+   "n": 432,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "How do you detect a blocked event loop from the network side?",
+   "a": "<code>ss -lnt</code> shows <code>Recv-Q</code> as the current accept-queue depth against <code>Send-Q</code> as its limit, and <code>nstat -az TcpExtListenOverflows</code> counts drops. Rising overflows with healthy CPU is one of the cleanest possible diagnoses."
+  },
+  {
+   "n": 433,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "Distinguish flow control from congestion control.",
+   "a": "Flow control protects the <em>receiver</em>: every ACK carries a receive window and the sender may not exceed it — TCP-level backpressure. Congestion control protects the <em>network</em>: the sender grows a congestion window on success and shrinks it on loss."
+  },
+  {
+   "n": 434,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "Why does the first ~14 KB of a response arrive faster than the rest?",
+   "a": "Slow start begins with about ten packets and doubles each round trip, so a larger response takes several round trips to ramp. That is where the advice about keeping critical CSS under 14 KB came from."
+  },
+  {
+   "n": 435,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "What does BBR do differently from CUBIC?",
+   "a": "CUBIC treats loss as the congestion signal — grow, halve on loss. BBR models the path's bandwidth and round-trip time directly, so it performs far better on links that drop packets for reasons other than congestion: mobile and long-distance. Enabling it on an edge server sometimes produces a startling improvement."
+  },
+  {
+   "n": 436,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "What is bandwidth-delay product and when does it cap you?",
+   "a": "A 100 ms round trip at 1 Gbps needs about 12 MB in flight to keep the pipe full; if the receive buffer is smaller, throughput is capped by latency regardless of available bandwidth. Hence buffer autotuning and slow long-distance transfers."
+  },
+  {
+   "n": 437,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "Give the two real reasons for <code>TIME_WAIT</code>.",
+   "a": "A delayed duplicate packet from this connection must not be delivered to a new connection reusing the same four-tuple; and if the final ACK is lost, the peer retransmits its FIN and someone must answer. It lasts 60 seconds on Linux and is not tunable without recompiling."
+  },
+  {
+   "n": 438,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "Why does a client opening ~500 connections per second to one destination start failing?",
+   "a": "The side that closes first accumulates <code>TIME_WAIT</code> sockets for a minute each, and the ephemeral port range is about 28,000 ports — so it exhausts them and gets <code>EADDRNOTAVAIL</code>. The real fix is keep-alive and pooling, not tuning."
+  },
+  {
+   "n": 439,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "Distinguish <code>SO_REUSEADDR</code> from <code>SO_REUSEPORT</code>.",
+   "a": "<code>SO_REUSEADDR</code> lets a server bind a port that has connections in <code>TIME_WAIT</code> — without it, restarting fails with <code>EADDRINUSE</code> for a minute, which is why every framework sets it. <code>SO_REUSEPORT</code> (Linux 3.9, 2013) lets several processes bind the <em>same</em> port with the kernel load-balancing between them, which is what nginx workers use."
+  },
+  {
+   "n": 440,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "Decode <code>ECONNREFUSED</code>, <code>ETIMEDOUT</code>, <code>ECONNRESET</code> and <code>EPIPE</code>.",
+   "a": "Refused: the destination sent RST — reachable, nothing listening; fast and definitive. Timed out on connect: no reply at all — a firewall dropping silently or a wrong address. Reset: the peer sent RST on an established connection — it crashed, closed with unread data, a load balancer idle timeout, or a keep-alive socket reused as the server closed it. EPIPE: you wrote to a connection the peer has closed."
+  },
+  {
+   "n": 441,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "Why does <code>ECONNRESET</code> appear intermittently on a pooled HTTP client, and what fixes it?",
+   "a": "A race: your agent picks a pooled socket the server is simultaneously closing. Keep the client's idle timeout below the server's, and retry idempotent requests on it."
+  },
+  {
+   "n": 442,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "Why is <code>keepAlive: true</code> the single highest-value line in a Lambda calling other services?",
+   "a": "A new HTTPS connection costs a TCP round trip, a TLS round trip and slow start; reuse costs nothing. Node's <code>http.Agent</code> defaulted to <code>keepAlive: false</code> until Node 19, and a function instance handles many invocations."
+  },
+  {
+   "n": 443,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "What is a Kubernetes Service, mechanically, and what does that break?",
+   "a": "Packet rewriting, not a proxy: kube-proxy programs netfilter (iptables, IPVS, or eBPF) so a packet to the Service IP has its destination rewritten to a chosen pod IP, on the sending node. Load balancing is per <em>connection</em>, so a long-lived HTTP/2 or gRPC connection pins to one pod forever — which is why gRPC clients and meshes need explicit balancing."
+  },
+  {
+   "n": 444,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "What causes intermittent connection failures across every workload on one node with all applications healthy?",
+   "a": "The <code>nf_conntrack</code> table is full — NAT and stateful firewalling require remembering every connection, and when the table fills new connections are dropped with a kernel log line. Check <code>conntrack -C</code> against <code>nf_conntrack_max</code>."
+  },
+  {
+   "n": 445,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "Explain head-of-line blocking at three layers and how HTTP evolved past each.",
+   "a": "HTTP/1.1 blocks at the request layer (hence six connections per host). HTTP/2 multiplexes streams over one connection, removing it at the HTTP layer — but not at TCP's, where one lost packet stalls every stream. HTTP/3 abandons TCP for QUIC over UDP, doing reliability per stream in user space, and merges the transport and TLS handshakes."
+  },
+  {
+   "n": 446,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "What is a PMTU black hole and what is its signature?",
+   "a": "Overlay networks and VPNs add encapsulation, lowering the effective MTU; when a firewall blocks the ICMP fragmentation-needed message, path MTU discovery fails silently. Signature: small requests succeed and large POST bodies hang forever on the same connection path."
+  },
+  {
+   "n": 447,
+   "c": "node-32",
+   "t": "Node 32 · The network stack",
+   "q": "Why is DNS slow inside a Kubernetes pod, and what are the fixes?",
+   "a": "The default <code>ndots: 5</code> means any name with fewer than five dots is tried against every search domain first — four or five failing queries, for both A and AAAA. Fixes: a trailing dot, an explicit <code>dnsConfig</code> with lower <code>ndots</code>, or NodeLocal DNSCache. And <code>dns.lookup</code> uses the threadpool, so slow DNS also blocks file I/O."
+  },
+  {
+   "n": 448,
+   "c": "node-33",
+   "t": "Node 33 · Compiling and linking",
+   "q": "Name the four compilation stages and attribute one error to each.",
+   "a": "Preprocessing (a missing header); compiling (a syntax or type error); assembling; linking (<code>undefined reference to ...</code>). They are separate programs, which is why each fails with its own kind of error."
+  },
+  {
+   "n": 449,
+   "c": "node-33",
+   "t": "Node 33 · Compiling and linking",
+   "q": "What is in an object file besides machine code?",
+   "a": "A symbol table — names this file defines with their offsets, and names it references but does not define — and relocations, a list of positions containing placeholders plus instructions for patching each once the real address is known."
+  },
+  {
+   "n": 450,
+   "c": "node-33",
+   "t": "Node 33 · Compiling and linking",
+   "q": "What are the linker's two jobs and its two failure modes?",
+   "a": "Symbol resolution (find a definition for every undefined symbol) and relocation (assign final addresses and patch every placeholder). It fails with undefined reference or multiple definition."
+  },
+  {
+   "n": 451,
+   "c": "node-33",
+   "t": "Node 33 · Compiling and linking",
+   "q": "Why does link order matter in C?",
+   "a": "A static library is an archive of object files, and the linker pulls out only members resolving something still undefined. A library listed before the code that uses it contributes nothing."
+  },
+  {
+   "n": 452,
+   "c": "node-33",
+   "t": "Node 33 · Compiling and linking",
+   "q": "What are ELF's two views of the same bytes?",
+   "a": "Section headers — the linker's fine-grained view (<code>.text</code>, <code>.rodata</code>, <code>.data</code>, <code>.bss</code>, <code>.symtab</code>, debug info). Program headers — the loader's coarse view: a handful of segments, each a region to <code>mmap</code> with given permissions, which is the direct input to the address space layout."
+  },
+  {
+   "n": 453,
+   "c": "node-33",
+   "t": "Node 33 · Compiling and linking",
+   "q": "Why does a program with a 100 MB zeroed global array produce a small file?",
+   "a": "<code>.bss</code> occupies no space in the file — only a size. The pages are allocated and zeroed at load time."
+  },
+  {
+   "n": 454,
+   "c": "node-33",
+   "t": "Node 33 · Compiling and linking",
+   "q": "Why does <code>file</code> report a modern executable as a shared object?",
+   "a": "It is <code>ET_DYN</code> — position-independent, loadable at any address, which is what ASLR requires. Essentially all modern binaries are built as position-independent executables."
+  },
+  {
+   "n": 455,
+   "c": "node-33",
+   "t": "Node 33 · Compiling and linking",
+   "q": "Map eight linker concepts onto bundler concepts.",
+   "a": "Object file → module; undefined symbol → import; defined symbol → export; symbol resolution → module resolution; undefined reference → Module not found; multiple definition → two copies of React; dead code elimination → tree shaking; stripping → minification; DWARF → source maps; shared library → code splitting and <code>import()</code>."
+  },
+  {
+   "n": 456,
+   "c": "node-33",
+   "t": "Node 33 · Compiling and linking",
+   "q": "Why can ES modules be tree-shaken and CommonJS largely not?",
+   "a": "Dead-code elimination requires static references — <code>require(someVariable)</code> is unresolvable at build time, exactly as a function pointer defeats a linker's reachability analysis."
+  },
+  {
+   "n": 457,
+   "c": "node-33",
+   "t": "Node 33 · Compiling and linking",
+   "q": "What are you promising with <code>\"sideEffects\": false</code>?",
+   "a": "That importing a module purely for its side effects never happens, which lets the bundler drop unreferenced modules entirely — the same promise <code>--gc-sections</code> relies on."
+  },
+  {
+   "n": 458,
+   "c": "node-33",
+   "t": "Node 33 · Compiling and linking",
+   "q": "Why does two copies of React give a hooks error rather than a duplication error?",
+   "a": "It is a multiple-definition problem that the JavaScript module system does not report as an error. You silently get two module instances with two separate pieces of internal state."
+  },
+  {
+   "n": 459,
+   "c": "node-33",
+   "t": "Node 33 · Compiling and linking",
+   "q": "Explain three <code>.node</code> addon failure modes from this node.",
+   "a": "Architecture-specific machine code (<code>invalid ELF header</code> when built on a Mac and run in a linux/amd64 container); ABI-specific (<code>NODE_MODULE_VERSION mismatch</code>, which N-API fixes with a stable ABI); and needing a compiler at install time unless prebuilt binaries are shipped, which is what <code>prebuild-install</code> and <code>node-pre-gyp</code> do."
+  },
+  {
+   "n": 460,
+   "c": "node-33",
+   "t": "Node 33 · Compiling and linking",
+   "q": "Why can a project type-check cleanly and still fail at run time with module-not-found?",
+   "a": "<code>tsc</code> performs the compile stages per file and there is no linker; module resolution happens at run time or bundle time, by a different tool with different rules. <code>tsc</code>'s <code>paths</code> being satisfied does not mean the runtime resolver agrees."
+  },
+  {
+   "n": 461,
+   "c": "node-34",
+   "t": "Node 34 · Dynamic linking",
+   "q": "What does dynamic linking defer, and who does it?",
+   "a": "Symbol resolution and relocation, to run time, performed by the dynamic linker named in the executable's <code>PT_INTERP</code> segment — <code>/lib64/ld-linux-x86-64.so.2</code> on Linux — before the program's first instruction."
+  },
+  {
+   "n": 462,
+   "c": "node-34",
+   "t": "Node 34 · Dynamic linking",
+   "q": "State dynamic linking's three benefits and three costs.",
+   "a": "Benefits: one copy of libc shared in memory by every process; a library security fix takes effect everywhere on next start; smaller executables. Costs: startup does work that used to be build-time; the deployment environment must supply compatible libraries; version mismatches become run-time failures."
+  },
+  {
+   "n": 463,
+   "c": "node-34",
+   "t": "Node 34 · Dynamic linking",
+   "q": "How do the PLT and GOT implement lazy binding?",
+   "a": "A call jumps to a PLT stub, which reads an address from the GOT and jumps there. Initially the GOT entry points back into the linker, so the first call triggers resolution, which writes the real address into the GOT; subsequent calls go straight through."
+  },
+  {
+   "n": 464,
+   "c": "node-34",
+   "t": "Node 34 · Dynamic linking",
+   "q": "What is RELRO and what does it trade?",
+   "a": "Resolving everything eagerly at startup and marking the GOT read-only, so an attacker cannot overwrite an entry to redirect a call. <code>LD_BIND_NOW=1</code> or <code>-z now</code>. Slightly slower startup for a closed attack surface."
+  },
+  {
+   "n": 465,
+   "c": "node-34",
+   "t": "Node 34 · Dynamic linking",
+   "q": "What causes <code>cannot open shared object file</code>, and how do you diagnose it?",
+   "a": "The library was not found on the search path (RPATH, <code>LD_LIBRARY_PATH</code>, RUNPATH, the <code>ldconfig</code> cache, defaults). <code>ldd &lt;binary&gt;</code> lists what it needs and where each was found; <code>not found</code> lines are the answer."
+  },
+  {
+   "n": 466,
+   "c": "node-34",
+   "t": "Node 34 · Dynamic linking",
+   "q": "What is <code>LD_PRELOAD</code> and give one good and one bad use.",
+   "a": "A list of libraries loaded before all others, so their symbols win — letting you replace any library function in any program with no recompilation. Good: swapping in jemalloc with one environment variable, or injecting tracing. Bad: a classic attacker persistence technique, which is why it is ignored for setuid binaries."
+  },
+  {
+   "n": 467,
+   "c": "node-34",
+   "t": "Node 34 · Dynamic linking",
+   "q": "State glibc's compatibility asymmetry and the rule it implies.",
+   "a": "Backward compatible, not forward compatible: a binary built against 2.31 runs on 2.36, but one built against 2.36 fails on 2.31 with <code>version 'GLIBC_2.34' not found</code>. So build on the oldest system you must support — which is why release pipelines pin an old base image."
+  },
+  {
+   "n": 468,
+   "c": "node-34",
+   "t": "Node 34 · Dynamic linking",
+   "q": "Name four real differences between Alpine and a glibc image.",
+   "a": "Binaries are not interchangeable, so prebuilt native modules often fall back to compiling from source; DNS resolution differs (no NSS, parallel A/AAAA on one socket) producing intermittent failures; musl's allocator is slower under multi-threaded allocation-heavy load; and the default thread stack is 128 KB rather than 8 MB."
+  },
+  {
+   "n": 469,
+   "c": "node-34",
+   "t": "Node 34 · Dynamic linking",
+   "q": "Give a defensible default among alpine, slim and distroless for a Node service.",
+   "a": "<code>node:20-slim</code> — Debian-based, glibc, ~75 MB — is the safer default. Alpine is worth it when image size genuinely matters and you have tested your dependency tree. Distroless gives glibc with no shell or package manager and the smallest attack surface, at the cost of needing ephemeral containers to debug."
+  },
+  {
+   "n": 470,
+   "c": "node-34",
+   "t": "Node 34 · Dynamic linking",
+   "q": "Why can a Go binary run in a <code>FROM scratch</code> image?",
+   "a": "It is statically linked and issues syscalls directly, so it depends on nothing but the kernel's permanent ABI. Rust with the musl target does the same. Node cannot — it is a large C++ program with a dynamic-linking-dependent addon system."
+  },
+  {
+   "n": 471,
+   "c": "node-34",
+   "t": "Node 34 · Dynamic linking",
+   "q": "In what sense is <code>require()</code> dynamic linking?",
+   "a": "It resolves a name to a file at run time, loads it, executes it, and caches it — symbol lookup, mapping, initialisation and a load cache. <code>require.cache</code> is why a module executes once, exactly as a shared object initialises once. And nested <code>node_modules</code> lets two versions coexist, which the ELF linker cannot easily do."
+  },
+  {
+   "n": 472,
+   "c": "node-34",
+   "t": "Node 34 · Dynamic linking",
+   "q": "Give the two independent reasons host <code>node_modules</code> must never be copied into an image.",
+   "a": "The native addons were compiled for your host's architecture (Node 33) and against your host's libc (Node 34). The errors — <code>invalid ELF header</code> and a missing shared object or symbol version — do not obviously say so. <code>.dockerignore</code> containing <code>node_modules</code> is a correctness requirement, not a size optimisation."
+  },
+  {
+   "n": 473,
+   "c": "node-35",
+   "t": "Node 35 · execve",
+   "q": "What does <code>execve</code> change and what does it keep?",
+   "a": "It replaces the program: the address space is destroyed and rebuilt. The PID, the parent, open descriptors (except close-on-exec), and credentials are kept. It creates no process."
+  },
+  {
+   "n": 474,
+   "c": "node-35",
+   "t": "Node 35 · execve",
+   "q": "How does a shebang work, and who handles it?",
+   "a": "The kernel, not the shell: on seeing <code>#!</code> it reads the interpreter path and re-runs <code>execve</code> on the interpreter with the script as an argument. The path must be absolute, which is why <code>#!/usr/bin/env node</code> is used, and only one argument is portably allowed after it."
+  },
+  {
+   "n": 475,
+   "c": "node-35",
+   "t": "Node 35 · execve",
+   "q": "Why do signal handlers reset at exec but the signal mask does not?",
+   "a": "The handler code no longer exists, so handlers must reset to default. The mask is inherited — a genuine trap, since a process that blocked a signal and then execs passes the block to the new program, and services have failed to receive <code>SIGTERM</code> for exactly this reason."
+  },
+  {
+   "n": 476,
+   "c": "node-35",
+   "t": "Node 35 · execve",
+   "q": "When does <code>execve</code> return?",
+   "a": "Only on failure. On success there is nothing to return to, because the calling code no longer exists."
+  },
+  {
+   "n": 477,
+   "c": "node-35",
+   "t": "Node 35 · execve",
+   "q": "What is an environment variable, precisely?",
+   "a": "Per-process memory: an array of <code>KEY=VALUE</code> strings copied onto the new stack at exec, with no kernel involvement afterwards."
+  },
+  {
+   "n": 478,
+   "c": "node-35",
+   "t": "Node 35 · execve",
+   "q": "Derive four environment-variable behaviours from that definition.",
+   "a": "A child cannot modify its parent's (no channel exists); changing one after a process starts does not affect it (hence restarting a service); <code>process.env.FOO = 'x'</code> affects only children spawned afterwards; and they are visible in <code>/proc/&lt;pid&gt;/environ</code> and <code>ps eww</code>, which is why they are a poor place for secrets."
+  },
+  {
+   "n": 479,
+   "c": "node-35",
+   "t": "Node 35 · execve",
+   "q": "Why is <code>ENOENT</code> from <code>spawn</code> misleading?",
+   "a": "It means the <em>program</em> was not found, not your file argument. <code>PATH</code> is searched by the shell or by <code>execvp</code>, not by the bare syscall — so a minimal <code>PATH</code> produces it."
+  },
+  {
+   "n": 480,
+   "c": "node-35",
+   "t": "Node 35 · execve",
+   "q": "What does a shell do with <code>ls -l | grep .js &gt; out.txt</code>?",
+   "a": "Tokenise and expand (globs, variables, command substitution — which is why <code>rm *.txt</code> is expanded before <code>rm</code> sees it); create a pipe; fork twice; wire descriptors with <code>dup2</code>; exec both; <code>waitpid</code>."
+  },
+  {
+   "n": 481,
+   "c": "node-35",
+   "t": "Node 35 · execve",
+   "q": "What is a process group and why does Ctrl-C interrupt a whole pipeline?",
+   "a": "The shell puts each pipeline in its own process group and the terminal has a foreground group; Ctrl-C sends <code>SIGINT</code> to every process in it. A background process reading from the terminal gets <code>SIGTTIN</code> and stops."
+  },
+  {
+   "n": 482,
+   "c": "node-35",
+   "t": "Node 35 · execve",
+   "q": "Describe <code>npm start</code>'s process tree and its three consequences.",
+   "a": "Shell → <code>npm</code> (a Node process) → <code>sh -c \"node server.js\"</code> → <code>node server.js</code>. Signals do not reach the bottom; exit codes are relayed badly and npm's own error output obscures the real one; and <code>node_modules/.bin</code> is prepended to <code>PATH</code>, which is the whole mechanism by which <code>\"test\": \"jest\"</code> works."
+  },
+  {
+   "n": 483,
+   "c": "node-35",
+   "t": "Node 35 · execve",
+   "q": "Why does one word — <code>exec</code> — decide whether a container shuts down gracefully?",
+   "a": "<code>exec node server.js</code> at the end of an entrypoint script <em>replaces</em> the shell, so Node becomes PID 1 and receives signals directly. Without it the shell stays as PID 1 with Node as its child, and shutdown breaks."
+  },
+  {
+   "n": 484,
+   "c": "node-35",
+   "t": "Node 35 · execve",
+   "q": "When is <code>child_process.exec</code> a security vulnerability?",
+   "a": "Whenever any part of the command string comes from user input: it runs through a shell, which interprets <code>;</code>, <code>&amp;&amp;</code>, backticks and <code>$()</code>. Use <code>spawn</code> with an argument array, where each argument is a separate <code>argv</code> entry and no shell is involved."
+  },
+  {
+   "n": 485,
+   "c": "node-35",
+   "t": "Node 35 · execve",
+   "q": "What does <code>allowPrivilegeEscalation: false</code> do, and at which step?",
+   "a": "It sets <code>no_new_privs</code> so the kernel ignores setuid bits at <code>execve</code> — step one, the permission check. A near-zero-cost mitigation for a whole class of container escape."
+  },
+  {
+   "n": 486,
+   "c": "node-36",
+   "t": "Node 36 · Boot",
+   "q": "State the bootstrap problem and its resolution.",
+   "a": "To load a program you need a program. The first program is not loaded at all — it is physically present in non-volatile memory at an address the processor is wired to start from (<code>0xFFFFFFF0</code> on x86, where the chipset maps the firmware flash)."
+  },
+  {
+   "n": 487,
+   "c": "node-36",
+   "t": "Node 36 · Boot",
+   "q": "How does BIOS boot, and what are its two crude constraints?",
+   "a": "It reads the first 512-byte sector of the boot device to <code>0x7C00</code>, checks the <code>0x55AA</code> signature, and jumps. That leaves 446 bytes for code after the partition table — hence multi-stage bootloaders. And it starts the processor in 16-bit real mode, compatible with the 1978 8086."
+  },
+  {
+   "n": 488,
+   "c": "node-36",
+   "t": "Node 36 · Boot",
+   "q": "What does UEFI change?",
+   "a": "It understands FAT32 so it reads <em>files</em> from an EFI System Partition rather than raw sectors; it starts in 32- or 64-bit mode; it has a boot manager with a variable store (<code>efibootmgr</code>); and it supports Secure Boot, verifying each stage's signature — which is why an unsigned kernel module fails to load."
+  },
+  {
+   "n": 489,
+   "c": "node-36",
+   "t": "Node 36 · Boot",
+   "q": "What is the initramfs for?",
+   "a": "A chicken-and-egg fix: the kernel must mount the root filesystem, but the drivers for the controller and filesystem may live on it. So a small archive is loaded into memory as a temporary root containing exactly the modules and tools needed — storage drivers, LVM, disk encryption (the passphrase prompt) — and discarded once the real root is mounted."
+  },
+  {
+   "n": 490,
+   "c": "node-36",
+   "t": "Node 36 · Boot",
+   "q": "What does the kernel do between decompression and PID 1?",
+   "a": "Set up early page tables and switch to virtual addressing; initialise the IDT; bring secondary cores out of halt; initialise the allocator, scheduler and timers; initialise built-in drivers; mount the initramfs; find and mount the real root; and <code>exec</code> <code>/sbin/init</code>."
+  },
+  {
+   "n": 491,
+   "c": "node-36",
+   "t": "Node 36 · Boot",
+   "q": "What is <code>/proc/cmdline</code> and name three things you might find there.",
+   "a": "The kernel command line assembled by the bootloader: <code>root=UUID=...</code>, plus options like <code>transparent_hugepage=never</code>, <code>systemd.unified_cgroup_hierarchy=1</code>, or <code>mitigations=off</code>."
+  },
+  {
+   "n": 492,
+   "c": "node-36",
+   "t": "Node 36 · Boot",
+   "q": "Why does a container start in milliseconds?",
+   "a": "Nothing in this node happens — no firmware, bootloader, kernel decompression, device initialisation, initramfs or init system. It is <code>clone()</code> plus <code>execve()</code> on a kernel that is already running."
+  },
+  {
+   "n": 493,
+   "c": "node-36",
+   "t": "Node 36 · Boot",
+   "q": "What is cloud-init and why is the metadata endpoint a security concern?",
+   "a": "An early service that fetches instance metadata from <code>169.254.169.254</code>, sets the hostname, installs SSH keys, grows the root partition and runs your user-data. SSRF against that endpoint was the mechanism of the 2019 Capital One breach; IMDSv2's session-token requirement exists to make it harder."
+  },
+  {
+   "n": 494,
+   "c": "node-36",
+   "t": "Node 36 · Boot",
+   "q": "Why can a container require a newer kernel feature than it will get?",
+   "a": "Containers do not bring a kernel. Your Alpine container on an Ubuntu host uses the Ubuntu kernel, so cgroups v2, io_uring and newer seccomp actions all depend on the <em>host</em> — which is why node image versions are worth tracking."
+  },
+  {
+   "n": 495,
+   "c": "node-37",
+   "t": "Node 37 · init and systemd",
+   "q": "What are PID 1's four jobs?",
+   "a": "Start services respecting dependencies; supervise them and decide about restarts with backoff; reap orphans; and shut down cleanly in dependency order with a deadline."
+  },
+  {
+   "n": 496,
+   "c": "node-37",
+   "t": "Node 37 · init and systemd",
+   "q": "Name SysV init's four structural problems.",
+   "a": "Strictly sequential, since ordering was encoded as filename numbers; no real dependency model, only ordering; no supervision, so a crashed service stayed dead (hence daemontools, runit, supervisord, pm2); and no reliable process tracking, because a double-forking daemon detaches and PID files go stale."
+  },
+  {
+   "n": 497,
+   "c": "node-37",
+   "t": "Node 37 · init and systemd",
+   "q": "Why does separating <code>Requires=</code> from <code>After=</code> matter?",
+   "a": "Requirement and ordering become independent, so you can require without ordering and order without requiring — and everything not explicitly ordered can start in parallel, which is where the boot-time improvement came from."
+  },
+  {
+   "n": 498,
+   "c": "node-37",
+   "t": "Node 37 · init and systemd",
+   "q": "Why does systemd track services by cgroup?",
+   "a": "So it knows every process belonging to a service regardless of forking or daemonising — no PID files, no guessing — and <code>systemctl stop</code> can reliably kill the whole tree. It also makes <code>MemoryMax=</code>, <code>CPUQuota=</code> and <code>TasksMax=</code> available to any service."
+  },
+  {
+   "n": 499,
+   "c": "node-37",
+   "t": "Node 37 · init and systemd",
+   "q": "What is socket activation and what does it make less important?",
+   "a": "systemd creates the listening socket and passes the descriptor to the service when a connection arrives. Services can start on demand, and dependency ordering matters less because a client connecting to a not-yet-started service simply waits in the accept queue."
+  },
+  {
+   "n": 500,
+   "c": "node-37",
+   "t": "Node 37 · init and systemd",
+   "q": "Name the systemd directives that are Part VI mechanisms, and what each is.",
+   "a": "<code>PrivateTmp=true</code> is a mount namespace; <code>ProtectSystem=strict</code> is read-only bind mounts; <code>MemoryMax=</code> and <code>CPUQuota=</code> are cgroup files; <code>NoNewPrivileges=true</code> is <code>no_new_privs</code>. Container mechanisms, with no container."
+  },
+  {
+   "n": 501,
+   "c": "node-37",
+   "t": "Node 37 · init and systemd",
+   "q": "Map six systemd concepts to Kubernetes.",
+   "a": "Unit file → Deployment/Pod spec; <code>Restart=on-failure</code> → restartPolicy and CrashLoopBackOff; <code>After=</code>/<code>Requires=</code> → init containers and readiness gates; <code>MemoryMax</code>/<code>CPUQuota</code> → resources.limits (the same cgroup files); <code>TimeoutStopSec</code> → terminationGracePeriodSeconds; <code>.timer</code> → CronJob. The differences are cross-machine scheduling and declarative reconciliation."
+  },
+  {
+   "n": 502,
+   "c": "node-37",
+   "t": "Node 37 · init and systemd",
+   "q": "Why is PM2 inside a container usually wrong?",
+   "a": "It adds a process, obscures the exit code so the orchestrator cannot see your app crashed, duplicates restart logic the orchestrator already has, and breaks signal propagation. One process per container, restart handled by the orchestrator."
+  },
+  {
+   "n": 503,
+   "c": "node-37",
+   "t": "Node 37 · init and systemd",
+   "q": "Diagnose CrashLoopBackOff from an exit code.",
+   "a": "137: <code>SIGKILL</code>, usually OOM — check <code>lastState.terminated.reason</code>. 143: <code>SIGTERM</code>. 139: segmentation fault in a native module. 1: your application threw. 127: command not found — a wrong entrypoint path or a missing shared library. And <code>kubectl logs --previous</code> retrieves the dead container's output."
+  },
+  {
+   "n": 504,
+   "c": "node-37",
+   "t": "Node 37 · init and systemd",
+   "q": "Why does Compose's <code>depends_on</code> so often need a wait script?",
+   "a": "It waits for the container to <em>start</em>, not to be ready — the ordering-versus-readiness distinction. <code>condition: service_healthy</code> with a <code>healthcheck</code> is the built-in fix."
+  },
+  {
+   "n": 505,
+   "c": "node-38",
+   "t": "Node 38 · /proc",
+   "q": "What is procfs, and what does it imply about every diagnostic tool?",
+   "a": "A filesystem with no storage: reading a file calls a kernel function that generates the content at that instant. So <code>ps</code>, <code>top</code>, <code>free</code>, <code>lsof</code>, node exporters, APM agents and container runtimes are all text parsers. There is no privileged metrics API, and <code>cat</code> is always enough."
+  },
+  {
+   "n": 506,
+   "c": "node-38",
+   "t": "Node 38 · /proc",
+   "q": "Which per-process file does <code>top</code> read, and what is in it?",
+   "a": "<code>/proc/&lt;pid&gt;/stat</code> — a single machine-readable line of 52 fields including <code>utime</code> and <code>stime</code> in clock ticks, minor and major faults, and the start time."
+  },
+  {
+   "n": 507,
+   "c": "node-38",
+   "t": "Node 38 · /proc",
+   "q": "How do you attribute CPU to one thread inside a Node process?",
+   "a": "<code>/proc/&lt;pid&gt;/task/</code> has one subdirectory per thread with the same files, which is what <code>top -H</code> reads."
+  },
+  {
+   "n": 508,
+   "c": "node-38",
+   "t": "Node 38 · /proc",
+   "q": "What do <code>/proc/&lt;pid&gt;/stack</code> and <code>wchan</code> give you?",
+   "a": "The kernel-side stack and the function the process is sleeping in — so for a <code>D</code>-state hang they tell you exactly which kernel operation it is stuck in."
+  },
+  {
+   "n": 509,
+   "c": "node-38",
+   "t": "Node 38 · /proc",
+   "q": "Why is every CPU percentage you have ever seen a derived number?",
+   "a": "<code>/proc/stat</code> holds cumulative counters since boot, not percentages. A tool samples it twice and divides the deltas — which is why a tool's first sample is meaningless and why average-since-boot is a different and usually useless number."
+  },
+  {
+   "n": 510,
+   "c": "node-38",
+   "t": "Node 38 · /proc",
+   "q": "Name four system-wide files and what each answers.",
+   "a": "<code>/proc/meminfo</code> (what <code>free</code> formats — read <code>MemAvailable</code>); <code>/proc/loadavg</code> (which counts R <em>and</em> D tasks); <code>/proc/interrupts</code> (per-IRQ per-core counts, for interrupt balance); <code>/proc/net/tcp</code> (every socket with state and queue depths, what <code>ss</code> reads)."
+  },
+  {
+   "n": 511,
+   "c": "node-38",
+   "t": "Node 38 · /proc",
+   "q": "What is <code>/proc/sys</code> and what is its relationship to <code>sysctl</code>?",
+   "a": "The writable half of procfs — every <code>sysctl</code> is a file there. <code>sysctl -w</code> is a file write; <code>/etc/sysctl.d/</code> makes it survive a reboot."
+  },
+  {
+   "n": 512,
+   "c": "node-38",
+   "t": "Node 38 · /proc",
+   "q": "Where do container CPU, memory and throttling metrics actually come from?",
+   "a": "cgroup files under <code>/sys/fs/cgroup</code>: <code>memory.current</code>, <code>cpu.stat</code>'s <code>nr_throttled</code>. cAdvisor reads them; there is no other source behind your Grafana panel."
+  },
+  {
+   "n": 513,
+   "c": "node-38",
+   "t": "Node 38 · /proc",
+   "q": "Why does the JVM need container support and Node need <code>availableParallelism()</code>?",
+   "a": "<code>/proc/cpuinfo</code> and <code>/proc/meminfo</code> are not namespaced and report the host's values, so any runtime sizing itself from them is wrong inside a container. The correct source is cgroup files; <code>lxcfs</code> exists to present a namespace-correct <code>/proc</code>."
+  },
+  {
+   "n": 514,
+   "c": "node-38",
+   "t": "Node 38 · /proc",
+   "q": "Give the six-command sequence that distinguishes the five common production failures.",
+   "a": "<code>grep -E 'State|Threads|VmRSS|ctxt' /proc/$PID/status</code>; <code>ls /proc/$PID/fd | wc -l</code> against <code>grep 'Max open files' /proc/$PID/limits</code>; <code>cat /proc/$PID/stack</code> if in D state; <code>cat /sys/fs/cgroup/cpu.stat</code>; <code>grep -E '^(anon|file) ' /sys/fs/cgroup/memory.stat</code>. Between them: blocked loop, descriptor leak, storage hang, CPU throttling, page-cache memory pressure."
+  },
+  {
+   "n": 515,
+   "c": "node-38",
+   "t": "Node 38 · /proc",
+   "q": "Which two custom metrics are most valuable for a containerised Node service?",
+   "a": "Event loop delay (from <code>monitorEventLoopDelay</code>) and cgroup <code>nr_throttled</code>, side by side. Node cannot tell you the second, so you read the file yourself."
+  },
+  {
+   "n": 516,
+   "c": "node-39",
+   "t": "Node 39 · Tracing",
+   "q": "How does a debugger set a breakpoint?",
+   "a": "It writes <code>0xCC</code> (<code>int3</code>) over the first byte of the target instruction, saving the original. Execution raises an exception, delivered as <code>SIGTRAP</code>, suspending the process. To continue it restores the byte, single-steps, re-inserts, and resumes. A debugger edits your machine code while it runs — possible only because instructions are data."
+  },
+  {
+   "n": 517,
+   "c": "node-39",
+   "t": "Node 39 · Tracing",
+   "q": "Why is <code>strace</code> unusable for production performance work?",
+   "a": "<code>ptrace</code> stops the traced process twice per system call, so a syscall-heavy program can slow by an order of magnitude. Excellent for correctness, wrong for performance."
+  },
+  {
+   "n": 518,
+   "c": "node-39",
+   "t": "Node 39 · Tracing",
+   "q": "Why does <code>strace</code> on another process need <code>sudo</code>?",
+   "a": "Attaching means reading all its memory, including keys, so it is gated by <code>CAP_SYS_PTRACE</code> and by <code>ptrace_scope</code>, which by default permits attaching only to descendants. In containers this is <code>--cap-add=SYS_PTRACE</code>."
+  },
+  {
+   "n": 519,
+   "c": "node-39",
+   "t": "Node 39 · Tracing",
+   "q": "How does <code>perf</code> avoid <code>strace</code>'s cost?",
+   "a": "Sampling. The processor's performance monitoring unit raises an interrupt every N events; <code>perf</code> records the instruction pointer and call stack at each, giving a statistical picture at one to two percent overhead."
+  },
+  {
+   "n": 520,
+   "c": "node-39",
+   "t": "Node 39 · Tracing",
+   "q": "What can <code>perf stat</code> tell you that a wall-clock measurement cannot?",
+   "a": "Why it is slow. Hardware counters give instructions retired, cache misses per level, branch mispredictions and TLB misses — so a low instructions-per-cycle figure with high cache misses is a memory-layout problem, not an algorithmic one."
+  },
+  {
+   "n": 521,
+   "c": "node-39",
+   "t": "Node 39 · Tracing",
+   "q": "How do you read a flame graph correctly?",
+   "a": "Width is the proportion of samples in which a function was on the stack; the vertical axis is stack depth; the left-to-right ordering is alphabetical and means nothing. A wide plateau at the top is a function burning CPU in itself; a wide tower is a deep call path."
+  },
+  {
+   "n": 522,
+   "c": "node-39",
+   "t": "Node 39 · Tracing",
+   "q": "How is eBPF reconciled with the rule that user code must never run privileged?",
+   "a": "A verifier statically proves the bytecode terminates, that every memory access is in bounds, and that it calls only permitted helpers, before JIT-compiling it. A proof obligation substituting for a hardware boundary."
+  },
+  {
+   "n": 523,
+   "c": "node-39",
+   "t": "Node 39 · Tracing",
+   "q": "What does eBPF change about the economics of observability?",
+   "a": "Aggregation happens <em>in the kernel</em> — a program can compute a latency histogram of every disk I/O and hand you the finished histogram, instead of copying every event to user space. That is what makes it acceptable in production."
+  },
+  {
+   "n": 524,
+   "c": "node-39",
+   "t": "Node 39 · Tracing",
+   "q": "Name four eBPF tools and what each answers.",
+   "a": "<code>execsnoop</code> — every process executed, as it happens. <code>biolatency</code> — a histogram of block-device latency. <code>runqlat</code> — how long tasks wait in the run queue, which is the CPU-contention signal utilisation cannot show and where throttling appears. <code>tcplife</code> — connection lifetimes."
+  },
+  {
+   "n": 525,
+   "c": "node-39",
+   "t": "Node 39 · Tracing",
+   "q": "Name the three layers of Node profiling and what each sees.",
+   "a": "JavaScript-level (<code>--prof</code>, DevTools, <code>0x</code>) — your function names, via V8's sampling profiler. Native-level (<code>perf</code> plus <code>--perf-basic-prof</code> so JIT frames resolve) — V8, libuv, addons and the kernel, which the JavaScript profiler cannot see at all. Kernel-level (eBPF) — what it is waiting for."
+  },
+  {
+   "n": 526,
+   "c": "node-39",
+   "t": "Node 39 · Tracing",
+   "q": "Give the diagnostic sequence for a slow Node service.",
+   "a": "High event loop delay and high CPU → the JavaScript profiler. High CPU with no JavaScript function accounting for it → <code>perf</code>; the answer is usually GC, JSON, TLS or an addon. Low CPU with high latency → the process is waiting, and eBPF tools say for what."
+  },
+  {
+   "n": 527,
+   "c": "node-39",
+   "t": "Node 39 · Tracing",
+   "q": "Why is a buffer leak invisible in a heap snapshot, and how do you find it?",
+   "a": "Those bytes are outside V8's heap. It shows as rising RSS with a flat heap; find it with <code>perf</code> or by auditing addon usage."
+  },
+  {
+   "n": 528,
+   "c": "node-39",
+   "t": "Node 39 · Tracing",
+   "q": "Why is continuous production profiling now normal?",
+   "a": "Because sampling costs one to two percent, running it permanently across a fleet is affordable — and it changes the economics: instead of reproducing a problem, you look at what the process was doing when it happened."
+  },
+  {
+   "n": 529,
+   "c": "node-40",
+   "t": "Node 40 · The boundary",
+   "q": "What is Meltdown, in one sentence, and why did the fix cost so much?",
+   "a": "Speculative execution let user-mode code read kernel memory — mapped into every process for efficiency — by inferring values through cache timing. KPTI unmaps kernel memory from the user page table, so every syscall now also switches the page table root and disturbs address translation."
+  },
+  {
+   "n": 530,
+   "c": "node-40",
+   "t": "Node 40 · The boundary",
+   "q": "Name three other speculative-execution mitigations and what each costs.",
+   "a": "Retpoline/IBRS/IBPB constrain branch prediction across privilege boundaries, adding cost to indirect calls and context switches; MDS and L1TF mitigations flush buffers on transitions; and on some hardware disabling hyperthreading was the only complete answer, halving the apparent core count."
+  },
+  {
+   "n": 531,
+   "c": "node-40",
+   "t": "Node 40 · The boundary",
+   "q": "When is <code>mitigations=off</code> defensible?",
+   "a": "On a single-tenant machine running only trusted code. Indefensible on anything running untrusted code, which includes any machine running a browser or a multi-tenant workload. <code>/sys/devices/system/cpu/vulnerabilities/*</code> lists what is being mitigated."
+  },
+  {
+   "n": 532,
+   "c": "node-40",
+   "t": "Node 40 · The boundary",
+   "q": "Name the three strategies for crossing the boundary less, with an instance of each.",
+   "a": "Do not cross (the vDSO answers <code>clock_gettime</code> in user mode at ~20 ns); batch (<code>writev</code>, <code>sendfile</code>, buffered output, epoll itself); replace the interface (<code>io_uring</code>)."
+  },
+  {
+   "n": 533,
+   "c": "node-40",
+   "t": "Node 40 · The boundary",
+   "q": "What is <code>sendfile</code> and why is nginx cheaper than an app serving the same file?",
+   "a": "It copies from one descriptor to another entirely inside the kernel — no copy into user memory and back, which is the actual meaning of zero-copy. The application path copies the bytes twice for no reason."
+  },
+  {
+   "n": 534,
+   "c": "node-40",
+   "t": "Node 40 · The boundary",
+   "q": "Describe io_uring's structure and its four properties.",
+   "a": "Two ring buffers shared between the process and the kernel — a submission queue and a completion queue. Many operations per crossing; optionally zero crossings in <code>SQPOLL</code> mode; completion-based rather than readiness-based, which is what makes it work for regular files; and it covers nearly every operation, with chaining."
+  },
+  {
+   "n": 535,
+   "c": "node-40",
+   "t": "Node 40 · The boundary",
+   "q": "Why is io_uring blocked by some seccomp profiles and disabled in ChromeOS?",
+   "a": "Its rapid growth in surface area produced a run of serious security vulnerabilities. Blocking it is done by filtering its syscall numbers — a nice illustration of Node 4."
+  },
+  {
+   "n": 536,
+   "c": "node-40",
+   "t": "Node 40 · The boundary",
+   "q": "Quantify why syscall count is a design axis in a request handler.",
+   "a": "2,000 syscalls at ~100 ns each is 200 µs of pure crossing — ten percent of a 2 ms budget. Hence keeping a log descriptor open, writing a response once rather than forty times, HTTP keep-alive, a Unix socket instead of loopback, and <code>stream.pipeline</code>. <code>strace -c -f</code> gives you the count, and almost nobody takes that measurement."
+  },
+  {
+   "n": 537,
+   "c": "node-40",
+   "t": "Node 40 · The boundary",
+   "q": "Show that the N+1 query problem is the same optimisation as <code>writev</code>.",
+   "a": "A syscall crossing is ~100 ns; a local database round trip ~200 µs — two thousand times more. 100 queries is 20 ms of pure round-trip time; one query returning the same rows is 200 µs. DataLoader batching, <code>IN (...)</code>, Redis pipelining and HTTP/2 multiplexing are all the same move at a larger scale."
+  },
+  {
+   "n": 538,
+   "c": "node-40",
+   "t": "Node 40 · The boundary",
+   "q": "State the general principle this node establishes.",
+   "a": "Every layer has a boundary, and every layer's optimisation is to cross it less often with more in hand. Batch, or move the work to the other side. Those are the only two moves at every scale."
+  },
+  {
+   "n": 539,
+   "c": "node-41",
+   "t": "Node 41 · Kernel architectures",
+   "q": "What is a monolithic kernel and what are its three properties?",
+   "a": "All operating system services run in kernel mode in one address space, calling each other as functions. Fast (no boundary crossing between components); fragile (a driver bug can corrupt the page cache, because there is no isolation within one address space); and large — Linux is over 30 million lines, mostly drivers."
+  },
+  {
+   "n": 540,
+   "c": "node-41",
+   "t": "Node 41 · Kernel architectures",
+   "q": "Do loadable kernel modules provide isolation?",
+   "a": "No. They still run in kernel mode with full privilege. Modules are a packaging improvement, not an isolation one, and people often assume otherwise."
+  },
+  {
+   "n": 541,
+   "c": "node-41",
+   "t": "Node 41 · Kernel architectures",
+   "q": "What is a microkernel, and what are its two genuine wins?",
+   "a": "Only address spaces, threads, scheduling and IPC in kernel mode; filesystems, network stacks and drivers are user-mode servers communicating by messages. Wins: a crashed driver is a restartable process that cannot corrupt what it was not given; and verifiability — seL4, about 10,000 lines, has a machine-checked proof of functional correctness."
+  },
+  {
+   "n": 542,
+   "c": "node-41",
+   "t": "Node 41 · Kernel architectures",
+   "q": "What is the microkernel's cost, and what reduced it?",
+   "a": "An operation that was a function call becomes several IPC round trips, each with a context switch and a boundary crossing. Mach (CMU, 1980s) was notably slow; L4 (Liedtke, 1993) cut IPC cost by an order of magnitude and made the argument much closer."
+  },
+  {
+   "n": 543,
+   "c": "node-41",
+   "t": "Node 41 · Kernel architectures",
+   "q": "Summarise the 1992 Tanenbaum–Torvalds debate accurately.",
+   "a": "Tanenbaum posted 'LINUX is obsolete' on comp.os.minix, arguing microkernels were the settled research direction and that tying Linux to x86 was short-sighted. Torvalds, then 22, replied that Linux was portable in practice, worked, and was free — that theoretical elegance shipping nothing loses to practical code that runs."
+  },
+  {
+   "n": 544,
+   "c": "node-41",
+   "t": "Node 41 · Kernel architectures",
+   "q": "Assess that debate thirty years on.",
+   "a": "Both were right about different things. Tanenbaum was right about reliability and security, borne out by the history of kernel vulnerabilities. Torvalds was right that Linux would win, comprehensively. And microkernel ideas moved rather than lost — FUSE, VFIO and DPDK, gVisor, eBPF and seL4 are all microkernel-flavoured retrofits."
+  },
+  {
+   "n": 545,
+   "c": "node-41",
+   "t": "Node 41 · Kernel architectures",
+   "q": "Place Linux, Windows NT, XNU, Android and unikernels.",
+   "a": "Linux: monolithic with modules, stable interface at the syscall boundary. NT: a hybrid whose graphics moved <em>into</em> the kernel in NT 4.0 for speed, at a real cost in stability; stable interface at <code>ntdll.dll</code>. XNU: Mach plus BSD, both in kernel mode, now pushing drivers out with DriverKit. Android: Linux kernel with Bionic, ART, Binder IPC, and one UID per application. Unikernels: no user/kernel split at all, application and OS compiled into one binary."
+  },
+  {
+   "n": 546,
+   "c": "node-41",
+   "t": "Node 41 · Kernel architectures",
+   "q": "Why is a container escape a consequence of monolithic design?",
+   "a": "One kernel with 30 million lines of attack surface, shared by every container, called into directly. That is the entire argument for gVisor, Kata and Firecracker, each of which is a different point on this spectrum."
+  },
+  {
+   "n": 547,
+   "c": "node-41",
+   "t": "Node 41 · Kernel architectures",
+   "q": "Map the microkernel debate onto microservices, with numbers.",
+   "a": "A monolith is one address space with function calls: fast, simple to deploy, no fault containment. Microservices are separate processes exchanging messages: independently deployable, failures contained, and every internal call becomes ~200 µs instead of ~20 ns — four orders of magnitude, exactly the microkernel's IPC penalty. The likely resolution is the same: mostly monolithic, with boundaries where isolation earns its cost."
+  },
+  {
+   "n": 548,
+   "c": "node-42",
+   "t": "Node 42 · History",
+   "q": "What happened in 1936, 1945, 1947 and 1948–49?",
+   "a": "Turing's universal machine paper; the EDVAC draft describing the stored-program design; the transistor at Bell Labs; and the first stored-program executions — the Manchester Baby on 21 June 1948 and EDSAC on 6 May 1949."
+  },
+  {
+   "n": 549,
+   "c": "node-42",
+   "t": "Node 42 · History",
+   "q": "Name the four systems from 1961–65 and what each contributed.",
+   "a": "CTSS (MIT, 1961, Corbató): interactive time-sharing and the multi-level feedback queue. Atlas (Manchester, 1962, Kilburn): interrupts with priorities, extracodes, a Supervisor, and demand-paged virtual memory. System/360 (IBM, 1964): one architecture across a line, the 8-bit byte, and JCL. Multics (1965): protection rings, a hierarchical filesystem, dynamic linking, security as a goal."
+  },
+  {
+   "n": 550,
+   "c": "node-42",
+   "t": "Node 42 · History",
+   "q": "Why is 1973 the decisive year for Unix?",
+   "a": "It was rewritten in C. An operating system in a high-level language can be moved to a new machine by writing a compiler, and portability — not design — is what actually spread it."
+  },
+  {
+   "n": 551,
+   "c": "node-42",
+   "t": "Node 42 · History",
+   "q": "How did an antitrust decree shape modern computing?",
+   "a": "A 1956 consent decree barred AT&T from selling computer products, so Unix was licensed to universities for a nominal fee with source. A generation learned operating systems by reading it."
+  },
+  {
+   "n": 552,
+   "c": "node-42",
+   "t": "Node 42 · History",
+   "q": "What did 4.2BSD (1983) contribute, and what else happened that year?",
+   "a": "The socket API and TCP/IP — which is why the internet speaks Unix. The same year Stallman announced GNU, which produced GCC, Emacs and the utilities but never finished its kernel."
+  },
+  {
+   "n": 553,
+   "c": "node-42",
+   "t": "Node 42 · History",
+   "q": "Name the three things that happened to Linux in 1991–92.",
+   "a": "Torvalds's 25 August 1991 post and version 0.01 in September; relicensing under the GPL in 1992, which made contribution safe; and the Tanenbaum debate. Also 1992: AT&T's lawsuit against BSDi put the BSDs under a legal cloud for two years — exactly the window in which Linux gathered its community."
+  },
+  {
+   "n": 554,
+   "c": "node-42",
+   "t": "Node 42 · History",
+   "q": "Name five things from 2003–2009 and what each responded to.",
+   "a": "Linux 2.6 with the O(1) scheduler and NPTL (2003); nginx (2004), written against C10K; VT-x and AMD-V (2005), making virtualisation practical; EC2 (2006), changing the economics of computing; cgroups merged (2008) from Google; and Node.js at JSConf EU (November 2009)."
+  },
+  {
+   "n": 555,
+   "c": "node-42",
+   "t": "Node 42 · History",
+   "q": "What was Docker's actual contribution in March 2013?",
+   "a": "Not the kernel features — namespaces since 2002, cgroups since 2008, union filesystems for years. The image format, the registry, and the developer experience: making an assembly of existing kernel features usable in an afternoon. That is a genuine and sufficient contribution."
+  },
+  {
+   "n": 556,
+   "c": "node-42",
+   "t": "Node 42 · History",
+   "q": "Why is January 2018 a landmark date?",
+   "a": "Meltdown and Spectre: the first time a processor optimisation forced a coordinated redesign across every operating system, browser and cloud simultaneously."
+  },
+  {
+   "n": 557,
+   "c": "node-42",
+   "t": "Node 42 · History",
+   "q": "State the three patterns in this history.",
+   "a": "The ideas were essentially finished by 1970 and everything since is engineering, scale and economics. Licensing and litigation decided outcomes at least as much as design. And simple things that ship beat elegant things that do not — Unix over Multics, Linux over Hurd, Docker over seven prior container systems."
+  },
+  {
+   "n": 558,
+   "c": "node-43",
+   "t": "Node 43 · The whole lifecycle",
+   "q": "Trace a mouse click from the contact to your React handler.",
+   "a": "Contact closes → USB controller interrupt → kernel input subsystem writes to <code>/dev/input/eventN</code> → the display server wakes from <code>epoll_wait</code>, is scheduled, and routes it → over a Unix socket to the browser UI process → IPC to the owning renderer process (a real process because of Site Isolation) → the renderer's event loop takes it as a task, hit-tests the layout tree, constructs a MouseEvent and dispatches it → React's root listener routes it to <code>onClick</code>."
+  },
+  {
+   "n": 559,
+   "c": "node-43",
+   "t": "Node 43 · The whole lifecycle",
+   "q": "Trace the server side from packet arrival to your route handler.",
+   "a": "NIC DMAs the packet and raises MSI-X → driver top half schedules NET_RX softirq → softirq walks netfilter (Service IP rewritten to a pod IP), IP and TCP, appending to a socket buffer → the wait-queue callback pushes the descriptor onto epoll's ready list → your process is marked runnable, scheduled subject to its cgroup, and context-switched in → <code>epoll_wait</code> returns in the poll phase → libuv calls back → <code>read()</code> into a Buffer outside the V8 heap → HTTP parser → V8 → your handler."
+  },
+  {
+   "n": 560,
+   "c": "node-43",
+   "t": "Node 43 · The whole lifecycle",
+   "q": "Where exactly does the event loop architecture pay for itself in a request?",
+   "a": "At the <code>await</code> on the database: the function suspends, a promise is returned, the query is written to a socket, and the loop serves other connections instead of a thread sitting blocked."
+  },
+  {
+   "n": 561,
+   "c": "node-43",
+   "t": "Node 43 · The whole lifecycle",
+   "q": "Trace a query inside Postgres, in mechanism terms.",
+   "a": "A pooled connection (because Postgres is process-per-connection); a backend wakes; the planner chooses using cost constants encoding disk physics; execution reads from <code>shared_buffers</code> (a shared mapping), falling through to the page cache and then to a real disk read during which the backend is in D state; shared structures are protected by lightweight locks that are futexes; a write appends to the WAL and <code>fsync</code>s at commit — the largest cost in the transaction."
+  },
+  {
+   "n": 562,
+   "c": "node-43",
+   "t": "Node 43 · The whole lifecycle",
+   "q": "Trace the response from <code>res.json</code> to photons.",
+   "a": "<code>JSON.stringify</code> runs synchronously, blocking every connection in the process; the write may return short, registering for writability; short-lived objects are scavenged in under a millisecond; packets traverse back through interrupt, softirq, TCP, the browser's network process and IPC to the renderer; the promise resolves as a microtask; React schedules a render in a lane, yielding every ~5 ms; at the next frame boundary rAF, style, layout, compositing and paint run; tiles go to the GPU; the display controller DMAs the framebuffer out sixty times a second."
+  },
+  {
+   "n": 563,
+   "c": "node-43",
+   "t": "Node 43 · The whole lifecycle",
+   "q": "What is the actual value of knowing the forty-five-step trace?",
+   "a": "'The API is slow' is not a diagnosis. The list is the complete set of places the time can be, which turns guessing into enumeration."
+  },
+  {
+   "n": 564,
+   "c": "node-43",
+   "t": "Node 43 · The whole lifecycle",
+   "q": "Trace the deployment lifecycle from commit to serving traffic.",
+   "a": "Editor write to the page cache; content-addressed Git objects; TLS push; a CI runner (a resident monitor) picks up the job in a container; <code>npm ci</code> creates a hundred thousand inodes and compiles addons against that image's libc; a bundler links modules; each Dockerfile instruction becomes an overlayfs layer; layers push to a registry by digest; the scheduler places pods by requests; the kubelet pulls, assembles the overlay, writes cgroup files, clones with namespace flags, wires a veth, pivot_roots, mounts <code>/proc</code>, sets the UID, drops capabilities, installs seccomp and execs; the dynamic linker maps libc and addons; pages fault in; V8 restores from a snapshot; the process listens and then blocks in <code>epoll_wait</code>; the readiness probe passes and kube-proxy programs netfilter; the old pod gets SIGTERM concurrently with endpoint removal."
+  },
+  {
+   "n": 565,
+   "c": "node-44",
+   "t": "Node 44 · The six forces",
+   "q": "Name the six recurring forces.",
+   "a": "Sharing, protection, indirection, latency, the boundary, and compatibility."
+  },
+  {
+   "n": 566,
+   "c": "node-44",
+   "t": "Node 44 · The six forces",
+   "q": "What are the only three answers to a sharing problem?",
+   "a": "Time-slice it, space-partition it, or queue for it — which are the scheduler, virtual memory, and every queue in your stack."
+  },
+  {
+   "n": 567,
+   "c": "node-44",
+   "t": "Node 44 · The six forces",
+   "q": "State the protection rule that recurs at every layer.",
+   "a": "Enforcement must be below the level the protected party can reach. It is why the mode bit is hardware, why WebAssembly bounds-checks in the runtime, why eBPF has a verifier, and why Site Isolation moved to process boundaries."
+  },
+  {
+   "n": 568,
+   "c": "node-44",
+   "t": "Node 44 · The six forces",
+   "q": "Name eight indirections and the two questions to ask about a new one.",
+   "a": "Virtual addresses, file descriptors, inodes, PIDs, namespaces, the VFS, sonames and the GOT, and Service IPs. Ask: what does it let the system change without telling anyone, and where is its cache?"
+  },
+  {
+   "n": 569,
+   "c": "node-44",
+   "t": "Node 44 · The six forces",
+   "q": "Name the three techniques for hiding latency and the two problems they all create.",
+   "a": "Cache, buffer, overlap. Every one creates staleness (what if the cached copy is wrong?) and durability (what if we crash before the buffer drains?) — which is why cache invalidation and <code>fsync</code> are hard in the same way."
+  },
+  {
+   "n": 570,
+   "c": "node-44",
+   "t": "Node 44 · The six forces",
+   "q": "Give six fossils in modern computing and their causes.",
+   "a": "The 8-bit byte (System/360); 4 KB pages (the VAX, 1977); the 1024 descriptor default (<code>select</code>'s bitmap); port 1024 as the privilege line; the Unix epoch and 2038; and <code>SIGSEGV</code> named for a memory scheme no longer used. Interfaces outlive their reasons because the cost of change is borne by everyone and the benefit by no one."
+  },
+  {
+   "n": 571,
+   "c": "node-44",
+   "t": "Node 44 · The six forces",
+   "q": "What is the seventh force, not in the list?",
+   "a": "Licensing, litigation and economics — the AT&T decree, the GPL, the BSD lawsuit, the CDDL keeping ZFS out of the kernel, and EC2's pricing model. None of it is in the mechanisms, and all of it determined which mechanisms you use."
+  },
+  {
+   "n": 572,
+   "c": "node-44",
+   "t": "Node 44 · The six forces",
+   "q": "What six questions should you ask about a mechanism you have never seen?",
+   "a": "Which resource is shared and how? What stops one user harming another, and is enforcement below their reach? What is the name and what is the real thing, and where is the translation cached? Which slow thing is hidden, and what goes stale or gets lost? Which boundary is crossed, and what is the batching story? And what is the way it is only because of something in 1977?"
   }
  ]
 }

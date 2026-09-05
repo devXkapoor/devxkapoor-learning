@@ -1,1 +1,2055 @@
-{"cards":[]}
+{
+ "cards": [
+  {
+   "n": 1,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "Why are computers binary rather than decimal, given that a wire can carry any voltage?",
+   "a": "Because of <strong>noise</strong>. A wire's voltage sags and wobbles by hundredths of a volt, which is fatal if digits are a tenth of a volt apart — and nothing downstream can detect the error. With only two legal values separated by a wide no-man's-land, noise is discarded at every step instead of accumulating. You give up nine tenths of the wire's information capacity and gain that every value is exactly right or catastrophically wrong, never slightly wrong."
+  },
+  {
+   "n": 2,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "Which real machine worked in decimal, and what does that prove?",
+   "a": "<strong>ENIAC</strong> (1945, University of Pennsylvania) stored each digit as a ring of ten circuits with one lit. It proves binary was a live engineering choice that won a fight, not an obvious truth discovered in hindsight."
+  },
+  {
+   "n": 3,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "What is a transistor, in terms of what it does rather than what it is made of?",
+   "a": "A switch operated by electricity rather than by a finger: three connections — input, output, control. Voltage on the control lets current flow. Demonstrated at Bell Labs in December 1947 by Bardeen and Brattain, with Shockley's theory. A phone chip has over ten billion and nothing else."
+  },
+  {
+   "n": 4,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "How do switches become arithmetic?",
+   "a": "Two transistors in series is an <strong>AND</strong>; in parallel an <strong>OR</strong>; one wired inverted is a <strong>NOT</strong>. Those three build everything. Addition is an XOR for the sum plus an AND for the carry (a half adder), chained so each carry feeds the next. Shannon's 1937 MIT thesis showed switching circuits and Boolean algebra are the same subject."
+  },
+  {
+   "n": 5,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "What is a register, and why are there only a few dozen?",
+   "a": "A row of flip-flops holding one number, sitting physically adjacent to the arithmetic circuits — a signal travels a fraction of a millimetre, so it is the fastest storage in the machine. You cannot have millions because there is no room and the wires would be long enough for delay to dominate."
+  },
+  {
+   "n": 6,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "Why is main memory built from a different technology than registers?",
+   "a": "DRAM uses one transistor and one tiny capacitor per bit, so it is far denser — billions of cells. The capacitor leaks, which is why it must be refreshed thousands of times a second (the D is for dynamic). The trade is density for speed: roughly 80 nanoseconds versus effectively zero."
+  },
+  {
+   "n": 7,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "What, physically, is a memory address?",
+   "a": "A number naming one of billions of storage cells. Memory is literally a very long row of numbered boxes each holding a byte, with exactly two operations: load box N into a register, store a register into box N. Every data structure you have ever used is made of those two."
+  },
+  {
+   "n": 8,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "Why is a byte eight bits?",
+   "a": "A decision, not a law. IBM's System/360 (April 1964) standardised eight because it held one character in IBM's encoding and because eight is a power of two, making address arithmetic a bit-shift rather than a division. Earlier machines used six, seven and nine. Eight won because System/360 won."
+  },
+  {
+   "n": 9,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "What is the single idea that turns a calculator into a computer?",
+   "a": "Putting instructions in the same memory as data, encoded as numbers — the stored-program design, written down in the <em>First Draft of a Report on the EDVAC</em> in June 1945 under von Neumann's name, recording work with Eckert and Mauchly."
+  },
+  {
+   "n": 10,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "Name four consequences of instructions being data.",
+   "a": "Programs can be loaded rather than rewired (seconds, not days); programs can be stored on media, so software exists apart from a machine; a program can write a program, which is what a compiler and V8's JIT are; and a program can overwrite itself or another, which is the root of the buffer-overflow class of vulnerability."
+  },
+  {
+   "n": 11,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "What is an instruction set architecture, and why does it matter to a Docker user?",
+   "a": "A fixed agreement mapping bit patterns to operations, wired into the processor. x86-64, ARM64 and RISC-V are mutually unintelligible agreements, which is why a compiled binary for one will not run on the other, why images carry an architecture tag, and why <code>exec format error</code> happens."
+  },
+  {
+   "n": 12,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "State the entire operation of a processor in four steps.",
+   "a": "Fetch the bytes at the address in <code>rip</code>; decode what that pattern means; execute it; advance <code>rip</code> by the instruction's length. Repeat forever. There is no notion of a program, a user, a file or a scheduler in the hardware — all of those are software."
+  },
+  {
+   "n": 13,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "What is a jump, mechanically?",
+   "a": "A write to the instruction pointer. An <code>if</code> is a comparison plus a conditional write to <code>rip</code>; a loop is a backward write; a call is a write plus a note of where to return. Control flow is arithmetic on one register."
+  },
+  {
+   "n": 14,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "The fetch-decode-execute loop never asks anything and never pauses. Why does that matter for the rest of operating systems?",
+   "a": "Because everything after it is an answer to: given a device with total obedience and no ability to notice a better use of its time, how do you get it to do more than one thing, safely, for more than one person?"
+  },
+  {
+   "n": 15,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "What do pipelining, speculative execution and out-of-order execution change about the model?",
+   "a": "Nothing observable — they are optimisations the processor is contractually required to make invisible. They matter because speculative execution's cache side effects are what Spectre exploits, which is why <code>performance.now()</code> was coarsened and <code>SharedArrayBuffer</code> now needs cross-origin isolation headers."
+  },
+  {
+   "n": 16,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "What exactly is a JavaScript stack trace, at the machine level?",
+   "a": "A chain of saved instruction pointer values walked through memory, with each address mapped back to a function name using a table the runtime kept. That is why a stripped native binary gives hexadecimal, why source maps exist, and why collecting frames costs real time."
+  },
+  {
+   "n": 17,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "Why does a native Node addon compiled on an Apple laptop fail inside a linux/amd64 container?",
+   "a": "A <code>.node</code> file is compiled machine code for one ISA. Loading it on another gives <code>invalid ELF header</code>. This is the actual reason host <code>node_modules</code> must never be copied into an image and must be installed inside the build."
+  },
+  {
+   "n": 18,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "What is endianness and where does it surface in JavaScript?",
+   "a": "Which end of a multi-byte number is stored at the lower address. x86 and ARM are little-endian; network protocols conventionally use big-endian, hence <em>network byte order</em>. It surfaces as <code>buf.readUInt32BE</code> versus <code>readUInt32LE</code>."
+  },
+  {
+   "n": 19,
+   "c": "node-0",
+   "t": "Node 0 · The bare machine",
+   "q": "What does the machine that runs your JavaScript actually execute?",
+   "a": "Machine code. V8 parses your source into a tree, interprets it with Ignition, and for hot functions hands it to TurboFan (and since 2021 Sparkplug), which <em>writes machine code into memory and jumps to it</em> — the 1945 stored-program property used at run time, thousands of times per process."
+  },
+  {
+   "n": 20,
+   "c": "node-1",
+   "t": "Node 1 · The resident monitor",
+   "q": "What was the situation Node 0 left, in economic terms?",
+   "a": "The most expensive object in the building sat idle for most of every hour, waiting on humans walking across rooms, on card readers, and on the gap between one person's booked slot and the next. Every mechanism in operating systems is a response to some version of that observation."
+  },
+  {
+   "n": 21,
+   "c": "node-1",
+   "t": "Node 1 · The resident monitor",
+   "q": "What is a resident monitor?",
+   "a": "A program that stays in memory while jobs come and go, reading the next job, loading it, jumping to it, and regaining control when it finishes. It is the first operating system, and it is a loop."
+  },
+  {
+   "n": 22,
+   "c": "node-1",
+   "t": "Node 1 · The resident monitor",
+   "q": "What was the first operating system, and what were its two halves?",
+   "a": "<strong>GM-NAA I/O</strong>, 1956, by Robert Patrick (General Motors) and Owen Mock (North American Aviation) for the IBM 704. GM-NAA is the batch monitor loop; I/O is a set of shared input/output subroutines so every program did not rewrite card and tape handling itself."
+  },
+  {
+   "n": 23,
+   "c": "node-1",
+   "t": "Node 1 · The resident monitor",
+   "q": "What two lasting concepts came out of the I/O half of GM-NAA I/O?",
+   "a": "The <strong>device driver</strong> — code that knows one piece of hardware's bit-level protocol, written once — and the <strong>system library</strong>, shared code the system provides. The reason you write <code>fs.readFile</code> instead of issuing NVMe commands is a straight line from 1956."
+  },
+  {
+   "n": 24,
+   "c": "node-1",
+   "t": "Node 1 · The resident monitor",
+   "q": "Why did job control cards have to be separate from the program?",
+   "a": "The monitor must read them <em>before</em> the job runs, and it may not be able to parse the job's language at all. So resource limits, accounts, and step definitions live in a small separate language — IBM's JCL, from OS/360 in 1964."
+  },
+  {
+   "n": 25,
+   "c": "node-1",
+   "t": "Node 1 · The resident monitor",
+   "q": "Map a JCL job to a GitHub Actions workflow.",
+   "a": "<code>JOB</code> is the job; account and <code>CLASS=</code> are billing and <code>runs-on</code>; <code>TIME=(,30)</code> is <code>timeout-minutes</code>; <code>EXEC</code> steps are <code>steps</code>; <code>DD</code> statements declaring inputs and outputs are artefacts and <code>needs</code>. It is a pipeline definition file with worse syntax and better error messages."
+  },
+  {
+   "n": 26,
+   "c": "node-1",
+   "t": "Node 1 · The resident monitor",
+   "q": "What is spooling and what general principle does it establish?",
+   "a": "<em>Simultaneous Peripheral Operations On-Line</em>: while job N computes, job N+1's input is read to disk and job N−1's output is printed, all concurrently. The principle: when a fast producer meets a slow consumer, put a queue between them and let each run at its own rate."
+  },
+  {
+   "n": 27,
+   "c": "node-1",
+   "t": "Node 1 · The resident monitor",
+   "q": "What was <em>offline</em> operation and why was it done?",
+   "a": "Using a cheap slow machine (an IBM 1401) to copy card decks onto tape, then carrying the tape to the expensive machine, which could read it far faster. It kept the expensive processor off the card reader's clock."
+  },
+  {
+   "n": 28,
+   "c": "node-1",
+   "t": "Node 1 · The resident monitor",
+   "q": "In what precise sense is a CI runner a resident monitor?",
+   "a": "It is a process that stays alive polling a queue, receives a job, prepares an environment, runs its steps, reports status, tears down, and returns to polling. Patrick and Mock's loop with HTTPS where the tape drive was."
+  },
+  {
+   "n": 29,
+   "c": "node-1",
+   "t": "Node 1 · The resident monitor",
+   "q": "Name three BullMQ design features that are 1956 batch-monitor problems.",
+   "a": "The stalled-job checker with a renewable lock is the crashed-worker problem; <code>attempts</code> and <code>backoff</code> are JCL's <code>COND</code> codes; the job timeout is <code>TIME=</code>. They are not analogous problems — they are the same problems."
+  },
+  {
+   "n": 30,
+   "c": "node-1",
+   "t": "Node 1 · The resident monitor",
+   "q": "What did 1950s spooling not have to solve that your streams do?",
+   "a": "<strong>Backpressure with an unbounded producer.</strong> The tape was finite. An HTTP client reading a response slowly while your server writes fast is an unbounded queue in your heap — which is why <code>write()</code> returning <code>false</code> and the <code>drain</code> event exist and why ignoring them grows memory until the process is killed."
+  },
+  {
+   "n": 31,
+   "c": "node-1",
+   "t": "Node 1 · The resident monitor",
+   "q": "Why does every real cron job need a lock?",
+   "a": "If a run takes longer than the interval, the next starts anyway and you have two. Kubernetes exposes this as <code>concurrencyPolicy: Forbid</code>. The problem is inherent to the batch model, not to cron."
+  },
+  {
+   "n": 32,
+   "c": "node-1",
+   "t": "Node 1 · The resident monitor",
+   "q": "What three things were still broken after the resident monitor?",
+   "a": "The processor still stopped dead whenever a job touched a device (polling); control returned to the monitor only if the job chose to return; and the monitor was ordinary bytes any job could overwrite."
+  },
+  {
+   "n": 33,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "Give the ratio that motivates interrupts, in modern terms.",
+   "a": "A processor executes ~10 billion instructions per second. Main memory is ~80 ns away (hundreds of instructions), an SSD read ~100 µs (a million), a cross-continent round trip ~100 ms (a billion). The gap between the processor and everything else is the central physical fact of computing."
+  },
+  {
+   "n": 34,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "Describe the interrupt mechanism in the fetch-decode-execute loop.",
+   "a": "After completing the current instruction — never halfway, since a half-executed instruction is unrecoverable — and before fetching the next, the processor checks the interrupt line. If raised: save <code>rip</code> and flags, look up the handler address by interrupt number, set <code>rip</code> to it. A return-from-interrupt instruction restores everything."
+  },
+  {
+   "n": 35,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "What is asynchrony, physically?",
+   "a": "A wire, and a rule about checking it between instructions. Code ran in the middle of other code without anything calling it, and the interrupted program has no mechanism by which it could detect that. Every async thing you have written bottoms out here."
+  },
+  {
+   "n": 36,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "What is the IDT and how is it used?",
+   "a": "The Interrupt Descriptor Table: 256 entries on x86, each holding a handler address, with the <code>idtr</code> register pointing at it. The processor uses the interrupt number as an array index. It is a table lookup, nothing more."
+  },
+  {
+   "n": 37,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "Name the three kinds of entry into the kernel that share the IDT.",
+   "a": "<strong>Hardware interrupts</strong> (a device raised a line — asynchronous), <strong>exceptions</strong> (the current instruction could not complete: divide by zero, invalid opcode, page fault — synchronous), and <strong>software interrupts</strong> (a deliberate trap, i.e. a system call). Every transition into the kernel is one of these three."
+  },
+  {
+   "n": 38,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "What is an IRQ and why were conflicts a thing in the 1990s?",
+   "a": "An interrupt request line number, from the Intel 8259 PIC's eight inputs (fifteen when chained). There were only fifteen, so devices had to share or conflict. Modern machines use APIC and PCIe MSI-X, where the signal is a write to a special memory address, allowing dozens of vectors per device."
+  },
+  {
+   "n": 39,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "Why must interrupts be maskable, and what is a critical section?",
+   "a": "Because an interrupt can arrive while a data structure is midway through a multi-step update, and a handler that walks it sees an inconsistent state. <code>cli</code>/<code>sti</code> bracket the region — a critical section. The same problem reappears as every race condition and every database isolation level."
+  },
+  {
+   "n": 40,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "What are top halves and bottom halves, and where do you see the cost?",
+   "a": "The top half is the actual handler: acknowledge the device, note there is work, return. The bottom half — softirqs, tasklets, work queues — does the real processing later with interrupts enabled. You see it as the <code>si</code> column in <code>top</code>; high <code>si</code> on one core is unbalanced interrupt handling."
+  },
+  {
+   "n": 41,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "What is receive livelock, and what fixes it?",
+   "a": "At over a million packets per second the machine does nothing but enter and leave interrupt handlers. The fix inverts the node: the driver disables interrupts and polls, because at high rates polling always finds work. Linux's mechanism is NAPI, switching modes automatically."
+  },
+  {
+   "n": 42,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "State the general rule about interrupts versus polling.",
+   "a": "Interrupts win when events are rare; polling wins when events are dense. The same trade decides WebSocket push versus HTTP polling, database triggers versus batch scans, and filesystem watching versus periodic scanning."
+  },
+  {
+   "n": 43,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "What is DMA and what does it imply about a network interrupt?",
+   "a": "Direct Memory Access: the device writes to main memory itself while the processor does something else. So an interrupt from a network card means <em>the packet is already in memory</em>, not that one is available for fetching. It is also why zero-copy techniques target the remaining software copies."
+  },
+  {
+   "n": 44,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "Trace a packet from the wire to a JavaScript callback.",
+   "a": "NIC reassembles the frame → DMA into a ring buffer → MSI-X interrupt → driver top half schedules a NET_RX softirq → softirq walks Ethernet/IP/TCP and appends to a socket buffer → the socket's wait-queue callback adds its descriptor to an epoll ready list → your process's <code>epoll_wait</code> returns → libuv invokes the C callback → <code>read()</code> → HTTP parser → V8 → your handler."
+  },
+  {
+   "n": 45,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "Your callback ran. Why did it run?",
+   "a": "Because a wire went high. The event loop is not the origin of asynchrony in your system; it is software that organises asynchrony the hardware creates."
+  },
+  {
+   "n": 46,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "What is interrupt coalescing and when does it show up in your measurements?",
+   "a": "Network cards deliberately delay interrupts by tens of microseconds to batch packets (<code>ethtool -c</code>). It contributes to the gap when a client-observed latency exceeds server-side timing plus network transit — together with Nagle's algorithm and delayed ACK, whose interaction produces the classic 40 ms stall that <code>setNoDelay(true)</code> addresses."
+  },
+  {
+   "n": 47,
+   "c": "node-2",
+   "t": "Node 2 · The interrupt",
+   "q": "How is a webhook endpoint that queues a job and returns 202 the same pattern as a network driver?",
+   "a": "It is a top half: get out of the handler fast because the caller times out, and do the real work where you are allowed to take your time. Same pressure, same design, different scale."
+  },
+  {
+   "n": 48,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "Why can protection not be implemented in software?",
+   "a": "Whatever check you write runs as instructions the offending program could jump past, overwrite, or never call. A guard the guarded party can remove is not a guard. Enforcement must be in hardware, below the level any instruction can reach."
+  },
+  {
+   "n": 49,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "What is the mode bit?",
+   "a": "One bit inside the processor — not in memory — holding whether execution is in kernel mode (ring 0) or user mode (ring 3). Certain instructions are declared privileged and raise an exception if decoded in user mode."
+  },
+  {
+   "n": 50,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "Name five privileged instructions on x86-64 and say what each protects.",
+   "a": "<code>cli</code>/<code>sti</code> (interrupts, so a program cannot freeze the machine), <code>lidt</code> (the interrupt table, so it cannot redirect handlers), <code>mov cr3</code> (the page table root, so it cannot remap memory), <code>in</code>/<code>out</code> (hardware ports, so it cannot drive the disk), <code>hlt</code> (stopping the processor)."
+  },
+  {
+   "n": 51,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "Why does the mode bit alone not give isolation?",
+   "a": "An ordinary <code>mov</code> is not privileged, so a user program could still write over kernel memory. Hardware must also check <em>which addresses</em> a program may touch, on every access, from tables only the kernel can modify — first base-and-limit registers, later page tables."
+  },
+  {
+   "n": 52,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "What is a segmentation fault, physically?",
+   "a": "A memory access the hardware refused, raising an exception, whose kernel handler delivers <code>SIGSEGV</code>, whose default action terminates the process. The word segmentation is a fossil from an older memory scheme; the mechanism today is paging."
+  },
+  {
+   "n": 53,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "State the correct model of what the kernel is.",
+   "a": "<strong>Not a process — a mode the processor is in.</strong> Your process executes kernel code, on its own time slice, with the privilege bit raised, and returns. There is no separate kernel process being scheduled."
+  },
+  {
+   "n": 54,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "Given that model, what do <code>us</code> and <code>sy</code> in <code>top</code> mean?",
+   "a": "<code>us</code> is time your process spent executing with the mode bit at user; <code>sy</code> is time <em>your process</em> spent executing kernel code on its own behalf. Both are charged to it — which is why <code>process.cpuUsage()</code> returns user and system separately."
+  },
+  {
+   "n": 55,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "Why does a kernel bug panic the machine while a user-space bug kills one process?",
+   "a": "Because the failing code <em>is</em> the system; there is no process to terminate. That asymmetry is the entire argument for microkernels."
+  },
+  {
+   "n": 56,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "What was Multics and why does its failure matter?",
+   "a": "A 1965 MIT/Bell Labs/GE project for a computing utility shared by mutually untrusting users, with eight hardware-checked protection rings. It was enormous and late; Bell Labs withdrew in 1969, and Thompson and Ritchie then wrote Unix in reaction. Every system you deploy to descends from that withdrawal."
+  },
+  {
+   "n": 57,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "x86 has four rings. Why does everyone use two?",
+   "a": "The paging hardware only distinguishes supervisor from user anyway, and portable kernels cannot rely on an x86-only feature. Rings 1 and 2 sat unused for thirty years until early paravirtualised Xen; hardware virtualisation later added an effective ring −1 for hypervisors."
+  },
+  {
+   "n": 58,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "Why is there no JavaScript that opens a file?",
+   "a": "Opening a file requires talking to a storage controller, which requires privileged instructions, which user-mode code cannot execute. Every capability your runtime appears to have is a request across this boundary, and the complete list of what it can ask for is the syscall table."
+  },
+  {
+   "n": 59,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "Why can <code>process.on('uncaughtException')</code> not save you from a crash in a native addon?",
+   "a": "A bad pointer raises a hardware exception, delivered as <code>SIGSEGV</code>, and the process dies below the level at which V8 has any say. There is no JavaScript stack to unwind because the failure was not in JavaScript."
+  },
+  {
+   "n": 60,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "Why does Chrome run one process per site, and what did it cost?",
+   "a": "Because Spectre showed that software separation inside one process (V8 isolates and contexts) is no defence against a hardware side channel. Site Isolation, fully shipped in Chrome 67 (May 2018), moves the boundary to the hardware one, at roughly 10–13% more memory. It is also why <code>SharedArrayBuffer</code> requires COOP and COEP headers."
+  },
+  {
+   "n": 61,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "How is WebAssembly's security model a re-derivation of this node?",
+   "a": "A Wasm module has one linear memory, every access bounds-checked, no way to form a pointer outside it, and no instruction that reaches the host — only imported functions the host chose to provide, which is a syscall table built in software. WASI makes the resemblance total."
+  },
+  {
+   "n": 62,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "What does <code>--privileged</code> actually grant?",
+   "a": "It stops dropping the capabilities that let a process reconfigure the kernel: loading modules, raw device access, changing interrupt configuration. It is close to giving the container the host. The right fix for a container needing one ability is a single <code>--cap-add</code>."
+  },
+  {
+   "n": 63,
+   "c": "node-3",
+   "t": "Node 3 · Privilege",
+   "q": "eBPF runs user-supplied code in kernel mode. How is that reconciled with this node's rule?",
+   "a": "With a <strong>verifier</strong>: the kernel statically proves the bytecode terminates, that every memory access is in bounds, and that it calls only permitted helpers, before JIT-compiling it. A proof obligation substituting for a hardware boundary."
+  },
+  {
+   "n": 64,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "What is the asymmetry that makes the syscall design work?",
+   "a": "The user program controls <em>when</em> the crossing happens; it does not control <em>where</em> it lands. One instruction switches the mode bit and jumps to one address the kernel registered in advance."
+  },
+  {
+   "n": 65,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "Give the Linux x86-64 syscall ABI.",
+   "a": "Number in <code>rax</code>; arguments in <code>rdi</code>, <code>rsi</code>, <code>rdx</code>, <code>r10</code>, <code>r8</code>, <code>r9</code>; the <code>syscall</code> instruction; result in <code>rax</code>, where a value between −1 and −4095 is a negated errno."
+  },
+  {
+   "n": 66,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "Write <code>console.log(\"hi\")</code> as machine-level operations.",
+   "a": "<code>mov rax,1</code> (write); <code>mov rdi,1</code> (stdout); <code>mov rsi,message</code>; <code>mov rdx,2</code>; <code>syscall</code>. Every layer above — V8, Node bindings, libuv, glibc — exists to arrange those five lines."
+  },
+  {
+   "n": 67,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "Why must the kernel switch to a separate stack on entry?",
+   "a": "Trusting the user's stack pointer would let a program point it at kernel memory. Each process has a small kernel stack (typically 16 KB) used only while executing kernel code on its behalf."
+  },
+  {
+   "n": 68,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "Why does the kernel never dereference a user pointer directly?",
+   "a": "A program can pass any address, including a kernel address, so a direct dereference would let any process read kernel memory via <code>read()</code>. All user memory goes through <code>copy_from_user</code>/<code>copy_to_user</code>, which validate ranges and handle faults — the most security-critical code in the kernel."
+  },
+  {
+   "n": 69,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "What does a syscall cost, and what made it worse?",
+   "a": "Roughly 50–100 ns. KPTI, the Meltdown mitigation from January 2018, unmaps kernel memory from the user page table so every crossing also reloads the page table root and disturbs address translation — five to thirty percent on syscall-heavy workloads."
+  },
+  {
+   "n": 70,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "What is Linux's stable ABI, and how does Windows differ?",
+   "a": "On Linux the <strong>syscall interface</strong> is permanent — Torvalds's rule that userspace is never broken. On Windows syscall numbers change between builds and the stable contract is one level up in <code>ntdll.dll</code>/<code>kernel32.dll</code>. This is why a static Go binary works in a <code>FROM scratch</code> container."
+  },
+  {
+   "n": 71,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "Distinguish a library function from a system call, with an example of each and one that is both.",
+   "a": "<code>strlen</code> runs entirely in user mode. <code>write</code> must enter the kernel. <code>printf</code> is a library function that formats into a user buffer and calls <code>write</code> when the buffer fills or a newline appears."
+  },
+  {
+   "n": 72,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "Why do logs sometimes stop just before a crash?",
+   "a": "Buffering. Output to a pipe or file is fully buffered (typically 4 KB) rather than line-buffered as to a terminal, so the last chunk is lost when the process dies abruptly. Every language has a version of this."
+  },
+  {
+   "n": 73,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "State the principle that explains buffered I/O, epoll, sendfile, writev and io_uring at once.",
+   "a": "A system call costs far more than an instruction, so software batches work in user space to make fewer of them."
+  },
+  {
+   "n": 74,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "Map five Node APIs to the syscalls they make.",
+   "a": "<code>fs.readFile</code> → <code>openat</code>/<code>read</code>/<code>close</code> on a threadpool thread; <code>net</code>/<code>http</code> → <code>socket</code>/<code>bind</code>/<code>listen</code>/<code>accept4</code>/<code>read</code>/<code>write</code> driven by epoll; <code>setTimeout</code> → no syscall, just the timeout argument to <code>epoll_wait</code>; <code>spawn</code> → <code>clone</code>/<code>execve</code>/<code>pipe2</code>/<code>waitpid</code>; <code>crypto.pbkdf2</code> → no syscall at all, pure computation on the threadpool."
+  },
+  {
+   "n": 75,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "Why is <code>process.stdout</code> synchronous to a terminal and asynchronous to a pipe?",
+   "a": "A terminal or file will not block for long, so Node does the <code>write</code> inline. A pipe can block indefinitely on a slow reader, so it is made non-blocking and buffered. Consequences: heavy logging in a terminal costs a syscall per call, and output can be lost on an abrupt exit under Docker where stdout is a pipe."
+  },
+  {
+   "n": 76,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "What is seccomp and how does Docker use it?",
+   "a": "A filter — a small kernel-checked program — inspecting each syscall's number and arguments to allow, deny or kill. Docker's default profile blocks about 44 of ~350 calls including <code>mount</code> and module loading, which is why some tooling gets an unexplained <code>EPERM</code>. Kubernetes exposes it as <code>seccompProfile: RuntimeDefault</code>."
+  },
+  {
+   "n": 77,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "How does gVisor work, and why is it slower?",
+   "a": "It implements the Linux syscall interface in a user-mode process (Sentry) and services a container's calls there, so an escape must break Sentry first. It works because this interface is the <em>complete</em> boundary. It is slower because each syscall becomes several real crossings."
+  },
+  {
+   "n": 78,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "Give a concrete case where syscall count is the performance problem.",
+   "a": "<code>fs.appendFileSync</code> per log line makes <code>openat</code>, <code>write</code> and <code>close</code> each time — three crossings per line. Holding the descriptor and batching makes one per batch. At scale this is the difference between logging costing one percent of your loop and twenty."
+  },
+  {
+   "n": 79,
+   "c": "node-4",
+   "t": "Node 4 · The system call",
+   "q": "What does <code>strace -c -f</code> tell you that a profiler will not?",
+   "a": "How many of each system call the process made and how much time went into each. An idle Node server is one blocked <code>epoll_wait</code>; a loaded one is <code>epoll_wait</code>, a burst of <code>read</code>/<code>write</code>/<code>futex</code>, and back. It is the runtime made visible."
+  },
+  {
+   "n": 80,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "Distinguish a program from a process.",
+   "a": "A program is a passive file on disk. A process is that program in execution plus every piece of state the execution needs and every resource it holds. One program can have many processes; the file is a recipe, the process is the cooking."
+  },
+  {
+   "n": 81,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "List what the kernel keeps for a process.",
+   "a": "Identity (pid, ppid, group, session); saved registers; a memory map and page tables; the open file descriptor table; credentials; signal state; filesystem context (cwd, root, umask); scheduling state; resource limits and accounting; and namespace and cgroup pointers. In Linux this is <code>struct task_struct</code>, about 10 KB."
+  },
+  {
+   "n": 82,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "Why must <code>cd</code> be a shell builtin rather than a program?",
+   "a": "The current working directory is per-process kernel state. A child process cannot change its parent's, so a separate <code>cd</code> program would change its own directory and exit."
+  },
+  {
+   "n": 83,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "What do the process states R, S, D, T and Z mean?",
+   "a": "R running or runnable; S interruptible sleep (waiting, wakeable by a signal — where most processes are); D uninterruptible sleep (inside the kernel at a point where waking would corrupt state); T stopped by a signal; Z zombie — finished but its exit status not yet collected."
+  },
+  {
+   "n": 84,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "Why can you not kill a process in D state, even with <code>kill -9</code>?",
+   "a": "It is inside the kernel holding state that signal delivery would corrupt, typically partway through a disk or network filesystem operation. It leaves D when the operation completes; if it never completes — a hung NFS mount, a detached block device — it never leaves. Fix the device or reboot."
+  },
+  {
+   "n": 85,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "Why can a machine with idle processors show a load average of 40?",
+   "a": "Linux load average counts running <em>and</em> uninterruptibly-sleeping tasks. A stuck storage device puts many tasks in D state. Load average is not a CPU metric on Linux."
+  },
+  {
+   "n": 86,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "What is a zombie, why can you not kill one, and how do you clear them?",
+   "a": "A finished process whose <code>task_struct</code> remains because its parent has not called <code>wait()</code>. It is already dead — you cannot kill it. You fix or kill the parent, at which point PID 1 inherits and reaps them. A loop that never reaps eventually exhausts the PID space."
+  },
+  {
+   "n": 87,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "What happens to children when their parent dies?",
+   "a": "They are reparented to PID 1 (or the nearest subreaper) and keep running. This is how a process survives the terminal that started it."
+  },
+  {
+   "n": 88,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "Why did Unix split process creation into <code>fork</code> and <code>execve</code>?",
+   "a": "The gap between them is a place where the child can adjust itself with ordinary calls — redirect output, drop privileges, change directory, close descriptors, join namespaces — before the new program starts. Shell redirection, pipes and container setup all live in that gap."
+  },
+  {
+   "n": 89,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "Because a Node server is one process, name four things every request handler shares.",
+   "a": "One file descriptor table (so all connections share the limit), one address space (so a leak anywhere affects everything), one set of credentials, and one cgroup budget. Plus: a native crash takes all in-flight requests. That blast radius, not raw throughput, is the honest reason to run several processes."
+  },
+  {
+   "n": 90,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "Why do cluster workers share no cache, no counter and no session state?",
+   "a": "Because separate processes have separate address spaces by definition. That single fact forces Redis into more architectures than any other consideration."
+  },
+  {
+   "n": 91,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "How does <code>cluster</code> let several processes accept on one port?",
+   "a": "The primary creates the listening socket and passes the descriptor to the children over a Unix socket — possible because a descriptor is a per-process number pointing at a kernel object. Since Node 0.12 the primary round-robins connections, because kernel-level distribution was badly unbalanced."
+  },
+  {
+   "n": 92,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "Contrast cluster with <code>worker_threads</code> in one sentence each.",
+   "a": "Cluster gives isolation: separate processes, separate heaps, separate everything, a crash contained. Workers give sharing: one process, one descriptor table, one PID, separate V8 isolates but transferable buffers and <code>SharedArrayBuffer</code> — and a V8 crash kills everything."
+  },
+  {
+   "n": 93,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "Why is your container's entrypoint special?",
+   "a": "It is PID 1 in its PID namespace, so the kernel does not deliver signals with default actions to it, and it is expected to reap orphans. A plain <code>node index.js</code> with no <code>SIGTERM</code> handler ignores <code>docker stop</code> and is <code>SIGKILL</code>ed ten seconds later."
+  },
+  {
+   "n": 94,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "Why do <code>--init</code> and <code>tini</code> exist?",
+   "a": "Because Node does not reap orphans, and PID 1 is expected to. A container that shells out to subprocesses accumulates zombies without a proper init as PID 1."
+  },
+  {
+   "n": 95,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "Define a Kubernetes pod in terms of a process's state.",
+   "a": "A set of containers sharing some parts of that state — the network namespace (hence <code>localhost</code>, hence they cannot both bind port 3000) and optionally the PID namespace — but not the filesystem unless a volume is mounted into both."
+  },
+  {
+   "n": 96,
+   "c": "node-5",
+   "t": "Node 5 · The process",
+   "q": "Name five files under <code>/proc/&lt;pid&gt;/</code> and what each answers.",
+   "a": "<code>status</code> (state, threads, RSS, context switches), <code>fd/</code> (every open descriptor as a symlink — the leak diagnosis), <code>maps</code> (the address space), <code>limits</code> (effective resource limits), <code>cmdline</code> (arguments). Reading those five tells you more in thirty seconds than most instrumentation."
+  },
+  {
+   "n": 97,
+   "c": "node-6",
+   "t": "Node 6 · The context switch",
+   "q": "Why is a process unable to detect that it was context-switched?",
+   "a": "Its entire execution state is its registers, and they were restored exactly. It has no mechanism by which it could notice — only by reading a clock and seeing time passed."
+  },
+  {
+   "n": 98,
+   "c": "node-6",
+   "t": "Node 6 · The context switch",
+   "q": "List the steps of a context switch.",
+   "a": "Enter the kernel (always — via syscall, interrupt or timer); save the user registers; save the kernel-side state into the outgoing task; choose the next task; load its page table root into <code>cr3</code>; switch kernel stacks and restore its registers; return to user mode."
+  },
+  {
+   "n": 99,
+   "c": "node-6",
+   "t": "Node 6 · The context switch",
+   "q": "What is the direct cost of a context switch, and what is the indirect cost?",
+   "a": "Direct: roughly 1–3 µs of instructions. Indirect and larger: the incoming process finds cold L1/L2 caches, a disturbed TLB, and branch predictors describing the wrong program — so it runs at a fraction of full speed until they refill. Several to tens of microseconds all-in."
+  },
+  {
+   "n": 100,
+   "c": "node-6",
+   "t": "Node 6 · The context switch",
+   "q": "Why is a thread switch cheaper than a process switch — precisely which step is skipped?",
+   "a": "The <code>cr3</code> load. Threads share an address space, so the page table does not change, the TLB is not disturbed, and the caches likely still hold shared data. That is the entire difference."
+  },
+  {
+   "n": 101,
+   "c": "node-6",
+   "t": "Node 6 · The context switch",
+   "q": "What do voluntary and nonvoluntary context switch counts tell you?",
+   "a": "Voluntary means the process gave up the processor because it had nothing to do — normal and high for an I/O-bound service. Nonvoluntary means the kernel took it away because a slice expired or something more urgent appeared — a rising count means it wants more CPU than it is getting, from competition or a cgroup quota. Both in <code>/proc/&lt;pid&gt;/status</code>."
+  },
+  {
+   "n": 102,
+   "c": "node-6",
+   "t": "Node 6 · The context switch",
+   "q": "Give the arithmetic argument for the event loop.",
+   "a": "Thread-per-connection pays a context switch per event: microseconds, with cold caches, plus ~100 KB of memory per connection. One thread handling many connections replaces the switch with a <em>function call</em>: nanoseconds, warm caches, no page table change. Three orders of magnitude, and that is the whole thesis."
+  },
+  {
+   "n": 103,
+   "c": "node-6",
+   "t": "Node 6 · The context switch",
+   "q": "What does the event loop's advantage explicitly not claim?",
+   "a": "Anything about being faster at computation. It wins on concurrency of waiting and loses on parallelism of computing."
+  },
+  {
+   "n": 104,
+   "c": "node-6",
+   "t": "Node 6 · The context switch",
+   "q": "Why is <code>max_connections</code> in Postgres typically 100–200 rather than 10,000?",
+   "a": "Postgres uses one OS process per connection, so each costs a <code>task_struct</code>, several megabytes of private memory, and a scheduler entry. A few hundred is a heavy load on the machine. Hence connection pools, and hence pgbouncer multiplexing thousands of clients onto dozens of real connections."
+  },
+  {
+   "n": 105,
+   "c": "node-6",
+   "t": "Node 6 · The context switch",
+   "q": "Why does raising <code>UV_THREADPOOL_SIZE</code> above your core count not add capacity for crypto work?",
+   "a": "More runnable threads than cores means the kernel rotates them, paying the full switch cost while doing no extra work. The correct bound is cores for CPU-bound work; it may exceed cores for genuinely blocking work. Tell them apart by whether the threads sit in R or in D."
+  },
+  {
+   "n": 106,
+   "c": "node-6",
+   "t": "Node 6 · The context switch",
+   "q": "What does the <code>cs</code> column in <code>vmstat 1</code> indicate when it is very high?",
+   "a": "Hundreds of thousands of switches per second on a machine that is not obviously busy means thrashing: too many threads, lock contention, or a poll loop with a tiny timeout."
+  },
+  {
+   "n": 107,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "What single piece of hardware makes preemption possible?",
+   "a": "A programmable interval timer raising an interrupt at a fixed rate. Control then enters the kernel regardless of what the program was doing, and the program cannot prevent it because <code>cli</code> is privileged."
+  },
+  {
+   "n": 108,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "What is the historical difference between cooperative and preemptive multitasking?",
+   "a": "Cooperative (classic Mac OS through 9, Windows 3.x) meant a program kept the processor until it yielded, so one bad application froze the machine. Preemptive means the kernel can take it back. Everything mainstream has been preemptive for twenty-five years — except the JavaScript event loop."
+  },
+  {
+   "n": 109,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "Name the five scheduling goals that conflict.",
+   "a": "Throughput (favours long slices), latency (favours short ones), fairness, priority (opposes fairness), and interactivity (a process that just got a keystroke should run now despite having no fairness claim)."
+  },
+  {
+   "n": 110,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "What did CTSS's multi-level feedback queue infer, and how?",
+   "a": "Which processes are interactive — from behaviour rather than declaration. A process using its whole slice is moved down (compute-bound, longer slice, less often); one that blocks early stays high. MIT, ~1961, Corbató."
+  },
+  {
+   "n": 111,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "Explain CFS in one sentence, plus how it handles wake-ups.",
+   "a": "Every task carries a <code>vruntime</code> scaled by its weight, tasks live in a red-black tree ordered by it, and the scheduler always runs the smallest; a waking task is given a <code>vruntime</code> just below the tree's minimum so it runs almost immediately — interactivity falls out of the model rather than being a special case."
+  },
+  {
+   "n": 112,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "What does one <code>nice</code> level change?",
+   "a": "Roughly ten percent of processor share — each step scales the task's weight by about 1.25. Range −20 to +19. <code>nice -n 19 npm run build</code> on a machine also serving traffic is a real and underused move."
+  },
+  {
+   "n": 113,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "Name Linux's scheduling classes in priority order.",
+   "a": "<code>SCHED_DEADLINE</code>, then the real-time classes <code>SCHED_FIFO</code>/<code>SCHED_RR</code> (priorities 1–99, which preempt everything below and can hang a machine — hence <code>sched_rt_runtime_us</code> reserving 5%), then <code>SCHED_OTHER</code> (fair share, where everything you run lives), then <code>SCHED_BATCH</code> and <code>SCHED_IDLE</code>."
+  },
+  {
+   "n": 114,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "Why are there per-core run queues, and what problem does that create?",
+   "a": "A single global queue would need a lock contended by every core on every decision. Per-core queues mean cores can idle while another is backed up, so a load balancer migrates tasks — reluctantly, because migration costs cache locality, and on a NUMA machine crossing sockets can halve memory performance."
+  },
+  {
+   "n": 115,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "What is priority inversion, and what real incident is the standard example?",
+   "a": "A low-priority task holds a lock a high-priority task needs, and a medium-priority task preempts the low one — so the high-priority task is blocked by one it outranks. Mars Pathfinder, July 1997, resetting on the surface. The fix uploaded to the spacecraft was priority inheritance."
+  },
+  {
+   "n": 116,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "Correct the claim that Node uses one core.",
+   "a": "Your JavaScript runs on one thread, so one Node process executes at most one of your functions at a time. The process also has libuv threadpool threads and V8 compiler and GC threads, which the kernel scheduler will run on other cores — so a Node process routinely exceeds 100% CPU."
+  },
+  {
+   "n": 117,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "Explain the two-stacked-schedulers framing.",
+   "a": "The kernel scheduler is preemptive and arbitrates between processes and threads; the event loop is a scheduler too, deciding which callback runs next, but it is cooperative and regains control only when a callback returns. A 400 ms synchronous handler is a failure of the second, not the first — which is why the machine stays healthy while every other request in that process waits."
+  },
+  {
+   "n": 118,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "In what sense is React's concurrent renderer this node reimplemented?",
+   "a": "It slices work into units, yields to the browser roughly every 5 ms via <code>shouldYield()</code>, assigns work to lanes by priority, and lets a keystroke interrupt a low-priority render. <code>startTransition</code> is <code>nice</code>; <code>requestIdleCallback</code> is <code>SCHED_IDLE</code>; <code>scheduler.postTask</code> is priority scheduling on the platform."
+  },
+  {
+   "n": 119,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "Distinguish a Kubernetes CPU request from a CPU limit at the kernel level.",
+   "a": "A request becomes a cgroup <em>weight</em> — a relative share that only matters under contention. A limit becomes a <em>quota</em>: at most N ms of CPU per 100 ms period, enforced by stopping every thread in the container until the next period, even on an idle machine."
+  },
+  {
+   "n": 120,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "What is the symptom of CPU throttling, and where is the evidence?",
+   "a": "Latency spikes at moderate average utilisation with no corresponding CPU graph. Evidence: <code>nr_throttled</code> and <code>throttled_usec</code> climbing in <code>/sys/fs/cgroup/cpu.stat</code>, and rising <code>nonvoluntary_ctxt_switches</code>."
+  },
+  {
+   "n": 121,
+   "c": "node-7",
+   "t": "Node 7 · The scheduler",
+   "q": "Why does <code>os.cpus().length</code> lie inside a container?",
+   "a": "<code>/proc/cpuinfo</code> is not namespaced, so it reports the host's cores. Limits live in cgroup files, not in <code>/proc</code>. Use <code>os.availableParallelism()</code> (Node 18.14+)."
+  },
+  {
+   "n": 122,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "Why do two computers left alone disagree about the time?",
+   "a": "Every clock descends from a quartz crystal accurate to perhaps 20 parts per million — about 1.7 seconds of drift per day — and its rate changes with temperature. Disagreement is physical, not a software defect."
+  },
+  {
+   "n": 123,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "Name the machine's clock sources and what each is for.",
+   "a": "The battery-backed RTC, read once at boot to initialise the system clock; the PIT and HPET, programmable timers that raise interrupts; and the TSC, a cycle counter readable in a couple of nanoseconds without entering the kernel, used for all high-resolution timing once processors gained an invariant, cross-core-synchronised version."
+  },
+  {
+   "n": 124,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "What is a tickless kernel and why did it happen?",
+   "a": "Rather than a fixed HZ drumbeat, the kernel programs the timer for whenever the next thing is actually due. A fixed 1000 Hz tick meant a thousand interrupts a second even when idle — bad for battery, and catastrophic on a virtualisation host running two hundred idle guests."
+  },
+  {
+   "n": 125,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "Distinguish <code>CLOCK_REALTIME</code> from <code>CLOCK_MONOTONIC</code>.",
+   "a": "<code>CLOCK_REALTIME</code> is wall-clock time since the 1970 epoch and <strong>can jump forwards or backwards</strong> when an administrator or NTP corrects it. <code>CLOCK_MONOTONIC</code> only increases and is meaningless as a date. Durations must use the monotonic one."
+  },
+  {
+   "n": 126,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "Why is <code>Date.now() - start</code> a bug?",
+   "a": "It is a wall clock. An NTP correction mid-measurement can make the duration wrong or negative, which then flows into code assuming non-negative. Use <code>performance.now()</code> or <code>process.hrtime.bigint()</code>."
+  },
+  {
+   "n": 127,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "What is the difference between slewing and stepping a clock?",
+   "a": "Stepping jumps to the correct value, making time discontinuous. Slewing changes the clock's rate slightly until it catches up, keeping it monotonic. Standard practice is slew small corrections, step large ones; <code>chrony</code> converges much faster than the original <code>ntpd</code>, which matters on virtual machines."
+  },
+  {
+   "n": 128,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "What happened on 30 June 2012 and what is leap smearing?",
+   "a": "A leap second triggered a Linux <code>hrtimer</code> livelock spiking CPU to 100% across huge numbers of machines and hanging Java applications; Reddit, Mozilla and Qantas's booking system went down. Leap smearing, now widespread, spreads the extra second over a 24-hour window as a tiny rate change so no discontinuity occurs."
+  },
+  {
+   "n": 129,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "What is the vDSO and what does it explain about <code>strace</code>?",
+   "a": "A page of kernel-maintained code and data mapped read-only into every process, so <code>clock_gettime</code> reads the TSC and applies the parameters entirely in user mode, at ~20 ns and with no system call. It is why <code>Date.now()</code> shows no syscall in <code>strace</code>, and it appears as <code>[vdso]</code> in <code>/proc/&lt;pid&gt;/maps</code>."
+  },
+  {
+   "n": 130,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "What exactly does <code>setTimeout(fn, 1000)</code> promise?",
+   "a": "A minimum, never a maximum. The timer fires only when the loop reaches its timers phase, so a running callback delays it, machine load delays it, and kernel granularity adds more. 1400 ms under load is not a bug."
+  },
+  {
+   "n": 131,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "Why is <code>setTimeout(fn, 0)</code> not immediate?",
+   "a": "It is clamped — 1 ms in Node, and in browsers 4 ms once five nested timeouts have accumulated, a rule from 2010 because sites used it as a busy loop. For after-this-callback use a microtask; for after-I/O use <code>setImmediate</code>."
+  },
+  {
+   "n": 132,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "What happens to timers in a background browser tab?",
+   "a": "Throttled to roughly once per second, and since Chrome 88 to once per minute after five minutes hidden. A <code>setInterval</code> poll stops and then bursts on return — which is why <code>visibilitychange</code>, SSE/WebSocket push, and <code>refetchOnWindowFocus</code> exist."
+  },
+  {
+   "n": 133,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "Contrast the failure modes of <code>setInterval</code> and a self-rescheduling <code>setTimeout</code>.",
+   "a": "<code>setInterval</code> schedules from a fixed base, so async work taking longer than the interval produces overlapping executions — two requests in flight, or double processing. A <code>setTimeout</code> rescheduled at the end of the work cannot overlap but drifts by the work's duration each round. Choose knowing which failure you prefer."
+  },
+  {
+   "n": 134,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "Why does a JWT library have a <code>clockTolerance</code> option?",
+   "a": "Because <code>nbf</code> and <code>exp</code> are wall-clock seconds and the issuing and verifying servers' clocks differ. A token issued by a server 30 seconds ahead is not yet valid to the verifier, failing with an error that reads like a code bug. TOTP and TLS certificate validation have the same problem."
+  },
+  {
+   "n": 135,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "Distinguish Postgres <code>now()</code> from <code>clock_timestamp()</code>, and <code>timestamp</code> from <code>timestamptz</code>.",
+   "a": "<code>now()</code> returns the transaction start time and does not change within it; <code>clock_timestamp()</code> reads the actual clock each call. <code>timestamptz</code> stores an absolute instant in UTC; <code>timestamp</code> stores a wall-clock reading with no zone, which becomes unrecoverably ambiguous at a daylight-saving transition."
+  },
+  {
+   "n": 136,
+   "c": "node-8",
+   "t": "Node 8 · Time",
+   "q": "Why can timestamps not order events across machines, and what is used instead?",
+   "a": "Clocks differ by milliseconds at best, so A's 10:00:00.100 and B's 10:00:00.050 tell you nothing about order. Systems use logical clocks (Lamport, vector), hybrid logical clocks, or Spanner's TrueTime, which returns a bounded interval and waits out the uncertainty. Practically: database sequences or ULID/Snowflake IDs, never client timestamps, and never last-write-wins by wall clock unless you accept discarding newer writes."
+  },
+  {
+   "n": 137,
+   "c": "node-9",
+   "t": "Node 9 · Physical memory",
+   "q": "What is the relocation problem?",
+   "a": "A compiler bakes absolute addresses into machine code, but the loader does not know where in physical memory the process will sit. Static relocation rewrites every address at load time (slow, and the copy cannot then be moved or shared); dynamic relocation adds a hardware base register to every address, so the program is compiled as if starting at zero."
+  },
+  {
+   "n": 138,
+   "c": "node-9",
+   "t": "Node 9 · Physical memory",
+   "q": "What is external fragmentation, with a concrete example?",
+   "a": "Free memory exists but not in one contiguous piece. Load processes of 100, 300, 200 and 400 MB in a 1 GB machine, exit the second and fourth: 700 MB is free in pieces of 300 and 400, and a 500 MB process cannot start."
+  },
+  {
+   "n": 139,
+   "c": "node-9",
+   "t": "Node 9 · Physical memory",
+   "q": "Why is compaction not the answer to fragmentation?",
+   "a": "It means copying gigabytes while every affected process is stopped. Allocation policies (first-fit, best-fit, worst-fit) reduce but never eliminate the problem."
+  },
+  {
+   "n": 140,
+   "c": "node-9",
+   "t": "Node 9 · Physical memory",
+   "q": "What were overlays and why do they matter to this chain?",
+   "a": "Programmers manually splitting a program into pieces and writing code to load one over another, ensuring no two mutually-calling pieces were swapped out together. It was a hated part of the job into the 1970s and is the reason virtual memory was pursued so hard."
+  },
+  {
+   "n": 141,
+   "c": "node-9",
+   "t": "Node 9 · Physical memory",
+   "q": "State the five requirements Node 9's failures impose on any memory design.",
+   "a": "Translate program addresses to physical ones in hardware; check permissions on every access; place memory non-contiguously so fragmentation cannot block; let a process exceed physical memory without programmer effort; and let two processes share the same physical memory."
+  },
+  {
+   "n": 142,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "State the paging idea in one sentence, and say which of Node 9's failures it kills.",
+   "a": "Cut the address space into fixed-size pages and physical memory into frames of the same size, and let any page map to any frame. All five: fragmentation dies, protection is per-page, sharing is two tables pointing at one frame, and a page can be marked absent and fetched on demand."
+  },
+  {
+   "n": 143,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "Why 4096 bytes?",
+   "a": "A balance: smaller pages waste less on the final partial page but need far more table entries; larger waste more and make transfers coarser. The VAX chose it in 1977 and it has survived a factor of a million in memory sizes, mostly because changing it would break too much."
+  },
+  {
+   "n": 144,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "How is a virtual address translated, and why is it not a search?",
+   "a": "The address is cut in two. With 4 KB pages the low 12 bits are the offset within the page, passed through untouched; the upper bits index the table. Translation is an array index and a concatenation — gate delays, not a search."
+  },
+  {
+   "n": 145,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "Why is the x86-64 page table four levels of nine bits?",
+   "a": "Nine bits indexes 512 entries; 512 entries of 8 bytes is exactly 4096 bytes — one page. Every level of the tree is itself one page. 48 bits of address = 9+9+9+9 plus a 12-bit offset."
+  },
+  {
+   "n": 146,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "What are the two facts that together constitute memory isolation?",
+   "a": "Changing <code>cr3</code> changes the meaning of every address in the machine, and only the kernel can execute that instruction."
+  },
+  {
+   "n": 147,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "Name the page table entry flags and what each enables.",
+   "a": "Present (is it in memory — if not the rest of the entry is free for the kernel's own bookkeeping); Writable (clearing it on a shared page gives copy-on-write); User/supervisor (how kernel memory is mapped everywhere yet unreachable); Accessed and Dirty (set by hardware, read by the kernel to choose evictions and writebacks); NX (non-executable, added by AMD in 2003, which is why shellcode on the stack no longer works and why a JIT needs special pages)."
+  },
+  {
+   "n": 148,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "Why does a four-level table not cost four extra memory accesses?",
+   "a": "The TLB caches recent translations — 64 to 1536 entries, fully associative — with hit rates well above 99% on ordinary code, because programs touch the same pages repeatedly."
+  },
+  {
+   "n": 149,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "What problem do huge pages solve, and why do databases often disable transparent huge pages?",
+   "a": "A large randomly-accessed working set misses the TLB constantly; one 2 MB page covers 512 times as much memory per entry, so a 32 GB Postgres buffer pool needs vastly fewer. But <em>transparent</em> huge pages defragment in the background, causing latency spikes — which is why MongoDB and Redis tell you to turn THP off."
+  },
+  {
+   "n": 150,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "List the six situations a single page fault can represent.",
+   "a": "Valid but not in memory (read it in — a major fault); valid and in memory but not mapped here (a minor fault); first touch of freshly allocated memory (find and zero a frame); a write to a copy-on-write page; growth just below the stack; or genuinely not part of this process — <code>SIGSEGV</code>."
+  },
+  {
+   "n": 151,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "Why is it significant that all six are the same hardware event?",
+   "a": "Lazy allocation, demand loading, copy-on-write, growable stacks, memory-mapped files and segmentation faults are one mechanism distinguished only by kernel bookkeeping. It is the most elegant thing in the operating system."
+  },
+  {
+   "n": 152,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "How do you distinguish major from minor faults, and what does a rising major count mean?",
+   "a": "<code>ps -o min_flt,maj_flt</code> or <code>pidstat -r</code>. Minor faults in the millions are normal and cheap. Major faults climbing in steady state means the machine is fetching pages from disk to run — thrashing — and it will show as latency no application profiler can explain."
+  },
+  {
+   "n": 153,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "Define VSZ, RSS and PSS, and say which one matters.",
+   "a": "VSZ is total mapped address space — what the process asked for, including regions never touched. RSS is how many of those pages are actually resident — what it is using, and what a container limit and the OOM killer count. PSS divides shared pages among their sharers, so it is the honest number when summing across a process tree."
+  },
+  {
+   "n": 154,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "Why is a Node process's VSZ often several gigabytes, and should you care?",
+   "a": "V8 reserves large regions of address space it may never populate, and address space is free on 64 bits. No — RSS is the number that consumes a resource."
+  },
+  {
+   "n": 155,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "What is ASLR and what does it cost you when debugging?",
+   "a": "Randomising the addresses of stack, heap, libraries and the executable on every run so an attacker cannot predict where to jump. It is why native crash addresses differ every time and why symbolising a core dump requires knowing load addresses; <code>randomize_va_space</code> turns it off for debugging."
+  },
+  {
+   "n": 156,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "Why does V8 use pointer compression, and what does it cap?",
+   "a": "Object references are stored as 32-bit offsets from a base: half the memory for pointers, and twice as many pointers per cache line so pointer-chasing misses half as often. It caps a single V8 heap at 4 GB of compressed address space — the real reason <code>--max-old-space-size</code> above ~4096 does nothing useful."
+  },
+  {
+   "n": 157,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "What is a memory-mapped file and name three places it appears in your stack.",
+   "a": "Mapping a file's contents into the address space so reading it is reading memory, with pages faulting in on demand and shared through the page cache. SQLite and LMDB use it as their primary access method; V8 maps its startup snapshot (which is why Node starts in tens of milliseconds); and twenty containers from one image share the executable's text pages."
+  },
+  {
+   "n": 158,
+   "c": "node-10",
+   "t": "Node 10 · Virtual memory",
+   "q": "Why is a <code>Float64Array</code> of a million numbers so much faster to loop over than a million <code>{x,y}</code> objects?",
+   "a": "Eight megabytes of contiguous, prefetchable memory versus a million pointers to a million scattered allocations, each access a potential cache miss at ~80 ns. Factors of five to twenty on numeric loops, and it is the memory hierarchy, not V8 being clever or stupid. It is also why columnar databases exist."
+  },
+  {
+   "n": 159,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "Sketch a process's address space from high to low.",
+   "a": "Kernel space (mapped everywhere, supervisor-only); the stack, growing down; an unmapped gap; the mmap region (shared libraries, large allocations, mapped files, thread stacks); another gap; the heap, growing up; <code>.bss</code>, <code>.data</code>, <code>.rodata</code>, <code>.text</code>; and page zero, deliberately unmapped."
+  },
+  {
+   "n": 160,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "Why does dereferencing null produce a fault rather than reading garbage?",
+   "a": "Page zero is deliberately left unmapped. The safety of null is a page-table decision."
+  },
+  {
+   "n": 161,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "What is W^X, and what must a JIT do about it?",
+   "a": "No region is both writable and executable, enforced by the NX bit — which stops classical shellcode injection. V8 must break it: allocate pages, write machine code, flip them to executable, keeping the window narrow. Where it is forbidden entirely (iOS outside Safari, hardened kernels), JavaScript engines fall back to an interpreter and run several times slower."
+  },
+  {
+   "n": 162,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "Why do the stack and the heap grow toward each other?",
+   "a": "A convention from when a process had one contiguous region: putting them at opposite ends let either grow into the shared middle. The unmapped gaps mean overgrowth faults instead of silently overwriting a neighbour."
+  },
+  {
+   "n": 163,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "What is a stack frame and what is a stack trace?",
+   "a": "A frame holds one active call's locals, its extra arguments, and the return address; calling pushes, returning pops, and <code>rsp</code> points at the top. A stack trace is that chain walked."
+  },
+  {
+   "n": 164,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "Why do you see <code>RangeError: Maximum call stack size exceeded</code> rather than a segmentation fault?",
+   "a": "V8 imposes its own smaller limit (~1 MB) and checks it on function entry so it can throw a catchable JavaScript error before the hardware guard page is reached. Hence ~10–12,000 frames rather than a hundred thousand, varying with locals per frame."
+  },
+  {
+   "n": 165,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "Why is raising <code>--stack-size</code> past the OS stack a bad trade?",
+   "a": "It turns a catchable <code>RangeError</code> into a hard segmentation fault. Deep recursion in JavaScript is a design problem — engines still do not implement proper tail calls outside Safari — so the fix is an explicit stack, a queue, or iteration."
+  },
+  {
+   "n": 166,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "What are the only two ways a program gets more memory?",
+   "a": "<code>brk</code>/<code>sbrk</code>, which moves a single heap-top pointer (so memory returns only from the top), and <code>mmap</code>, which requests a region of address space with stated properties and is what everything modern uses."
+  },
+  {
+   "n": 167,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "Name the four kinds of <code>mmap</code> and one use of each.",
+   "a": "Anonymous private (plain memory — a large malloc, a JavaScript heap); file-backed private (an executable's data section, copy-on-write); file-backed shared (mmap I/O and shared memory between unrelated processes); anonymous shared (state shared between a process and its children, and <code>/dev/shm</code>)."
+  },
+  {
+   "n": 168,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "Why is <code>MAP_ANONYMOUS</code> memory guaranteed zero-filled?",
+   "a": "Security, not convenience: without it a fresh allocation could contain another process's freed data. The kernel keeps a supply of pre-zeroed pages."
+  },
+  {
+   "n": 169,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "What will you see in <code>/proc/&lt;pid&gt;/maps</code> for a running Node process?",
+   "a": "The <code>node</code> binary's <code>r-xp</code> text and its data; an anonymous <code>[heap]</code>; many large anonymous regions that are V8's spaces and the allocator's arenas; mapped shared libraries including any <code>.node</code> addons; one stack per thread; and <code>[vdso]</code> and <code>[vvar]</code>."
+  },
+  {
+   "n": 170,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "Name V8's heap spaces and what each is for.",
+   "a": "New space (young generation, 1–8 MB per semi-space, allocation by pointer bump, collected by copying survivors to the other half — sub-millisecond); old space (promoted objects, mark-sweep-compact, mostly concurrent since Orinoco); large object space (over ~128 KB, never moved); code space (executable JIT output)."
+  },
+  {
+   "n": 171,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "What is the generational hypothesis and what does it imply for your code?",
+   "a": "Most objects die young, so collection cost scales with <em>surviving</em> data rather than allocated data. Ten thousand short-lived objects per request cost almost nothing; ten objects per request added to a module-level cache cost increasingly much, forever."
+  },
+  {
+   "n": 172,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "Read the five numbers from <code>process.memoryUsage()</code>.",
+   "a": "<code>heapTotal</code> and <code>heapUsed</code> are V8's spaces only; <code>external</code> is memory held by C++ objects tied to JavaScript ones, including buffers; <code>arrayBuffers</code> is the <code>ArrayBuffer</code> subset; <code>rss</code> is the operating system's number — all of the above plus the binary, libraries, thread stacks and allocator overhead."
+  },
+  {
+   "n": 173,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "What is the signature of a buffer leak, and why is it hunted in the wrong place?",
+   "a": "Rising <code>rss</code> and <code>external</code> with a flat <code>heapUsed</code>. Most Node leak tooling looks at the heap, where these bytes do not appear, and <code>--max-old-space-size</code> cannot protect you because the limit only governs old space."
+  },
+  {
+   "n": 174,
+   "c": "node-11",
+   "t": "Node 11 · The address space",
+   "q": "Why must <code>--max-old-space-size</code> be meaningfully below the container limit?",
+   "a": "Because RSS exceeds old space by hundreds of megabytes of binary, libraries, code space, stacks, buffers and fragmentation, and the kernel kills on RSS."
+  },
+  {
+   "n": 175,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "Is <code>malloc</code> a system call?",
+   "a": "No. It is ordinary unprivileged library code inside your process that obtains large regions with <code>mmap</code> or <code>brk</code> and carves them up — which is the fact that explains most of this node."
+  },
+  {
+   "n": 176,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "Why does writing before the start of an allocated block corrupt the heap?",
+   "a": "The allocator stores a small header immediately before the returned pointer recording the block's size. Overwriting it breaks bookkeeping, and the crash appears much later somewhere unrelated."
+  },
+  {
+   "n": 177,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "Describe glibc's allocator in three points.",
+   "a": "Free blocks kept in bins by size so finding a fit is not a linear scan; requests above <code>MMAP_THRESHOLD</code> (128 KB, dynamically adjusted) get their own <code>mmap</code> and are returned to the kernel exactly when freed; and each thread gets its own arena — capped at eight times the core count — so threads do not contend on one lock."
+  },
+  {
+   "n": 178,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "Why does <code>free()</code> usually not reduce RSS?",
+   "a": "It returns the block to the allocator's own free lists inside your process, so the next <code>malloc</code> can reuse it without a system call. Correct behaviour, and it means process memory is a high-water mark rather than a current measurement."
+  },
+  {
+   "n": 179,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "Give two reasons memory cannot be returned even when the allocator wants to.",
+   "a": "The heap shrinks only from the top, so one small live allocation near the top pins everything below it; and a page can only be returned if <em>every</em> object on it is free, so a page holding one live 32-byte object stays fully resident."
+  },
+  {
+   "n": 180,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "Account for the gap between <code>heapUsed</code> of 200 MB and a container using 800 MB.",
+   "a": "V8's <code>heapTotal</code> headroom; external memory (buffers, ArrayBuffers, addon allocations); the <code>node</code> binary and shared libraries (50–100 MB resident); V8's code space; thread stacks; and glibc arena fragmentation — often the largest surprise on many-core machines."
+  },
+  {
+   "n": 181,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "What does <code>MALLOC_ARENA_MAX=2</code> do and when is it worth setting?",
+   "a": "Caps the number of glibc arenas, trading a little allocation contention for substantially less resident memory. It is one of the few genuinely useful environment variables for containerised Node and Java services with unexplained RSS."
+  },
+  {
+   "n": 182,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "Why do people <code>LD_PRELOAD</code> jemalloc?",
+   "a": "jemalloc and tcmalloc are designed around fragmentation avoidance and multi-threaded scalability, and swapping glibc's allocator without recompiling routinely reduces RSS by twenty to forty percent on allocation-heavy workloads. Sometimes 'our service uses too much memory' has a one-line answer involving no code."
+  },
+  {
+   "n": 183,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "State the three layers of allocation.",
+   "a": "The kernel hands out pages via <code>mmap</code>; the allocator carves those into objects; the garbage collector decides which objects are reachable and returns the rest to layer two — which usually does not return them to layer one."
+  },
+  {
+   "n": 184,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "Why is 'unreferenced' the wrong model for garbage collection?",
+   "a": "Collection traces reachability from roots — the global object, the call stack, handles held by native code. Anything unmarked is garbage. This is why tracing can collect a cycle and pure reference counting cannot."
+  },
+  {
+   "n": 185,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "Name five ways a JavaScript memory leak actually happens.",
+   "a": "A module-level Map or array growing per request; an event listener added per connection and never removed, retaining its whole closure; a <code>setInterval</code> closing over a large object; a promise that never settles, retaining its continuation and captured scope; and V8's shared closure context, where an unrelated small closure keeps a large captured variable alive."
+  },
+  {
+   "n": 186,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "How do GC pauses show up, and what actually fixes them?",
+   "a": "A scavenge is sub-millisecond; a full mark-compact of a 2 GB old space is tens to low hundreds of milliseconds, mostly concurrent but with a real compaction stop. It appears as p99 spikes uncorrelated with request complexity; find it with <code>--trace-gc</code> or a <code>PerformanceObserver</code> on <code>gc</code> entries. The fixes are architectural — allocate less per request, keep the live set small, split large heaps across processes."
+  },
+  {
+   "n": 187,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "Derive a heap cap for a 1 GB container, and say what happens if you set none.",
+   "a": "Roughly 60–75% — 640 to 768 MB — then measure. With no cap, V8 derives its default heap size from the <em>host's</em> physical memory, so on a 64 GB node a 512 MB container gets a V8 that will not collect urgently until well past the point the kernel kills it."
+  },
+  {
+   "n": 188,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "Why does <code>work_mem</code> in Postgres multiply dangerously?",
+   "a": "It is per sort or hash operation, <em>per plan node, per concurrent query</em> — so a modest-looking value can multiply by a hundred under load and exhaust the machine. It is the Postgres version of setting no heap cap."
+  },
+  {
+   "n": 189,
+   "c": "node-12",
+   "t": "Node 12 · The allocator",
+   "q": "Why does a native addon leak produce a flat heap graph and no GC activity?",
+   "a": "It calls <code>malloc</code> directly, so V8 does not know that memory exists, does not count it towards the heap limit, and feels no pressure from it. <code>napi_adjust_external_memory</code> exists so well-behaved addons can tell V8; many do not."
+  },
+  {
+   "n": 190,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "What is demand paging and what does it explain about cold starts?",
+   "a": "The kernel does not read a program into memory; it marks pages absent, records where they live, and jumps to the entry point, faulting pages in as they are touched. It is why a program starts in milliseconds regardless of size, and why the first request to a fresh process is slower — the code paths it exercises are being faulted in."
+  },
+  {
+   "n": 191,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "What is the page cache, and why is low free memory healthy?",
+   "a": "All otherwise-unused memory is used to cache file pages; every ordinary read and write goes through it. Free memory is doing nothing, cached memory saves disk reads and is instantly reclaimable. Read <code>available</code>, not <code>free</code>."
+  },
+  {
+   "n": 192,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "What happens on a <code>write()</code> to a file, before any <code>fsync</code>?",
+   "a": "Your bytes are copied into a cache page, the page is marked dirty, and the call returns. No disk has moved. Kernel threads write back later, governed by <code>vm.dirty_ratio</code>, <code>dirty_background_ratio</code> and <code>dirty_expire_centisecs</code>."
+  },
+  {
+   "n": 193,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "How does the kernel approximate LRU cheaply, and what does the active/inactive split prevent?",
+   "a": "Hardware sets the accessed bit on any access; the kernel periodically clears and re-reads them — the clock or second-chance algorithm. Two lists mean a page must be referenced while inactive to be promoted, which stops one large sequential read from evicting the whole useful working set (cache pollution — why a nightly backup used to slow a database for an hour)."
+  },
+  {
+   "n": 194,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "What is a working set and what is thrashing?",
+   "a": "Denning, 1968: the set of pages a process has touched recently, a good predictor of what it will touch next. If the sum of all working sets exceeds physical memory, every fault evicts a page another process is about to need — the machine spends all its time moving pages and none doing work, and it collapses rather than degrading."
+  },
+  {
+   "n": 195,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "Why do file-backed pages not need swap but anonymous pages do?",
+   "a": "A file-backed page's home is the file, so it can always be dropped. Heap, stack and anonymous mappings have nowhere to go without a dedicated swap area — without swap they can never be evicted at all."
+  },
+  {
+   "n": 196,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "Why did Kubernetes historically refuse to run with swap enabled?",
+   "a": "Swap makes memory limits unenforceable and latency unpredictable — a page from RAM is 80 ns, from an SSD ~100 µs, a thousand times slower — and the scheduler's model assumes memory is memory. Support returned gradually from 1.28 onward, but for latency-sensitive services the default position is still no swap."
+  },
+  {
+   "n": 197,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "Why does Linux overcommit memory?",
+   "a": "It has to in practice: <code>fork</code> plus copy-on-write doubles address space that will almost never be realised, and programs reserve large sparse regions they never touch — V8 among them. <code>vm.overcommit_memory</code> controls the policy."
+  },
+  {
+   "n": 198,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "Why does the OOM killer use <code>SIGKILL</code> and what does that cost you?",
+   "a": "A page fault on legitimately-granted memory with no frame available has no sensible failure path — <code>mov</code> has no error return. So the kernel kills the highest scorer outright. <code>SIGKILL</code> cannot be caught, so there is no flush, no close, no draining, and no log line."
+  },
+  {
+   "n": 199,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "Decode exit codes 137, 143 and 139.",
+   "a": "A process killed by a signal reports 128 + the signal number. 137 = 128+9 = <code>SIGKILL</code> (in a container, almost always the cgroup OOM killer). 143 = 128+15 = <code>SIGTERM</code>, a normal shutdown. 139 = 128+11 = <code>SIGSEGV</code>."
+  },
+  {
+   "n": 200,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "Why can a container be OOMKilled on a machine with plenty of free memory?",
+   "a": "The cgroup memory limit is a separate, per-container OOM domain. It exhausted its own budget, not the machine's."
+  },
+  {
+   "n": 201,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "How can a container with no memory leak at all be OOMKilled?",
+   "a": "Page cache from the container's own file writes is charged to its cgroup. Under memory pressure with heavy write throughput — logs, a temp file, SQLite, an upload buffer — it can be killed with anonymous usage far below the limit. Symptom: OOMKilled with a flat heap; evidence: the anon/file split in <code>memory.stat</code>."
+  },
+  {
+   "n": 202,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "Why is choosing which limit you hit first a design decision?",
+   "a": "Hitting V8's heap limit throws a catchable fatal error with a stack trace and can trigger <code>--heapsnapshot-near-heap-limit</code> — diagnosable. Hitting the kernel's limit produces one line in the host's kernel log and nothing else."
+  },
+  {
+   "n": 203,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "Why does Postgres deliberately keep <code>shared_buffers</code> modest?",
+   "a": "It expects the operating system's page cache to hold the rest, accepting double buffering because the kernel's cache and readahead are good. <code>effective_cache_size</code> is not an allocation but a planner hint about total caching — set too low, it makes the planner avoid index scans it should choose. It is also why a tight container memory limit hurts Postgres in a way more <code>shared_buffers</code> does not fix."
+  },
+  {
+   "n": 204,
+   "c": "node-13",
+   "t": "Node 13 · Paging pressure",
+   "q": "Explain a serverless cold start in terms of this node.",
+   "a": "The first invocation faults in the runtime, the dependency tree and JIT-compiled code page by page from storage. Hence bundle size affecting cold start more than steady-state performance, and hence snapshot-based fixes (Lambda SnapStart, V8 snapshots, <code>--snapshot-blob</code>) attacking it by having the pages already laid out."
+  },
+  {
+   "n": 205,
+   "c": "node-14",
+   "t": "Node 14 · fork and COW",
+   "q": "How does a process know whether it is the parent or the child after <code>fork()</code>?",
+   "a": "The call returns twice: the child's PID in the parent (or −1 on failure) and 0 in the child. That is the only asymmetry in the whole call."
+  },
+  {
+   "n": 206,
+   "c": "node-14",
+   "t": "Node 14 · fork and COW",
+   "q": "Describe copy-on-write step by step.",
+   "a": "The child gets its own page table pointing at the <em>same</em> physical frames; every writable page is marked read-only in both and flagged COW; reads are free and fully shared; a write raises a protection fault; the kernel allocates a fresh frame, copies 4 KB, points the writer's entry at it, marks both writable, and re-executes the instruction."
+  },
+  {
+   "n": 207,
+   "c": "node-14",
+   "t": "Node 14 · fork and COW",
+   "q": "What does forking a 2 GB process actually cost?",
+   "a": "The page tables and nothing else — a millisecond or two. If the child immediately <code>exec</code>s, essentially zero pages are ever copied. This is why overcommit is a practical necessity, not just a permissive default."
+  },
+  {
+   "n": 208,
+   "c": "node-14",
+   "t": "Node 14 · fork and COW",
+   "q": "What is <code>clone()</code> and why is it the most clarifying call in Linux?",
+   "a": "One system call whose flags say exactly what the new task shares — address space, descriptors, signal handlers, namespaces. <code>fork</code> shares almost nothing; a thread shares almost everything; a container adds namespace flags. Threads, processes and containers are one system call with different arguments."
+  },
+  {
+   "n": 209,
+   "c": "node-14",
+   "t": "Node 14 · fork and COW",
+   "q": "Why can Redis memory nearly double during <code>BGSAVE</code>?",
+   "a": "It <code>fork</code>s to get a frozen consistent view, which is nearly free — <em>if the parent is not writing</em>. Under heavy writes the parent dirties pages and each is copied. It is also why Redis explicitly recommends <code>vm.overcommit_memory=1</code>: with the default heuristic the fork itself can fail."
+  },
+  {
+   "n": 210,
+   "c": "node-14",
+   "t": "Node 14 · fork and COW",
+   "q": "Why can you not safely <code>fork()</code> a Node process?",
+   "a": "<code>fork</code> duplicates only the calling thread, but every lock the other threads held stays held forever by threads that no longer exist. If a libuv or V8 thread held the allocator lock, the child deadlocks on its first allocation. POSIX permits only async-signal-safe functions between fork and exec, and <code>malloc</code> is not one."
+  },
+  {
+   "n": 211,
+   "c": "node-14",
+   "t": "Node 14 · fork and COW",
+   "q": "What do <code>cluster.fork()</code> and <code>child_process.fork()</code> actually do?",
+   "a": "Spawn a brand-new <code>node</code> process via <code>posix_spawn</code> and <code>execve</code>, with an IPC channel attached. They are not the <code>fork()</code> system call — the name is inherited vocabulary, and confusing the two is a common interview stumble."
+  },
+  {
+   "n": 212,
+   "c": "node-14",
+   "t": "Node 14 · fork and COW",
+   "q": "Name five places copy-on-write appears above the kernel.",
+   "a": "Docker image layers (copy-up on first write, at file granularity); filesystem and cloud disk snapshots (block granularity); Postgres MVCC (a new row version rather than an overwrite — hence VACUUM); Git's immutable content-addressed objects (hence free branching); and React/Immutable structural sharing (new objects only along the path to the change — hence identity comparison as a change check)."
+  },
+  {
+   "n": 213,
+   "c": "node-14",
+   "t": "Node 14 · fork and COW",
+   "q": "When you meet a system claiming cheap snapshots or cheap branching, what should you ask?",
+   "a": "What it costs when things do get written. That is almost always copy-on-write, and the write path is where the cost was deferred to."
+  },
+  {
+   "n": 214,
+   "c": "node-15",
+   "t": "Node 15 · Threads",
+   "q": "What is shared between threads of one process, and what is private?",
+   "a": "Shared: the address space and everything in it, the descriptor table, credentials, the current directory, signal dispositions, resource limits, cgroup and namespaces. Private: registers including the instruction pointer, the stack, the thread ID, the signal mask, errno, priority, and thread-local storage."
+  },
+  {
+   "n": 215,
+   "c": "node-15",
+   "t": "Node 15 · Threads",
+   "q": "Why can threads pass data in nanoseconds and also corrupt each other?",
+   "a": "Both come from the same fact — a shared address space with no boundary between them. You cannot take one property without the other."
+  },
+  {
+   "n": 216,
+   "c": "node-15",
+   "t": "Node 15 · Threads",
+   "q": "What flags turn <code>clone()</code> into a thread rather than a process?",
+   "a": "<code>CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD</code> — share the address space, filesystem context, descriptors, signal handlers and thread group. Linux schedules <em>tasks</em>; processes and threads are both tasks."
+  },
+  {
+   "n": 217,
+   "c": "node-15",
+   "t": "Node 15 · Threads",
+   "q": "What is fatal about the N:1 green-thread model?",
+   "a": "If one user thread makes a blocking system call, the kernel blocks the whole process and every other thread stops, because the kernel cannot know they exist. 1:1 (Linux NPTL, 2003) gives each user thread a real kernel task."
+  },
+  {
+   "n": 218,
+   "c": "node-15",
+   "t": "Node 15 · Threads",
+   "q": "Where do Go's goroutines and Java's virtual threads sit?",
+   "a": "M:N on top of 1:1 — a runtime scheduler multiplexing many lightweight threads onto a pool of kernel threads, crucially intercepting blocking operations so a blocked goroutine parks rather than blocking its thread. They are an event loop hidden inside the runtime, with a different ergonomic choice."
+  },
+  {
+   "n": 219,
+   "c": "node-15",
+   "t": "Node 15 · Threads",
+   "q": "List the threads in a busy Node process.",
+   "a": "The main thread running the event loop and all your JavaScript; four libuv threadpool threads by default; V8's background threads for concurrent marking, sweeping and compilation; and any threads created by native addons."
+  },
+  {
+   "n": 220,
+   "c": "node-15",
+   "t": "Node 15 · Threads",
+   "q": "How does knowing which thread is busy localise a Node performance problem?",
+   "a": "Busy main thread = a blocked event loop, and the fix is in your code. Four busy threadpool threads with an idle main thread = threadpool saturation, and the fix is sizing or offloading. Busy V8 background threads = GC pressure, and the fix is allocation behaviour."
+  },
+  {
+   "n": 221,
+   "c": "node-15",
+   "t": "Node 15 · Threads",
+   "q": "Why does a <code>worker_thread</code> get its own V8 isolate rather than sharing objects?",
+   "a": "JavaScript has no memory model for concurrently mutated objects, and a garbage collector that moves objects cannot safely do so while another thread holds raw pointers. The restriction is forced by the language, not chosen for simplicity."
+  },
+  {
+   "n": 222,
+   "c": "node-15",
+   "t": "Node 15 · Threads",
+   "q": "Distinguish <code>postMessage</code>, <code>transferList</code> and <code>SharedArrayBuffer</code>.",
+   "a": "<code>postMessage</code> deep-copies via structured clone — expensive for large payloads and unable to carry functions or prototypes. <code>transferList</code> moves an <code>ArrayBuffer</code>: ownership passes, the sender's becomes detached, constant time regardless of size. <code>SharedArrayBuffer</code> is genuinely shared pages — the one place JavaScript has real shared mutable memory, and the one place it can have a data race."
+  },
+  {
+   "n": 223,
+   "c": "node-15",
+   "t": "Node 15 · Threads",
+   "q": "Give the rule for choosing between the four concurrency options in Node.",
+   "a": "Workers for CPU-bound work when you want cores (a pool created at boot, never one per request — each costs a V8 isolate). The threadpool for blocking I/O. A separate process for isolation or a separate heap. The event loop for everything else."
+  },
+  {
+   "n": 224,
+   "c": "node-15",
+   "t": "Node 15 · Threads",
+   "q": "Why do Web Workers have no DOM?",
+   "a": "The DOM is a large mutable object graph with no locking and no memory model; permitting concurrent access would require synchronisation on every DOM operation. So the platform's position is that the DOM is single-threaded, permanently, and <code>OffscreenCanvas</code> and <code>SharedArrayBuffer</code> exist to make the boundary less painful."
+  },
+  {
+   "n": 225,
+   "c": "node-15",
+   "t": "Node 15 · Threads",
+   "q": "Postgres chose processes and MySQL chose threads. What does each buy?",
+   "a": "Postgres gets crash isolation and must arrange shared memory explicitly (<code>shared_buffers</code> is a shared mapping). MySQL gets cheaper connection creation and a naturally shared buffer pool, at the cost that one backend corrupting memory takes the server down. Neither is wrong, and the choice predicts connection-scaling behaviour."
+  },
+  {
+   "n": 226,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "Why is <code>counter++</code> not atomic?",
+   "a": "It compiles to three instructions — load, add, store — and two threads can interleave between any two of them. Both load 5, both compute 6, both store 6: two increments, one net effect. Nothing was written incorrectly."
+  },
+  {
+   "n": 227,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "Define atomic, race condition, and data race.",
+   "a": "Atomic: an operation no other thread can observe partway through. Race condition: the result depends on the relative timing of operations that were not made atomic. Data race: two threads accessing the same location with at least one write and no synchronisation — in C/C++ formally undefined behaviour, so the compiler may assume it never happens."
+  },
+  {
+   "n": 228,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "Why must concurrency correctness be established by reasoning rather than testing?",
+   "a": "Races are timing-dependent and do not reproduce. One in ten million iterations passes every test on a laptop and fails twice a week in production, sensitive to core count, load, compiler version, and whether a profiler is attached."
+  },
+  {
+   "n": 229,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "What is cache coherence and what does it cost?",
+   "a": "Each core has its own L1/L2, so hardware must keep copies consistent — MESI, where a line is Modified, Exclusive, Shared or Invalid. To write, a core must broadcast an invalidation and wait for every other core to drop its copy: tens to hundreds of cycles over the interconnect."
+  },
+  {
+   "n": 230,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "What is false sharing and why is it invisible in a profile?",
+   "a": "Two threads writing to two <em>different</em> variables in the same 64-byte cache line bounce that line between cores on every write, because coherence works at line granularity. The code is correct and throughput collapses by an order of magnitude. The fix is padding, which is why high-performance structures are littered with alignment attributes."
+  },
+  {
+   "n": 231,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "Why can identical concurrent code be correct on x86 and broken on ARM?",
+   "a": "Memory ordering. x86's TSO model only lets a store appear after a subsequent load; ARM and POWER have weak models where almost anything can be reordered. This stopped being niche when Apple Silicon and Graviton became ordinary development and deployment targets."
+  },
+  {
+   "n": 232,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "How does the compiler break concurrent code that looks correct?",
+   "a": "It hoists loop-invariant reads, keeps variables in registers instead of re-reading memory, and merges or eliminates stores — all valid under the assumption that no other thread is looking. A loop polling a flag can be optimised into an infinite loop."
+  },
+  {
+   "n": 233,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "What is compare-and-swap and why is it called universal?",
+   "a": "Atomically: if this location holds the value I expect, replace it and tell me whether it did. <code>lock cmpxchg</code> on x86, load-linked/store-conditional on ARM. Every lock, lock-free queue, reference counter and atomic increment is built from it."
+  },
+  {
+   "n": 234,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "Recognise optimistic concurrency at three scales.",
+   "a": "The CAS retry loop in hardware; a Postgres <code>UPDATE ... WHERE version = $expected</code> retried on zero rows affected; and an HTTP <code>If-Match</code> with an ETag. Same pattern, same failure mode — under high contention the retries dominate and you need a lock."
+  },
+  {
+   "n": 235,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "What exactly does JavaScript's single thread protect you from?",
+   "a": "Data races only. Run-to-completion means nothing observes or modifies your objects while your synchronous code runs, so <code>counter++</code> is safe. It does not protect you from race conditions."
+  },
+  {
+   "n": 236,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "Why is a read-check-write across an <code>await</code> a race?",
+   "a": "Every <code>await</code> is a yield point: the function suspends, the loop runs other callbacks including another invocation of the same function, and it resumes against state that may have changed. Two concurrent transfers can both read balance 100, both pass the check, and both write 50."
+  },
+  {
+   "n": 237,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "Give the three correct fixes for that transfer bug.",
+   "a": "Make it atomic in the database (<code>UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND balance &gt;= $1</code>, checking the row count); take a lock (<code>SELECT ... FOR UPDATE</code> in a transaction, or an advisory lock); or use a version column with a retry. The same fixes a threaded program would use."
+  },
+  {
+   "n": 238,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "What is a cache stampede and why is storing the promise the fix?",
+   "a": "<code>if (!cache.has(k)) cache.set(k, await fetch(k))</code> issues N concurrent fetches for N concurrent requests, because every check happens before any set. Storing the promise means the second caller finds one in flight and awaits it. Recognising it as check-then-act is what tells you the fix."
+  },
+  {
+   "n": 239,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "Why does <code>Atomics</code> exist in JavaScript, and why is <code>Atomics.wait</code> banned on the browser main thread?",
+   "a": "It exists because <code>SharedArrayBuffer</code> is genuinely shared memory and therefore the one place JavaScript can have a data race; the operations compile to the <code>lock</code>-prefixed instructions. <code>Atomics.wait</code> blocks, which would freeze the page."
+  },
+  {
+   "n": 240,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "In what sense is a database isolation level a memory model?",
+   "a": "Both are specifications of which interleavings a participant may observe. Read committed permits non-repeatable reads, the database equivalent of a compiler not being required to re-read a variable; Postgres <code>SERIALIZABLE</code> uses optimistic concurrency and can abort you with a serialization failure requiring the same retry loop as CAS."
+  },
+  {
+   "n": 241,
+   "c": "node-16",
+   "t": "Node 16 · Races",
+   "q": "How is an idempotency key a compare-and-swap?",
+   "a": "A retry racing an original is the same interleaving problem; checking and inserting the key atomically is compare-and-swap over the network. Once you have seen the pattern at the instruction level the distributed version needs no separate learning."
+  },
+  {
+   "n": 242,
+   "c": "node-17",
+   "t": "Node 17 · Locks",
+   "q": "When is a spin lock right and when is it catastrophic?",
+   "a": "Right when hold time is shorter than a context switch — a few hundred nanoseconds — and there are more cores than contenders, which is true inside a kernel and almost never in application code. Catastrophic on a single core: the spinner cannot progress until the holder runs, and the holder cannot run until the spinner is preempted."
+  },
+  {
+   "n": 243,
+   "c": "node-17",
+   "t": "Node 17 · Locks",
+   "q": "Why is <em>test and test-and-set</em> better than plain test-and-set?",
+   "a": "Spinning on a write means each attempt acquires the cache line exclusively, saturating the interconnect and slowing the actual holder. Spinning on a plain read can be satisfied from a shared line, and only the final attempt writes."
+  },
+  {
+   "n": 244,
+   "c": "node-17",
+   "t": "Node 17 · Locks",
+   "q": "What is the futex's key property?",
+   "a": "The uncontended path never enters the kernel. Acquire is a compare-and-swap in user space — a few nanoseconds; only on failure does it call <code>futex(FUTEX_WAIT, ...)</code> to sleep on a kernel wait queue keyed by that address. Release wakes only if it can see a waiter."
+  },
+  {
+   "n": 245,
+   "c": "node-17",
+   "t": "Node 17 · Locks",
+   "q": "Why is a high <code>futex</code> count in <code>strace -c</code> meaningful?",
+   "a": "Because uncontended locks make no system calls at all, so futex calls are direct evidence of genuine contention."
+  },
+  {
+   "n": 246,
+   "c": "node-17",
+   "t": "Node 17 · Locks",
+   "q": "What is a semaphore and how does it relate to a mutex?",
+   "a": "Dijkstra, 1965: a counter with atomic decrement-and-wait-if-negative and increment-and-wake. Initialised to N it permits N holders, which makes it the natural expression of a resource pool. A mutex is the case N=1."
+  },
+  {
+   "n": 247,
+   "c": "node-17",
+   "t": "Node 17 · Locks",
+   "q": "Why must a condition variable always be waited on in a <code>while</code> loop?",
+   "a": "Because of spurious wakeups, and because another thread may have consumed the condition before you were scheduled."
+  },
+  {
+   "n": 248,
+   "c": "node-17",
+   "t": "Node 17 · Locks",
+   "q": "Name Coffman's four conditions for deadlock and say which one you break.",
+   "a": "Mutual exclusion, hold-and-wait, no preemption, and circular wait. In practice you break circular wait, with <strong>lock ordering</strong>: define a total order over all locks and always acquire in it — which is why multi-row database code should sort identifiers first."
+  },
+  {
+   "n": 249,
+   "c": "node-17",
+   "t": "Node 17 · Locks",
+   "q": "Distinguish deadlock, livelock, starvation and the thundering herd.",
+   "a": "Deadlock: nothing runs. Livelock: threads run and respond to each other but nothing completes. Starvation: a thread never gets the resource because others keep taking it. Thundering herd: releasing wakes every waiter, all of whom race and all but one sleep again — hence waking one."
+  },
+  {
+   "n": 250,
+   "c": "node-17",
+   "t": "Node 17 · Locks",
+   "q": "Why is Redis single-threaded, and what is the price?",
+   "a": "Every command is atomic by construction — no locks, races, deadlock or coherence traffic — which is why <code>INCR</code> is a correct distributed counter and a Lua script is atomic. The price is that one slow command blocks everything (<code>KEYS *</code> on a large database is an outage, hence <code>SCAN</code>) and that commands use one core. Redis 6 threaded the socket I/O while keeping execution single-threaded."
+  },
+  {
+   "n": 251,
+   "c": "node-17",
+   "t": "Node 17 · Locks",
+   "q": "How do you diagnose a lock wait in Postgres?",
+   "a": "<code>pg_stat_activity</code>: <code>wait_event_type = 'Lock'</code> means waiting on another transaction, <code>'LWLock'</code> means internal shared memory. <code>pg_blocking_pids()</code> names the blocker. Postgres detects deadlocks after <code>deadlock_timeout</code> (1 s) and aborts one transaction with an error you can catch and retry — unusually generous; most systems just hang."
+  },
+  {
+   "n": 252,
+   "c": "node-17",
+   "t": "Node 17 · Locks",
+   "q": "Why is a distributed lock not a lock?",
+   "a": "Nothing guarantees the holder has not vanished. A GC pause, CPU throttling or a partition can exceed the lease, after which two processes believe they hold it. The fix is a <strong>fencing token</strong> — a monotonically increasing number passed with every write and rejected by the storage layer if lower than the highest seen. Without fencing it reduces contention rather than guaranteeing correctness."
+  },
+  {
+   "n": 253,
+   "c": "node-17",
+   "t": "Node 17 · Locks",
+   "q": "Why does <code>async-mutex</code> work without atomics, and where does it fail?",
+   "a": "It is a promise chain, and JavaScript's run-to-completion means the acquire check and set cannot be interleaved. It is correct within one Node process and gives you exactly nothing across cluster workers or replicas."
+  },
+  {
+   "n": 254,
+   "c": "node-18",
+   "t": "Node 18 · Blocking I/O",
+   "q": "What actually happens when a process blocks on <code>read</code>?",
+   "a": "The syscall enters the kernel; the socket buffer is empty; the task's state becomes S; it is added to that socket's wait queue; the scheduler picks something else. Later a packet arrives, the kernel walks the wait queue and marks the task runnable, and it eventually copies the bytes and returns."
+  },
+  {
+   "n": 255,
+   "c": "node-18",
+   "t": "Node 18 · Blocking I/O",
+   "q": "Correct the claim that blocking wastes CPU.",
+   "a": "A blocked process consumes exactly zero processor time. The cost is not cycles — it is that this thread can do nothing else, so many clients need many threads, and threads are the expensive thing."
+  },
+  {
+   "n": 256,
+   "c": "node-18",
+   "t": "Node 18 · Blocking I/O",
+   "q": "Name the three pre-event-loop server architectures and what each traded.",
+   "a": "Process per connection (inetd, Apache prefork): robust, a crash contained, and expensive. Thread per connection (Apache worker, classic servlet containers): cheaper, still a stack and a scheduler entry each. Bounded thread pool: bounds resource use and introduces head-of-line blocking."
+  },
+  {
+   "n": 257,
+   "c": "node-18",
+   "t": "Node 18 · Blocking I/O",
+   "q": "Run the C10K arithmetic for thread-per-connection.",
+   "a": "~100 KB per thread all-in is 1 GB of memory before any application data; ten thousand tasks in the scheduler; and at ten events per second per connection, 100,000 wake-ups per second at a few microseconds each — a large fraction of a core spent purely switching. Worst of all, the caches never hold anything useful."
+  },
+  {
+   "n": 258,
+   "c": "node-18",
+   "t": "Node 18 · Blocking I/O",
+   "q": "State the event loop's advantage and its exact boundary.",
+   "a": "One thread learns about many ready connections in one call and handles each with a function call: nanoseconds and warm caches, and a few hundred bytes per connection instead of ~100 KB. It says nothing about computation — if each event needs 10 ms of processing, one thread handles a hundred per second."
+  },
+  {
+   "n": 259,
+   "c": "node-18",
+   "t": "Node 18 · Blocking I/O",
+   "q": "Why was nginx written, and what did it beat Apache at?",
+   "a": "Igor Sysoev, released October 2004, specifically against C10K: an event-driven architecture with one worker process per core. Under many idle or slow connections — which is what the real internet is — it used a fraction of the memory and stayed responsive where Apache thrashed."
+  },
+  {
+   "n": 260,
+   "c": "node-18",
+   "t": "Node 18 · Blocking I/O",
+   "q": "What was Ryan Dahl's stated argument for Node.js in 2009?",
+   "a": "That Apache's concurrency model was wrong, and that existing languages made non-blocking code painful because they had blocking standard libraries and no natural callback idiom. JavaScript had no I/O library to deprecate and already had closures."
+  },
+  {
+   "n": 261,
+   "c": "node-18",
+   "t": "Node 18 · Blocking I/O",
+   "q": "What makes Node's non-blocking guarantee actually hold?",
+   "a": "That there is no alternative — a library cannot accidentally block the loop with a blocking read because the blocking read is not exposed. Except the <code>Sync</code> functions, which is why using them outside startup is the cardinal error."
+  },
+  {
+   "n": 262,
+   "c": "node-18",
+   "t": "Node 18 · Blocking I/O",
+   "q": "Why is a database connection pool a bounded thread pool?",
+   "a": "It has all the same properties: 20 connections serving 200 concurrent requests means 180 waiting, invisibly, inside your process; and one slow query holds a connection while everything behind it waits — head-of-line blocking. Instrument acquisition wait time and queue depth, use statement timeouts, and separate pools for fast and slow work."
+  },
+  {
+   "n": 263,
+   "c": "node-18",
+   "t": "Node 18 · Blocking I/O",
+   "q": "Why does Slowloris defeat thread-per-connection and not an event loop?",
+   "a": "Each slowly-held connection occupies a thread in the first design, so a few hundred exhaust the pool with almost no bandwidth. In an event loop each costs a socket and a few hundred bytes. Header and body timeouts still exist because the resource is small but not zero."
+  },
+  {
+   "n": 264,
+   "c": "node-18",
+   "t": "Node 18 · Blocking I/O",
+   "q": "Why is a 200 ms <code>JSON.parse</code> categorically different in Node than in a threaded server?",
+   "a": "In thread-per-connection it delays one client. In an event loop it delays every client, because there is one thread and it is not preemptible. Measuring it is what <code>monitorEventLoopDelay</code> is for — the single most valuable metric a Node service can export."
+  },
+  {
+   "n": 265,
+   "c": "node-19",
+   "t": "Node 19 · epoll",
+   "q": "Why is a loop over ten thousand non-blocking descriptors not a solution?",
+   "a": "It makes ten thousand system calls per pass and almost all return <code>EAGAIN</code>. At 50–100 ns each, one pass costs a millisecond of pure overhead and typically finds nothing."
+  },
+  {
+   "n": 266,
+   "c": "node-19",
+   "t": "Node 19 · epoll",
+   "q": "Name <code>select</code>'s three structural problems.",
+   "a": "<code>FD_SETSIZE</code> is 1024, compiled into the bitmap type; you rebuild and re-pass the entire set every call because the call destroys it, and the kernel copies and scans all of it; and the return tells you how many are ready, not which, so you scan all n again."
+  },
+  {
+   "n": 267,
+   "c": "node-19",
+   "t": "Node 19 · epoll",
+   "q": "State the wrong scaling property in one sentence.",
+   "a": "The cost is proportional to the number of connections you have rather than the number of events that happened — which is exactly wrong for servers holding many mostly-idle connections."
+  },
+  {
+   "n": 268,
+   "c": "node-19",
+   "t": "Node 19 · epoll",
+   "q": "What did <code>poll</code> fix and what did it leave?",
+   "a": "It replaced the fixed-size bitmap with an array that is not destroyed, so there is no 1024 limit and no rebuilding. The array is still passed in full, copied, and scanned every call. An ergonomic improvement, not an architectural one."
+  },
+  {
+   "n": 269,
+   "c": "node-19",
+   "t": "Node 19 · epoll",
+   "q": "How does epoll achieve O(1), mechanically?",
+   "a": "Registering a descriptor attaches a callback to that socket's wait queue. When the network softirq appends data, that callback pushes the descriptor onto the epoll instance's ready list. So the list is maintained continuously by the events themselves, and <code>epoll_wait</code> does not scan — it hands back the list."
+  },
+  {
+   "n": 270,
+   "c": "node-19",
+   "t": "Node 19 · epoll",
+   "q": "Distinguish level-triggered from edge-triggered, and say who uses which.",
+   "a": "Level-triggered reports readiness as long as data remains, so a partial read is safe. Edge-triggered reports only the transition, so failing to drain to <code>EAGAIN</code> means the connection hangs silently — faster, and unforgiving. libuv is level-triggered; nginx is edge-triggered."
+  },
+  {
+   "n": 271,
+   "c": "node-19",
+   "t": "Node 19 · epoll",
+   "q": "Name the four platform mechanisms libuv hides.",
+   "a": "epoll (Linux), kqueue (BSD/macOS, Jonathan Lemon, FreeBSD 4.1, 2000 — arguably a better design, handling timers, signals and file events through one interface), IOCP (Windows, completion-based rather than readiness-based), and Solaris event ports."
+  },
+  {
+   "n": 272,
+   "c": "node-19",
+   "t": "Node 19 · epoll",
+   "q": "Why can a regular file not be polled for readiness?",
+   "a": "Readiness answers 'will this block?', and for a file the answer is always that you can read it — the real question is how long, which readiness cannot express. epoll returns <code>EPERM</code> for regular files, and <code>O_NONBLOCK</code> is simply ignored on them."
+  },
+  {
+   "n": 273,
+   "c": "node-19",
+   "t": "Node 19 · epoll",
+   "q": "Given that, what are the only three possible responses, and which did Node take?",
+   "a": "Use threads (libuv's threadpool — Node's answer, and the reason <code>UV_THREADPOOL_SIZE</code> exists); use POSIX <code>aio</code>, widely regarded as broken; or use <code>io_uring</code>, a completion-based interface that works properly, which libuv adopted for some file operations from 1.45 (2023)."
+  },
+  {
+   "n": 274,
+   "c": "node-19",
+   "t": "Node 19 · epoll",
+   "q": "What does <code>strace</code> on an idle Node server show, and what does that tell you?",
+   "a": "One line: a blocked <code>epoll_wait</code>. That is the entire runtime at rest, consuming zero CPU. Under load it becomes <code>epoll_wait</code> returning, a burst of <code>read</code>/<code>write</code>/<code>futex</code>, and back."
+  },
+  {
+   "n": 275,
+   "c": "node-19",
+   "t": "Node 19 · epoll",
+   "q": "Why can a slow DNS server stall your file reads?",
+   "a": "<code>dns.lookup</code> calls <code>getaddrinfo</code>, a blocking library function, so it runs on the shared libuv threadpool alongside file I/O, crypto and zlib. Four threads by default. Use <code>dns.resolve</code>, which speaks DNS over a socket and goes through epoll."
+  },
+  {
+   "n": 276,
+   "c": "node-19",
+   "t": "Node 19 · epoll",
+   "q": "What is <code>EMFILE</code>, why is 1024 the classic limit, and how do you diagnose it?",
+   "a": "The per-process descriptor table is full. 1024 is a fossil of <code>select</code>'s <code>FD_SETSIZE</code>. Diagnose with <code>ls /proc/&lt;pid&gt;/fd | wc -l</code> and <code>lsof -p</code>; usually it is a leak — unconsumed HTTP responses, unclosed streams, connections without keep-alive timeouts — and a leak exhausts any limit."
+  },
+  {
+   "n": 277,
+   "c": "node-19",
+   "t": "Node 19 · epoll",
+   "q": "What is backpressure at the socket level, and what happens if you ignore it?",
+   "a": "A full send buffer makes a non-blocking <code>write</code> return short, and the correct response is to register for <code>EPOLLOUT</code>. Node surfaces this as <code>write()</code> returning <code>false</code> and a later <code>'drain'</code>. Ignoring it means Node buffers the unwritten data in your heap without limit — which is how streaming a large file to a slow client exhausts memory. <code>pipeline()</code> handles it, which is the real reason to prefer it."
+  },
+  {
+   "n": 278,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "What kind of thing is the event loop, precisely?",
+   "a": "A scheduler in user space. Everything from Node 7 applies, with one decisive difference: it has no timer interrupt and no privileged mode, so it is cooperative and regains control only when a callback returns."
+  },
+  {
+   "n": 279,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "Name libuv's phases in order.",
+   "a": "timers; pending callbacks (deferred system operations, chiefly certain TCP errors); idle and prepare (internal); poll (the only phase that blocks); check (<code>setImmediate</code>); close callbacks."
+  },
+  {
+   "n": 280,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "How is the poll timeout computed, in three cases?",
+   "a": "Zero if <code>setImmediate</code> callbacks are pending, since the check phase has work. The time until the nearest timer if any — which is how <code>setTimeout</code> is implemented, with no timer syscall and no timer thread. Otherwise infinite, which is why an idle Node process uses zero CPU."
+  },
+  {
+   "n": 281,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "Why does a Node process exit, and why does a forgotten <code>setInterval</code> prevent it?",
+   "a": "There is no 'main is finished' concept — the loop exits when nothing at all is pending: no handles, no requests, no timers. A live timer or an unclosed server is pending work."
+  },
+  {
+   "n": 282,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "Where do <code>process.nextTick</code> and microtasks run?",
+   "a": "Not in any phase — after every single callback and between every phase transition, drained completely including anything added while draining. <code>nextTick</code> first, entirely, then microtasks, entirely."
+  },
+  {
+   "n": 283,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "How can <code>process.nextTick</code> hang a process?",
+   "a": "A <code>nextTick</code> that schedules another loops forever without the loop advancing: no I/O served, no timers, apparently hung at 100% CPU. The same is true of a recursively resolving promise chain. <code>setImmediate</code> cannot do this because it lands in the next iteration's check phase."
+  },
+  {
+   "n": 284,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "Where does the code after an <code>await</code> run relative to timers and I/O?",
+   "a": "Before both. The continuation is queued as a microtask, so <code>await</code> is a very cheap yield rather than a trip through the loop. <code>await</code> on a non-promise still yields and still costs a microtask turn."
+  },
+  {
+   "n": 285,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "Why is <code>setTimeout(f,0)</code> vs <code>setImmediate(g)</code> nondeterministic at the top level but deterministic inside an I/O callback?",
+   "a": "At the top level the 1 ms clamp may or may not have elapsed by the time the loop first reaches timers, depending on startup duration. Inside an I/O callback the loop is in the poll phase and check comes immediately after, while timers are a full iteration away — so <code>setImmediate</code> always wins."
+  },
+  {
+   "n": 286,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "Describe one iteration of the browser's event loop.",
+   "a": "Take <em>one</em> task from a task queue and run it to completion; perform a microtask checkpoint, draining that queue entirely; then, if it is time to render, run the rendering steps."
+  },
+  {
+   "n": 287,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "Name the browser's rendering steps in order.",
+   "a": "<code>requestAnimationFrame</code> callbacks; recalculate style; layout; update the compositing tree; paint. Then <code>requestIdleCallback</code> if time remains before the next frame."
+  },
+  {
+   "n": 288,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "Why is <code>requestAnimationFrame</code> the correct place for visual changes and <code>setTimeout(f,16)</code> not?",
+   "a": "rAF runs immediately before style and layout, so changes are applied in the same frame with no intermediate paint. A timer lands in a task queue with no relationship to the frame boundary, producing jitter and dropped frames."
+  },
+  {
+   "n": 289,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "What is layout thrashing and why does batching fix it?",
+   "a": "Reading a geometric property (<code>offsetHeight</code>, <code>getBoundingClientRect</code>, <code>scrollTop</code>) forces the browser to flush pending style and layout to answer correctly. Alternating writes and reads forces a layout per iteration; all reads then all writes makes it one."
+  },
+  {
+   "n": 290,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "Why does React's scheduler use <code>MessageChannel</code> rather than <code>setTimeout</code>?",
+   "a": "To avoid the 4 ms clamp on nested timeouts. It yields roughly every 5 ms so the browser can take input and paint — a cooperative scheduler inside a cooperative scheduler inside a preemptive one."
+  },
+  {
+   "n": 291,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "What are event loop delay and event loop utilisation, and why export both?",
+   "a": "Delay is the time between when a callback was due and when it ran — it tells you whether the loop is being blocked and by how much. Utilisation is the fraction of time the loop spent working rather than waiting in <code>epoll_wait</code> — it tells you how close to saturated the process is, and is a better autoscaling signal than CPU. A p99 delay of 200 ms at 40% CPU is a complete diagnosis."
+  },
+  {
+   "n": 292,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "List everything that blocks the event loop.",
+   "a": "Any <code>*Sync</code> call; <code>JSON.parse</code>/<code>stringify</code> on a large object; synchronous crypto or compression; a regular expression with catastrophic backtracking (ReDoS); a large synchronous loop; a deep <code>structuredClone</code>; template rendering of a large page; and a very large number of pending microtasks, since they drain fully before the loop advances."
+  },
+  {
+   "n": 293,
+   "c": "node-20",
+   "t": "Node 20 · The event loop",
+   "q": "Match the fixes to the causes.",
+   "a": "Chunk with <code>setImmediate</code> to yield between chunks; move CPU-bound work to a worker thread; move heavy or slow work to a separate process or a queue; stream instead of buffering; or push it into the database if it is really a data operation. Raising <code>UV_THREADPOOL_SIZE</code> does nothing for main-thread blocking."
+  }
+ ]
+}

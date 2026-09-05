@@ -1307,6 +1307,8 @@ const DK = (() => {
       idx: 0,
       scope: null,             // id of the scope that owns the audio
       gen: 0,                  // bumped whenever current speech is abandoned
+      unitBase: 0,             // seconds already spent inside the current sentence
+      unitAt: 0,               // Date.now() the current playing stretch began, 0 when not
       charOffset: 0,           // where in the sentence the current utterance began
       lastChar: 0,             // last word boundary seen, sentence-relative
       lastEvent: 0,
@@ -1860,6 +1862,7 @@ const DK = (() => {
       state.lastChar = state.charOffset;
       state.retries = state.retries || 0;
       state.lastEvent = Date.now();
+      clockReset(unit, state.charOffset);
       const scope = scopeById(state.scope);
       if (scope) setBookmark(scope.id, idx, state.units.length);
       revealUnit(unit);
@@ -2160,7 +2163,7 @@ const DK = (() => {
       if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
       const total = secondsFor(state.units, 0, state.units.length);
       if (!isFinite(total) || total <= 0) return;
-      const at = Math.min(secondsFor(state.units, 0, state.idx), total);
+      const at = Math.min(elapsedSeconds(), total);
       try {
         navigator.mediaSession.setPositionState({
           duration: total,
@@ -2260,6 +2263,7 @@ const DK = (() => {
       state.gen++;
       try { synth.cancel(); } catch (e) { /* ignore */ }
       state.status = "paused";
+      clockPause();
       stopWatchdog();
       pauseKeepAlive();
       releaseWake();
@@ -2273,6 +2277,7 @@ const DK = (() => {
       if (state.status !== "paused") return;
       if (!state.units.length) rebuild();
       state.status = "playing";
+      clockResume();
       state.retries = 0;
       startKeepAlive();
       acquireWake();
@@ -2324,6 +2329,8 @@ const DK = (() => {
       if (restore !== false) restoreDetails();
       else detailsSnapshot = null;
       state.status = "idle";
+      state.unitBase = 0;
+      state.unitAt = 0;
     }
 
     function stop() {
@@ -2374,11 +2381,62 @@ const DK = (() => {
       speaker: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.2h2.3L8.5 3.4v9.2L5.3 9.8H3z"/><path d="M11 5.8a3 3 0 0 1 0 4.4"/></svg>',
     };
 
+    // A landscape can run to several hours, so minutes alone gives "494:07".
+    // Hours appear only once there is an hour to show.
     function fmtTime(sec) {
       if (!isFinite(sec) || sec < 0) sec = 0;
-      const m = Math.floor(sec / 60);
-      const s = Math.floor(sec % 60);
-      return `${m}:${String(s).padStart(2, "0")}`;
+      const t = Math.floor(sec);
+      const h = Math.floor(t / 3600);
+      const m = Math.floor((t % 3600) / 60);
+      const s = t % 60;
+      const mm = String(m).padStart(2, "0");
+      const ss = String(s).padStart(2, "0");
+      return h ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+    }
+
+    // ----- the clock ------------------------------------------------------
+    // The elapsed figure used to be secondsFor(0..idx) — the estimate for every
+    // *completed* sentence — so it sat still through a sentence and then jumped.
+    // Sentences run several seconds, so it read as a broken clock. These carry a
+    // wall-clock offset through the sentence being spoken, which is the only
+    // source fine-grained enough to move smoothly: boundary events fire per word
+    // at best, and some voices do not fire them at all.
+    function clockPause() {
+      if (state.unitAt) {
+        state.unitBase += (Date.now() - state.unitAt) / 1000;
+        state.unitAt = 0;
+      }
+    }
+
+    function clockResume() {
+      state.unitAt = Date.now();
+    }
+
+    // `spoken` is the absolute char offset speech is starting from, so resuming
+    // mid-sentence credits the part already read rather than replaying its time.
+    function clockReset(unit, spoken) {
+      const span = unit ? unit.e - unit.s : 0;
+      let frac = 0;
+      if (span > 0 && typeof spoken === "number") {
+        frac = Math.max(0, Math.min(1, (spoken - unit.s) / span));
+      }
+      state.unitBase = frac * unitSeconds(state.idx);
+      state.unitAt = Date.now();
+    }
+
+    function unitSeconds(i) {
+      return secondsFor(state.units, i, i + 1);
+    }
+
+    // Estimate for everything finished, plus real time inside the sentence in
+    // progress — capped at that sentence's estimate so it can never run past
+    // the next one and then jump backwards.
+    function elapsedSeconds() {
+      if (!state.units.length) return 0;
+      const i = Math.max(0, Math.min(state.idx, state.units.length - 1));
+      let within = state.unitBase + (state.unitAt ? (Date.now() - state.unitAt) / 1000 : 0);
+      if (!isFinite(within) || within < 0) within = 0;
+      return secondsFor(state.units, 0, i) + Math.min(within, unitSeconds(i));
     }
 
     // Rough but honest: average English narration is ~2.7 words a second at 1×.
@@ -2934,7 +2992,7 @@ const DK = (() => {
       const pct = total ? `${(done / total) * 100}%` : "0%";
       ui.fills.forEach((n) => { n.style.width = pct; });
       ui.now.textContent = state.units[state.idx] ? state.units[state.idx].text : "";
-      const elapsed = fmtTime(secondsFor(state.units, 0, state.idx));
+      const elapsed = fmtTime(elapsedSeconds());
       const all = fmtTime(secondsFor(state.units, 0, total));
       ui.timeAt.forEach((n) => { n.textContent = elapsed; });
       ui.timeAll.forEach((n) => { n.textContent = all; });
@@ -2953,6 +3011,24 @@ const DK = (() => {
         ui.launcher.innerHTML = playing ? ICONS.pausing : ICONS.play;
       }
       drawChip();
+      syncClock();
+    }
+
+    // Only the elapsed figure moves between sentences, so the ticker touches
+    // that and nothing else — a full draw() every quarter second would redo the
+    // transcript and the highlights for no reason.
+    let clockTimer = null;
+
+    function drawClock() {
+      if (!ui || !ui.timeAt) return;
+      const t = fmtTime(elapsedSeconds());
+      ui.timeAt.forEach((n) => { if (n.textContent !== t) n.textContent = t; });
+    }
+
+    function syncClock() {
+      const want = state.status === "playing" && state.units.length > 0;
+      if (want && !clockTimer) clockTimer = setInterval(drawClock, 250);
+      else if (!want && clockTimer) { clearInterval(clockTimer); clockTimer = null; }
     }
 
     // "Now playing elsewhere": without it, switching tabs mid-playback means

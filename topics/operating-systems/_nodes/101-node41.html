@@ -1,0 +1,49 @@
+<h3>Node 41 — kernel architectures, and the argument that shaped Linux</h3>
+
+<p><strong>The limitation:</strong> everything has been described as "the kernel" as though there were one obvious way to arrange it. There is not.</p>
+
+<h4>The monolithic kernel</h4>
+
+<p>All operating system services — scheduler, memory manager, filesystems, network stack, device drivers — run in kernel mode, in one address space, calling each other as ordinary functions.</p>
+
+<p><strong>Fast</strong>, because a filesystem calling the block layer is a function call, not a boundary crossing (Node 40). <strong>Fragile</strong>, because a bug anywhere is a bug everywhere: a defect in a Wi-Fi driver can corrupt the page cache, and there is no isolation between components because they share an address space (Node 15's trade, at kernel scale). And <strong>large</strong> — Linux is over 30 million lines, of which the majority is drivers.</p>
+
+<p>Linux mitigates the size problem with <strong>loadable kernel modules</strong>: drivers compiled separately and loaded on demand (<code>lsmod</code>, <code>modprobe</code>). They still run in kernel mode with full privilege, so this is a packaging improvement, not an isolation one — a fact worth being clear about, since people often assume otherwise.</p>
+
+<h4>The microkernel</h4>
+
+<p>Keep only the irreducible minimum in kernel mode — address spaces, threads, scheduling, and inter-process communication — and run everything else as ordinary user-mode processes. The filesystem is a server. The network stack is a server. Drivers are servers. They communicate by message passing.</p>
+
+<p><strong>Robust</strong>: a crashed driver is a crashed process, restartable without touching the rest, and it cannot corrupt anything it was not given access to. <strong>Verifiable</strong>: seL4, a microkernel of about 10,000 lines, has a machine-checked mathematical proof of functional correctness — something inconceivable for a monolithic kernel. And <strong>slower</strong>, historically decisively so: an operation that was a function call becomes several IPC round trips, each with a context switch and a boundary crossing.</p>
+
+<p>Mach, from Carnegie Mellon in the 1980s, was the influential attempt and was notably slow. Later designs (L4, from Jochen Liedtke in 1993) reduced IPC cost by an order of magnitude and made the argument much closer.</p>
+
+<h4>The 1992 argument, which is worth knowing accurately</h4>
+
+<p>In January 1992, on the comp.os.minix newsgroup, <strong>Andrew Tanenbaum</strong> — professor at Vrije Universiteit Amsterdam and author of Minix, a microkernel teaching system — posted "LINUX is obsolete". His argument: microkernels were the settled direction of operating systems research, and Linux's monolithic design was a step backwards; also that tying it to x86 was short-sighted.</p>
+
+<p><strong>Linus Torvalds</strong>, then 22, replied at length and with some heat. His argument: Linux was portable in practice, it worked, it was free, and theoretical elegance that ships nothing loses to practical code that runs. The exchange ran for weeks and is one of the best-documented arguments in computing.</p>
+
+<p>The honest assessment thirty years later is that <strong>both were right about different things</strong>. Tanenbaum was right that monolithic kernels have serious reliability and security properties, and the entire subsequent history of kernel vulnerabilities bears him out. Torvalds was right that Linux would win, and it did, comprehensively — every cloud server, every Android phone, most embedded systems. Microkernel ideas did not lose either; they moved. <strong>Every mechanism in Part VI is a microkernel-flavoured retrofit onto a monolithic kernel</strong>: user-space filesystems via FUSE, user-space drivers via VFIO and DPDK, gVisor implementing the syscall interface in a user process (Node 4), and eBPF running verified code in the kernel rather than trusted code (Node 39). And seL4 runs in aviation and defence systems where the proof is worth the cost.</p>
+
+<h4>The systems you actually use</h4>
+
+<ul>
+<li><strong>Linux</strong> — monolithic with modules. The stable interface is the syscall boundary (Node 4); internal APIs change freely, which is why out-of-tree drivers break on every kernel upgrade and why NVIDIA's driver situation is what it is.</li>
+<li><strong>Windows NT</strong> — designed by Dave Cutler from 1989 as a hybrid: a microkernel-influenced structure with an "executive" of subsystems, but with most of it running in kernel mode for performance. Graphics moved <em>into</em> the kernel in NT 4.0 (1996) for speed, at a real cost in stability — the archetypal instance of this node's trade. The stable interface is <code>ntdll.dll</code>, not the syscall numbers.</li>
+<li><strong>macOS / iOS (XNU)</strong> — literally "X is Not Unix", a hybrid combining the Mach microkernel with a BSD layer, both in kernel mode. Mach provides IPC and memory objects; BSD provides the POSIX interface. Modern macOS pushes drivers into user space with DriverKit, which is a microkernel move made thirty years later.</li>
+<li><strong>Android</strong> — the Linux kernel with a substantially different user space: Bionic instead of glibc, the ART runtime, and Binder, a fast IPC mechanism that is essentially a microkernel-style message-passing layer. Android's security model uses SELinux and one Linux <em>user ID per application</em> — Node 25's mechanism as an app sandbox.</li>
+<li><strong>Unikernels</strong> — the opposite extreme: compile the application and the operating system functions it needs into a single binary with no user/kernel split at all, running directly on a hypervisor. No syscall cost, no context switches, tiny attack surface, and no ability to run anything else or to debug it conventionally.</li>
+</ul>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>The monolithic trade is why a kernel bug is a container escape</strong> (Node 28). One kernel, shared by every container, with 30 million lines of attack surface — and a container's processes call directly into it. That is the entire argument for gVisor, Kata and Firecracker, and each is a different point on this node's spectrum: gVisor is a microkernel-style syscall server in user space, Kata and Firecracker restore a hardware boundary.</p>
+
+<p><strong>The same trade recurs in architecture, and naming it makes the discussion better.</strong> A <em>monolith</em> is one address space with function calls between modules: fast, simple to deploy, and a memory leak or a crash in any module affects all of them. <em>Microservices</em> are separate processes communicating by messages: independently deployable and restartable, a failure contained to one service, and every internal call becomes a network round trip — 200 microseconds instead of 20 nanoseconds, four orders of magnitude, exactly the microkernel's IPC penalty. <strong>The arguments made for and against microservices are, term for term, the arguments Tanenbaum and Torvalds made in 1992</strong>, and the resolution is likely to be the same: mostly monolithic, with boundaries where isolation genuinely earns its cost.</p>
+
+<p>The browser is the clearest working example of the resolution. Chrome moved from one process to process-per-site (Node 3), accepting a large memory cost and constant IPC to gain the hardware isolation boundary — because the threat model demanded it. It is a monolith that became a microkernel where it mattered, which is the honest general answer.</p>
+
+<p><strong>What you can do at this point:</strong> explain the monolithic and microkernel designs and their trade-offs, describe the 1992 debate accurately and assess it fairly, place Linux, NT, XNU, Android and unikernels on the spectrum, explain why a container escape is a consequence of monolithic design, and map the architecture argument onto monolith versus microservices with the actual latency figures.</p>
+
+<p><strong>What's still broken:</strong> the chain is complete but its history has been delivered in pieces, one date at a time. Seeing it in order — who did what, when, and in response to whom — makes the whole thing considerably easier to hold.</p>

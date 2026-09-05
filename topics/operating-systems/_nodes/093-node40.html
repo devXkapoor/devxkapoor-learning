@@ -1,0 +1,54 @@
+<h3>Node 40 — the cost of the boundary, and the interface built to stop crossing it</h3>
+
+<p><strong>The limitation:</strong> every crossing between user mode and the kernel costs real time, that cost rose sharply in 2018 for reasons unrelated to software, and high-performance systems make millions of crossings per second.</p>
+
+<h4>What the crossing costs, and why it grew</h4>
+
+<p>Node 4 put a bare syscall at roughly 50–100 nanoseconds. That figure is the register save and restore, the stack switch, the table dispatch, and the return. In processor terms it is several hundred instructions' worth of time to accomplish nothing.</p>
+
+<p>Then, on 3 January 2018, <strong>Meltdown</strong> and <strong>Spectre</strong> were disclosed — a class of vulnerability arising from speculative execution (Node 0). The processor executes down a predicted path before knowing whether the prediction is right, and although it discards the architectural results, it does <em>not</em> undo the effects on the caches. So code can speculatively read memory it is not permitted to read, and then infer the value by timing subsequent cache accesses. Meltdown specifically let user-mode code read kernel memory, which was mapped into every process's address space for the efficiency reason in Node 11.</p>
+
+<p>The mitigations were expensive and are still with us:</p>
+
+<ul>
+<li><strong>KPTI</strong> (Kernel Page Table Isolation) unmaps kernel memory from the user page table entirely. Every syscall now also switches the page table root, which means a <code>cr3</code> write and, without PCID support, a TLB flush (Node 10). Syscall-heavy workloads lost anywhere from five to thirty percent.</li>
+<li><strong>Retpoline</strong>, <strong>IBRS</strong> and <strong>IBPB</strong> constrain branch prediction across privilege boundaries, adding cost to indirect calls and to context switches.</li>
+<li><strong>MDS</strong>, <strong>L1TF</strong> and later mitigations added buffer-flushing on transitions, and on some hardware disabling hyperthreading was the only complete answer — halving the apparent core count.</li>
+</ul>
+
+<p><code>cat /sys/devices/system/cpu/vulnerabilities/*</code> lists what your machine is mitigating and how. Booting with <code>mitigations=off</code> recovers the performance and is a real, defensible choice on a single-tenant machine running only trusted code — and an indefensible one on anything that runs untrusted code, which includes any machine running a browser or a multi-tenant workload. It is worth knowing the option exists and knowing exactly what it costs you.</p>
+
+<h4>The three ways to cross less</h4>
+
+<p><strong>One: do not cross at all.</strong> The <strong>vDSO</strong> (Node 8) maps kernel-maintained data and a little code into every process, so <code>clock_gettime</code>, <code>gettimeofday</code> and <code>getcpu</code> are answered entirely in user mode at about twenty nanoseconds. This is why <code>Date.now()</code> shows no syscall in <code>strace</code>.</p>
+
+<p><strong>Two: batch.</strong> Every buffered interface in this document is this. <code>writev</code> and <code>readv</code> take an array of buffers and do one call instead of many — <em>scatter-gather I/O</em>, and exactly what Node's <code>writev</code> on a socket does when you write several chunks. <code>sendfile</code> copies from one descriptor to another entirely inside the kernel: no copy into user memory and back, which is the actual meaning of "zero copy" and why nginx serving a static file is dramatically cheaper than an application reading and writing it. <code>epoll</code> itself (Node 19) is batching: learn about a thousand ready sockets in one call.</p>
+
+<p><strong>Three: replace the interface.</strong> <code>io_uring</code>, by Jens Axboe, merged in Linux 5.1 (May 2019), is the most significant new kernel interface in twenty years and its design is worth understanding.</p>
+
+<h4>io_uring</h4>
+
+<p>Two ring buffers in memory <strong>shared between the process and the kernel</strong> — a submission queue and a completion queue. To request an operation you write an entry into the submission ring and advance a shared index. The kernel reads it, performs the operation, and writes a completion entry. You read completions from the other ring.</p>
+
+<p>The properties that follow:</p>
+
+<ul>
+<li><strong>Many operations per crossing.</strong> Write a hundred submission entries and make one <code>io_uring_enter</code> call.</li>
+<li><strong>Optionally zero crossings.</strong> In polled mode (<code>SQPOLL</code>) a kernel thread watches the submission ring, so a busy process submits work and receives completions with <em>no system calls at all</em>.</li>
+<li><strong>Completion-based, not readiness-based.</strong> You are told the operation is done, not that it would not block. This is the crucial difference from <code>epoll</code>, and it is what makes it work for <em>regular files</em> — which Node 19 established that readiness fundamentally cannot handle. It is the first interface that lets a single-threaded event loop do genuinely asynchronous file I/O on Linux without a threadpool.</li>
+<li><strong>It covers almost everything</strong> — read, write, <code>openat</code>, <code>close</code>, <code>accept</code>, <code>connect</code>, <code>send</code>, <code>recv</code>, <code>fsync</code>, <code>statx</code> — with operations chainable so that one's completion triggers the next without user-space involvement.</li>
+</ul>
+
+<p>It is not free of trade-offs. Its rapid growth in surface area produced a run of security vulnerabilities serious enough that Google disabled it in ChromeOS and Android, and several container runtimes block it in their default seccomp profiles — which is itself a nice illustration of Node 4, since blocking an interface is done by filtering its syscall numbers.</p>
+
+<h4>Where this is in your stack</h4>
+
+<p><strong>libuv has used <code>io_uring</code> for some file operations since version 1.45 (2023)</strong>, gated on kernel version, which for file-heavy Node workloads removes threadpool round trips and can be a large improvement. It does not change socket handling, which remains <code>epoll</code>. If a Node file benchmark differs markedly between two hosts with the same Node version, kernel version and libuv's <code>io_uring</code> gate are worth checking.</p>
+
+<p><strong>Syscall cost is a real design axis in your own code, and now you can reason about it quantitatively.</strong> A request handler that makes 2,000 syscalls at 100 ns each spends 200 microseconds in boundary crossings alone — which, on a handler with a 2 ms budget, is ten percent. So: keep a log file descriptor open rather than opening per line; write a response once rather than in forty <code>res.write</code> calls; use HTTP keep-alive so a request does not pay <code>socket</code>, <code>connect</code>, and a TLS handshake (Node 32); prefer a Unix socket to loopback TCP for local services (Node 31); and use <code>stream.pipeline</code> rather than manual read-write loops, since it uses the efficient paths. <code>strace -c -f</code> gives you the count directly, and it is a measurement almost nobody takes.</p>
+
+<p><strong>The same reasoning scales up unchanged.</strong> A syscall crossing is ~100 ns; a local database round trip is ~200 microseconds — two thousand times more; a cross-region call is ~100 ms. So the N+1 query problem is the syscall-batching problem at a scale where it costs a thousand times as much: 100 queries at 200 µs is 20 ms of pure round-trip time, and one query returning the same rows is 200 µs. <code>DataLoader</code> batching, <code>IN (...)</code> instead of a loop, Redis pipelining, and HTTP/2 multiplexing are all <em>the same optimisation as <code>writev</code></em>, and recognising that is worth more than any of them individually. <strong>Every layer of this document has a boundary, and every layer's optimisation is to cross it less often with more in hand.</strong> [EXPLAIN]</p>
+
+<p><strong>What you can do at this point:</strong> state what a syscall costs and why it grew after 2018, explain KPTI and what <code>mitigations=off</code> trades, name the three strategies for crossing less and give an instance of each, explain <code>io_uring</code>'s rings and why completion-based I/O succeeds where readiness cannot, and apply the batching argument uniformly from <code>writev</code> to N+1 queries.</p>
+
+<p><strong>What's still broken:</strong> nothing mechanical. Every part of the machine has now been built. What remains is to look at the whole thing — the ways it has been assembled differently, the actual history that produced this particular arrangement rather than another, and one complete trace through all of it at once.</p>

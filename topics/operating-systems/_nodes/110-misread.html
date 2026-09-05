@@ -1,0 +1,47 @@
+<h3>Where the chain gets misread</h3>
+
+<p>Each item is a belief that is common, wrong, and costly, with the correction and the node where the model actually broke.</p>
+
+<p><strong>"The kernel is a program running alongside my program."</strong> It is a <em>mode the processor is in</em>. Your process executes kernel code, on its own time, with the privilege bit raised. There is no kernel process to schedule against. This is why <code>sy</code> time in <code>top</code> is charged to <em>your</em> process, and why a kernel bug panics the machine rather than crashing a process. <strong>(Node 3)</strong></p>
+
+<p><strong>"Blocking wastes CPU."</strong> A blocked process consumes exactly zero processor time — it is in state <code>S</code>, off the run queue. The cost of blocking is not cycles; it is that <em>this thread</em> can do nothing else, so serving many clients needs many threads, and threads cost memory, scheduler entries, and context switches. The event loop's advantage is that it replaces a context switch with a function call — three orders of magnitude — not that it stops some waste. <strong>(Nodes 6, 18)</strong></p>
+
+<p><strong>"Node is single-threaded, so it uses one core."</strong> Your JavaScript runs on one thread. The <em>process</em> has a libuv threadpool, V8 compiler and GC threads, and any addon threads, and the kernel scheduler will run them on other cores. A Node process routinely exceeds 100% CPU. <strong>(Nodes 7, 15)</strong></p>
+
+<p><strong>"JavaScript is single-threaded, so I don't have concurrency bugs."</strong> You do not have <em>data</em> races. You absolutely have race conditions, because <strong>every <code>await</code> is a yield point</strong> at which other code — including another invocation of the same function — runs against the same state. Read-check-write across an <code>await</code> is exactly the interleaving bug from threaded code. <strong>(Node 16)</strong></p>
+
+<p><strong>"A container is a lightweight VM."</strong> It is an ordinary process with namespaces, a cgroup, and a layered root filesystem. It shares the host kernel; there is no guest kernel, no boot, no hypervisor. This is why it starts in milliseconds and why a kernel vulnerability is a shared vulnerability. <strong>(Nodes 26, 28, 29)</strong></p>
+
+<p><strong>"Free memory should be high."</strong> On Linux, unused memory is used for the page cache, and that is correct — cached pages are instantly reclaimable and save disk reads. Read <code>available</code>, not <code>free</code>. <strong>(Node 13)</strong></p>
+
+<p><strong>"My process is leaking — RSS went up and never came down."</strong> Allocators do not usually return freed memory to the kernel; it goes back to their own free lists for reuse. RSS is a high-water mark. A genuine leak is a <em>continuously rising</em> curve under steady load, not a plateau after a spike. <strong>(Node 12)</strong></p>
+
+<p><strong>"<code>heapUsed</code> is my process's memory."</strong> It is V8's managed heap only. Buffers, <code>ArrayBuffer</code>s, native addon allocations, the binary, shared libraries, code space, thread stacks and allocator fragmentation are all outside it, and all of them count towards the container limit. A buffer leak shows as rising RSS with a flat heap and is invisible in a heap snapshot. <strong>(Nodes 11, 12)</strong></p>
+
+<p><strong>"A high load average means the CPU is busy."</strong> On Linux, load average counts running <em>and</em> uninterruptibly-sleeping tasks. A machine with a hung disk shows a load of 40 with idle processors. Load average is not a CPU metric on Linux. <strong>(Nodes 5, 38)</strong></p>
+
+<p><strong>"Setting a CPU limit protects my service."</strong> A CPU limit is a hard quota enforced by stopping every thread until the next period. It causes latency spikes at moderate average utilisation and cannot make anything faster. Requests give you a guaranteed share; limits only add throttling. <strong>(Nodes 7, 27)</strong></p>
+
+<p><strong>"OOMKilled means my app has a memory leak."</strong> It means the cgroup's memory budget was exceeded, which includes page cache from the container's own file writes and <code>tmpfs</code> contents. A container that logs heavily to a file can be killed with a perfectly flat heap. Check <code>memory.stat</code> for the anon/file split. <strong>(Nodes 13, 24, 27)</strong></p>
+
+<p><strong>"The container takes ten seconds to stop."</strong> It ignored <code>SIGTERM</code> and was <code>SIGKILL</code>ed at the deadline — because PID 1 does not receive signals with default actions unless it installs a handler, or because a shell is PID 1 and does not forward them. <strong>(Nodes 5, 30)</strong></p>
+
+<p><strong>"<code>write()</code> returning means the data is saved."</strong> It means the bytes are in the page cache. They survive a process crash and are lost on power failure until <code>fsync</code> forces them through the kernel <em>and</em> the device's own write cache. Every database durability setting is a decision about how often to make that call. <strong>(Node 23)</strong></p>
+
+<p><strong>"<code>setTimeout(fn, 0)</code> runs it immediately."</strong> It is clamped (1 ms in Node, 4 ms in browsers after five nested levels), it waits for the loop to reach its timers phase, and it queues behind any running callback. Timers guarantee a minimum, never a maximum. For "as soon as this callback finishes", use a microtask; for "after I/O", <code>setImmediate</code>. <strong>(Nodes 8, 20)</strong></p>
+
+<p><strong>"<code>Date.now()</code> is fine for measuring how long something took."</strong> It is a wall clock and can jump forwards or backwards when NTP corrects it, so a duration can come out negative. Use <code>performance.now()</code> or <code>process.hrtime.bigint()</code>, which are monotonic. <strong>(Node 8)</strong></p>
+
+<p><strong>"<code>fork()</code> in Node means the <code>fork()</code> system call."</strong> <code>cluster.fork()</code> and <code>child_process.fork()</code> spawn a fresh <code>node</code> process via <code>posix_spawn</code> and <code>execve</code>. The real <code>fork()</code> is unsafe in a multithreaded process, because only the calling thread survives while every lock the others held stays locked forever. <strong>(Node 14)</strong></p>
+
+<p><strong>"Alpine is just a smaller image."</strong> It is a different C library. Binaries are not interchangeable, prebuilt native modules often do not apply, DNS resolution behaves differently, the default thread stack is far smaller, and allocation-heavy multithreaded workloads can be measurably slower. Sometimes worth it; never free. <strong>(Node 34)</strong></p>
+
+<p><strong>"<code>os.cpus().length</code> tells me my container's CPU allocation."</strong> <code>/proc/cpuinfo</code> is not namespaced, so it reports the host's cores. Limits live in cgroup files. Use <code>os.availableParallelism()</code>. <strong>(Nodes 26, 38)</strong></p>
+
+<p><strong>"Deleting a file frees the disk space."</strong> <code>unlink</code> removes a name and decrements a link count. The data is freed only when the count reaches zero <em>and</em> no process still holds it open — which is why deleting a log file a running process has open frees nothing and <code>du</code> and <code>df</code> disagree. <strong>(Node 21)</strong></p>
+
+<p><strong>"Bundling and linking are different things."</strong> They are the same thing. Modules are object files, imports are undefined symbols, tree shaking is dead-code elimination, source maps are debug info, two copies of React is a multiple-definition error the module system declines to report. <strong>(Node 33)</strong></p>
+
+<p><strong>"A Kubernetes Service load-balances my requests."</strong> It rewrites packets in the kernel, per <em>connection</em>. A long-lived HTTP/2 or gRPC connection pins to one pod for its lifetime, so traffic distributes badly without client-side balancing or a mesh. <strong>(Node 32)</strong></p>
+
+<p><strong>"A distributed lock is a lock."</strong> A process holding one can be paused by GC, throttling, or a partition for longer than the lease, after which two holders believe they hold it. Without fencing tokens rejected by the storage layer, it reduces contention rather than guaranteeing correctness. <strong>(Node 17)</strong></p>

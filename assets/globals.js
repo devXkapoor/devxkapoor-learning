@@ -1277,8 +1277,10 @@ const DK = (() => {
     // readable unit if every ancestor between it and the scope root is one of
     // these, which is what keeps chrome out without a list of exclusions.
     const CONTAINERS = [
-      ".prose", ".node-body", ".card-list", ".rc-card", ".el-card",
-      "details.node-block", "details.sub-block", "details.el-block", "details.deck-group",
+      ".prose", ".landscape-root", ".node-body", ".card-list", ".rc-card", ".el-card",
+      ".node-close",
+      "details.part-block", "details.node-block", "details.sub-block",
+      "details.el-block", "details.deck-group",
       "summary.node-summary", "ul", "ol", "blockquote", "table", "thead", "tbody",
       "tfoot", "tr", "dl", "section", "article", "figure",
     ].join(",");
@@ -3047,8 +3049,8 @@ const DK = (() => {
     }
 
     // ----- inline play buttons ------------------------------------------------
-    // Landscape nodes and elaboration sections only. Deck cards deliberately
-    // get none: hundreds of tiny buttons is clutter, not control.
+    // One per disclosure block, at every level. Deck cards deliberately get
+    // none: hundreds of tiny buttons is clutter, not control.
     function mountInline() {
       if (!hasSpeech) return;
       // Prose blocks in any tab — landscape nodes, elaboration and discuss
@@ -3057,8 +3059,15 @@ const DK = (() => {
       const targets = [];
       scopes().forEach((scope) => {
         if (!scope.tab) return;
+        // Every disclosure level gets one, so a part, a node and one of a
+        // node's sections are all separately playable. Deck groups stay
+        // excluded: a button on every question group is the clutter this was
+        // meant to avoid.
         targets.push(...scope.root.querySelectorAll(
-          "details.node-block:not(.deck-group) > summary.node-summary, details.el-block > summary.node-summary"
+          "details.part-block > summary.node-summary, " +
+          "details.node-block:not(.deck-group) > summary.node-summary, " +
+          "details.el-block > summary.node-summary, " +
+          "details.sub-block > summary.node-summary"
         ));
       });
       targets.forEach((summary) => {

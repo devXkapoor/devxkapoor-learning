@@ -1,0 +1,93 @@
+<h3>Node 42 — the history, threaded in order</h3>
+
+<p><strong>The limitation:</strong> the dates and names in this document have arrived one at a time, attached to mechanisms. In order, they make a story that is far easier to hold than forty separate facts.</p>
+
+<h4>Before there is anything (1936–1949)</h4>
+
+<p><strong>1936</strong> — Alan Turing's paper on computable numbers describes a universal machine: one device that can simulate any other, given a description of it on its tape. The idea that a program is data predates any hardware capable of it.</p>
+
+<p><strong>1945</strong> — the <em>First Draft of a Report on the EDVAC</em> (Node 0), circulated under von Neumann's name, records the stored-program design.</p>
+
+<p><strong>December 1947</strong> — the transistor, at Bell Labs.</p>
+
+<p><strong>1948–49</strong> — the Manchester Baby runs the first stored program (21 June 1948); EDSAC at Cambridge runs the first practically useful one (6 May 1949).</p>
+
+<h4>Machines with no operating system (1950s)</h4>
+
+<p>Sign-up sheets, punched cards, one program at a time, an operator walking across a room between jobs (Node 0). <strong>1956</strong> — GM-NAA I/O, the resident monitor, for the IBM 704 (Node 1). <strong>1957</strong> — FORTRAN makes programs something written rather than wired.</p>
+
+<h4>Every idea in this document is invented (the 1960s)</h4>
+
+<p>The decade that matters most. Nearly everything in Parts I–III originates here.</p>
+
+<p><strong>1961</strong> — <strong>CTSS</strong> at MIT, Fernando Corbató: genuine interactive time-sharing, and the multi-level feedback queue (Node 7). Also the first computer password, and — within a few years — the first password leak.</p>
+
+<p><strong>1962</strong> — the <strong>Ferranti Atlas</strong> at Manchester, Tom Kilburn: interrupts with priorities, extracodes (system calls, Node 4), a Supervisor program, and <strong>virtual memory with demand paging</strong> (Node 10) — a decade before commercial machines adopted it. The most under-credited machine in computing.</p>
+
+<p><strong>1964</strong> — IBM <strong>System/360</strong>: one architecture across a whole product line, the 8-bit byte standardised (Node 0), and OS/360 with JCL (Node 1). Fred Brooks managed it and wrote <em>The Mythical Man-Month</em> (1975) about what went wrong.</p>
+
+<p><strong>1965</strong> — <strong>Multics</strong> begins (MIT, Bell Labs, GE): protection rings (Node 3), a hierarchical filesystem, memory-mapped files, dynamic linking, and security as a first-class goal. Ambitious, late, and slow.</p>
+
+<p><strong>1965</strong> — Dijkstra's semaphores (Node 17). <strong>1968</strong> — Denning's working set (Node 13).</p>
+
+<h4>Unix (1969–1979)</h4>
+
+<p><strong>1969</strong> — Bell Labs withdraws from Multics. Ken Thompson, wanting to run a game called Space Travel, writes a small system on a spare PDP-7. Dennis Ritchie joins. Brian Kernighan names it <em>Unics</em>, a pun on Multics; it becomes <strong>Unix</strong>. <strong>1 January 1970</strong> becomes the epoch (Node 8).</p>
+
+<p><strong>1972–73</strong> — Ritchie creates <strong>C</strong>, and in 1973 Unix is <em>rewritten in it</em>. This is the decisive moment: an operating system in a high-level language can be moved to a new machine by writing a compiler, and portability is what actually spreads Unix. The 1974 CACM paper by Ritchie and Thompson makes it famous.</p>
+
+<p>A 1956 antitrust consent decree bars AT&T from selling computer products, so Unix is licensed to universities for a nominal fee <em>with source</em>. A generation learns operating systems by reading it — including John Lions's commentary, which AT&T then restricted, making it the most photocopied document in computing.</p>
+
+<p><strong>1977</strong> — Bill Joy at Berkeley ships the first <strong>BSD</strong>.</p>
+
+<h4>Divergence and standardisation (1980s)</h4>
+
+<p><strong>1981</strong> — IBM PC and MS-DOS. <strong>1982</strong> — the 80286 brings protected mode; <strong>1985</strong> the 80386 completes it (Node 3).</p>
+
+<p><strong>1983</strong> — <strong>4.2BSD</strong>: the socket API and TCP/IP (Node 32), which is why the internet speaks Unix. The same year, Richard Stallman announces <strong>GNU</strong> — a free Unix — producing GCC, Emacs, and the utilities, but never finishing its kernel, Hurd.</p>
+
+<p><strong>1987</strong> — Andrew Tanenbaum releases <strong>Minix</strong> as a teaching system. <strong>1988</strong> — <strong>POSIX.1</strong> standardises the Unix interface, so that the diverging BSD and System V worlds share a portable core; it is why your code compiles on Linux and macOS.</p>
+
+<p><strong>1989</strong> — NeXTSTEP, built on Mach and BSD, which will become macOS twelve years later.</p>
+
+<h4>Linux (1991–1999)</h4>
+
+<p><strong>25 August 1991</strong> — Linus Torvalds, 21, posts to comp.os.minix: "I'm doing a (free) operating system (just a hobby, won't be big and professional like gnu)". Version 0.01 in September.</p>
+
+<p><strong>1992</strong> — relicensed under the GPL, which is what makes contribution safe and is arguably as important as the code. The same year, the Tanenbaum–Torvalds debate (Node 41). Also 1992: AT&T's lawsuit against BSDi and Berkeley puts the BSDs under a legal cloud for two years — <em>exactly the window in which Linux gathered its community</em>. It is entirely plausible that Linux won because BSD was in court.</p>
+
+<p><strong>1993</strong> — Windows NT 3.1 (Dave Cutler), FreeBSD and NetBSD, Debian and Slackware. <strong>1994</strong> — Linux 1.0. <strong>1996</strong> — Linux 2.0 with multiprocessor support. <strong>1998</strong> — Netscape opens its source; the term "open source" is coined; IBM and Oracle back Linux.</p>
+
+<h4>The infrastructure era (2000–2012)</h4>
+
+<p><strong>2001</strong> — <strong>Mac OS X</strong>: NeXTSTEP's XNU kernel makes Unix the desktop system of a mass-market vendor.</p>
+
+<p><strong>2003</strong> — Linux <strong>2.6</strong>: the O(1) scheduler and NPTL 1:1 threads (Node 15). <strong>2004</strong> — <strong>nginx</strong> (Igor Sysoev), written against the C10K problem (Node 18); Ubuntu.</p>
+
+<p><strong>2005</strong> — Intel VT-x and AMD-V make hardware virtualisation practical (Node 29). Also 2005: Torvalds writes <strong>Git</strong> in ten days after BitKeeper's licence is withdrawn.</p>
+
+<p><strong>2006</strong> — <strong>Amazon EC2</strong>. Virtualisation plus a credit card. The economics of computing change.</p>
+
+<p><strong>2007</strong> — Android is announced and the iPhone ships; both run Unix-derived kernels, so the mobile era is Unix too. <strong>2008</strong> — <strong>cgroups</strong> merged into Linux 2.6.24 (Node 27), from Google, who had been running containerised workloads internally for years.</p>
+
+<p><strong>November 2009</strong> — Ryan Dahl presents <strong>Node.js</strong> at JSConf EU (Node 18). <strong>2010</strong> — <strong>systemd</strong> (Node 37).</p>
+
+<h4>Containers and the present (2013–)</h4>
+
+<p><strong>March 2013</strong> — Solomon Hykes demonstrates <strong>Docker</strong> in a five-minute lightning talk at PyCon. Every kernel feature it used already existed — namespaces since 2002, cgroups since 2008, union filesystems for years. <strong>Docker's contribution was the image format, the registry, and the developer experience</strong>, and that is a genuine and sufficient contribution: it made an assembly of existing kernel features into something a working developer could use in an afternoon.</p>
+
+<p><strong>June 2014</strong> — Google announces <strong>Kubernetes</strong>, distilled from its internal Borg system. <strong>2015</strong> — the OCI standardises the image and runtime formats; the CNCF is founded. <strong>2016</strong> — BBR congestion control (Node 32).</p>
+
+<p><strong>January 2018</strong> — <strong>Meltdown and Spectre</strong> (Nodes 0, 40). The first time a processor optimisation forced a redesign across every operating system, browser and cloud simultaneously. <strong>November 2018</strong> — Firecracker (Node 29). <strong>May 2019</strong> — <strong>io_uring</strong> (Node 40).</p>
+
+<p><strong>2020s</strong> — cgroups v2 becomes the default; eBPF becomes mainstream infrastructure (Node 39); Rust is accepted into the Linux kernel (6.1, December 2022); Java 21 ships virtual threads (September 2023, Node 18); Linux 6.6 replaces CFS with EEVDF (October 2023, Node 7).</p>
+
+<h4>Three patterns in the history</h4>
+
+<p><strong>The ideas were finished by 1970; everything since is engineering and economics.</strong> Virtual memory, time-sharing, interrupts, protection rings, semaphores, the process model, the file abstraction — all 1960s. What changed afterwards was scale, cost, and who was allowed to use them.</p>
+
+<p><strong>Licensing decided outcomes at least as much as design.</strong> The AT&T consent decree spread Unix. The GPL made Linux safe to contribute to. The BSD lawsuit cost BSD its moment. CDDL keeps ZFS out of the kernel to this day. None of that is technical, and all of it shaped what you run.</p>
+
+<p><strong>Simple things that ship beat elegant things that do not.</strong> Unix over Multics, Linux over Hurd and Minix, Docker over the seven prior container systems, JavaScript over every better-designed language proposed for the browser. This is not an argument against elegance; it is an observation about what actually determines adoption, and it is worth carrying into your own engineering judgement.</p>
+
+<p><strong>What's still broken:</strong> nothing. One trace remains — a single user action, followed through every mechanism in this document at once.</p>

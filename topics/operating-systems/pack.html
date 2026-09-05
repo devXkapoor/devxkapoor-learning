@@ -3169,7 +3169,211 @@ bpftrace -e 'tracepoint:raw_syscalls:sys_enter /pid == 1234/ { @[probe] = count(
 
 <p><strong>What you can do at this point:</strong> explain the monolithic and microkernel designs and their trade-offs, describe the 1992 debate accurately and assess it fairly, place Linux, NT, XNU, Android and unikernels on the spectrum, explain why a container escape is a consequence of monolithic design, and map the architecture argument onto monolith versus microservices with the actual latency figures.</p>
 
-<p><strong>What's still broken:</strong> the chain is complete but its history has been delivered in pieces, one date at a time. Seeing it in order — who did what, when, and in response to whom — makes the whole thing considerably easier to hold.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
+<p><strong>What's still broken:</strong> the chain is complete but its history has been delivered in pieces, one date at a time. Seeing it in order — who did what, when, and in response to whom — makes the whole thing considerably easier to hold.</p>
+
+<h3>Node 42 — the history, threaded in order</h3>
+
+<p><strong>The limitation:</strong> the dates and names in this document have arrived one at a time, attached to mechanisms. In order, they make a story that is far easier to hold than forty separate facts.</p>
+
+<h4>Before there is anything (1936–1949)</h4>
+
+<p><strong>1936</strong> — Alan Turing's paper on computable numbers describes a universal machine: one device that can simulate any other, given a description of it on its tape. The idea that a program is data predates any hardware capable of it.</p>
+
+<p><strong>1945</strong> — the <em>First Draft of a Report on the EDVAC</em> (Node 0), circulated under von Neumann's name, records the stored-program design.</p>
+
+<p><strong>December 1947</strong> — the transistor, at Bell Labs.</p>
+
+<p><strong>1948–49</strong> — the Manchester Baby runs the first stored program (21 June 1948); EDSAC at Cambridge runs the first practically useful one (6 May 1949).</p>
+
+<h4>Machines with no operating system (1950s)</h4>
+
+<p>Sign-up sheets, punched cards, one program at a time, an operator walking across a room between jobs (Node 0). <strong>1956</strong> — GM-NAA I/O, the resident monitor, for the IBM 704 (Node 1). <strong>1957</strong> — FORTRAN makes programs something written rather than wired.</p>
+
+<h4>Every idea in this document is invented (the 1960s)</h4>
+
+<p>The decade that matters most. Nearly everything in Parts I–III originates here.</p>
+
+<p><strong>1961</strong> — <strong>CTSS</strong> at MIT, Fernando Corbató: genuine interactive time-sharing, and the multi-level feedback queue (Node 7). Also the first computer password, and — within a few years — the first password leak.</p>
+
+<p><strong>1962</strong> — the <strong>Ferranti Atlas</strong> at Manchester, Tom Kilburn: interrupts with priorities, extracodes (system calls, Node 4), a Supervisor program, and <strong>virtual memory with demand paging</strong> (Node 10) — a decade before commercial machines adopted it. The most under-credited machine in computing.</p>
+
+<p><strong>1964</strong> — IBM <strong>System/360</strong>: one architecture across a whole product line, the 8-bit byte standardised (Node 0), and OS/360 with JCL (Node 1). Fred Brooks managed it and wrote <em>The Mythical Man-Month</em> (1975) about what went wrong.</p>
+
+<p><strong>1965</strong> — <strong>Multics</strong> begins (MIT, Bell Labs, GE): protection rings (Node 3), a hierarchical filesystem, memory-mapped files, dynamic linking, and security as a first-class goal. Ambitious, late, and slow.</p>
+
+<p><strong>1965</strong> — Dijkstra's semaphores (Node 17). <strong>1968</strong> — Denning's working set (Node 13).</p>
+
+<h4>Unix (1969–1979)</h4>
+
+<p><strong>1969</strong> — Bell Labs withdraws from Multics. Ken Thompson, wanting to run a game called Space Travel, writes a small system on a spare PDP-7. Dennis Ritchie joins. Brian Kernighan names it <em>Unics</em>, a pun on Multics; it becomes <strong>Unix</strong>. <strong>1 January 1970</strong> becomes the epoch (Node 8).</p>
+
+<p><strong>1972–73</strong> — Ritchie creates <strong>C</strong>, and in 1973 Unix is <em>rewritten in it</em>. This is the decisive moment: an operating system in a high-level language can be moved to a new machine by writing a compiler, and portability is what actually spreads Unix. The 1974 CACM paper by Ritchie and Thompson makes it famous.</p>
+
+<p>A 1956 antitrust consent decree bars AT&T from selling computer products, so Unix is licensed to universities for a nominal fee <em>with source</em>. A generation learns operating systems by reading it — including John Lions's commentary, which AT&T then restricted, making it the most photocopied document in computing.</p>
+
+<p><strong>1977</strong> — Bill Joy at Berkeley ships the first <strong>BSD</strong>.</p>
+
+<h4>Divergence and standardisation (1980s)</h4>
+
+<p><strong>1981</strong> — IBM PC and MS-DOS. <strong>1982</strong> — the 80286 brings protected mode; <strong>1985</strong> the 80386 completes it (Node 3).</p>
+
+<p><strong>1983</strong> — <strong>4.2BSD</strong>: the socket API and TCP/IP (Node 32), which is why the internet speaks Unix. The same year, Richard Stallman announces <strong>GNU</strong> — a free Unix — producing GCC, Emacs, and the utilities, but never finishing its kernel, Hurd.</p>
+
+<p><strong>1987</strong> — Andrew Tanenbaum releases <strong>Minix</strong> as a teaching system. <strong>1988</strong> — <strong>POSIX.1</strong> standardises the Unix interface, so that the diverging BSD and System V worlds share a portable core; it is why your code compiles on Linux and macOS.</p>
+
+<p><strong>1989</strong> — NeXTSTEP, built on Mach and BSD, which will become macOS twelve years later.</p>
+
+<h4>Linux (1991–1999)</h4>
+
+<p><strong>25 August 1991</strong> — Linus Torvalds, 21, posts to comp.os.minix: "I'm doing a (free) operating system (just a hobby, won't be big and professional like gnu)". Version 0.01 in September.</p>
+
+<p><strong>1992</strong> — relicensed under the GPL, which is what makes contribution safe and is arguably as important as the code. The same year, the Tanenbaum–Torvalds debate (Node 41). Also 1992: AT&T's lawsuit against BSDi and Berkeley puts the BSDs under a legal cloud for two years — <em>exactly the window in which Linux gathered its community</em>. It is entirely plausible that Linux won because BSD was in court.</p>
+
+<p><strong>1993</strong> — Windows NT 3.1 (Dave Cutler), FreeBSD and NetBSD, Debian and Slackware. <strong>1994</strong> — Linux 1.0. <strong>1996</strong> — Linux 2.0 with multiprocessor support. <strong>1998</strong> — Netscape opens its source; the term "open source" is coined; IBM and Oracle back Linux.</p>
+
+<h4>The infrastructure era (2000–2012)</h4>
+
+<p><strong>2001</strong> — <strong>Mac OS X</strong>: NeXTSTEP's XNU kernel makes Unix the desktop system of a mass-market vendor.</p>
+
+<p><strong>2003</strong> — Linux <strong>2.6</strong>: the O(1) scheduler and NPTL 1:1 threads (Node 15). <strong>2004</strong> — <strong>nginx</strong> (Igor Sysoev), written against the C10K problem (Node 18); Ubuntu.</p>
+
+<p><strong>2005</strong> — Intel VT-x and AMD-V make hardware virtualisation practical (Node 29). Also 2005: Torvalds writes <strong>Git</strong> in ten days after BitKeeper's licence is withdrawn.</p>
+
+<p><strong>2006</strong> — <strong>Amazon EC2</strong>. Virtualisation plus a credit card. The economics of computing change.</p>
+
+<p><strong>2007</strong> — Android is announced and the iPhone ships; both run Unix-derived kernels, so the mobile era is Unix too. <strong>2008</strong> — <strong>cgroups</strong> merged into Linux 2.6.24 (Node 27), from Google, who had been running containerised workloads internally for years.</p>
+
+<p><strong>November 2009</strong> — Ryan Dahl presents <strong>Node.js</strong> at JSConf EU (Node 18). <strong>2010</strong> — <strong>systemd</strong> (Node 37).</p>
+
+<h4>Containers and the present (2013–)</h4>
+
+<p><strong>March 2013</strong> — Solomon Hykes demonstrates <strong>Docker</strong> in a five-minute lightning talk at PyCon. Every kernel feature it used already existed — namespaces since 2002, cgroups since 2008, union filesystems for years. <strong>Docker's contribution was the image format, the registry, and the developer experience</strong>, and that is a genuine and sufficient contribution: it made an assembly of existing kernel features into something a working developer could use in an afternoon.</p>
+
+<p><strong>June 2014</strong> — Google announces <strong>Kubernetes</strong>, distilled from its internal Borg system. <strong>2015</strong> — the OCI standardises the image and runtime formats; the CNCF is founded. <strong>2016</strong> — BBR congestion control (Node 32).</p>
+
+<p><strong>January 2018</strong> — <strong>Meltdown and Spectre</strong> (Nodes 0, 40). The first time a processor optimisation forced a redesign across every operating system, browser and cloud simultaneously. <strong>November 2018</strong> — Firecracker (Node 29). <strong>May 2019</strong> — <strong>io_uring</strong> (Node 40).</p>
+
+<p><strong>2020s</strong> — cgroups v2 becomes the default; eBPF becomes mainstream infrastructure (Node 39); Rust is accepted into the Linux kernel (6.1, December 2022); Java 21 ships virtual threads (September 2023, Node 18); Linux 6.6 replaces CFS with EEVDF (October 2023, Node 7).</p>
+
+<h4>Three patterns in the history</h4>
+
+<p><strong>The ideas were finished by 1970; everything since is engineering and economics.</strong> Virtual memory, time-sharing, interrupts, protection rings, semaphores, the process model, the file abstraction — all 1960s. What changed afterwards was scale, cost, and who was allowed to use them.</p>
+
+<p><strong>Licensing decided outcomes at least as much as design.</strong> The AT&T consent decree spread Unix. The GPL made Linux safe to contribute to. The BSD lawsuit cost BSD its moment. CDDL keeps ZFS out of the kernel to this day. None of that is technical, and all of it shaped what you run.</p>
+
+<p><strong>Simple things that ship beat elegant things that do not.</strong> Unix over Multics, Linux over Hurd and Minix, Docker over the seven prior container systems, JavaScript over every better-designed language proposed for the browser. This is not an argument against elegance; it is an observation about what actually determines adoption, and it is worth carrying into your own engineering judgement.</p>
+
+<p><strong>What's still broken:</strong> nothing. One trace remains — a single user action, followed through every mechanism in this document at once.</p>
+
+<h3>Node 43 — one click, all the way down and back</h3>
+
+<p><strong>The limitation:</strong> none. This node exists because the mechanisms have been built one at a time, and the thing worth having is all of them at once, in order, for one real event.</p>
+
+<p>A user clicks a button in a React application. It calls an API on a Node service in a Kubernetes cluster, which queries Postgres, and the result renders. Every step below is a mechanism from this document, with its node named. Nothing is skipped and nothing is approximated.</p>
+
+<h4>A — the click becomes an event (browser machine)</h4>
+
+<ol>
+<li>A finger closes a physical contact in a mouse or a touch digitiser. Voltage on a wire (<strong>Node 0</strong>).</li>
+<li>The USB or I²C controller raises an <strong>interrupt</strong> (<strong>Node 2</strong>). The processor finishes its current instruction — quite possibly JIT-compiled JavaScript from the page you are on — saves <code>rip</code>, and enters the kernel's handler through the IDT.</li>
+<li>The handler is short: it acknowledges the device and schedules a softirq. The kernel's input subsystem turns the report into an event on <code>/dev/input/eventN</code> (<strong>Node 21</strong> — it is a file).</li>
+<li>The display server (Wayland, X11, or the platform equivalent) reads that descriptor. It was blocked in <code>epoll_wait</code> and is now runnable; the <strong>scheduler</strong> picks it, and a <strong>context switch</strong> restores its registers and page table (<strong>Nodes 6, 7, 10</strong>).</li>
+<li>It determines which window is under the pointer and sends the event to that client over a Unix domain socket (<strong>Node 31</strong>).</li>
+<li>The browser's UI process receives it, decides which renderer process owns that area, and forwards it over an IPC channel — a real process boundary, because of <strong>Site Isolation</strong> (<strong>Node 3</strong>).</li>
+<li>The renderer process wakes. Its event loop takes the message as a <strong>task</strong>, hit-tests the layout tree to find the target element, constructs a <code>MouseEvent</code>, and dispatches it through capture, target and bubble phases (<strong>Node 20</strong>).</li>
+<li>React's synthetic event system, listening at the root, routes it to your <code>onClick</code>. Your handler runs — machine code TurboFan generated from your JavaScript at some earlier point (<strong>Node 0</strong>).</li>
+</ol>
+
+<h4>B — the request leaves</h4>
+
+<ol start="9">
+<li>Your handler calls <code>fetch()</code>. Objects are allocated by a pointer bump in V8's new space (<strong>Node 11</strong>).</li>
+<li>The URL's hostname must be resolved. If it is not cached, this is a DNS query — itself a UDP <code>sendto</code> and a wait (<strong>Node 32</strong>).</li>
+<li><code>socket()</code>, then <code>connect()</code>: syscalls (<strong>Node 4</strong>), each a trap into kernel mode with arguments in registers.</li>
+<li>The kernel sends a <code>SYN</code>. One round trip for the TCP handshake, then one or two more for TLS (<strong>Node 32</strong>). If the browser already has a warm connection to this origin, all of this is skipped — which is the entire value of connection reuse.</li>
+<li>The request bytes are copied into the socket's send buffer and the network card <strong>DMA</strong>s them out (<strong>Node 2</strong>).</li>
+<li>The renderer's JavaScript continues immediately; <code>fetch</code> returned a promise. The tab is not blocked (<strong>Node 20</strong>).</li>
+</ol>
+
+<h4>C — arrival at the server machine</h4>
+
+<ol start="15">
+<li>Packets cross the internet, are rewritten by NAT at several points, and reach the cluster's load balancer, which is itself a machine doing all of this.</li>
+<li>On the destination node, the network card <strong>DMA</strong>s the packet into a ring buffer in host memory and raises an <strong>MSI-X interrupt</strong> on a specific core (<strong>Node 2</strong>).</li>
+<li>The driver's top half schedules a <code>NET_RX</code> softirq and returns. Whatever was running resumes, unaware.</li>
+<li>The softirq walks the packet up: Ethernet, then <strong>netfilter</strong> — where <code>kube-proxy</code>'s rules rewrite the destination from the Service IP to a specific pod IP (<strong>Nodes 26, 32</strong>) — then IP, then TCP. Sequence numbers are checked, an acknowledgement is scheduled, and the payload is appended to a socket's receive buffer.</li>
+<li>That socket's wait-queue callback fires and pushes its descriptor onto an <strong>epoll</strong> ready list (<strong>Node 19</strong>).</li>
+<li>Your Node process — one process in one container, which is a set of namespaces and a cgroup (<strong>Nodes 5, 26, 27, 28</strong>) — has been sleeping in <code>epoll_wait</code>, consuming zero processor time (<strong>Node 18</strong>). It is marked runnable.</li>
+<li>The scheduler picks it, subject to its cgroup's <code>cpu.weight</code> and, if a limit is set, whether its quota remains (<strong>Nodes 7, 27</strong>). A context switch loads its registers and its page table root into <code>cr3</code> (<strong>Nodes 6, 10</strong>).</li>
+</ol>
+
+<h4>D — your code runs</h4>
+
+<ol start="22">
+<li><code>epoll_wait</code> returns. libuv is in its <strong>poll phase</strong> (<strong>Node 20</strong>).</li>
+<li>libuv maps the descriptor to a handle and calls its callback, which issues <code>read()</code> (<strong>Node 4</strong>). The kernel copies bytes from the socket buffer into a <code>Buffer</code> — memory outside V8's heap (<strong>Node 11</strong>), which is why it will not appear in <code>heapUsed</code>.</li>
+<li>Node's HTTP parser consumes the bytes. On a complete request it calls into V8, which invokes your route handler.</li>
+<li>Your handler runs synchronously. During this time <strong>no other request in this process can be served</strong> — the event loop is cooperative and cannot be preempted (<strong>Nodes 7, 20</strong>). The kernel <em>can</em> preempt the thread, which protects the rest of the machine but does nothing for the other connections in this process.</li>
+<li>You <code>await</code> a database query. The function suspends; its continuation is captured; a promise is returned; and the loop moves on to other connections. <em>This is where the whole architecture pays for itself</em> (<strong>Node 18</strong>).</li>
+</ol>
+
+<h4>E — the database</h4>
+
+<ol start="27">
+<li>The query goes out over a pooled connection — pooled because Postgres runs one <strong>process per connection</strong> and processes are expensive (<strong>Nodes 5, 6, 14</strong>). If the pool is exhausted, your request waits here, invisibly, in a bounded queue (<strong>Node 18</strong>).</li>
+<li>On the database machine: interrupt, softirq, epoll or a blocking read, and a backend process wakes.</li>
+<li>The planner chooses a plan using cost constants that encode <strong>disk physics</strong> — <code>random_page_cost</code> against <code>seq_page_cost</code> (<strong>Node 23</strong>).</li>
+<li>Execution reads pages from <code>shared_buffers</code>, a <strong>shared memory</strong> mapping (<strong>Nodes 11, 31</strong>). A miss falls through to the kernel's <strong>page cache</strong> (<strong>Node 13</strong>); a miss there is a real disk read — a <strong>major fault</strong> or a <code>pread</code>, tens of microseconds on NVMe, and during it the backend is in <code>D</code> state (<strong>Nodes 5, 23</strong>).</li>
+<li>Shared structures are protected by <strong>lightweight locks</strong>, which are futexes: an atomic compare-and-swap in user space, entering the kernel only under contention (<strong>Nodes 16, 17</strong>).</li>
+<li>If this is a write, a WAL record is appended and — at commit, with <code>synchronous_commit=on</code> — <code>fsync</code>ed, forcing the page cache and the device's own write cache to the medium. <strong>That single call is the largest cost in the transaction</strong> (<strong>Node 23</strong>).</li>
+<li>Result rows are written to the socket and the path from step 16 repeats in the other direction.</li>
+</ol>
+
+<h4>F — the response, and back to the browser</h4>
+
+<ol start="34">
+<li>Your process wakes in <code>epoll_wait</code> again. The driver's promise resolves, queueing a <strong>microtask</strong>, which resumes your <code>async</code> function's state machine (<strong>Node 20</strong>).</li>
+<li>You call <code>res.json(...)</code>. <code>JSON.stringify</code> runs synchronously — on a large object this blocks every other connection in the process, and it is one of the commonest hidden stalls in Node services.</li>
+<li>Node writes to the socket. If the send buffer is full, <code>write</code> returns short and libuv registers for writability; Node surfaces this as <code>write()</code> returning <code>false</code> and a later <code>'drain'</code> — <strong>backpressure</strong> (<strong>Node 19</strong>).</li>
+<li>Objects allocated during the request are now unreachable. V8's scavenger reclaims them in under a millisecond, because they died young (<strong>Node 11</strong>).</li>
+<li>Packets traverse back. In the browser, interrupt, softirq, TCP reassembly, socket buffer, the network process, IPC to the renderer, and a <strong>task</strong> queued on its event loop.</li>
+<li>Your <code>await fetch()</code> resolves as a microtask. <code>setState</code> is called.</li>
+</ol>
+
+<h4>G — the pixels</h4>
+
+<ol start="40">
+<li>React schedules a render. Its own scheduler assigns a lane by priority and yields to the browser roughly every 5 ms, checking <code>shouldYield()</code> between units — a cooperative scheduler inside a cooperative scheduler inside a preemptive one (<strong>Nodes 7, 20</strong>).</li>
+<li>Reconciliation produces a minimal set of DOM mutations.</li>
+<li>At the next frame boundary the browser runs the <strong>rendering steps</strong>: <code>requestAnimationFrame</code> callbacks, style recalculation, layout, compositing, paint (<strong>Node 20</strong>). If any code read a geometric property between writes, layout ran extra times.</li>
+<li>Painted tiles are uploaded to the GPU. The compositor issues draw calls; the GPU process rasterises; the result is written into a framebuffer.</li>
+<li>The display controller <strong>DMA</strong>s the framebuffer out over HDMI or DisplayPort, sixty times a second, whether or not anything changed.</li>
+<li>Photons. The user sees the button's new state.</li>
+</ol>
+
+<p><strong>Forty-five steps, six machines' worth of kernels, and roughly eight boundary crossings between user and kernel mode on each side.</strong> Every one is a mechanism in this document, and a slow request is one of them being slow. That is the payoff of the whole chain: <em>"the API is slow" is not a diagnosis, and this list is the set of places the time can be.</em></p>
+
+<h4>The second lifecycle: how the code got there</h4>
+
+<p>The same tracing applied to a deployment, more briefly, because it is the other half of "the complete lifecycle" and it is made of the same parts.</p>
+
+<ol>
+<li><strong>You write a file.</strong> The editor <code>write</code>s to the page cache; the bytes reach disk when the kernel decides, or when the editor <code>fsync</code>s (<strong>Nodes 13, 23</strong>).</li>
+<li><strong><code>git commit</code></strong> writes content-addressed objects — copy-on-write and structural sharing, which is why branching is free (<strong>Node 14</strong>).</li>
+<li><strong><code>git push</code></strong> is TCP over TLS to a remote (<strong>Node 32</strong>), authenticated by an SSH key or a token.</li>
+<li><strong>A CI runner picks up the job.</strong> It is a resident monitor: a process polling a queue, running steps, reporting, and repeating (<strong>Node 1</strong>). The job runs in a container on a machine somewhere (<strong>Node 28</strong>).</li>
+<li><strong>The build.</strong> <code>npm ci</code> creates a hundred thousand small files (<strong>Node 21</strong>'s inode cost), compiling any native addons against this image's libc (<strong>Nodes 33, 34</strong>). A bundler links your modules, resolving symbols and eliminating dead code (<strong>Node 33</strong>). TypeScript type-checks, which is a separate tool doing a separate thing.</li>
+<li><strong>The image is built.</strong> Each instruction produces an overlayfs layer, content-addressed, cached by input (<strong>Node 24</strong>). A multi-stage build discards the toolchain.</li>
+<li><strong>Push to a registry</strong> — HTTPS, layer by layer, skipping digests the registry already has.</li>
+<li><strong>The orchestrator reconciles.</strong> A new ReplicaSet is created; the scheduler places pods on nodes by their <strong>requests</strong> (<strong>Node 27</strong>).</li>
+<li><strong>The kubelet starts a container.</strong> Pull layers; assemble the overlay; create the cgroup and write its limits; <code>clone()</code> with namespace flags; wire a veth pair; <code>pivot_root</code>; mount <code>/proc</code>, <code>/sys</code>, <code>/dev</code>; set the UID; drop capabilities; install the seccomp filter; <code>execve</code> the entrypoint (<strong>Nodes 4, 14, 22, 25, 26, 27, 28, 35</strong>).</li>
+<li><strong>Your process starts.</strong> The dynamic linker maps libc and every <code>.node</code> addon and relocates them (<strong>Node 34</strong>). Pages fault in on demand, which is most of the cold-start cost (<strong>Node 13</strong>). V8 restores its heap from a snapshot via <code>mmap</code> (<strong>Node 10</strong>). Your modules are resolved, loaded and cached — dynamic linking again, one level up.</li>
+<li><strong>It listens.</strong> <code>socket</code>, <code>bind</code>, <code>listen</code> with a backlog, and then <code>epoll_wait</code> (<strong>Nodes 19, 32</strong>).</li>
+<li><strong>The readiness probe passes</strong>, the endpoints controller adds the pod to the Service, and <code>kube-proxy</code> on every node programs netfilter rules so traffic can reach it (<strong>Node 32</strong>).</li>
+<li><strong>The old pod is removed.</strong> Endpoint removal and <code>SIGTERM</code> happen concurrently, so the old process must keep serving briefly after the signal or the rollout drops requests (<strong>Node 30</strong>). At <code>terminationGracePeriodSeconds</code> it is <code>SIGKILL</code>ed regardless.</li>
+</ol>
+
+<p><strong>What you can do at this point:</strong> narrate a request end to end without gaps, name the mechanism behind every step, and — the actual skill — given a symptom, enumerate the specific places in these two lists where the time or the failure could be, rather than guessing.</p> — the landscape content, hand-authored HTML (prose + <h3> subsections)
   This file is copied to topics/<slug>/pack.html. recall.json, prep.json, and
   elaboration.json live alongside it and are fetched at runtime — do not inline
   that data here.
@@ -6385,6 +6589,210 @@ bpftrace -e 'tracepoint:raw_syscalls:sys_enter /pid == 1234/ { @[probe] = count(
 <p><strong>What you can do at this point:</strong> explain the monolithic and microkernel designs and their trade-offs, describe the 1992 debate accurately and assess it fairly, place Linux, NT, XNU, Android and unikernels on the spectrum, explain why a container escape is a consequence of monolithic design, and map the architecture argument onto monolith versus microservices with the actual latency figures.</p>
 
 <p><strong>What's still broken:</strong> the chain is complete but its history has been delivered in pieces, one date at a time. Seeing it in order — who did what, when, and in response to whom — makes the whole thing considerably easier to hold.</p>
+
+<h3>Node 42 — the history, threaded in order</h3>
+
+<p><strong>The limitation:</strong> the dates and names in this document have arrived one at a time, attached to mechanisms. In order, they make a story that is far easier to hold than forty separate facts.</p>
+
+<h4>Before there is anything (1936–1949)</h4>
+
+<p><strong>1936</strong> — Alan Turing's paper on computable numbers describes a universal machine: one device that can simulate any other, given a description of it on its tape. The idea that a program is data predates any hardware capable of it.</p>
+
+<p><strong>1945</strong> — the <em>First Draft of a Report on the EDVAC</em> (Node 0), circulated under von Neumann's name, records the stored-program design.</p>
+
+<p><strong>December 1947</strong> — the transistor, at Bell Labs.</p>
+
+<p><strong>1948–49</strong> — the Manchester Baby runs the first stored program (21 June 1948); EDSAC at Cambridge runs the first practically useful one (6 May 1949).</p>
+
+<h4>Machines with no operating system (1950s)</h4>
+
+<p>Sign-up sheets, punched cards, one program at a time, an operator walking across a room between jobs (Node 0). <strong>1956</strong> — GM-NAA I/O, the resident monitor, for the IBM 704 (Node 1). <strong>1957</strong> — FORTRAN makes programs something written rather than wired.</p>
+
+<h4>Every idea in this document is invented (the 1960s)</h4>
+
+<p>The decade that matters most. Nearly everything in Parts I–III originates here.</p>
+
+<p><strong>1961</strong> — <strong>CTSS</strong> at MIT, Fernando Corbató: genuine interactive time-sharing, and the multi-level feedback queue (Node 7). Also the first computer password, and — within a few years — the first password leak.</p>
+
+<p><strong>1962</strong> — the <strong>Ferranti Atlas</strong> at Manchester, Tom Kilburn: interrupts with priorities, extracodes (system calls, Node 4), a Supervisor program, and <strong>virtual memory with demand paging</strong> (Node 10) — a decade before commercial machines adopted it. The most under-credited machine in computing.</p>
+
+<p><strong>1964</strong> — IBM <strong>System/360</strong>: one architecture across a whole product line, the 8-bit byte standardised (Node 0), and OS/360 with JCL (Node 1). Fred Brooks managed it and wrote <em>The Mythical Man-Month</em> (1975) about what went wrong.</p>
+
+<p><strong>1965</strong> — <strong>Multics</strong> begins (MIT, Bell Labs, GE): protection rings (Node 3), a hierarchical filesystem, memory-mapped files, dynamic linking, and security as a first-class goal. Ambitious, late, and slow.</p>
+
+<p><strong>1965</strong> — Dijkstra's semaphores (Node 17). <strong>1968</strong> — Denning's working set (Node 13).</p>
+
+<h4>Unix (1969–1979)</h4>
+
+<p><strong>1969</strong> — Bell Labs withdraws from Multics. Ken Thompson, wanting to run a game called Space Travel, writes a small system on a spare PDP-7. Dennis Ritchie joins. Brian Kernighan names it <em>Unics</em>, a pun on Multics; it becomes <strong>Unix</strong>. <strong>1 January 1970</strong> becomes the epoch (Node 8).</p>
+
+<p><strong>1972–73</strong> — Ritchie creates <strong>C</strong>, and in 1973 Unix is <em>rewritten in it</em>. This is the decisive moment: an operating system in a high-level language can be moved to a new machine by writing a compiler, and portability is what actually spreads Unix. The 1974 CACM paper by Ritchie and Thompson makes it famous.</p>
+
+<p>A 1956 antitrust consent decree bars AT&T from selling computer products, so Unix is licensed to universities for a nominal fee <em>with source</em>. A generation learns operating systems by reading it — including John Lions's commentary, which AT&T then restricted, making it the most photocopied document in computing.</p>
+
+<p><strong>1977</strong> — Bill Joy at Berkeley ships the first <strong>BSD</strong>.</p>
+
+<h4>Divergence and standardisation (1980s)</h4>
+
+<p><strong>1981</strong> — IBM PC and MS-DOS. <strong>1982</strong> — the 80286 brings protected mode; <strong>1985</strong> the 80386 completes it (Node 3).</p>
+
+<p><strong>1983</strong> — <strong>4.2BSD</strong>: the socket API and TCP/IP (Node 32), which is why the internet speaks Unix. The same year, Richard Stallman announces <strong>GNU</strong> — a free Unix — producing GCC, Emacs, and the utilities, but never finishing its kernel, Hurd.</p>
+
+<p><strong>1987</strong> — Andrew Tanenbaum releases <strong>Minix</strong> as a teaching system. <strong>1988</strong> — <strong>POSIX.1</strong> standardises the Unix interface, so that the diverging BSD and System V worlds share a portable core; it is why your code compiles on Linux and macOS.</p>
+
+<p><strong>1989</strong> — NeXTSTEP, built on Mach and BSD, which will become macOS twelve years later.</p>
+
+<h4>Linux (1991–1999)</h4>
+
+<p><strong>25 August 1991</strong> — Linus Torvalds, 21, posts to comp.os.minix: "I'm doing a (free) operating system (just a hobby, won't be big and professional like gnu)". Version 0.01 in September.</p>
+
+<p><strong>1992</strong> — relicensed under the GPL, which is what makes contribution safe and is arguably as important as the code. The same year, the Tanenbaum–Torvalds debate (Node 41). Also 1992: AT&T's lawsuit against BSDi and Berkeley puts the BSDs under a legal cloud for two years — <em>exactly the window in which Linux gathered its community</em>. It is entirely plausible that Linux won because BSD was in court.</p>
+
+<p><strong>1993</strong> — Windows NT 3.1 (Dave Cutler), FreeBSD and NetBSD, Debian and Slackware. <strong>1994</strong> — Linux 1.0. <strong>1996</strong> — Linux 2.0 with multiprocessor support. <strong>1998</strong> — Netscape opens its source; the term "open source" is coined; IBM and Oracle back Linux.</p>
+
+<h4>The infrastructure era (2000–2012)</h4>
+
+<p><strong>2001</strong> — <strong>Mac OS X</strong>: NeXTSTEP's XNU kernel makes Unix the desktop system of a mass-market vendor.</p>
+
+<p><strong>2003</strong> — Linux <strong>2.6</strong>: the O(1) scheduler and NPTL 1:1 threads (Node 15). <strong>2004</strong> — <strong>nginx</strong> (Igor Sysoev), written against the C10K problem (Node 18); Ubuntu.</p>
+
+<p><strong>2005</strong> — Intel VT-x and AMD-V make hardware virtualisation practical (Node 29). Also 2005: Torvalds writes <strong>Git</strong> in ten days after BitKeeper's licence is withdrawn.</p>
+
+<p><strong>2006</strong> — <strong>Amazon EC2</strong>. Virtualisation plus a credit card. The economics of computing change.</p>
+
+<p><strong>2007</strong> — Android is announced and the iPhone ships; both run Unix-derived kernels, so the mobile era is Unix too. <strong>2008</strong> — <strong>cgroups</strong> merged into Linux 2.6.24 (Node 27), from Google, who had been running containerised workloads internally for years.</p>
+
+<p><strong>November 2009</strong> — Ryan Dahl presents <strong>Node.js</strong> at JSConf EU (Node 18). <strong>2010</strong> — <strong>systemd</strong> (Node 37).</p>
+
+<h4>Containers and the present (2013–)</h4>
+
+<p><strong>March 2013</strong> — Solomon Hykes demonstrates <strong>Docker</strong> in a five-minute lightning talk at PyCon. Every kernel feature it used already existed — namespaces since 2002, cgroups since 2008, union filesystems for years. <strong>Docker's contribution was the image format, the registry, and the developer experience</strong>, and that is a genuine and sufficient contribution: it made an assembly of existing kernel features into something a working developer could use in an afternoon.</p>
+
+<p><strong>June 2014</strong> — Google announces <strong>Kubernetes</strong>, distilled from its internal Borg system. <strong>2015</strong> — the OCI standardises the image and runtime formats; the CNCF is founded. <strong>2016</strong> — BBR congestion control (Node 32).</p>
+
+<p><strong>January 2018</strong> — <strong>Meltdown and Spectre</strong> (Nodes 0, 40). The first time a processor optimisation forced a redesign across every operating system, browser and cloud simultaneously. <strong>November 2018</strong> — Firecracker (Node 29). <strong>May 2019</strong> — <strong>io_uring</strong> (Node 40).</p>
+
+<p><strong>2020s</strong> — cgroups v2 becomes the default; eBPF becomes mainstream infrastructure (Node 39); Rust is accepted into the Linux kernel (6.1, December 2022); Java 21 ships virtual threads (September 2023, Node 18); Linux 6.6 replaces CFS with EEVDF (October 2023, Node 7).</p>
+
+<h4>Three patterns in the history</h4>
+
+<p><strong>The ideas were finished by 1970; everything since is engineering and economics.</strong> Virtual memory, time-sharing, interrupts, protection rings, semaphores, the process model, the file abstraction — all 1960s. What changed afterwards was scale, cost, and who was allowed to use them.</p>
+
+<p><strong>Licensing decided outcomes at least as much as design.</strong> The AT&T consent decree spread Unix. The GPL made Linux safe to contribute to. The BSD lawsuit cost BSD its moment. CDDL keeps ZFS out of the kernel to this day. None of that is technical, and all of it shaped what you run.</p>
+
+<p><strong>Simple things that ship beat elegant things that do not.</strong> Unix over Multics, Linux over Hurd and Minix, Docker over the seven prior container systems, JavaScript over every better-designed language proposed for the browser. This is not an argument against elegance; it is an observation about what actually determines adoption, and it is worth carrying into your own engineering judgement.</p>
+
+<p><strong>What's still broken:</strong> nothing. One trace remains — a single user action, followed through every mechanism in this document at once.</p>
+
+<h3>Node 43 — one click, all the way down and back</h3>
+
+<p><strong>The limitation:</strong> none. This node exists because the mechanisms have been built one at a time, and the thing worth having is all of them at once, in order, for one real event.</p>
+
+<p>A user clicks a button in a React application. It calls an API on a Node service in a Kubernetes cluster, which queries Postgres, and the result renders. Every step below is a mechanism from this document, with its node named. Nothing is skipped and nothing is approximated.</p>
+
+<h4>A — the click becomes an event (browser machine)</h4>
+
+<ol>
+<li>A finger closes a physical contact in a mouse or a touch digitiser. Voltage on a wire (<strong>Node 0</strong>).</li>
+<li>The USB or I²C controller raises an <strong>interrupt</strong> (<strong>Node 2</strong>). The processor finishes its current instruction — quite possibly JIT-compiled JavaScript from the page you are on — saves <code>rip</code>, and enters the kernel's handler through the IDT.</li>
+<li>The handler is short: it acknowledges the device and schedules a softirq. The kernel's input subsystem turns the report into an event on <code>/dev/input/eventN</code> (<strong>Node 21</strong> — it is a file).</li>
+<li>The display server (Wayland, X11, or the platform equivalent) reads that descriptor. It was blocked in <code>epoll_wait</code> and is now runnable; the <strong>scheduler</strong> picks it, and a <strong>context switch</strong> restores its registers and page table (<strong>Nodes 6, 7, 10</strong>).</li>
+<li>It determines which window is under the pointer and sends the event to that client over a Unix domain socket (<strong>Node 31</strong>).</li>
+<li>The browser's UI process receives it, decides which renderer process owns that area, and forwards it over an IPC channel — a real process boundary, because of <strong>Site Isolation</strong> (<strong>Node 3</strong>).</li>
+<li>The renderer process wakes. Its event loop takes the message as a <strong>task</strong>, hit-tests the layout tree to find the target element, constructs a <code>MouseEvent</code>, and dispatches it through capture, target and bubble phases (<strong>Node 20</strong>).</li>
+<li>React's synthetic event system, listening at the root, routes it to your <code>onClick</code>. Your handler runs — machine code TurboFan generated from your JavaScript at some earlier point (<strong>Node 0</strong>).</li>
+</ol>
+
+<h4>B — the request leaves</h4>
+
+<ol start="9">
+<li>Your handler calls <code>fetch()</code>. Objects are allocated by a pointer bump in V8's new space (<strong>Node 11</strong>).</li>
+<li>The URL's hostname must be resolved. If it is not cached, this is a DNS query — itself a UDP <code>sendto</code> and a wait (<strong>Node 32</strong>).</li>
+<li><code>socket()</code>, then <code>connect()</code>: syscalls (<strong>Node 4</strong>), each a trap into kernel mode with arguments in registers.</li>
+<li>The kernel sends a <code>SYN</code>. One round trip for the TCP handshake, then one or two more for TLS (<strong>Node 32</strong>). If the browser already has a warm connection to this origin, all of this is skipped — which is the entire value of connection reuse.</li>
+<li>The request bytes are copied into the socket's send buffer and the network card <strong>DMA</strong>s them out (<strong>Node 2</strong>).</li>
+<li>The renderer's JavaScript continues immediately; <code>fetch</code> returned a promise. The tab is not blocked (<strong>Node 20</strong>).</li>
+</ol>
+
+<h4>C — arrival at the server machine</h4>
+
+<ol start="15">
+<li>Packets cross the internet, are rewritten by NAT at several points, and reach the cluster's load balancer, which is itself a machine doing all of this.</li>
+<li>On the destination node, the network card <strong>DMA</strong>s the packet into a ring buffer in host memory and raises an <strong>MSI-X interrupt</strong> on a specific core (<strong>Node 2</strong>).</li>
+<li>The driver's top half schedules a <code>NET_RX</code> softirq and returns. Whatever was running resumes, unaware.</li>
+<li>The softirq walks the packet up: Ethernet, then <strong>netfilter</strong> — where <code>kube-proxy</code>'s rules rewrite the destination from the Service IP to a specific pod IP (<strong>Nodes 26, 32</strong>) — then IP, then TCP. Sequence numbers are checked, an acknowledgement is scheduled, and the payload is appended to a socket's receive buffer.</li>
+<li>That socket's wait-queue callback fires and pushes its descriptor onto an <strong>epoll</strong> ready list (<strong>Node 19</strong>).</li>
+<li>Your Node process — one process in one container, which is a set of namespaces and a cgroup (<strong>Nodes 5, 26, 27, 28</strong>) — has been sleeping in <code>epoll_wait</code>, consuming zero processor time (<strong>Node 18</strong>). It is marked runnable.</li>
+<li>The scheduler picks it, subject to its cgroup's <code>cpu.weight</code> and, if a limit is set, whether its quota remains (<strong>Nodes 7, 27</strong>). A context switch loads its registers and its page table root into <code>cr3</code> (<strong>Nodes 6, 10</strong>).</li>
+</ol>
+
+<h4>D — your code runs</h4>
+
+<ol start="22">
+<li><code>epoll_wait</code> returns. libuv is in its <strong>poll phase</strong> (<strong>Node 20</strong>).</li>
+<li>libuv maps the descriptor to a handle and calls its callback, which issues <code>read()</code> (<strong>Node 4</strong>). The kernel copies bytes from the socket buffer into a <code>Buffer</code> — memory outside V8's heap (<strong>Node 11</strong>), which is why it will not appear in <code>heapUsed</code>.</li>
+<li>Node's HTTP parser consumes the bytes. On a complete request it calls into V8, which invokes your route handler.</li>
+<li>Your handler runs synchronously. During this time <strong>no other request in this process can be served</strong> — the event loop is cooperative and cannot be preempted (<strong>Nodes 7, 20</strong>). The kernel <em>can</em> preempt the thread, which protects the rest of the machine but does nothing for the other connections in this process.</li>
+<li>You <code>await</code> a database query. The function suspends; its continuation is captured; a promise is returned; and the loop moves on to other connections. <em>This is where the whole architecture pays for itself</em> (<strong>Node 18</strong>).</li>
+</ol>
+
+<h4>E — the database</h4>
+
+<ol start="27">
+<li>The query goes out over a pooled connection — pooled because Postgres runs one <strong>process per connection</strong> and processes are expensive (<strong>Nodes 5, 6, 14</strong>). If the pool is exhausted, your request waits here, invisibly, in a bounded queue (<strong>Node 18</strong>).</li>
+<li>On the database machine: interrupt, softirq, epoll or a blocking read, and a backend process wakes.</li>
+<li>The planner chooses a plan using cost constants that encode <strong>disk physics</strong> — <code>random_page_cost</code> against <code>seq_page_cost</code> (<strong>Node 23</strong>).</li>
+<li>Execution reads pages from <code>shared_buffers</code>, a <strong>shared memory</strong> mapping (<strong>Nodes 11, 31</strong>). A miss falls through to the kernel's <strong>page cache</strong> (<strong>Node 13</strong>); a miss there is a real disk read — a <strong>major fault</strong> or a <code>pread</code>, tens of microseconds on NVMe, and during it the backend is in <code>D</code> state (<strong>Nodes 5, 23</strong>).</li>
+<li>Shared structures are protected by <strong>lightweight locks</strong>, which are futexes: an atomic compare-and-swap in user space, entering the kernel only under contention (<strong>Nodes 16, 17</strong>).</li>
+<li>If this is a write, a WAL record is appended and — at commit, with <code>synchronous_commit=on</code> — <code>fsync</code>ed, forcing the page cache and the device's own write cache to the medium. <strong>That single call is the largest cost in the transaction</strong> (<strong>Node 23</strong>).</li>
+<li>Result rows are written to the socket and the path from step 16 repeats in the other direction.</li>
+</ol>
+
+<h4>F — the response, and back to the browser</h4>
+
+<ol start="34">
+<li>Your process wakes in <code>epoll_wait</code> again. The driver's promise resolves, queueing a <strong>microtask</strong>, which resumes your <code>async</code> function's state machine (<strong>Node 20</strong>).</li>
+<li>You call <code>res.json(...)</code>. <code>JSON.stringify</code> runs synchronously — on a large object this blocks every other connection in the process, and it is one of the commonest hidden stalls in Node services.</li>
+<li>Node writes to the socket. If the send buffer is full, <code>write</code> returns short and libuv registers for writability; Node surfaces this as <code>write()</code> returning <code>false</code> and a later <code>'drain'</code> — <strong>backpressure</strong> (<strong>Node 19</strong>).</li>
+<li>Objects allocated during the request are now unreachable. V8's scavenger reclaims them in under a millisecond, because they died young (<strong>Node 11</strong>).</li>
+<li>Packets traverse back. In the browser, interrupt, softirq, TCP reassembly, socket buffer, the network process, IPC to the renderer, and a <strong>task</strong> queued on its event loop.</li>
+<li>Your <code>await fetch()</code> resolves as a microtask. <code>setState</code> is called.</li>
+</ol>
+
+<h4>G — the pixels</h4>
+
+<ol start="40">
+<li>React schedules a render. Its own scheduler assigns a lane by priority and yields to the browser roughly every 5 ms, checking <code>shouldYield()</code> between units — a cooperative scheduler inside a cooperative scheduler inside a preemptive one (<strong>Nodes 7, 20</strong>).</li>
+<li>Reconciliation produces a minimal set of DOM mutations.</li>
+<li>At the next frame boundary the browser runs the <strong>rendering steps</strong>: <code>requestAnimationFrame</code> callbacks, style recalculation, layout, compositing, paint (<strong>Node 20</strong>). If any code read a geometric property between writes, layout ran extra times.</li>
+<li>Painted tiles are uploaded to the GPU. The compositor issues draw calls; the GPU process rasterises; the result is written into a framebuffer.</li>
+<li>The display controller <strong>DMA</strong>s the framebuffer out over HDMI or DisplayPort, sixty times a second, whether or not anything changed.</li>
+<li>Photons. The user sees the button's new state.</li>
+</ol>
+
+<p><strong>Forty-five steps, six machines' worth of kernels, and roughly eight boundary crossings between user and kernel mode on each side.</strong> Every one is a mechanism in this document, and a slow request is one of them being slow. That is the payoff of the whole chain: <em>"the API is slow" is not a diagnosis, and this list is the set of places the time can be.</em></p>
+
+<h4>The second lifecycle: how the code got there</h4>
+
+<p>The same tracing applied to a deployment, more briefly, because it is the other half of "the complete lifecycle" and it is made of the same parts.</p>
+
+<ol>
+<li><strong>You write a file.</strong> The editor <code>write</code>s to the page cache; the bytes reach disk when the kernel decides, or when the editor <code>fsync</code>s (<strong>Nodes 13, 23</strong>).</li>
+<li><strong><code>git commit</code></strong> writes content-addressed objects — copy-on-write and structural sharing, which is why branching is free (<strong>Node 14</strong>).</li>
+<li><strong><code>git push</code></strong> is TCP over TLS to a remote (<strong>Node 32</strong>), authenticated by an SSH key or a token.</li>
+<li><strong>A CI runner picks up the job.</strong> It is a resident monitor: a process polling a queue, running steps, reporting, and repeating (<strong>Node 1</strong>). The job runs in a container on a machine somewhere (<strong>Node 28</strong>).</li>
+<li><strong>The build.</strong> <code>npm ci</code> creates a hundred thousand small files (<strong>Node 21</strong>'s inode cost), compiling any native addons against this image's libc (<strong>Nodes 33, 34</strong>). A bundler links your modules, resolving symbols and eliminating dead code (<strong>Node 33</strong>). TypeScript type-checks, which is a separate tool doing a separate thing.</li>
+<li><strong>The image is built.</strong> Each instruction produces an overlayfs layer, content-addressed, cached by input (<strong>Node 24</strong>). A multi-stage build discards the toolchain.</li>
+<li><strong>Push to a registry</strong> — HTTPS, layer by layer, skipping digests the registry already has.</li>
+<li><strong>The orchestrator reconciles.</strong> A new ReplicaSet is created; the scheduler places pods on nodes by their <strong>requests</strong> (<strong>Node 27</strong>).</li>
+<li><strong>The kubelet starts a container.</strong> Pull layers; assemble the overlay; create the cgroup and write its limits; <code>clone()</code> with namespace flags; wire a veth pair; <code>pivot_root</code>; mount <code>/proc</code>, <code>/sys</code>, <code>/dev</code>; set the UID; drop capabilities; install the seccomp filter; <code>execve</code> the entrypoint (<strong>Nodes 4, 14, 22, 25, 26, 27, 28, 35</strong>).</li>
+<li><strong>Your process starts.</strong> The dynamic linker maps libc and every <code>.node</code> addon and relocates them (<strong>Node 34</strong>). Pages fault in on demand, which is most of the cold-start cost (<strong>Node 13</strong>). V8 restores its heap from a snapshot via <code>mmap</code> (<strong>Node 10</strong>). Your modules are resolved, loaded and cached — dynamic linking again, one level up.</li>
+<li><strong>It listens.</strong> <code>socket</code>, <code>bind</code>, <code>listen</code> with a backlog, and then <code>epoll_wait</code> (<strong>Nodes 19, 32</strong>).</li>
+<li><strong>The readiness probe passes</strong>, the endpoints controller adds the pod to the Service, and <code>kube-proxy</code> on every node programs netfilter rules so traffic can reach it (<strong>Node 32</strong>).</li>
+<li><strong>The old pod is removed.</strong> Endpoint removal and <code>SIGTERM</code> happen concurrently, so the old process must keep serving briefly after the signal or the rollout drops requests (<strong>Node 30</strong>). At <code>terminationGracePeriodSeconds</code> it is <code>SIGKILL</code>ed regardless.</li>
+</ol>
+
+<p><strong>What you can do at this point:</strong> narrate a request end to end without gaps, name the mechanism behind every step, and — the actual skill — given a symptom, enumerate the specific places in these two lists where the time or the failure could be, rather than guessing.</p>
     </div>
   </div>
 

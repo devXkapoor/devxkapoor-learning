@@ -1,0 +1,109 @@
+<h3>Node 43 — one click, all the way down and back</h3>
+
+<p><strong>The limitation:</strong> none. This node exists because the mechanisms have been built one at a time, and the thing worth having is all of them at once, in order, for one real event.</p>
+
+<p>A user clicks a button in a React application. It calls an API on a Node service in a Kubernetes cluster, which queries Postgres, and the result renders. Every step below is a mechanism from this document, with its node named. Nothing is skipped and nothing is approximated.</p>
+
+<h4>A — the click becomes an event (browser machine)</h4>
+
+<ol>
+<li>A finger closes a physical contact in a mouse or a touch digitiser. Voltage on a wire (<strong>Node 0</strong>).</li>
+<li>The USB or I²C controller raises an <strong>interrupt</strong> (<strong>Node 2</strong>). The processor finishes its current instruction — quite possibly JIT-compiled JavaScript from the page you are on — saves <code>rip</code>, and enters the kernel's handler through the IDT.</li>
+<li>The handler is short: it acknowledges the device and schedules a softirq. The kernel's input subsystem turns the report into an event on <code>/dev/input/eventN</code> (<strong>Node 21</strong> — it is a file).</li>
+<li>The display server (Wayland, X11, or the platform equivalent) reads that descriptor. It was blocked in <code>epoll_wait</code> and is now runnable; the <strong>scheduler</strong> picks it, and a <strong>context switch</strong> restores its registers and page table (<strong>Nodes 6, 7, 10</strong>).</li>
+<li>It determines which window is under the pointer and sends the event to that client over a Unix domain socket (<strong>Node 31</strong>).</li>
+<li>The browser's UI process receives it, decides which renderer process owns that area, and forwards it over an IPC channel — a real process boundary, because of <strong>Site Isolation</strong> (<strong>Node 3</strong>).</li>
+<li>The renderer process wakes. Its event loop takes the message as a <strong>task</strong>, hit-tests the layout tree to find the target element, constructs a <code>MouseEvent</code>, and dispatches it through capture, target and bubble phases (<strong>Node 20</strong>).</li>
+<li>React's synthetic event system, listening at the root, routes it to your <code>onClick</code>. Your handler runs — machine code TurboFan generated from your JavaScript at some earlier point (<strong>Node 0</strong>).</li>
+</ol>
+
+<h4>B — the request leaves</h4>
+
+<ol start="9">
+<li>Your handler calls <code>fetch()</code>. Objects are allocated by a pointer bump in V8's new space (<strong>Node 11</strong>).</li>
+<li>The URL's hostname must be resolved. If it is not cached, this is a DNS query — itself a UDP <code>sendto</code> and a wait (<strong>Node 32</strong>).</li>
+<li><code>socket()</code>, then <code>connect()</code>: syscalls (<strong>Node 4</strong>), each a trap into kernel mode with arguments in registers.</li>
+<li>The kernel sends a <code>SYN</code>. One round trip for the TCP handshake, then one or two more for TLS (<strong>Node 32</strong>). If the browser already has a warm connection to this origin, all of this is skipped — which is the entire value of connection reuse.</li>
+<li>The request bytes are copied into the socket's send buffer and the network card <strong>DMA</strong>s them out (<strong>Node 2</strong>).</li>
+<li>The renderer's JavaScript continues immediately; <code>fetch</code> returned a promise. The tab is not blocked (<strong>Node 20</strong>).</li>
+</ol>
+
+<h4>C — arrival at the server machine</h4>
+
+<ol start="15">
+<li>Packets cross the internet, are rewritten by NAT at several points, and reach the cluster's load balancer, which is itself a machine doing all of this.</li>
+<li>On the destination node, the network card <strong>DMA</strong>s the packet into a ring buffer in host memory and raises an <strong>MSI-X interrupt</strong> on a specific core (<strong>Node 2</strong>).</li>
+<li>The driver's top half schedules a <code>NET_RX</code> softirq and returns. Whatever was running resumes, unaware.</li>
+<li>The softirq walks the packet up: Ethernet, then <strong>netfilter</strong> — where <code>kube-proxy</code>'s rules rewrite the destination from the Service IP to a specific pod IP (<strong>Nodes 26, 32</strong>) — then IP, then TCP. Sequence numbers are checked, an acknowledgement is scheduled, and the payload is appended to a socket's receive buffer.</li>
+<li>That socket's wait-queue callback fires and pushes its descriptor onto an <strong>epoll</strong> ready list (<strong>Node 19</strong>).</li>
+<li>Your Node process — one process in one container, which is a set of namespaces and a cgroup (<strong>Nodes 5, 26, 27, 28</strong>) — has been sleeping in <code>epoll_wait</code>, consuming zero processor time (<strong>Node 18</strong>). It is marked runnable.</li>
+<li>The scheduler picks it, subject to its cgroup's <code>cpu.weight</code> and, if a limit is set, whether its quota remains (<strong>Nodes 7, 27</strong>). A context switch loads its registers and its page table root into <code>cr3</code> (<strong>Nodes 6, 10</strong>).</li>
+</ol>
+
+<h4>D — your code runs</h4>
+
+<ol start="22">
+<li><code>epoll_wait</code> returns. libuv is in its <strong>poll phase</strong> (<strong>Node 20</strong>).</li>
+<li>libuv maps the descriptor to a handle and calls its callback, which issues <code>read()</code> (<strong>Node 4</strong>). The kernel copies bytes from the socket buffer into a <code>Buffer</code> — memory outside V8's heap (<strong>Node 11</strong>), which is why it will not appear in <code>heapUsed</code>.</li>
+<li>Node's HTTP parser consumes the bytes. On a complete request it calls into V8, which invokes your route handler.</li>
+<li>Your handler runs synchronously. During this time <strong>no other request in this process can be served</strong> — the event loop is cooperative and cannot be preempted (<strong>Nodes 7, 20</strong>). The kernel <em>can</em> preempt the thread, which protects the rest of the machine but does nothing for the other connections in this process.</li>
+<li>You <code>await</code> a database query. The function suspends; its continuation is captured; a promise is returned; and the loop moves on to other connections. <em>This is where the whole architecture pays for itself</em> (<strong>Node 18</strong>).</li>
+</ol>
+
+<h4>E — the database</h4>
+
+<ol start="27">
+<li>The query goes out over a pooled connection — pooled because Postgres runs one <strong>process per connection</strong> and processes are expensive (<strong>Nodes 5, 6, 14</strong>). If the pool is exhausted, your request waits here, invisibly, in a bounded queue (<strong>Node 18</strong>).</li>
+<li>On the database machine: interrupt, softirq, epoll or a blocking read, and a backend process wakes.</li>
+<li>The planner chooses a plan using cost constants that encode <strong>disk physics</strong> — <code>random_page_cost</code> against <code>seq_page_cost</code> (<strong>Node 23</strong>).</li>
+<li>Execution reads pages from <code>shared_buffers</code>, a <strong>shared memory</strong> mapping (<strong>Nodes 11, 31</strong>). A miss falls through to the kernel's <strong>page cache</strong> (<strong>Node 13</strong>); a miss there is a real disk read — a <strong>major fault</strong> or a <code>pread</code>, tens of microseconds on NVMe, and during it the backend is in <code>D</code> state (<strong>Nodes 5, 23</strong>).</li>
+<li>Shared structures are protected by <strong>lightweight locks</strong>, which are futexes: an atomic compare-and-swap in user space, entering the kernel only under contention (<strong>Nodes 16, 17</strong>).</li>
+<li>If this is a write, a WAL record is appended and — at commit, with <code>synchronous_commit=on</code> — <code>fsync</code>ed, forcing the page cache and the device's own write cache to the medium. <strong>That single call is the largest cost in the transaction</strong> (<strong>Node 23</strong>).</li>
+<li>Result rows are written to the socket and the path from step 16 repeats in the other direction.</li>
+</ol>
+
+<h4>F — the response, and back to the browser</h4>
+
+<ol start="34">
+<li>Your process wakes in <code>epoll_wait</code> again. The driver's promise resolves, queueing a <strong>microtask</strong>, which resumes your <code>async</code> function's state machine (<strong>Node 20</strong>).</li>
+<li>You call <code>res.json(...)</code>. <code>JSON.stringify</code> runs synchronously — on a large object this blocks every other connection in the process, and it is one of the commonest hidden stalls in Node services.</li>
+<li>Node writes to the socket. If the send buffer is full, <code>write</code> returns short and libuv registers for writability; Node surfaces this as <code>write()</code> returning <code>false</code> and a later <code>'drain'</code> — <strong>backpressure</strong> (<strong>Node 19</strong>).</li>
+<li>Objects allocated during the request are now unreachable. V8's scavenger reclaims them in under a millisecond, because they died young (<strong>Node 11</strong>).</li>
+<li>Packets traverse back. In the browser, interrupt, softirq, TCP reassembly, socket buffer, the network process, IPC to the renderer, and a <strong>task</strong> queued on its event loop.</li>
+<li>Your <code>await fetch()</code> resolves as a microtask. <code>setState</code> is called.</li>
+</ol>
+
+<h4>G — the pixels</h4>
+
+<ol start="40">
+<li>React schedules a render. Its own scheduler assigns a lane by priority and yields to the browser roughly every 5 ms, checking <code>shouldYield()</code> between units — a cooperative scheduler inside a cooperative scheduler inside a preemptive one (<strong>Nodes 7, 20</strong>).</li>
+<li>Reconciliation produces a minimal set of DOM mutations.</li>
+<li>At the next frame boundary the browser runs the <strong>rendering steps</strong>: <code>requestAnimationFrame</code> callbacks, style recalculation, layout, compositing, paint (<strong>Node 20</strong>). If any code read a geometric property between writes, layout ran extra times.</li>
+<li>Painted tiles are uploaded to the GPU. The compositor issues draw calls; the GPU process rasterises; the result is written into a framebuffer.</li>
+<li>The display controller <strong>DMA</strong>s the framebuffer out over HDMI or DisplayPort, sixty times a second, whether or not anything changed.</li>
+<li>Photons. The user sees the button's new state.</li>
+</ol>
+
+<p><strong>Forty-five steps, six machines' worth of kernels, and roughly eight boundary crossings between user and kernel mode on each side.</strong> Every one is a mechanism in this document, and a slow request is one of them being slow. That is the payoff of the whole chain: <em>"the API is slow" is not a diagnosis, and this list is the set of places the time can be.</em></p>
+
+<h4>The second lifecycle: how the code got there</h4>
+
+<p>The same tracing applied to a deployment, more briefly, because it is the other half of "the complete lifecycle" and it is made of the same parts.</p>
+
+<ol>
+<li><strong>You write a file.</strong> The editor <code>write</code>s to the page cache; the bytes reach disk when the kernel decides, or when the editor <code>fsync</code>s (<strong>Nodes 13, 23</strong>).</li>
+<li><strong><code>git commit</code></strong> writes content-addressed objects — copy-on-write and structural sharing, which is why branching is free (<strong>Node 14</strong>).</li>
+<li><strong><code>git push</code></strong> is TCP over TLS to a remote (<strong>Node 32</strong>), authenticated by an SSH key or a token.</li>
+<li><strong>A CI runner picks up the job.</strong> It is a resident monitor: a process polling a queue, running steps, reporting, and repeating (<strong>Node 1</strong>). The job runs in a container on a machine somewhere (<strong>Node 28</strong>).</li>
+<li><strong>The build.</strong> <code>npm ci</code> creates a hundred thousand small files (<strong>Node 21</strong>'s inode cost), compiling any native addons against this image's libc (<strong>Nodes 33, 34</strong>). A bundler links your modules, resolving symbols and eliminating dead code (<strong>Node 33</strong>). TypeScript type-checks, which is a separate tool doing a separate thing.</li>
+<li><strong>The image is built.</strong> Each instruction produces an overlayfs layer, content-addressed, cached by input (<strong>Node 24</strong>). A multi-stage build discards the toolchain.</li>
+<li><strong>Push to a registry</strong> — HTTPS, layer by layer, skipping digests the registry already has.</li>
+<li><strong>The orchestrator reconciles.</strong> A new ReplicaSet is created; the scheduler places pods on nodes by their <strong>requests</strong> (<strong>Node 27</strong>).</li>
+<li><strong>The kubelet starts a container.</strong> Pull layers; assemble the overlay; create the cgroup and write its limits; <code>clone()</code> with namespace flags; wire a veth pair; <code>pivot_root</code>; mount <code>/proc</code>, <code>/sys</code>, <code>/dev</code>; set the UID; drop capabilities; install the seccomp filter; <code>execve</code> the entrypoint (<strong>Nodes 4, 14, 22, 25, 26, 27, 28, 35</strong>).</li>
+<li><strong>Your process starts.</strong> The dynamic linker maps libc and every <code>.node</code> addon and relocates them (<strong>Node 34</strong>). Pages fault in on demand, which is most of the cold-start cost (<strong>Node 13</strong>). V8 restores its heap from a snapshot via <code>mmap</code> (<strong>Node 10</strong>). Your modules are resolved, loaded and cached — dynamic linking again, one level up.</li>
+<li><strong>It listens.</strong> <code>socket</code>, <code>bind</code>, <code>listen</code> with a backlog, and then <code>epoll_wait</code> (<strong>Nodes 19, 32</strong>).</li>
+<li><strong>The readiness probe passes</strong>, the endpoints controller adds the pod to the Service, and <code>kube-proxy</code> on every node programs netfilter rules so traffic can reach it (<strong>Node 32</strong>).</li>
+<li><strong>The old pod is removed.</strong> Endpoint removal and <code>SIGTERM</code> happen concurrently, so the old process must keep serving briefly after the signal or the rollout drops requests (<strong>Node 30</strong>). At <code>terminationGracePeriodSeconds</code> it is <code>SIGKILL</code>ed regardless.</li>
+</ol>
+
+<p><strong>What you can do at this point:</strong> narrate a request end to end without gaps, name the mechanism behind every step, and — the actual skill — given a symptom, enumerate the specific places in these two lists where the time or the failure could be, rather than guessing.</p>

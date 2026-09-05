@@ -32,7 +32,15 @@ def main():
     out = (tpl.replace("{{TOPIC_SLUG}}", SLUG)
               .replace("{{TOPIC_LABEL}}", LABEL)
               .replace("{{TOPIC_TAGLINE}}", TAGLINE)
-              .replace("{{LANDSCAPE_HTML}}", body))
+              )
+    # The template names {{LANDSCAPE_HTML}} twice: once in its leading HTML
+    # comment documenting the placeholders, and once in the .prose div. A plain
+    # .replace() fills BOTH, injecting the entire landscape into a comment and
+    # doubling the file. Replace only the last occurrence.
+    marker = "{{LANDSCAPE_HTML}}"
+    head, _, tail = out.rpartition(marker)
+    assert head, "landscape placeholder missing from template"
+    out = head + body + tail
     (here / "pack.html").write_text(out, encoding="utf-8")
     nodes = len(re.findall(r"<h3\b", body))
     words = len(re.sub(r"<[^>]+>", " ", body).split())

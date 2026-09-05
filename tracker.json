@@ -4,6 +4,7 @@
       "name": "Foundation",
       "topics": [
         "command-line-shell",
+        "operating-systems",
         "linux-filesystem-permissions-processes",
         "git",
         "github-platform",
@@ -255,7 +256,12 @@
       "state": "in-progress",
       "started": "2026-09-02",
       "updated": "2026-09-02"
+    },
+    "operating-systems": {
+      "state": "in-progress",
+      "started": "2026-09-04",
+      "updated": "2026-09-05"
     }
   },
-  "lastUpdated": "2026-09-02"
+  "lastUpdated": "2026-09-05"
 }

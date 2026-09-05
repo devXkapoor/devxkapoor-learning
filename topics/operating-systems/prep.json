@@ -1,3 +1,767 @@
 {
- "cards": []
+ "cards": [
+  {
+   "n": 1,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a process, and how is it different from a thread?",
+   "a": "A process is a program in execution plus everything the kernel keeps for it: an address space, open file descriptors, credentials, signal state, a scheduling record. A thread is one path of execution within that — it has its own registers, stack and thread ID, and shares everything else. That is the whole difference, and it explains both why threads communicate in nanoseconds and why they can corrupt each other."
+  },
+  {
+   "n": 2,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What actually happens when a process makes a system call?",
+   "a": "A single instruction switches the processor into kernel mode and jumps to one fixed address the kernel registered at boot. The program controls when, not where. The kernel saves the registers, switches to a kernel stack, looks up the call number in a table, validates any user pointers, does the work, and returns. About 50 to 100 nanoseconds, which is why everything batches."
+  },
+  {
+   "n": 3,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Explain the Node.js event loop.",
+   "a": "It is a scheduler in user space. It calls <code>epoll_wait</code>, which blocks until any of the sockets it is watching has data, and then runs a callback for each ready one. libuv structures that into phases — timers, poll, check, close — with the <code>nextTick</code> and microtask queues drained after every callback. The key property is that it is cooperative: it has no way to interrupt a running callback, which is why one slow synchronous function stalls every request in the process."
+  },
+  {
+   "n": 4,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Why is Node good at handling many concurrent connections?",
+   "a": "Because it replaces a context switch with a function call. Thread-per-connection costs about 100 KB and a full context switch per event — several microseconds with cold caches. One thread handling ten thousand connections costs one stack, learns about all ready sockets in one call, and switches between them for free. Three orders of magnitude. It says nothing about being faster at computation, which is the honest boundary."
+  },
+  {
+   "n": 5,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Is Node single-threaded?",
+   "a": "Your JavaScript is. The process is not — it has four libuv threadpool threads by default for file I/O, DNS, crypto and zlib, plus V8's compiler and garbage collection threads. So a Node process can exceed 100% CPU in <code>top</code>. What it cannot do is run two of your functions at once."
+  },
+  {
+   "n": 6,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is virtual memory and why does it exist?",
+   "a": "Every process gets its own address space, and hardware translates each address through a per-process page table before touching physical memory. It exists because the alternative — giving each process a contiguous physical region — fragments memory, caps a process at physical RAM, and makes sharing impossible. Paging fixes all three: any page can map to any frame, permissions are checked per page, and two processes can share a frame."
+  },
+  {
+   "n": 7,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a page fault?",
+   "a": "The hardware tried to translate an address and the page table said the page is not present, or the access is not permitted. It traps into the kernel, which decides what it means: load the page from disk, allocate and zero a fresh one, do a copy-on-write copy, grow the stack, or — if the address is genuinely not part of the process — deliver SIGSEGV. Six very different things, one hardware event."
+  },
+  {
+   "n": 8,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a container, really?",
+   "a": "An ordinary Linux process. It is started with its own namespaces so it sees a different process table, mount tree and network stack; put in a cgroup that caps its CPU and memory; given a root filesystem assembled from stacked read-only image layers with one writable layer on top; run as a specific user with most capabilities dropped and a syscall filter installed. There is no container object in the kernel — it is a way of calling <code>clone()</code>."
+  },
+  {
+   "n": 9,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "How is a container different from a virtual machine?",
+   "a": "A VM has its own kernel and boots; a container shares the host kernel and is just a process, so it starts in milliseconds instead of seconds and costs a process instead of a kernel's worth of memory. The trade is the isolation boundary: a VM's is enforced by hardware, a container's rests entirely on kernel correctness, so a kernel vulnerability is a shared vulnerability. In practice you use both — containers inside VMs."
+  },
+  {
+   "n": 10,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the difference between a Kubernetes CPU request and a limit?",
+   "a": "A request becomes a cgroup weight — a relative share that only matters when the node is contended, and it is also what the scheduler places on. A limit becomes a hard quota: at most N milliseconds of CPU per 100 ms period, after which every thread in the container is stopped until the next period, even if the machine is idle. So a request guarantees you something and a limit can only slow you down."
+  },
+  {
+   "n": 11,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What does OOMKilled mean, and what is exit code 137?",
+   "a": "The container exceeded its cgroup memory limit and the kernel sent SIGKILL. 137 is 128 plus 9, and 9 is SIGKILL — the shell convention for a signal death. Because it is SIGKILL, nothing runs: no graceful shutdown, no flush, no log line. And it is not necessarily a leak — page cache from the container's own file writes counts against the limit too."
+  },
+  {
+   "n": 12,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "Walk me through what happens when I type a URL and press enter.",
+   "a": "DNS resolution, then a TCP handshake and a TLS handshake — one to three round trips before any data. The request goes out; on the server side the NIC DMAs the packet into memory and raises an interrupt, a softirq walks it up the stack into a socket buffer, that marks a descriptor ready in epoll, the server process wakes, reads, parses, and runs the handler. The response comes back the same way, and the browser parses, styles, lays out, paints and composites it. Every one of those steps is a place latency can hide."
+  },
+  {
+   "n": 13,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is the difference between blocking and non-blocking I/O?",
+   "a": "A blocking read puts the thread to sleep until data arrives — it costs zero CPU, but that thread can do nothing else, so many clients need many threads. A non-blocking read returns immediately with EAGAIN if there is nothing, which is only useful combined with something like epoll that tells you which of thousands of sockets are ready. That combination is what lets one thread serve ten thousand connections."
+  },
+  {
+   "n": 14,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a file descriptor?",
+   "a": "An index into a per-process table. Each entry points at a kernel object — a file, a socket, a pipe, a terminal — so the same small integer means completely different things in different processes. Descriptors 0, 1 and 2 are stdin, stdout and stderr by convention, and because <code>open</code> always returns the lowest free number, shell redirection is implemented entirely by rearranging that table between fork and exec."
+  },
+  {
+   "n": 15,
+   "c": "near_universal",
+   "t": "Near-universal",
+   "q": "What is a deadlock and how do you prevent one?",
+   "a": "Two parties each holding something the other needs, in a cycle, with no way to take anything back. Coffman's four conditions are mutual exclusion, hold-and-wait, no preemption and circular wait — you need all four, so breaking any one prevents it. In practice you break circular wait with lock ordering: define a total order over your locks and always acquire in it. In database code, that means sorting the row IDs before locking them."
+  },
+  {
+   "n": 16,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why does a synchronous function block your whole server in Node but not in Java?",
+   "a": "Java's thread-per-request server blocks one thread and the others keep serving. Node has one thread running all JavaScript, and the event loop is cooperative — it cannot preempt a running callback, so it regains control only when the function returns. A 400 ms <code>JSON.parse</code> delays every connection in the process. The kernel scheduler still preempts the thread, which protects the rest of the machine but does nothing for your other requests."
+  },
+  {
+   "n": 17,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How does a database connection pool relate to threads?",
+   "a": "It is a bounded thread pool with all the same properties. Twenty connections serving two hundred concurrent requests means one hundred and eighty waiting — inside your process, invisibly, unless you instrument acquisition wait time. And one slow query holds a connection while everything behind it queues, which is head-of-line blocking. That is why statement timeouts matter and why separate pools for fast and slow work is a real design."
+  },
+  {
+   "n": 18,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why does Postgres need a connection pool at all?",
+   "a": "It uses one operating system process per connection. Each costs a process control block, several megabytes of private memory, and a scheduler entry, so a few hundred is a genuinely heavy load on the machine — which is why <code>max_connections</code> is 100 to 200, not 10,000. That is also why pgbouncer exists, multiplexing thousands of client connections onto a few dozen real ones."
+  },
+  {
+   "n": 19,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is the difference between process memory (RSS) and heap memory in Node?",
+   "a": "<code>heapUsed</code> is V8's managed heap only. RSS is everything resident: the heap, plus Buffers and ArrayBuffers which live outside it, plus the node binary and shared libraries, plus JIT code space, plus thread stacks, plus allocator fragmentation. That gap is routinely hundreds of megabytes, and the kernel kills on RSS — which is why a heap cap must be set well below the container limit."
+  },
+  {
+   "n": 20,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why does my Node service memory graph go up and never come down?",
+   "a": "Usually not a leak. The allocator does not return freed memory to the kernel — it keeps it in its own free lists for reuse — so RSS is a high-water mark rather than a current reading. A genuine leak is a continuously rising curve under steady load, not a plateau after a spike. If it is genuinely rising with a flat heap, look at Buffers or native addons, not at JavaScript objects."
+  },
+  {
+   "n": 21,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is copy-on-write and where have you seen it?",
+   "a": "Sharing pages read-only between two parties and only copying a page when one writes to it. It is what makes <code>fork()</code> cheap — a 2 GB process forks in a millisecond. Above the kernel, it is Docker image layers copying a file up on first write, Postgres MVCC writing a new row version instead of overwriting, Git's immutable objects making branches free, and React state updates sharing untouched subtrees."
+  },
+  {
+   "n": 22,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why can two containers both listen on port 3000?",
+   "a": "Each has its own network namespace, which includes a private port number space. That is also why containers in the same Kubernetes pod <em>cannot</em> both bind 3000 — they share one network namespace, which is exactly what makes them reachable on localhost."
+  },
+  {
+   "n": 23,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is a namespace and what is a cgroup?",
+   "a": "A namespace changes what a process can <em>see</em> — its own process table, mount tree, network stack, hostname, or user ID mapping. A cgroup limits what it can <em>use</em> — CPU share or quota, memory ceiling, I/O bandwidth, process count. You need both: a namespaced process with no cgroup can still consume the whole machine."
+  },
+  {
+   "n": 24,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why does my container ignore docker stop?",
+   "a": "PID 1 is special: the kernel does not deliver signals with default actions to it, so if your process has not installed a SIGTERM handler the signal is silently discarded, and ten seconds later you get SIGKILL. Or your entrypoint is a shell — <code>CMD npm start</code> becomes <code>sh -c</code> — and the shell does not forward signals to its child. Fix: exec-form entrypoint straight to node, and an explicit SIGTERM handler."
+  },
+  {
+   "n": 25,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What does fsync do and why is it slow?",
+   "a": "A <code>write</code> only puts bytes in the kernel's page cache; they survive a process crash but not a power cut. <code>fsync</code> forces them out of the page cache and issues a flush to the device's own write cache, returning only when the device says they are durable. That is milliseconds on a disk and tens to hundreds of microseconds on an SSD — and it is the floor on how fast a database can commit."
+  },
+  {
+   "n": 26,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How does a write-ahead log work and why does every database have one?",
+   "a": "Modifying a row means a random write, possibly across several pages, which cannot be made atomic. So you append a description of the change to a sequential log, fsync that once, and report the commit; the data pages get updated lazily afterwards, and a crash is recovered by replaying the log. One random write becomes one sequential append plus one fsync. Postgres WAL, InnoDB redo, SQLite WAL mode, Kafka, etcd's Raft log — all the same shape."
+  },
+  {
+   "n": 27,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why is sequential disk access so much faster than random?",
+   "a": "On a spinning disk a random read is a seek plus half a rotation, around 8 to 12 milliseconds, while sequential transfer runs at 100 to 200 MB/s once positioned — roughly a hundred to one. That ratio is why B-trees keep seeks logarithmic, why write-ahead logs convert random writes into sequential ones, and why the query planner will pick a sequential scan over an index past a certain selectivity. On SSD the ratio collapses, which is why lowering <code>random_page_cost</code> to about 1.1 changes plans."
+  },
+  {
+   "n": 28,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is head-of-line blocking?",
+   "a": "One item at the front of a queue stopping everything behind it, even when the rest could proceed. It is a thread pool where all threads are on slow requests; it is HTTP/1.1 where one response must finish before the next; it is TCP under HTTP/2, where one lost packet stalls every multiplexed stream. HTTP/3 moved to QUIC over UDP specifically to fix that last one."
+  },
+  {
+   "n": 29,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Explain the difference between setTimeout, setImmediate, process.nextTick and a promise.",
+   "a": "<code>nextTick</code> and microtasks are not phases at all — they drain completely after every callback and between every phase, nextTick first. <code>setImmediate</code> runs in the check phase, right after poll. <code>setTimeout</code> runs in the timers phase at the start of the next iteration. So after an await, the continuation runs before any timer or I/O. And at the top level, setTimeout(f,0) versus setImmediate is genuinely nondeterministic, because the 1 ms clamp may or may not have elapsed by the time the loop first reaches timers."
+  },
+  {
+   "n": 30,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Does JavaScript have race conditions?",
+   "a": "It has no data races, because one callback runs to completion before the next. It absolutely has race conditions, because every <code>await</code> is a yield point — the loop runs other code, including another invocation of the same function, and you resume against changed state. Read a balance, check it, await, write it back: two concurrent calls both pass the check. The fixes are the same as in a threaded program: make it atomic in the database, take a lock, or use a version column."
+  },
+  {
+   "n": 31,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is backpressure and why does it matter?",
+   "a": "It is the signal that a consumer is slower than a producer. In a pipe or a TCP socket it is built in — writing to a full buffer blocks or returns short. In Node, <code>stream.write()</code> returning false is that signal, and the <code>drain</code> event clears it. Ignoring it means Node buffers unwritten data in your heap without limit, which is how streaming a large file to a slow client exhausts memory. <code>pipeline()</code> handles it for you, which is the real reason to use it."
+  },
+  {
+   "n": 32,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What does epoll do that select doesn't?",
+   "a": "select rebuilds and re-passes the whole watch set on every call, and the kernel scans all of it — so cost is proportional to how many connections you have rather than how many events happened, which is exactly backwards. epoll keeps the set in the kernel; when data arrives, the socket's wait-queue callback pushes that descriptor onto a ready list, so <code>epoll_wait</code> just hands back the list. A hundred thousand idle connections cost nothing to wait on."
+  },
+  {
+   "n": 33,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "Why does Node use a thread pool for file I/O but not for sockets?",
+   "a": "Because readiness notification does not work for regular files. epoll answers 'will this block?', and for a file the answer is always no — the real question is how long, which readiness cannot express. epoll returns EPERM for regular files and O_NONBLOCK is ignored on them. So libuv hands file operations to a four-thread pool. io_uring, which is completion-based rather than readiness-based, is the first interface that fixes this properly, and libuv uses it for some file operations since 1.45."
+  },
+  {
+   "n": 34,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "What is the difference between a hard link and a symbolic link?",
+   "a": "A hard link is another directory entry pointing at the same inode — equally the file, sharing permissions, and the data is freed only when the last one is removed and nobody has it open. A symlink is a tiny file containing a path string, resolved on every use, so it can cross filesystems and can dangle. This is also why deleting a log file a process still has open frees no disk space."
+  },
+  {
+   "n": 35,
+   "c": "frequent",
+   "t": "Frequent",
+   "q": "How do Docker image layers work?",
+   "a": "Each filesystem-changing Dockerfile instruction produces one layer — a directory of differences, content-addressed. A running container stacks them read-only under one writable layer using overlayfs. Reading searches down the stack; writing to a lower-layer file copies the whole file up first; deleting creates a whiteout marker. That is why layers are shared across containers, why deleting a file in a later instruction does not shrink the image or remove a leaked secret, and why instruction ordering is cache management."
+  },
+  {
+   "n": 36,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your Node service's p99 latency doubled overnight. CPU is at 40%. Where do you look?",
+   "a": "40% average CPU with bad p99 is the signature of stalls, not saturation. Three candidates in order: CPU throttling — check <code>nr_throttled</code> in the cgroup's <code>cpu.stat</code>, because a container can burn its quota in the first 30 ms of each 100 ms period and sleep for 70; a blocked event loop — check the event loop delay histogram and the accept queue with <code>ss -lnt</code>; and GC pauses — check <code>--trace-gc</code> or a PerformanceObserver on gc entries."
+  },
+  {
+   "n": 37,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A container is being OOMKilled but the heap graph is flat. What is happening?",
+   "a": "Something outside the V8 heap is consuming the cgroup budget. Three usual causes: Buffers or a native addon leaking, which shows in <code>external</code> and RSS but not the heap; page cache from the container's own file writes, which is charged to the cgroup — check the anon versus file split in <code>memory.stat</code>; or a memory-medium <code>emptyDir</code>, which is tmpfs and counts against the limit. If it is the second, log to stdout instead of a file."
+  },
+  {
+   "n": 38,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Every deploy produces a burst of 502s. Why?",
+   "a": "A race between two things that happen concurrently on pod deletion: the kubelet sends SIGTERM, and the endpoints controller removes the pod from the Service — but that removal has to propagate to kube-proxy on every node. If you stop accepting connections the instant you get SIGTERM, traffic still being routed to you is refused. The fix is to fail readiness first, keep serving for a few seconds, and only then close — or a preStop hook with a sleep."
+  },
+  {
+   "n": 39,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A process will not die, even with kill -9. What is going on?",
+   "a": "It is in D state — uninterruptible sleep — inside the kernel at a point where waking it would corrupt state, almost always partway through a disk or network filesystem operation. SIGKILL is queued and delivered when it leaves D, and if the underlying device never responds it never leaves. <code>cat /proc/&lt;pid&gt;/stack</code> tells you which kernel operation. The only remedies are fixing the device or rebooting."
+  },
+  {
+   "n": 40,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your service starts failing with EMFILE: too many open files. How do you find the cause?",
+   "a": "<code>ls -l /proc/&lt;pid&gt;/fd</code> lists every descriptor with its target — sockets, pipes, paths — and <code>wc -l</code> against <code>grep 'Max open files' /proc/&lt;pid&gt;/limits</code> confirms you are at the ceiling. Almost always it is a leak rather than real concurrency: HTTP responses never consumed, streams never closed, connections without a keep-alive timeout. Raise the limit only after you have looked, because a leak will exhaust any limit."
+  },
+  {
+   "n": 41,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Requests to one service intermittently fail across every workload on one node, and all the applications are healthy. What would you check?",
+   "a": "The conntrack table. NAT and stateful firewalling require the kernel to remember every connection, and when <code>nf_conntrack_max</code> is reached new connections are silently dropped with a kernel log line. Check <code>conntrack -C</code> against the max, and <code>dmesg</code> for 'table full'. Common on nodes with many short-lived connections."
+  },
+  {
+   "n": 42,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Small API requests work but large POST bodies hang forever on the same path. What is it?",
+   "a": "A path MTU black hole. An overlay network or VPN lowers the effective MTU, a large packet is too big with the don't-fragment bit set, and the router's ICMP fragmentation-needed message is blocked by a firewall — so path MTU discovery never happens and the packet just vanishes. Small requests fit and succeed; large ones do not. Test by lowering the MTU on the interface and seeing whether it clears."
+  },
+  {
+   "n": 43,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A Node service degrades over hours and recovers on restart, with a flat heap. What are your hypotheses?",
+   "a": "Descriptor leak (check <code>/proc/&lt;pid&gt;/fd</code>); Buffer or native addon leak (RSS and <code>external</code> rising, invisible in a heap snapshot); allocator fragmentation, particularly on a many-core machine with many glibc arenas — try <code>MALLOC_ARENA_MAX=2</code>; or an unbounded internal queue, which is usually ignored stream backpressure. Take two heap snapshots minutes apart first, and if they match, the problem is outside the heap."
+  },
+  {
+   "n": 44,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your database is slow. How do you tell whether it is queries, storage, or contention?",
+   "a": "<code>iostat -x 1</code>: high <code>await</code> with a deep queue means the device is saturated, and <code>wa</code> in <code>top</code> confirms the machine is storage-bound. <code>pg_stat_activity</code>: <code>wait_event_type = 'Lock'</code> means blocked on another transaction — <code>pg_blocking_pids()</code> names it — and <code>'LWLock'</code> means internal contention. Neither of those and it is query plans, at which point EXPLAIN ANALYZE. And check whether the volume has exhausted its burst credits."
+  },
+  {
+   "n": 45,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Logs stop just before the crash. Why, and how do you fix it?",
+   "a": "Buffering. Output to a pipe — which is what stdout is in a container — is buffered rather than line-buffered, so the last chunk dies with the process. Also, an abrupt exit skips Node's own async stdout flush. Fixes: flush explicitly before exiting, use a logger that handles it, avoid <code>process.exit()</code> in favour of letting the loop drain, and remember that OOM kills give you nothing at all because SIGKILL cannot be handled."
+  },
+  {
+   "n": 46,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "A pod is in CrashLoopBackOff. Walk through your diagnosis.",
+   "a": "<code>kubectl logs --previous</code> for the dead container's output, then the exit code, which tells you the class: 137 is SIGKILL, almost always OOM — confirm with <code>lastState.terminated.reason</code>; 139 is a segmentation fault, so a native addon; 127 is command-not-found, so a wrong entrypoint path or a missing shared library, which on Alpine usually means a glibc binary; 1 is your application throwing. Only then look at the application."
+  },
+  {
+   "n": 47,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "After a restart your server fails to bind with EADDRINUSE for about a minute. Why?",
+   "a": "Sockets from the previous process are in TIME_WAIT, which lasts 60 seconds on Linux — it exists so a delayed duplicate packet cannot be delivered to a new connection with the same four-tuple, and so a lost final ACK can still be answered. <code>SO_REUSEADDR</code> allows binding anyway, and every server framework sets it, so if you see this you are probably on a raw socket."
+  },
+  {
+   "n": 48,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "You get intermittent ECONNRESET from a service you call, only under load. What is the likely cause?",
+   "a": "A keep-alive race: your agent picks a pooled socket at the same instant the server closes it for idleness. Set your client's idle timeout below the server's, and retry idempotent requests on ECONNRESET. If it is not that, it is a load balancer idle timeout in the middle, or the server closing with unread data in its receive buffer."
+  },
+  {
+   "n": 49,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your CI build is fast locally and slow in Docker on a Mac. Why?",
+   "a": "Bind mounts cross the boundary into the Linux VM through a filesystem protocol, and every <code>stat</code> pays it — which a bundler or test runner does a hundred thousand times over <code>node_modules</code>. Keep <code>node_modules</code> in a named volume rather than bind-mounted, or run the whole workflow inside the container. On Windows the equivalent is working inside the WSL2 filesystem rather than <code>/mnt/c</code>."
+  },
+  {
+   "n": 50,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "You deleted a huge log file and df still shows the disk full. What now?",
+   "a": "The link count reached zero but a running process still has it open, so the data is not freed. <code>lsof | grep deleted</code> finds the holder; restarting or signalling it releases the space. Next time truncate the file (<code>: > file</code>) instead of deleting it, or configure log rotation with copytruncate."
+  },
+  {
+   "n": 51,
+   "c": "recovery",
+   "t": "Recovery scenario",
+   "q": "Your app works on your machine and fails in CI with 'Cannot find module ./Button'. Why?",
+   "a": "Case sensitivity. APFS on macOS is case-insensitive by default and ext4 in the Linux container is not, so <code>./button</code> resolving to <code>Button.tsx</code> works locally and fails in CI. It is a filesystem property, not a bundler bug, and a lint rule or a case-sensitive volume catches it earlier."
+  },
+  {
+   "n": 52,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "When would you not use Node.js?",
+   "a": "When the work is CPU-bound. The event loop's advantage is concurrency of waiting, not parallelism of computing — one thread runs all your JavaScript, and it cannot be preempted, so a heavy computation stalls every connection in the process. Image processing, large data transforms, cryptography at volume: those want worker threads, a separate service, or a language with real parallelism. Also anywhere you genuinely need shared mutable state across requests, which separate processes make awkward."
+  },
+  {
+   "n": 53,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Should you set CPU limits on your Kubernetes pods?",
+   "a": "For latency-sensitive services, requests without limits is defensible and increasingly common: requests guarantee a share under contention, while limits only add throttling and cannot make anything faster. The counter-argument is real — without limits a misbehaving container degrades its neighbours, and capacity planning gets harder. What matters is making the decision knowingly rather than copying a template, and knowing that throttling shows up as p99 spikes at moderate average CPU."
+  },
+  {
+   "n": 54,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Alpine or Debian slim for a Node image?",
+   "a": "Slim is the safer default. Alpine uses musl instead of glibc, so binaries are not interchangeable — prebuilt native modules often fall back to compiling from source — DNS resolution behaves differently and has produced intermittent failures in Kubernetes, the default thread stack is 128 KB rather than 8 MB, and musl's allocator is slower under multi-threaded allocation-heavy load. Alpine is worth it when image size genuinely matters and you have tested your dependency tree on it."
+  },
+  {
+   "n": 55,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "cluster or worker_threads?",
+   "a": "Cluster for isolation and for using cores on request handling: separate processes, separate heaps, and a crash contained to one worker — but nothing shared, which is why you end up needing Redis. Worker threads for CPU-bound work inside one process: they share the process and can transfer buffers or share a SharedArrayBuffer, but each costs a full V8 isolate, so you want a pool created at boot, not one per request. And a V8-level crash in a worker still kills the process."
+  },
+  {
+   "n": 56,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Containers or VMs?",
+   "a": "Not a choice in practice — the standard shape is containers inside VMs. The VM boundary is hardware-enforced and separates tenants; the container boundary is kernel-enforced and separates your own workloads while giving you packaging and density. You reach for stronger isolation — Firecracker, Kata, gVisor — specifically when you run untrusted code, which is why AWS Lambda uses microVMs."
+  },
+  {
+   "n": 57,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "synchronous_commit off — would you do it?",
+   "a": "It depends entirely on what the data is. Turning it off does not risk corruption; it risks losing the last fraction of a second of committed transactions on a power failure. For analytics ingestion, event logging or a metrics pipeline that is a reasonable trade for a large throughput gain. For payments or anything a user is told succeeded, no. And note group commit already amortises the fsync across concurrent transactions, so measure before assuming you need it."
+  },
+  {
+   "n": 58,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "When is a distributed lock the wrong tool?",
+   "a": "Whenever correctness depends on it. A holder can be paused past its lease by a GC pause, CPU throttling or a network partition, after which two processes believe they hold it — and no timeout tuning fixes that. It is safe as a contention reducer. To make it a correctness guarantee you need fencing tokens that the storage layer rejects when stale, which most designs do not have. Often the honest answer is to make the operation idempotent instead."
+  },
+  {
+   "n": 59,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Monolith or microservices?",
+   "a": "Term for term it is the monolithic-versus-microkernel argument from 1992. A monolith is one address space with function calls: fast, simple to deploy, no fault containment. Microservices are separate processes exchanging messages: independently deployable, failures contained, and every internal call goes from about 20 nanoseconds to about 200 microseconds. The resolution is likely the same as the kernel's — mostly monolithic, with boundaries where isolation genuinely earns four orders of magnitude."
+  },
+  {
+   "n": 60,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Unix socket or TCP on localhost for a local service?",
+   "a": "Unix socket, when both ends are on the same machine. It skips the entire TCP stack: no handshake, no ephemeral port allocation, no TIME_WAIT accumulation, lower latency — and the service becomes unreachable from the network by construction, with filesystem permissions as access control. It also gives you verified peer credentials. The reason not to is that it does not survive splitting the services onto separate machines."
+  },
+  {
+   "n": 61,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "PM2 in a container — yes or no?",
+   "a": "No, in almost every case. It adds a process, duplicates restart logic the orchestrator already has, and — the real problem — it obscures the exit code, so Kubernetes cannot see that your application crashed because PM2 is still alive and healthy. It also breaks signal propagation. One process per container, restart handled by the orchestrator. On a bare VM without an orchestrator it is more defensible, though systemd does the same job with better process tracking."
+  },
+  {
+   "n": 62,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Interrupts or polling?",
+   "a": "Interrupts win when events are rare, polling wins when events are dense. A network card taking a million packets a second spends all its time entering and leaving handlers — receive livelock — so Linux's NAPI switches to polling under load. The same trade decides WebSocket push versus HTTP polling, database triggers versus batch scans, and filesystem watching versus periodic scanning. Ask what the event rate is."
+  },
+  {
+   "n": 63,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Why did Chrome accept a 10% memory increase for Site Isolation?",
+   "a": "Because Spectre showed that separating sites in software inside one process — V8 isolates and contexts — is no defence against a hardware side channel that reads memory the process is allowed to have. Moving each site into its own operating system process makes the boundary the hardware one. It is a clean example of choosing a stronger, more expensive boundary when the threat model changes, and the same reasoning is why untrusted workloads get microVMs."
+  },
+  {
+   "n": 64,
+   "c": "tradeoff",
+   "t": "Trade-off",
+   "q": "Should you raise UV_THREADPOOL_SIZE?",
+   "a": "Only for genuinely blocking work, and never as a response to a blocked event loop, which it does nothing for. For CPU-bound threadpool work — crypto, zlib — the correct bound is your core count, because more runnable threads than cores just adds context switching. For file I/O waiting on a slow device it can exceed cores. Tell them apart by whether the threads sit in R or D state."
+  },
+  {
+   "n": 65,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does an operating system exist at all?",
+   "a": "Because a processor executes one instruction stream with total obedience and no ability to notice a better use of its time, and because that machine has to be shared safely by many programs and many people. Every mechanism in it — privilege, interrupts, virtual memory, scheduling, file descriptors, namespaces — is an answer to some version of that. The economics were visible in the 1950s: the machine cost a fortune and sat idle while a human walked across a room."
+  },
+  {
+   "n": 66,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why can't protection be done in software?",
+   "a": "Because whatever check you write runs as instructions the offending program could jump past, overwrite, or simply never call. A guard the guarded party can remove is not a guard. That is why the mode bit is in the processor and why the page table root register is privileged — and it is also why WebAssembly bounds-checks in the runtime rather than trusting the module, and why eBPF has a verifier."
+  },
+  {
+   "n": 67,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why is the kernel not a process?",
+   "a": "Because it is a mode, not a program with its own schedule. There is one processor executing one stream; when your program traps or a device interrupts, the same processor flips the privilege bit and executes kernel code on your process's time. That is why <code>sy</code> time in <code>top</code> is charged to your process, why <code>process.cpuUsage()</code> reports user and system separately, and why a kernel bug panics the machine instead of killing a process."
+  },
+  {
+   "n": 68,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why did Unix split fork and exec?",
+   "a": "Because the interval between them is a place where the child can adjust itself using ordinary calls — redirect descriptors, drop privileges, change directory, join namespaces — before the new program starts. Shell redirection, pipes, and every container runtime's setup step live in that gap and needed no special API for it. Windows made the opposite choice with a single CreateProcess taking ten arguments."
+  },
+  {
+   "n": 69,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why is everything a file in Unix?",
+   "a": "Because a uniform interface means a tool written for files works on devices, pipes, sockets and kernel state with no special support. It is why <code>cat</code>, redirection and your language's file API all work on <code>/proc</code>, and why every Linux diagnostic tool is ultimately a text parser. It is the earliest example in this material of an interface paying for itself over fifty years."
+  },
+  {
+   "n": 70,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why is the syscall interface Linux's stable ABI rather than the C library?",
+   "a": "Because Torvalds's rule is that userspace never breaks: internal APIs change freely between versions, but syscall number 1 is still write with the same three arguments as it was in 2005. That is why a statically linked Go binary works in a FROM scratch container. Windows made the opposite choice — its syscall numbers change between builds and the stable contract is ntdll.dll."
+  },
+  {
+   "n": 71,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does virtual memory use fixed-size pages instead of variable-size regions?",
+   "a": "Because variable-size regions fragment: free memory exists but not in a usable shape, and compacting means copying gigabytes while processes are stopped. Fixed-size pages mean any free frame is as good as any other, so external fragmentation disappears entirely — you only waste the tail of the last page. It also makes translation an array index rather than a search."
+  },
+  {
+   "n": 72,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does the event loop exist when threads already solved concurrency?",
+   "a": "Because threads solved it at a cost that stops scaling. At ten thousand mostly-idle connections you are paying about 100 KB and a full context switch per event, and the caches never hold anything useful. One thread that can wait on all of them replaces the switch with a function call. Go and Java's virtual threads reach the same place from the other direction — they hide an event loop inside the runtime so you can keep writing blocking-style code."
+  },
+  {
+   "n": 73,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why do containers exist when VMs already isolated things?",
+   "a": "Density and start time. A VM carries its own kernel and boots, so it costs seconds and a kernel's worth of memory; a container is a process, so it costs milliseconds and a process. Every kernel feature Docker used already existed — namespaces from 2002, cgroups from 2008 — and Docker's actual contribution in 2013 was the image format, the registry and the developer experience."
+  },
+  {
+   "n": 74,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does fsync exist rather than write just being durable?",
+   "a": "Because making every write wait for the disk would make everything unusably slow — a commit would cost milliseconds instead of microseconds. So <code>write</code> returns as soon as the bytes are in the page cache, and durability is an explicit, separately-priced operation. Every database configuration knob about durability is a decision about how often to pay it."
+  },
+  {
+   "n": 75,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why does Linux overcommit memory?",
+   "a": "Because fork plus copy-on-write hands out address space that will almost never be realised, and programs routinely reserve large sparse regions they never touch — V8 among them. Refusing those would waste enormous amounts of memory. The consequence is that the debt comes due at a page fault with no sensible failure path, which is why the OOM killer exists and why it uses SIGKILL."
+  },
+  {
+   "n": 76,
+   "c": "why",
+   "t": "Why does this exist",
+   "q": "Why is there a TIME_WAIT state at all?",
+   "a": "Two reasons, both real. A delayed duplicate packet from the old connection must not be delivered to a new connection reusing the same four-tuple. And if the final ACK is lost, the peer will retransmit its FIN and someone has to be there to answer it. Sixty seconds on Linux, and the reason connection pooling matters more than people expect."
+  },
+  {
+   "n": 77,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What is the difference between a voluntary and a nonvoluntary context switch, and how would you use that?",
+   "a": "Voluntary means the process gave up the CPU because it had nothing to do — a blocking call. Nonvoluntary means the kernel took it away because the slice expired or something more urgent appeared. Both are in <code>/proc/&lt;pid&gt;/status</code>. A healthy I/O-bound service is mostly voluntary; a rising nonvoluntary count means it wants more CPU than it is getting, which is exactly what cgroup throttling looks like from inside the process."
+  },
+  {
+   "n": 78,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does epoll actually get told that a socket is ready?",
+   "a": "Registering a descriptor attaches a callback to that socket's wait queue — the same wait queue a blocking read would sleep on. When the network softirq finishes TCP processing and appends data to the socket's receive buffer, it walks that wait queue and the callback pushes the descriptor onto the epoll instance's ready list. So the list is maintained continuously by the events themselves, and <code>epoll_wait</code> does not scan anything."
+  },
+  {
+   "n": 79,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "Explain the futex fast path.",
+   "a": "The lock is an ordinary integer in your process's memory. Acquiring is a compare-and-swap in user space — a few nanoseconds, no system call. Only if that fails does the thread call <code>futex(FUTEX_WAIT)</code>, which atomically rechecks the value and sleeps on a kernel queue keyed by that address. Releasing calls FUTEX_WAKE only if it can see a waiter. Since real locks are uncontended most of the time, locking is essentially free — and a high futex count in strace is direct evidence of genuine contention."
+  },
+  {
+   "n": 80,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What is false sharing?",
+   "a": "Two threads writing to two different variables that happen to occupy the same 64-byte cache line. Cache coherence works at line granularity, so the line bounces between cores on every write while the code remains perfectly correct. Order-of-magnitude slowdowns with nothing visible in a profile. The fix is padding, which is why high-performance data structures are full of alignment attributes."
+  },
+  {
+   "n": 81,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "Why did KPTI cost so much performance?",
+   "a": "Kernel memory was mapped into every process's page table, marked supervisor-only, precisely so a system call did not need a page table switch. Meltdown made that mapping readable through a speculative side channel, so the mitigation unmaps it — and now every syscall reloads <code>cr3</code> and disturbs address translation. Syscall-heavy workloads lost five to thirty percent, which is why <code>io_uring</code> and other batching interfaces became more valuable."
+  },
+  {
+   "n": 82,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What does io_uring change architecturally?",
+   "a": "Two ring buffers shared between the process and the kernel: you write submission entries and read completions, so many operations cost one crossing — or none at all in polled mode. More importantly it is completion-based rather than readiness-based, which is what makes it work for regular files, where readiness is meaningless. It is the first Linux interface that lets a single-threaded event loop do genuinely asynchronous file I/O without a thread pool."
+  },
+  {
+   "n": 83,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does eBPF run user-supplied code in the kernel safely?",
+   "a": "A verifier statically proves, before loading, that the program terminates — no unbounded loops — that every memory access is in bounds, and that it only calls permitted helpers. Then it is JIT-compiled to native code. It is a proof obligation substituting for a hardware boundary, and it is why modern observability, container networking and runtime security are all built on it."
+  },
+  {
+   "n": 84,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How does a debugger set a breakpoint?",
+   "a": "It overwrites the first byte of the target instruction with 0xCC — the int3 opcode — saving the original. Execution raises an exception, which becomes SIGTRAP, which suspends the process and notifies the debugger through ptrace. To continue it restores the byte, single-steps one instruction, re-inserts the breakpoint, and resumes. A debugger edits your machine code while it runs."
+  },
+  {
+   "n": 85,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "Why does V8 use pointer compression and what does it cap?",
+   "a": "Object references in the heap are stored as 32-bit offsets from a base rather than 64-bit pointers. Half the memory for pointers, and — more importantly — twice as many pointers per cache line, so pointer-chasing through the heap misses cache half as often. The cost is that a single V8 heap is capped at 4 GB of compressed address space, which is why <code>--max-old-space-size</code> above about 4096 does nothing and the answer to 'give Node 16 GB' is 'run four processes'."
+  },
+  {
+   "n": 86,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What is PSI and why is it better than utilisation?",
+   "a": "Pressure Stall Information reports the fraction of time tasks were stalled waiting for CPU, memory or I/O rather than how busy the resource was. Utilisation tells you the resource is working; pressure tells you your work is being delayed, which is what you actually care about. It is what modern autoscaling and out-of-memory daemons use, and it is per-cgroup, so it works per container."
+  },
+  {
+   "n": 87,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "How do you profile a Node process when no JavaScript function accounts for the CPU?",
+   "a": "Drop a layer. <code>perf record</code> on the process, with <code>--perf-basic-prof</code> so V8 writes a map file letting perf resolve JIT frames — otherwise they show as bare addresses because the code was generated at run time with no symbol table. That is what shows you time in GC, in JSON serialisation, in TLS, in a native addon, or in the kernel, none of which the JavaScript profiler can see."
+  },
+  {
+   "n": 88,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "What is descriptor passing and where does Node use it?",
+   "a": "A Unix domain socket can transfer an open file descriptor to another process using SCM_RIGHTS, where it lands as a new number pointing at the same kernel object. Node's cluster module uses it: the primary creates the listening socket and passes it to workers, which is how several processes accept on one port without any of them binding it. systemd socket activation uses the same mechanism."
+  },
+  {
+   "n": 89,
+   "c": "plumbing",
+   "t": "Senior / internals",
+   "q": "Why is a thread switch cheaper than a process switch — precisely?",
+   "a": "One step is skipped: loading the page table root into <code>cr3</code>. Because threads share an address space, the TLB is not disturbed and the caches likely still hold shared data. Everything else — saving and restoring registers, the scheduler decision, the kernel stack switch — is identical. That single instruction and its cache consequences are the entire difference."
+  },
+  {
+   "n": 90,
+   "c": "self_explanation",
+   "t": "Explaining your own work",
+   "q": "In qbank you use BullMQ on Redis. Explain what that is doing at the operating system level.",
+   "a": "A worker process blocks on a Redis list — which means it is sitting in a read on a socket, in S state, consuming zero CPU, with its descriptor registered in epoll. When a job arrives, the packet interrupts the machine, the softirq walks it up TCP into the socket buffer, epoll marks the descriptor ready, libuv wakes and calls back into my handler. The reason the queue has to be in Redis rather than in my process is that separate Node processes have separate address spaces — there is no shared memory between them, so shared state has to live somewhere both can reach over a socket."
+  },
+  {
+   "n": 91,
+   "c": "self_explanation",
+   "t": "Explaining your own work",
+   "q": "Why did you need Redis in qbank rather than an in-process structure?",
+   "a": "Because the moment there is more than one process — cluster workers, or replicas in a deployment — nothing in-process is shared. Separate address spaces are the definition of a process. So the rate limiter counter, the job queue and anything cached have to live in a process everyone can reach. That is one problem, not four, and Redis is the usual answer to it."
+  },
+  {
+   "n": 92,
+   "c": "self_explanation",
+   "t": "Explaining your own work",
+   "q": "Your Fastify service runs in a container. Walk me through what a request actually touches.",
+   "a": "The NIC DMAs the packet into memory and raises an interrupt; a softirq walks it through netfilter — where the Service IP was rewritten to my pod's IP — and up TCP into a socket buffer; that marks my descriptor ready in epoll; my process, which was sleeping in <code>epoll_wait</code> at zero CPU, is made runnable and scheduled subject to its cgroup's CPU weight; libuv's poll phase returns, it calls back, reads into a Buffer that lives outside the V8 heap, the HTTP parser runs, and V8 invokes my handler. When I await Postgres, the function suspends and the loop serves other connections."
+  },
+  {
+   "n": 93,
+   "c": "self_explanation",
+   "t": "Explaining your own work",
+   "q": "How would you size memory for your Node service in Kubernetes?",
+   "a": "Start from the fact that the kernel kills on RSS, and RSS is the V8 heap plus Buffers plus the node binary and libraries — 50 to 100 MB — plus JIT code space, thread stacks and allocator fragmentation. So I set <code>--max-old-space-size</code> to about 60 to 75 percent of the container limit, so V8 hits its own limit first and throws a catchable error with a stack trace and optionally a heap snapshot, rather than getting an uncatchable SIGKILL that tells me nothing. Then I measure and adjust, and if RSS is unexplained I try MALLOC_ARENA_MAX=2."
+  },
+  {
+   "n": 94,
+   "c": "self_explanation",
+   "t": "Explaining your own work",
+   "q": "What would you change about a Dockerfile you inherited?",
+   "a": "Four things, in order of impact. Exec-form entrypoint straight to node rather than <code>npm start</code>, so the process is PID 1 and actually receives SIGTERM. A non-root USER, and drop capabilities in the security context. Multi-stage build so the compiler and dev dependencies do not ship. And instruction ordering so dependency installation sits above the source copy, because a layer's cache invalidation cascades to everything after it."
+  },
+  {
+   "n": 95,
+   "c": "self_explanation",
+   "t": "Explaining your own work",
+   "q": "How would you add graceful shutdown to a service that does not have it?",
+   "a": "Handle SIGTERM. Fail the readiness probe first and keep serving for a few seconds, because Kubernetes removes the endpoint and sends the signal concurrently and the removal takes time to propagate — closing immediately is what produces 502s on every deploy. Then <code>server.close()</code> plus <code>closeIdleConnections()</code>, drain the queue workers and the database pool, and set a hard exit deadline below <code>terminationGracePeriodSeconds</code> so I always exit on my own terms."
+  },
+  {
+   "n": 96,
+   "c": "self_explanation",
+   "t": "Explaining your own work",
+   "q": "What metrics would you add to a Node service you were made responsible for?",
+   "a": "Event loop delay percentiles and event loop utilisation from <code>perf_hooks</code> — the first tells me whether something is blocking the loop, the second how close to saturated the process is, and it is a far better autoscaling signal than CPU. Then cgroup <code>nr_throttled</code>, read from <code>/sys/fs/cgroup/cpu.stat</code>, because Node cannot tell me that and throttling is invisible in a CPU graph. Then pool acquisition wait time, because that queue is inside my process and no APM shows it by default."
+  },
+  {
+   "n": 97,
+   "c": "config",
+   "t": "Configuration",
+   "q": "Which Node flags and environment variables actually matter in production, and why?",
+   "a": "<code>--max-old-space-size</code>, set below the container limit so V8 fails before the kernel does. <code>UV_THREADPOOL_SIZE</code>, only if file, DNS, crypto or zlib work is queueing. <code>MALLOC_ARENA_MAX=2</code> when RSS is unexplained on a many-core machine. <code>NODE_ENV=production</code>, which frameworks branch on. And <code>--heapsnapshot-near-heap-limit</code> so a heap-limit death leaves you something to look at."
+  },
+  {
+   "n": 98,
+   "c": "config",
+   "t": "Configuration",
+   "q": "Which kernel sysctls would you check on a machine serving a lot of connections?",
+   "a": "<code>net.core.somaxconn</code> and the application's listen backlog, since a full accept queue silently drops connections; <code>fs.file-max</code> and the process's <code>ulimit -n</code>; <code>net.ipv4.ip_local_port_range</code> and <code>tcp_tw_reuse</code> if the machine makes many outbound connections; <code>nf_conntrack_max</code> if it does NAT; and <code>vm.overcommit_memory</code> if it runs Redis. I would not touch <code>tcp_tw_recycle</code> — it was removed in 4.12 because it broke behind NAT."
+  },
+  {
+   "n": 99,
+   "c": "config",
+   "t": "Configuration",
+   "q": "What does a hardened Kubernetes securityContext look like and why each field?",
+   "a": "<code>runAsNonRoot</code> with an explicit <code>runAsUser</code>, so a container escape is not host root. <code>allowPrivilegeEscalation: false</code>, which sets no_new_privs so the kernel ignores setuid bits at execve. <code>readOnlyRootFilesystem: true</code> with an emptyDir where writes are genuinely needed. <code>capabilities: drop [ALL]</code>, adding back only a specific one if required. And <code>seccompProfile: RuntimeDefault</code>, which filters the syscall table. Every field is one kernel mechanism turned off."
+  },
+  {
+   "n": 100,
+   "c": "config",
+   "t": "Configuration",
+   "q": "How do you decide the size of a database connection pool?",
+   "a": "By the database's capacity, not by your concurrency. Postgres is process-per-connection, so a few hundred backends is a heavy load on the machine — the pool exists to keep that number small, and making it bigger to fix latency usually makes things worse. Size it against <code>max_connections</code> across all your replicas, add pgbouncer if you have many instances, and instrument acquisition wait time so you can see the queue that lives in your process."
+  },
+  {
+   "n": 101,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is NUMA and when does it matter to you?",
+   "a": "On a multi-socket machine each socket has memory that is fast for it and slower for the other, so a process whose threads and memory end up on different sockets can silently lose a large fraction of its memory performance. It matters for large database instances and anything memory-bandwidth-bound on big cloud instances; <code>numactl</code> and CPU affinity are the controls. On a small instance it is not your problem."
+  },
+  {
+   "n": 102,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What are huge pages and who wants them?",
+   "a": "2 MB or 1 GB pages instead of 4 KB, so one TLB entry covers 512 times as much memory. Databases with large buffer pools want them, because a big randomly-accessed working set otherwise misses the TLB constantly. But <em>transparent</em> huge pages defragment in the background and cause latency spikes, which is why MongoDB and Redis both tell you to disable THP while Postgres wants explicit huge pages."
+  },
+  {
+   "n": 103,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is the vDSO?",
+   "a": "A small page of kernel-maintained code and data mapped read-only into every process, so calls like <code>clock_gettime</code> are answered entirely in user mode — about 20 nanoseconds and no system call. It is why <code>Date.now()</code> shows no syscall in strace, and why time reading is dramatically slower on VMs whose clock source is not the TSC, because the fast path is then unavailable."
+  },
+  {
+   "n": 104,
+   "c": "occasional",
+   "t": "Occasional",
+   "q": "What is seccomp and would you enable it?",
+   "a": "A filter that inspects each system call's number and arguments and decides allow, deny or kill. Docker applies a default profile blocking about 44 of the roughly 350 calls, and Kubernetes exposes it as <code>seccompProfile: RuntimeDefault</code>. Yes, I would enable it — a Node server needs a small syscall set and an exploit needs a larger one, so it is one of the cheapest genuine security improvements available."
+  },
+  {
+   "n": 105,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why does console.log behave differently in a terminal and in Docker?",
+   "a": "Node makes stdout synchronous when it is a file or a TTY and asynchronous when it is a pipe, because a pipe can block indefinitely on a slow reader. In a container stdout is a pipe to the daemon, so writes are buffered — which means output can be lost on an abrupt exit, and if the log consumer stalls the pipe fills and your application blocks on <code>console.log</code>. In a terminal it is a synchronous syscall per call, which is measurable in a hot path."
+  },
+  {
+   "n": 106,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why does os.cpus().length report 64 in a container limited to one core?",
+   "a": "<code>/proc/cpuinfo</code> is not namespaced, so it reports the host's cores. CPU limits live in cgroup files, which is a different place entirely. This is why the JVM needed explicit container support and why Node added <code>os.availableParallelism()</code> — a library sizing a pool from <code>cpus().length</code> creates 64 threads to fight over 100 milliseconds of quota."
+  },
+  {
+   "n": 107,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why can't you catch a segmentation fault in a native addon from JavaScript?",
+   "a": "It is a hardware exception — the memory management unit refused an access — delivered as SIGSEGV below the level at which V8 has any say. By the time the signal arrives there is no JavaScript stack to unwind, so <code>uncaughtException</code> cannot help. It is a genuine argument for running risky native work in a separate process with a supervisor."
+  },
+  {
+   "n": 108,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why does an unused setInterval keep a Node process alive?",
+   "a": "Because the loop exits when nothing at all is pending — there is no notion of main having finished, only of no work remaining. A live timer is pending work, as is an unclosed server or socket. <code>unref()</code> marks a handle as not keeping the loop alive, which is exactly what it is for."
+  },
+  {
+   "n": 109,
+   "c": "edge_case",
+   "t": "Edge case",
+   "q": "Why is process.nextTick more dangerous than setImmediate?",
+   "a": "The nextTick queue is drained completely after every callback, including anything added while draining — so a nextTick that schedules another loops forever and the event loop never advances. No I/O, no timers, the process apparently hung at 100% CPU. setImmediate cannot do that, because it lands in the check phase of the <em>next</em> iteration, so the loop always gets a turn."
+  }
+ ]
 }
